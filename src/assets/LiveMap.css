@@ -1,0 +1,35 @@
+/* Center the filter dropdown */
+.cuisine-filter-wrapper {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  
+  #cuisineFilter {
+    padding: 6px 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  
+  #cuisineFilter:hover,
+  #cuisineFilter:focus {
+    border-color: #007bff;
+    outline: none;
+  }
+  
+  /* Optional map shadow */
+  .google-map-container {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  /* Responsive map wrapper */
+  .map-wrapper {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  

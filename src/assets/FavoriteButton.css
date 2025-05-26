@@ -1,0 +1,7 @@
+.truck-menu-modal button.favorite {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: gold;
+  cursor: pointer;
+}
