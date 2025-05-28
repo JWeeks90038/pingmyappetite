@@ -182,57 +182,54 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
     marker.setPosition(newPosition);
   }, []);
 
-  const updateTruckMarkers = useCallback(() => {
-    if (!window.google || !mapRef.current) return;
-  
-    const currentTruckIds = new Set();
-  
-    truckLocations.forEach((truck) => {
-      // Skip trucks that should not be visible
-      if (!truck.isLive || !truck.visible) {
-        if (markerRefs.current[truck.id]) {
-          markerRefs.current[truck.id].setMap(null); // Hide the marker
-          delete markerRefs.current[truck.id]; // Clean up the reference
-        }
-        return;
-      }
-  
-      // Only show markers for the logged-in owner
-      if (currentUser && truck.uid === currentUser.uid) {
-        const position = { lat: truck.lat, lng: truck.lng };
-        const truckName = truckNames[truck.id] || "Food Truck";
-        currentTruckIds.add(truck.id);
-  
-        // Check if we need to create or update the marker
-        if (!markerRefs.current[truck.id]) {
-          const marker = new window.google.maps.Marker({
-            position,
-            map: mapRef.current,
-            title: truckName,
-            icon: getTruckIcon(truck.kitchenType),
-          });
-  
-          markerRefs.current[truck.id] = marker;
-        } else {
-          // Update the marker position and title without re-creating the marker
-          animateMarkerTo(markerRefs.current[truck.id], position);
-          markerRefs.current[truck.id].setTitle(truckName);
-        }
-      } else if (markerRefs.current[truck.id]) {
-        // If the marker is for a truck that isn't the current logged-in user, hide it
+  const ONLINE_THRESHOLD = 2 * 60 * 1000; // 2 minutes in milliseconds
+
+const updateTruckMarkers = useCallback(() => {
+  if (!window.google || !mapRef.current) return;
+
+  const now = Date.now();
+  const currentTruckIds = new Set();
+
+  truckLocations.forEach((truck) => {
+    // Only show trucks that are live, visible, and recently active
+    if (
+      !truck.isLive ||
+      !truck.visible ||
+      !truck.lastActive ||
+      now - truck.lastActive > ONLINE_THRESHOLD
+    ) {
+      if (markerRefs.current[truck.id]) {
         markerRefs.current[truck.id].setMap(null);
         delete markerRefs.current[truck.id];
       }
-    });
-  
-    // Clean up any markers that are no longer in the list of visible trucks
-    Object.keys(markerRefs.current).forEach((id) => {
-      if (!currentTruckIds.has(id)) {
-        markerRefs.current[id].setMap(null);
-        delete markerRefs.current[id];
-      }
-    });
-  }, [truckLocations, truckNames, currentUser, animateMarkerTo]);
+      return;
+    }
+
+    const position = { lat: truck.lat, lng: truck.lng };
+    const truckName = truckNames[truck.id] || "Food Truck";
+    currentTruckIds.add(truck.id);
+
+    if (!markerRefs.current[truck.id]) {
+      const marker = new window.google.maps.Marker({
+        position,
+        map: mapRef.current,
+        title: truckName,
+        icon: getTruckIcon(truck.kitchenType),
+      });
+      markerRefs.current[truck.id] = marker;
+    } else {
+      animateMarkerTo(markerRefs.current[truck.id], position);
+      markerRefs.current[truck.id].setTitle(truckName);
+    }
+  });
+
+  Object.keys(markerRefs.current).forEach((id) => {
+    if (!currentTruckIds.has(id)) {
+      markerRefs.current[id].setMap(null);
+      delete markerRefs.current[id];
+    }
+  });
+}, [truckLocations, truckNames, animateMarkerTo]);
   
   // Function to toggle visibility of a truck marker
   const toggleVisibility = (truckId) => {

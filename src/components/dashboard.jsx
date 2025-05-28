@@ -141,7 +141,7 @@ const Dashboard = ({ isLoaded }) => {
           const { lat, lng } = results[0].geometry.location;
           console.log("Geocoded lat/lng:", lat(), lng());
           const truckDocRef = doc(db, "truckLocations", user.uid);
-          await updateDoc(truckDocRef, {
+          await setDoc(truckDocRef, {
             manualLocation,
             lat: lat(),
             lng: lng(),
@@ -149,6 +149,8 @@ const Dashboard = ({ isLoaded }) => {
             isLive: true,
             visible: true,
             lastActive: Date.now(),
+            ownerUid: user.uid,
+            kitchenType: ownerData?.kitchenType || "truck",
           });
           console.log("Manual location submitted and geocoded:", lat(), lng());
         } else {
@@ -355,6 +357,19 @@ useEffect(() => {
   fetchTruckLocation();
 }, [user]);
 
+useEffect(() => {
+  if (!user?.uid) return;
+  const truckDocRef = doc(db, "truckLocations", user.uid);
+
+  const interval = setInterval(() => {
+    updateDoc(truckDocRef, {
+      lastActive: Date.now(),
+    });
+  }, 60 * 1000);
+
+  return () => clearInterval(interval);
+}, [user]);
+
   return (
     <div className="dashboard">
       <br />
@@ -366,6 +381,29 @@ useEffect(() => {
         </p>
       ) : (
         <p>Loading plan info...</p>
+      )}
+
+      {/* --- UPGRADE BUTTON FOR BASIC PLAN OWNERS --- */}
+      {userRole === "owner" && userPlan === "basic" && (
+        <div style={{ margin: "20px 0", textAlign: "center" }}>
+          <button
+            style={{
+              padding: "10px 24px",
+              background: "#007bff",
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+              fontSize: "1rem",
+              cursor: "pointer"
+            }}
+            onClick={() => {
+              // Navigate to your existing payment page for upgrade
+              navigate("/checkout");
+            }}
+          >
+            Upgrade to All-Access Plan
+          </button>
+        </div>
       )}
 
       {/* Show location input for Basic Plan users */}
