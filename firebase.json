@@ -5,8 +5,8 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "hosting": {
-    "public": "ping-my-appetite/dist",
+   "hosting": {
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
