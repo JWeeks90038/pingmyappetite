@@ -14,8 +14,11 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        working-directory: ./
 
-      - run: npm run build
+      - name: Build
+        run: npm run build
+        working-directory: ./
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:

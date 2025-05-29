@@ -47,8 +47,8 @@ const Home = () => {
     <div>
       <h3>Foodie Fans</h3>
       <p><strong>1. Drop a Pin</strong> – Show mobile kitchens where the hunger is by dropping a pin at your location.</p>
-      <p><strong>2. Favorite & Follow Your Faves</strong> – Add your favorite food trucks, trailers, and carts to get notified when they’re nearby and even follow them.</p>
-      <p><strong>3. Grab the Drop</strong> – Snag exclusive deals, discounts, or limited-time items when trucks drop them in your area.</p>
+      <p><strong>2. Favorite & Follow Your Faves</strong> – Click on food truck or trailer icon to view the menu, claim a drop and follow your favorite food trucks and trailers in real-time.</p>
+      <p><strong>3. Grab the Drop</strong> – Snag exclusive deals, discounts, or limited-time items when trucks and trailers drop them in your area.</p>
       <p><strong>4. Feast Smarter</strong> – Check menus in advance and skip the guesswork. Your next bite is just a tap away.</p>
     </div>
     <div>
@@ -56,7 +56,7 @@ const Home = () => {
       <p><strong>1. Get Discovered</strong> – View real-time pin drops from hungry fans and ride the demand wave using your heatmap.</p>
       <p><strong>2. Drop a Deal</strong> – Paid subscribers can create ‘drops’ — special offers, flash deals, or secret menu items — to attract nearby foodies.</p>
       <p><strong>3. Drive with Insight</strong> – Access powerful dashboard analytics, customer behavior trends, and real-time location tracking to optimize your route and revenue.</p>
-      <p><strong>4. Build Loyalty</strong> – Get favorited by fans, grow your following, and keep them coming back with smart engagement tools.</p>
+      <p><strong>4. Build Loyalty</strong> – Allows foodie fans to click on your icon to view your menu ahead of time to speed up lines, get favorited by fans, grow your following, and keep them coming back with smart engagement tools.</p>
     </div>
   </div>
 </section>
@@ -89,8 +89,7 @@ const Home = () => {
       <section className="blog-social">
         <h2>Follow us, Fuel your Hustle & Feed the Cravings</h2>
 <div className="blog-preview">
-  <p><strong>Turn Pings Into Profits:</strong> How Mobile Kitchens Use Real-Time Demand to Drive Sales</p>
-  <p><strong>Cravings of the Crowd:</strong> The Top 5 Food Truck Cuisines Trending Right Now</p>
+  <p><strong>Grubana doesn’t focus on private catering or events — we’re all about helping hungry people find amazing food trucks and food trailers near them, right when they’re serving. <br></br><br></br>Follow us below to discover where your next favorite food truck is serving -- in real time.</strong></p>
 </div>
         <div className="social-media">
           <h3 style={{ textAlign: "center" }}>Follow Grubana</h3>
