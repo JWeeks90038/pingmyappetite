@@ -409,11 +409,11 @@ useEffect(() => {
 
       const lat = data.lat || 0;
       const lng = data.lng || 0;
-      const isLive = data.isLive !== undefined ? data.isLive : true;
-const visible = data.visible !== undefined ? data.visible : true;
-      const THIRTY_MIN = 30 * 60 * 1000;
+      const isLive = data.isLive === true;
+const visible = data.visible === true;
+      const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in milliseconds
       const lastActive = data.lastActive || 0;
-      const isStale = nowMs - lastActive > THIRTY_MIN;
+      const isStale = nowMs - lastActive > FIVE_MIN;
 
       console.log('Truck:', data.truckName, 'isLive:', isLive, 'visible:', visible, 'isStale:', isStale, 'showTrucks:', showTrucks);
 
