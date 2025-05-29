@@ -233,14 +233,21 @@ const Dashboard = ({ isLoaded }) => {
   }
 };
 
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-      navigate("/login");
-    } catch (error) {
-      console.error("Logout failed:", error.message);
+const handleLogout = async () => {
+  try {
+    if (user?.uid) {
+      await updateDoc(doc(db, "truckLocations", user.uid), {
+        isLive: false,
+        visible: false,
+        lastActive: Date.now(),
+      });
     }
-  };
+    await logoutUser();
+    navigate("/login");
+  } catch (error) {
+    console.error("Logout failed:", error.message);
+  }
+};
 
   useEffect(() => {
     const fetchUserData = async () => {
