@@ -8,7 +8,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import HeatMapKey from "./HeatMapKey"; // Assuming you have a HeatMapKey component
+import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
 //import Supercluster from "supercluster";
 import { throttle } from "lodash";
 
