@@ -825,13 +825,28 @@ return (
     ) : activeTruck.currentDrop ? (
       // If a single drop (drop marker), show just that
       <>
-        <h4>{activeTruck.currentDrop.title}</h4>
-        <p><strong>Description:</strong> {activeTruck.currentDrop.description || 'No description'}</p>
-        <p><strong>Quantity:</strong> {activeTruck.currentDrop.quantity ?? 'N/A'}</p>
-        <p><strong>Expires:</strong> {activeTruck.currentDrop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
-        <p><strong>Claimed:</strong> {activeTruck.currentDrop.claimedBy?.length ?? 0}</p>
-        <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
-      </>
+  <h4>{activeTruck.currentDrop.title}</h4>
+  <p><strong>Description:</strong> {activeTruck.currentDrop.description || 'No description'}</p>
+  <p><strong>Quantity:</strong> {activeTruck.currentDrop.quantity ?? 'N/A'}</p>
+  <p><strong>Expires:</strong> {activeTruck.currentDrop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
+  <p><strong>Claimed:</strong> {activeTruck.currentDrop.claimedBy?.length ?? 0}</p>
+  <p><strong>Remaining:</strong> {Math.max((activeTruck.currentDrop.quantity ?? 0) - (activeTruck.currentDrop.claimedBy?.length ?? 0), 0)}</p>
+  {user && (
+    <button
+      disabled={
+        activeTruck.currentDrop.claimedBy?.includes(user.uid) ||
+        activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
+      }
+      onClick={() => handleClaimDrop(activeTruck.currentDrop.id)}
+    >
+      {activeTruck.currentDrop.claimedBy?.includes(user.uid)
+        ? "Already Claimed"
+        : activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
+        ? "Fully Claimed"
+        : "Claim Drop"}
+    </button>
+  )}
+</>
     ) : (
       <p>No active drops</p>
     )}
