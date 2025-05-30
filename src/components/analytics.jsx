@@ -36,6 +36,29 @@ const Analytics = ({ ownerData }) => {
   });
 
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const [liveSessions, setLiveSessions] = useState([]);
+
+  useEffect(() => {
+  if (!ownerData?.uid) return;
+  const userDocRef = doc(db, 'users', ownerData.uid);
+  const unsubscribeUser = onSnapshot(userDocRef, (ownerDoc) => {
+    if (!ownerDoc.exists()) return;
+    setLiveSessions(ownerDoc.data().liveSessions || []);
+  });
+  return () => unsubscribeUser();
+}, [ownerData]);
+
+// Add this useEffect to update totalLiveMinutes every minute
+useEffect(() => {
+  if (plan !== 'all-access') return;
+  const interval = setInterval(() => {
+    setPingStats((prev) => ({
+      ...prev,
+      totalLiveMinutes: calculateLiveMinutes(liveSessions),
+    }));
+  }, 60000); // update every minute
+  return () => clearInterval(interval);
+}, [liveSessions, plan]);
 
 useEffect(() => {
   if (!ownerData?.uid) return;
@@ -291,10 +314,15 @@ function formatHour(hour) {
   return `${hour12}${suffix}`;
 }
 function calculateLiveMinutes(sessions) {
+  const now = new Date();
   return sessions.reduce((acc, session) => {
     const start = session.start?.toDate?.();
     const end = session.end?.toDate?.();
-    if (start && end) acc += differenceInMinutes(end, start);
+    if (start && end) {
+      acc += differenceInMinutes(end, start);
+    } else if (start && !end) {
+      acc += differenceInMinutes(now, start);
+    }
     return acc;
   }, 0);
 }
