@@ -5,9 +5,11 @@ import {
   getDoc,
   setDoc,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   onSnapshot,
   collection,
+  arrayUnion,
   query,
   where,
   or,
@@ -214,7 +216,7 @@ const Dashboard = ({ isLoaded }) => {
     fetchVisibility();
   }, [user]);
 
-  const handleToggle = async () => {
+const handleToggle = async () => {
   const newVisibility = !isVisible;
   setIsVisible(newVisibility);
   setVisibilityUpdateInProgress(true); // prevent re-sync flicker
@@ -226,6 +228,24 @@ const Dashboard = ({ isLoaded }) => {
       isLive: newVisibility,
       lastActive: Date.now(),
     });
+
+    // --- Update liveSessions in users collection ---
+    const userDocRef = doc(db, "users", user.uid);
+    if (newVisibility) {
+      // Truck is going live: add a new session with start timestamp
+      await updateDoc(userDocRef, {
+        liveSessions: arrayUnion({ start: Timestamp.now() })
+      });
+    } else {
+      // Truck is going offline: set end timestamp for the last session
+      const userDoc = await getDoc(userDocRef);
+      const sessions = userDoc.data().liveSessions || [];
+      if (sessions.length > 0 && !sessions[sessions.length - 1].end) {
+        sessions[sessions.length - 1].end = Timestamp.now();
+        await updateDoc(userDocRef, { liveSessions: sessions });
+      }
+    }
+    // --- End liveSessions update ---
 
     setTimeout(() => {
       setVisibilityUpdateInProgress(false); // let snapshot updates resume
