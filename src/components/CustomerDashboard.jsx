@@ -804,7 +804,7 @@ return (
           <p><strong>Quantity:</strong> {drop.quantity ?? 'N/A'}</p>
           <p><strong>Expires:</strong> {drop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
           <p><strong>Claimed:</strong> {drop.claimedBy?.length ?? 0}</p>
-          <p><strong>Remaining:</strong> {Math.max((activeTruck.currentDrop.quantity ?? 0) - (activeTruck.currentDrop.claimedBy?.length ?? 0), 0)}</p>
+          <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
         {user && (
   <button
     disabled={
@@ -830,7 +830,7 @@ return (
         <p><strong>Quantity:</strong> {activeTruck.currentDrop.quantity ?? 'N/A'}</p>
         <p><strong>Expires:</strong> {activeTruck.currentDrop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
         <p><strong>Claimed:</strong> {activeTruck.currentDrop.claimedBy?.length ?? 0}</p>
-        <p><strong>Remaining:</strong> {Math.max((activeTruck.currentDrop.quantity ?? 0) - (activeTruck.currentDrop.claimedBy?.length ?? 0), 0)}</p>
+        <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
       </>
     ) : (
       <p>No active drops</p>
