@@ -172,7 +172,7 @@ const Dashboard = ({ isLoaded }) => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         console.log("Owner data fetched:", docSnap.data());
-        setOwnerData(docSnap.data());
+        setOwnerData({ uid: user.uid, ...docSnap.data() });
       } else {
         console.warn("Owner document not found for UID:", user.uid);
       }
@@ -474,6 +474,7 @@ useEffect(() => {
       </p>
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
 
+    console.log("ownerData before Analytics render:", ownerData);
       {ownerData && (
   <Analytics userId={user?.uid} ownerData={ownerData} />
 )}
