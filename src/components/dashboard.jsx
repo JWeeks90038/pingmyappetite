@@ -474,7 +474,9 @@ useEffect(() => {
       </p>
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
 
-      <Analytics userId={user?.uid} ownerData={ownerData} />
+      {ownerData && (
+  <Analytics userId={user?.uid} ownerData={ownerData} />
+)}
 
       <h3 style={{ textAlign: 'center' }}>Follow Us</h3>
 
