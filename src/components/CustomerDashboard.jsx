@@ -782,8 +782,6 @@ return (
 ) : null}
 
 {/* Drop Summary */}
-{showDropSummary && activeTruck && (
-  <div className="drop-summary-card" style={{ marginTop: '20px' }}>
     {showDropSummary && activeTruck && (
   <div className="drop-summary-card" style={{ marginTop: '20px' }}>
     {claimMessage && <p style={{ color: 'green' }}>{claimMessage}</p>}
@@ -795,9 +793,7 @@ return (
         <h2 style={{ fontSize: "2em", letterSpacing: "0.1em" }}>{claimCode}</h2>
       </div>
     )}
-    {/* ...existing drop list code... */}
-  </div>
-)}
+   
     <h3>{activeTruck.truckName || activeTruck.name}</h3>
     {/* If there are multiple drops (truck marker), show all */}
     {activeTruck.drops && activeTruck.drops.length > 0 ? (
