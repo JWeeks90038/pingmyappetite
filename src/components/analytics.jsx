@@ -56,132 +56,133 @@ useEffect(() => {
 }, [ownerData]);
 
   useEffect(() => {
-    if (!ownerData?.uid) return;
+  if (!ownerData?.uid) return;
 
-    const fetchPlanAndAnalytics = async () => {
-      try {
-        const ownerDoc = await getDoc(doc(db, 'users', ownerData.uid));
-        console.log("ownerDoc.exists:", ownerDoc.exists());
-      console.log("ownerDoc.data:", ownerDoc.data());
+  let unsubscribeUser = null;
+  let unsubscribePings = null;
 
-        if (!ownerDoc.exists()) return setPlan('basic');
-        setPlan(ownerDoc.data().plan || 'basic');
-        if ((ownerDoc.data().plan || 'basic') !== 'all-access') return;
+  const userDocRef = doc(db, 'users', ownerData.uid);
 
-        const cuisines = Array.isArray(ownerData.cuisines)
-          ? ownerData.cuisines
-          : [ownerData.cuisine].filter(Boolean);
+  unsubscribeUser = onSnapshot(userDocRef, async (ownerDoc) => {
+    if (!ownerDoc.exists()) {
+      setPlan('basic');
+      return;
+    }
+    setPlan(ownerDoc.data().plan || 'basic');
+    if ((ownerDoc.data().plan || 'basic') !== 'all-access') return;
 
-        const truckDoc = await getDoc(doc(db, 'truckLocations', ownerData.uid));
-        console.log("truckDoc.exists:", truckDoc.exists());
-      console.log("truckDoc.data:", truckDoc.data());
-        
-        if (!truckDoc.exists()) return;
+    const liveSessions = ownerDoc.data().liveSessions || [];
+    const totalLiveMinutes = calculateLiveMinutes(liveSessions);
 
-        const { lat, lng } = truckDoc.data();
-        if (!lat || !lng) return;
+    const cuisines = Array.isArray(ownerData.cuisines)
+      ? ownerData.cuisines
+      : [ownerData.cuisine].filter(Boolean);
 
-        const truckLocation = { lat, lng };
-        const nowMs = Date.now();
-        const sevenDaysAgo = Timestamp.fromDate(new Date(nowMs - 7 * 24 * 60 * 60 * 1000));
-        const thirtyDaysAgo = Timestamp.fromDate(new Date(nowMs - 30 * 24 * 60 * 60 * 1000));
-        const prevWeekStart = Timestamp.fromDate(new Date(nowMs - 14 * 24 * 60 * 60 * 1000));
+    const truckDoc = await getDoc(doc(db, 'truckLocations', ownerData.uid));
+    if (!truckDoc.exists()) return;
 
-        const q = query(collection(db, 'pings'), where('timestamp', '>=', thirtyDaysAgo));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const pings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { lat, lng } = truckDoc.data();
+    if (!lat || !lng) return;
 
-          const last7 = pings.filter(p => p.timestamp.seconds >= sevenDaysAgo.seconds);
-          const cuisineMatches = last7.filter(p => cuisines.includes(p.cuisineType));
+    const truckLocation = { lat, lng };
+    const nowMs = Date.now();
+    const sevenDaysAgo = Timestamp.fromDate(new Date(nowMs - 7 * 24 * 60 * 60 * 1000));
+    const thirtyDaysAgo = Timestamp.fromDate(new Date(nowMs - 30 * 24 * 60 * 60 * 1000));
+    const prevWeekStart = Timestamp.fromDate(new Date(nowMs - 14 * 24 * 60 * 60 * 1000));
 
-          const getLoc = (p) =>
-            p.location || (p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null);
+    const q = query(collection(db, 'pings'), where('timestamp', '>=', thirtyDaysAgo));
+    if (unsubscribePings) unsubscribePings(); // Clean up previous listener
+    unsubscribePings = onSnapshot(q, (snapshot) => {
+      const pings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-          const nearbyPings7 = last7.filter(p => {
-            const loc = getLoc(p);
-            return loc && getDistanceFromLatLonInKm(truckLocation.lat, truckLocation.lng, loc.lat, loc.lng) <= 5;
-          });
+      const last7 = pings.filter(p => p.timestamp.seconds >= sevenDaysAgo.seconds);
+      const cuisineMatches = last7.filter(p => cuisines.includes(p.cuisineType));
 
-          const nearbyPings30 = pings.filter(p => {
-            const loc = getLoc(p);
-            return loc && getDistanceFromLatLonInKm(truckLocation.lat, truckLocation.lng, loc.lat, loc.lng) <= 80;
-          });
+      const getLoc = (p) =>
+        p.location || (p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null);
 
-          const recentPings = [...nearbyPings7].slice(-5).reverse();
+      const nearbyPings7 = last7.filter(p => {
+        const loc = getLoc(p);
+        return loc && getDistanceFromLatLonInKm(truckLocation.lat, truckLocation.lng, loc.lat, loc.lng) <= 5;
+      });
 
-          const hourCounts = {};
-          const dateCounts = {};
-          const cuisineMap = {};
+      const nearbyPings30 = pings.filter(p => {
+        const loc = getLoc(p);
+        return loc && getDistanceFromLatLonInKm(truckLocation.lat, truckLocation.lng, loc.lat, loc.lng) <= 80;
+      });
 
-          last7.forEach(p => {
-            const date = new Date(p.timestamp.seconds * 1000);
-            const day = date.toISOString().slice(0, 10);
-            const hour = date.getHours();
+      const recentPings = [...nearbyPings7].slice(-5).reverse();
 
-            hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-            dateCounts[day] = (dateCounts[day] || 0) + 1;
+      const hourCounts = {};
+      const dateCounts = {};
+      const cuisineMap = {};
 
-            if (p.cuisineType) {
-              cuisineMap[p.cuisineType] = (cuisineMap[p.cuisineType] || 0) + 1;
-            }
-          });
+      last7.forEach(p => {
+        const date = new Date(p.timestamp.seconds * 1000);
+        const day = date.toISOString().slice(0, 10);
+        const hour = date.getHours();
 
-          const topHours = Object.entries(hourCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([hour, count]) => `${formatHour(hour)} (${count} pings)`);
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+        dateCounts[day] = (dateCounts[day] || 0) + 1;
 
-          const locationMap = {};
-last7.forEach(p => {
-  const address = p.address; // Use the address directly
-  if (address) {
-    locationMap[address] = (locationMap[address] || 0) + 1;
-  }
-});
+        if (p.cuisineType) {
+          cuisineMap[p.cuisineType] = (cuisineMap[p.cuisineType] || 0) + 1;
+        }
+      });
 
-const topLocations = Object.entries(locationMap)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 3)
-  .map(([address, count]) => ({ address, count }));
+      const topHours = Object.entries(hourCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([hour, count]) => `${formatHour(hour)} (${count} pings)`);
 
-          const cuisineTrends = Object.entries(cuisineMap)
-            .sort((a, b) => b[1] - a[1])
-            .map(([cuisine, count]) => `${cuisine} (${count})`);
+      const locationMap = {};
+      last7.forEach(p => {
+        const address = p.address;
+        if (address) {
+          locationMap[address] = (locationMap[address] || 0) + 1;
+        }
+      });
 
-          const dailyAvg = (last7.length / 7).toFixed(1);
-          const prevWeekPings = pings.filter(p =>
-            p.timestamp.seconds >= prevWeekStart.seconds &&
-            p.timestamp.seconds < sevenDaysAgo.seconds
-          );
-          const trendDiff = last7.length - prevWeekPings.length;
-          const totalLiveMinutes = calculateLiveMinutes(ownerDoc.data().liveSessions || []);
+      const topLocations = Object.entries(locationMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([address, count]) => ({ address, count }));
 
-          setPingStats({
-            last7Days: nearbyPings7.length,
-            last30Days: nearbyPings30.length,
-            recentPings,
-            cuisineMatchCount: cuisineMatches.length,
-            topHours,
-            totalLiveMinutes,
-            topLocations,
-            cuisineTrends,
-            dailyAvg,
-            trendDiff,
-            last7DaysByDate: dateCounts,
-            cuisineMap,
-            hourCounts
-          });
-        });
+      const cuisineTrends = Object.entries(cuisineMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([cuisine, count]) => `${cuisine} (${count})`);
 
-        return unsubscribe;
-      } catch (err) {
-        console.error('Error fetching analytics:', err);
-        setPlan('basic');
-      }
-    };
+      const dailyAvg = (last7.length / 7).toFixed(1);
+      const prevWeekPings = pings.filter(p =>
+        p.timestamp.seconds >= prevWeekStart.seconds &&
+        p.timestamp.seconds < sevenDaysAgo.seconds
+      );
+      const trendDiff = last7.length - prevWeekPings.length;
 
-    fetchPlanAndAnalytics();
-  }, [ownerData]);
+      setPingStats({
+        last7Days: nearbyPings7.length,
+        last30Days: nearbyPings30.length,
+        recentPings,
+        cuisineMatchCount: cuisineMatches.length,
+        topHours,
+        totalLiveMinutes,
+        topLocations,
+        cuisineTrends,
+        dailyAvg,
+        trendDiff,
+        last7DaysByDate: dateCounts,
+        cuisineMap,
+        hourCounts
+      });
+    });
+  });
+
+  return () => {
+    if (unsubscribeUser) unsubscribeUser();
+    if (unsubscribePings) unsubscribePings();
+  };
+}, [ownerData]);
+  
 
   if (plan === null) return <p>Loading analytics...</p>;
   if (plan !== 'all-access') {
