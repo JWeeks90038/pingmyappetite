@@ -16,6 +16,8 @@ import '../assets/Analytics.css';
 ChartJS.register(LineElement, BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend, PointElement);
 
 const Analytics = ({ ownerData }) => {
+  console.log("Analytics ownerData:", ownerData);
+
   const [plan, setPlan] = useState(null);
   const [pingStats, setPingStats] = useState({
     last7Days: 0,
@@ -59,6 +61,9 @@ useEffect(() => {
     const fetchPlanAndAnalytics = async () => {
       try {
         const ownerDoc = await getDoc(doc(db, 'users', ownerData.uid));
+        console.log("ownerDoc.exists:", ownerDoc.exists());
+      console.log("ownerDoc.data:", ownerDoc.data());
+
         if (!ownerDoc.exists()) return setPlan('basic');
         setPlan(ownerDoc.data().plan || 'basic');
         if ((ownerDoc.data().plan || 'basic') !== 'all-access') return;
@@ -68,6 +73,9 @@ useEffect(() => {
           : [ownerData.cuisine].filter(Boolean);
 
         const truckDoc = await getDoc(doc(db, 'truckLocations', ownerData.uid));
+        console.log("truckDoc.exists:", truckDoc.exists());
+      console.log("truckDoc.data:", truckDoc.data());
+        
         if (!truckDoc.exists()) return;
 
         const { lat, lng } = truckDoc.data();
