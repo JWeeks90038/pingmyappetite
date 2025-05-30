@@ -104,6 +104,8 @@ const CustomerDashboard = () => {
       return;
     }
 
+    onsole.log("Claiming drop", dropId, "as", user.uid, "claimedBy:", dropData.claimedBy);
+
     await updateDoc(dropRef, {
       claimedBy: arrayUnion(user.uid),
     });
