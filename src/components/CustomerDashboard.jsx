@@ -515,12 +515,16 @@ useEffect(() => {
       pingMarkers.current.forEach((marker) => marker.setMap(null));
       pingMarkers.current = [];
     
-      const filtered = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        const matchCuisine = filters.cuisine ? data.cuisineType === filters.cuisine : true;
-        const matchTime = filters.time ? data.desiredTime === filters.time : true;
-        return matchCuisine && matchTime;
-      });
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+const filtered = snapshot.docs.filter((doc) => {
+  const data = doc.data();
+  const matchCuisine = filters.cuisine ? data.cuisineType === filters.cuisine : true;
+  const matchTime = filters.time ? data.desiredTime === filters.time : true;
+  const pingTimestamp = data.timestamp?.toDate ? data.timestamp.toDate() : null;
+  const isRecent = pingTimestamp && pingTimestamp > oneDayAgo;
+  return matchCuisine && matchTime && isRecent;
+});
     
       const newMarkers = filtered.map((doc) => {
         const data = doc.data();
