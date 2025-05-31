@@ -13,8 +13,8 @@ export const deleteOldPings = onSchedule(
   },
   async () => {
     const now = Date.now();
-    const cutoffDate = new Date(now - 24 * 60 * 60 * 1000); // 24 hours ago
-    const cutoff = Timestamp.fromDate(cutoffDate);
+    const cutoffDate = new Date(now - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+const cutoff = Timestamp.fromDate(cutoffDate);
 
     const oldPings = await db
       .collection("pings")
