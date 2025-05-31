@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   const msg = {
     to: email,
-    from: 'your@email.com', // Use your verified sender
+    from: 'grubana.co@gmail.com', // Use your verified sender
     subject: 'Your Grubana Beta Access Code',
     text: `Welcome to the Grubana Beta! Your access code is: ${code}`,
   };
