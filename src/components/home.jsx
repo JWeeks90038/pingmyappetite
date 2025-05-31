@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import "../assets/styles.css";
 import { Link } from "react-router-dom";
 import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is correctly implemented
@@ -6,7 +6,66 @@ import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the ma
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
+const VALID_CODES = ["GRUBANA2024", "BETAFOODIE"]; // Add your codes here
+
 const Home = () => {
+  const [hasAccess, setHasAccess] = useState(false);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+
+  const handleCodeSubmit = (e) => {
+    e.preventDefault();
+    if (VALID_CODES.includes(code.trim().toUpperCase())) {
+      setHasAccess(true);
+      setError("");
+    } else {
+      setError("Invalid code. Please try again.");
+    }
+  };
+
+    const handleBetaSubmit = async (e) => {
+    e.preventDefault();
+    setStatus("Sending...");
+    try {
+      const res = await fetch('/api/send-beta-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("Success! Check your email for the code.");
+      } else {
+        setStatus(data.error || "Failed to send invite.");
+      }
+    } catch {
+      setStatus("Failed to send invite.");
+    }
+  };
+
+  if (!hasAccess) {
+    return (
+      <div className="access-gate">
+        <h2>Enter Beta Access Code</h2>
+        <form onSubmit={handleCodeSubmit}>
+          <input
+            type="text"
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            placeholder="Enter your code"
+            required
+            style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
+          />
+          <button type="submit" className="btn" style={{ padding: "10px 20px", fontSize: "16px" }}>
+            Enter
+          </button>
+        </form>
+        {error && <p style={{ color: "red" }}>{error}</p>}
+      </div>
+    );
+  }
   return (
     <>
       <header className="hero">
@@ -88,34 +147,33 @@ const Home = () => {
 
       {/* Beta Testing Section */}
       <section className="beta-testing">
-        <h2>🚀 Join the Grubana Beta!</h2>
-        <p>
-          Be among the first to try Grubana and help shape the future of food truck discovery. Sign up below to get early access and exclusive updates!
-        </p>
-        <form
-          className="beta-form"
-          onSubmit={e => {
-            e.preventDefault();
-            // TODO: handle form submission (e.g., send to backend or service)
-            alert("Thank you for signing up for the beta!");
-          }}
-        >
-          <input
-            type="email"
-            name="email"
-            placeholder="Enter your email"
-            required
-            style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
-          />
-          <button
-            type="submit"
-            className="btn"
-            style={{ padding: "10px 20px", fontSize: "16px" }}
-          >
-            Request Beta Access
-          </button>
-        </form>
-      </section>
+  <h2>🚀 Join the Grubana Beta!</h2>
+  <p>
+    Be among the first to try Grubana and help shape the future of food truck discovery. Sign up below to get early access and exclusive updates!
+  </p>
+  <form
+    className="beta-form"
+    onSubmit={handleBetaSubmit} // <-- use your handler here
+  >
+    <input
+      type="email"
+      name="email"
+      value={email} // <-- bind to state
+      onChange={e => setEmail(e.target.value)} // <-- update state on change
+      placeholder="Enter your email"
+      required
+      style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
+    />
+    <button
+      type="submit"
+      className="btn"
+      style={{ padding: "10px 20px", fontSize: "16px" }}
+    >
+      Request Beta Access
+    </button>
+    {status && <p>{status}</p>} {/* Show status message */}
+  </form>
+</section>
       {/* End Beta Testing Section */}
       
       {/* Social Media Section */}
