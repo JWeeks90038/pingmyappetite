@@ -251,7 +251,7 @@ const handleCodeSubmit = async (e) => {
               <FaInstagram />
             </a>
             <a
-              href="#"
+              href="https://www.facebook.com/profile.php?id=61576765928284"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#1877F2" }}

@@ -25,7 +25,6 @@ const Analytics = ({ ownerData }) => {
     recentPings: [],
     cuisineMatchCount: 0,
     topHours: [],
-    totalLiveMinutes: 0,
     topLocations: [],
     cuisineTrends: [],
     dailyAvg: 0,
@@ -36,29 +35,6 @@ const Analytics = ({ ownerData }) => {
   });
 
   const [favoritesCount, setFavoritesCount] = useState(0);
-  const [liveSessions, setLiveSessions] = useState([]);
-
-  useEffect(() => {
-  if (!ownerData?.uid) return;
-  const userDocRef = doc(db, 'users', ownerData.uid);
-  const unsubscribeUser = onSnapshot(userDocRef, (ownerDoc) => {
-    if (!ownerDoc.exists()) return;
-    setLiveSessions(ownerDoc.data().liveSessions || []);
-  });
-  return () => unsubscribeUser();
-}, [ownerData]);
-
-// Add this useEffect to update totalLiveMinutes every minute
-useEffect(() => {
-  if (plan !== 'all-access') return;
-  const interval = setInterval(() => {
-    setPingStats((prev) => ({
-      ...prev,
-      totalLiveMinutes: calculateLiveMinutes(liveSessions),
-    }));
-  }, 60000); // update every minute
-  return () => clearInterval(interval);
-}, [liveSessions, plan]);
 
 useEffect(() => {
   if (!ownerData?.uid) return;
@@ -93,9 +69,6 @@ useEffect(() => {
     }
     setPlan(ownerDoc.data().plan || 'basic');
     if ((ownerDoc.data().plan || 'basic') !== 'all-access') return;
-
-    const liveSessions = ownerDoc.data().liveSessions || [];
-    const totalLiveMinutes = calculateLiveMinutes(liveSessions);
 
     const cuisines = Array.isArray(ownerData.cuisines)
       ? ownerData.cuisines
@@ -188,7 +161,6 @@ useEffect(() => {
         recentPings,
         cuisineMatchCount: cuisineMatches.length,
         topHours,
-        totalLiveMinutes,
         topLocations,
         cuisineTrends,
         dailyAvg,
@@ -266,9 +238,9 @@ useEffect(() => {
         <Doughnut data={doughnutData} />
       </div><br></br><br></br><br></br><br></br><br></br><br></br>
 
-      <div className="analytics-item"><strong>Total Pings (Last 7 Days):</strong> {pingStats.last7Days}</div>
-      <div className="analytics-item"><strong>Total Pings (Last 30 Days):</strong> {pingStats.last30Days}</div>
-      <div className="analytics-item"><strong>Cuisine Match Requests:</strong> {pingStats.cuisineMatchCount}</div>
+      <div className="analytics-item"><strong>Total Pings (Last 7 Days within 3 Miles):</strong> {pingStats.last7Days}</div>
+      <div className="analytics-item"><strong>Total Pings (Last 30 Days within 50 Miles):</strong> {pingStats.last30Days}</div>
+      <div className="analytics-item"><strong>Current Cuisine Match Requests:</strong> {pingStats.cuisineMatchCount}</div>
       <div className="analytics-item"><strong>Recent Ping Locations:</strong>
 
         <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
@@ -286,7 +258,6 @@ useEffect(() => {
 </div>
       <div className="analytics-item"><strong>Daily Avg:</strong> {pingStats.dailyAvg}</div>
       <div className="analytics-item"><strong>Interest Change vs Last Week:</strong> {pingStats.trendDiff >= 0 ? '+' : ''}{pingStats.trendDiff} pings</div>
-      <div className="analytics-item"><strong>Live Time:</strong> {Math.round(pingStats.totalLiveMinutes )} minutes</div>
       <div className="analytics-item"><strong>Customer Favorites:</strong> {favoritesCount}</div>
     </div>
     

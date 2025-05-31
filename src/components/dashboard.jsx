@@ -38,6 +38,7 @@ const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole } = useAuth(); // Get user info (plan and role)
   useLiveLocationTracking(userPlan);
   const [location, setLocation] = useState(null);
+  const [address, setAddress] = useState("");
   const [manualLocation, setManualLocation] = useState("");
   const [userEmail, setUserEmail] = useState(null);
   const [username, setUsername] = useState("");
@@ -126,6 +127,20 @@ const Dashboard = ({ isLoaded }) => {
       );
     }
   }, [userRole, userPlan]);
+
+  useEffect(() => {
+  if (location && window.google && window.google.maps) {
+    const geocoder = new window.google.maps.Geocoder();
+    const latlng = { lat: location.latitude, lng: location.longitude };
+    geocoder.geocode({ location: latlng }, (results, status) => {
+      if (status === "OK" && results[0]) {
+        setAddress(results[0].formatted_address);
+      } else {
+        setAddress("Address not found");
+      }
+    });
+  }
+}, [location]);
 
   // Handle manual location input for Basic Plan
   const handleLocationChange = (e) => {
@@ -449,14 +464,14 @@ useEffect(() => {
       ) : (
         <div>
           {/* For All Access Plan users, show geolocation */}
-          <h3>Your Current Location (All Access):</h3>
+          <h3>Your Current Location:</h3>
           {location ? (
-            <p>
-              Lat: {location.latitude}, Long: {location.longitude}
-            </p>
-          ) : (
-            <p>Loading location...</p>
-          )}
+  <p>
+    {address ? address : "Loading address..."}
+  </p>
+) : (
+  <p>Loading location...</p>
+)}
         </div>
       )}
 
@@ -489,8 +504,8 @@ useEffect(() => {
 
       <h2>Live Demand Map</h2>
       <p>
-        Customers can click on your truck icon to display your menu on their
-        dashboard! This is where customers are requesting trucks in real time:
+        Customers can click on your truck icon to display your menu and claim your drops on their
+        dashboard! <br></br>The below heat map shows where customers are requesting mobile vendors in real time:
       </p>
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
 
