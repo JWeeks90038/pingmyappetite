@@ -86,6 +86,40 @@ const Home = () => {
   </div>
 </section>
 
+      {/* Beta Testing Section */}
+      <section className="beta-testing">
+        <h2>🚀 Join the Grubana Beta!</h2>
+        <p>
+          Be among the first to try Grubana and help shape the future of food truck discovery. Sign up below to get early access and exclusive updates!
+        </p>
+        <form
+          className="beta-form"
+          onSubmit={e => {
+            e.preventDefault();
+            // TODO: handle form submission (e.g., send to backend or service)
+            alert("Thank you for signing up for the beta!");
+          }}
+        >
+          <input
+            type="email"
+            name="email"
+            placeholder="Enter your email"
+            required
+            style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
+          />
+          <button
+            type="submit"
+            className="btn"
+            style={{ padding: "10px 20px", fontSize: "16px" }}
+          >
+            Request Beta Access
+          </button>
+        </form>
+      </section>
+      {/* End Beta Testing Section */}
+      
+      {/* Social Media Section */}
+
       <section className="blog-social">
         <h2>Follow us, Fuel your Hustle & Feed the Cravings</h2>
 <div className="blog-preview">
