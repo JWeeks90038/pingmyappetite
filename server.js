@@ -11,6 +11,13 @@ import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 import cors from "cors";
 import { v4 as uuidv4 } from 'uuid';
+import admin from "firebase-admin";
+import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+const db = admin.firestore();
 
 dotenv.config();
 
@@ -204,6 +211,13 @@ app.post("/api/send-beta-code", async (req, res) => {
 
     const code = uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase(); // Unique 6-char code
 
+     // Store code and email in Firestore
+    await db.collection("betaCodes").doc(code).set({
+      email,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      used: false,
+    });
+
     const msg = {
         to: email,
         from: "team@grubana.com", // Use your verified sender
@@ -218,6 +232,19 @@ app.post("/api/send-beta-code", async (req, res) => {
         console.error("SendGrid error:", error.response?.body || error);
         res.status(500).json({ error: "Failed to send email." });
     }
+});
+
+app.post("/api/validate-code", async (req, res) => {
+    const { code } = req.body;
+    if (!code) return res.json({ valid: false });
+
+    const doc = await db.collection("betaCodes").doc(code.trim().toUpperCase()).get();
+    if (doc.exists && !doc.data().used) {
+        // Optionally mark as used:
+        // await db.collection("betaCodes").doc(code.trim().toUpperCase()).update({ used: true });
+        return res.json({ valid: true });
+    }
+    return res.json({ valid: false });
 });
 
 // Start server
