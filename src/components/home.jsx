@@ -45,6 +45,9 @@ const Home = () => {
     }
   };
 
+  // Beta code access gate
+  // If the user does not have access, show the access gate
+
   if (!hasAccess) {
     return (
       <div className="access-gate">
@@ -63,9 +66,35 @@ const Home = () => {
           </button>
         </form>
         {error && <p style={{ color: "red" }}>{error}</p>}
+
+        {/* Add this below the code form */}
+        <div style={{ marginTop: "2rem" }}>
+          <h3>Don't have a code?</h3>
+          <form className="beta-form" onSubmit={handleBetaSubmit}>
+            <input
+              type="email"
+              name="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Enter your email to request access"
+              required
+              style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
+            />
+            <button
+              type="submit"
+              className="btn"
+              style={{ padding: "10px 20px", fontSize: "16px" }}
+            >
+              Request Beta Access
+            </button>
+            {status && <p>{status}</p>}
+          </form>
+        </div>
       </div>
     );
   }
+
+  //end of beta code access gate
   return (
     <>
       <header className="hero">
