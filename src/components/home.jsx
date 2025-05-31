@@ -15,15 +15,30 @@ const Home = () => {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
 
-  const handleCodeSubmit = (e) => {
-    e.preventDefault();
-    if (VALID_CODES.includes(code.trim().toUpperCase())) {
+const handleCodeSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  setStatus("Checking code...");
+  try {
+    const res = await fetch("http://localhost:3000/api/validate-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (data.valid) {
       setHasAccess(true);
       setError("");
+      setStatus("");
     } else {
       setError("Invalid code. Please try again.");
+      setStatus("");
     }
-  };
+  } catch {
+    setError("Failed to validate code. Please try again.");
+    setStatus("");
+  }
+};
 
     const handleBetaSubmit = async (e) => {
     e.preventDefault();
