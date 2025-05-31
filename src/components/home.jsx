@@ -29,7 +29,7 @@ const Home = () => {
     e.preventDefault();
     setStatus("Sending...");
     try {
-      const res = await fetch('/api/send-beta-code', {
+      const res = await fetch('http://localhost:3000/api/send-beta-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -104,8 +104,8 @@ const Home = () => {
     Foodie Fans: Crave it, pin it, get it!   <span className="footer-divider">  |  </span>    Mobile Kitchens: Try free for 30 days!
   </p>
   <div className="hero-buttons">
-    <Link to="/signup" className="btn">I’m a Foodie — Let’s Go!</Link>
-    <Link to="/signup" className="btn">I Run a Mobile Kitchen</Link>
+    <Link to="/signup" className="btn">I’m a Foodie Fan — Let’s Go!</Link>
+    <Link to="/signup" className="btn">I'm a Food Truck or Food Trailer Owner</Link>
   </div>
 </header>
 
@@ -175,6 +175,7 @@ const Home = () => {
 </section>
 
       {/* Beta Testing Section */}
+      {!hasAccess && (
       <section className="beta-testing">
   <h2>🚀 Join the Grubana Beta!</h2>
   <p>
@@ -203,6 +204,7 @@ const Home = () => {
     {status && <p>{status}</p>} {/* Show status message */}
   </form>
 </section>
+)}
       {/* End Beta Testing Section */}
       
       {/* Social Media Section */}
