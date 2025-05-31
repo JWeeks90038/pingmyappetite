@@ -494,7 +494,6 @@ useEffect(() => {
       </p>
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
 
-    console.log("ownerData before Analytics render:", ownerData);
       {ownerData && (
   <Analytics userId={user?.uid} ownerData={ownerData} />
 )}
