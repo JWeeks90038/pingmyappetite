@@ -5,20 +5,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename); // Get the directory name
 
 import express from "express";
-import mongoose from "mongoose";
 import multer from "multer";
 import authRoutes from './auth.js'; // Import the authentication routes
+import sgMail from "@sendgrid/mail";
+import dotenv from "dotenv";
+import cors from "cors";
+import { v4 as uuidv4 } from 'uuid';
+
+dotenv.config();
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
+app.use(cors());
 app.use(express.urlencoded({ extended: true })); // Parse from data
 app.use(express.json()); // Parse JSON data
 app.use('/auth', authRoutes); // Use the authentication routes
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 app.get('/map', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'map.html'));
@@ -95,32 +98,6 @@ app.get('/terms-of-service', (req, res) => {
 app.get('/truck-profile', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'truck-profile.html'));
 });
-
-// Connect to MongoDB
-mongoose.connect("mongodb://localhost:27017/pingApp")
-    .then(() => {
-        console.log("Connected to MongoDB");
-    })
-    .catch((err) => {
-        console.error("Failed to connect to MongoDB:", err.message);
-    });
-
-// Schema for Pings and Reports
-const PingSchema = new mongoose.Schema({
-    location: String,
-    cuisine: String,
-    reports: { type: Number, default: 0 },
-    userId: String
-});
-
-const UserSchema = new mongoose.Schema({
-    email: String,
-    pinDrops: { type: Number, default: 5 }, // Limit drops
-    isRestricted: { type: Boolean, default: false }
-});
-
-const Ping = mongoose.model("Ping", PingSchema);
-const User = mongoose.model("User", UserSchema);
 
 // Report Spam Endpoint
 app.post("/report-spam", async (req, res) => {
@@ -217,6 +194,30 @@ app.use(express.static("public"));
 // Example API route
 app.get("/api/example", (req, res) => {
     res.json({ message: "This is an example API route." });
+});
+
+app.post("/api/send-beta-code", async (req, res) => {
+    const { email } = req.body;
+    if (!email || !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
+        return res.status(400).json({ error: "Valid email required." });
+    }
+
+    const code = uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase(); // Unique 6-char code
+
+    const msg = {
+        to: email,
+        from: "team@grubana.com", // Use your verified sender
+        subject: "Your Grubana Beta Access Code",
+        text: `Welcome to the Grubana Beta! Your access code is: ${code}`,
+    };
+
+    try {
+        await sgMail.send(msg);
+        res.status(200).json({ message: "Invite sent!" });
+    } catch (error) {
+        console.error("SendGrid error:", error.response?.body || error);
+        res.status(500).json({ error: "Failed to send email." });
+    }
 });
 
 // Start server

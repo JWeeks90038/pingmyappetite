@@ -21,9 +21,9 @@ const Pricing = () => {
 
       {/* Pricing Section */}
       <section className="pricing">
-        <h1>Make the right choice for your Mobile Food Kitchen business.</h1>
+        <h1>Food Truck & Trailer Owners</h1>
         <h2>Gain visibility, track demand, and connect with hungry customers.</h2>
-        <h2>*Try it free for 30 days*</h2>
+        <h3>*Try it free for 30 days*</h3>
         <p>More eyes = more orders!</p>
 
         {/* Pricing Plans */}
