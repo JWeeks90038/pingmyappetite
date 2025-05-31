@@ -21,6 +21,7 @@ export default async function handler(req, res) {
     await sgMail.send(msg);
     res.status(200).json({ message: 'Invite sent!' });
   } catch (error) {
+    console.error("SendGrid error:", error); // <-- Add this line
     res.status(500).json({ error: 'Failed to send email.' });
   }
 }
