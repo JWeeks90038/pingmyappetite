@@ -100,7 +100,6 @@ setTimeout(() => setCreationMessage(""), 5000);
   return (
     <form onSubmit={handleSubmit} className="new-drop-form">
   <h2>Create a New Drop</h2>
-  {creationMessage && <p style={{ color: "green", marginBottom: "10px" }}>{creationMessage}</p>}
 
   <label>Title:</label>
   <input name="title" value={formData.title} onChange={handleChange} required />
@@ -115,6 +114,8 @@ setTimeout(() => setCreationMessage(""), 5000);
   <input type="number" name="expiresInMinutes" value={formData.expiresInMinutes} onChange={handleChange} min="1" required />
 
   <button type="submit" disabled={!location.lat || !location.lng}>Create Drop</button>
+    {creationMessage && <p style={{ color: "green", marginBottom: "10px" }}>{creationMessage}</p>}
+
 </form>
   );
 };
