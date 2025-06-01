@@ -235,5 +235,25 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   res.json({ received: true });
 });
 
+app.post('/api/send-beta-code', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  try {
+    await sgMail.send({
+      to: email,
+      from: 'grubana.co@gmail.com',
+      subject: 'Beta Access Invite',
+      text: 'You have been invited to the Grubana beta!',
+      html: '<strong>You have been invited to the Grubana beta!</strong>',
+    });
+
+    res.status(200).json({ message: 'Invite sent successfully' });
+  } catch (err) {
+    console.error("Send Invite Error:", err);
+    res.status(500).json({ message: "Failed to send invite" });
+  }
+});
+
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Stripe server running on port ${PORT}`));
