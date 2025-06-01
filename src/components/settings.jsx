@@ -13,6 +13,8 @@ const Settings = () => {
   const [cardInfo, setCardInfo] = useState(null);
   const [cancelMsg, setCancelMsg] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+  const [stripeMsg, setStripeMsg] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,14 +74,14 @@ const Settings = () => {
     if (data.url) {
       window.location.href = data.url; // Redirect to Stripe portal
     } else {
-      alert(data.error?.message || 'Could not open Stripe portal.');
+      setStripeMsg(data.error?.message || 'Could not open Stripe portal.');
     }
   };
 
   if (loading) {
     return <p>Loading settings...</p>;
   }
-
+  
   if (role === 'owner') {
     return (
       <>
@@ -97,6 +99,9 @@ const Settings = () => {
           <button onClick={handleManageSubscription}>
             Manage Subscription
           </button>
+          {stripeMsg && (
+  <p style={{ color: "red", marginTop: "10px" }}>{stripeMsg}</p>
+)}
         </div>
       </>
     );

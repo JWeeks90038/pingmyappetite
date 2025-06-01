@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { sendPasswordResetEmail, updateEmail } from "firebase/auth";
+import { sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updateEmail } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
 
@@ -50,25 +50,34 @@ const CustomerSettings = () => {
     }
   };
 
-  const handleChangeEmail = async () => {
-    try {
-      await updateEmail(auth.currentUser, newEmail);
-      alert("Email updated successfully!");
-      loadUserProfile();
-      setNewEmail("");
-    } catch (error) {
-      console.error("Error updating email:", error);
-      alert("Error updating email. You may need to re-login.");
-    }
+const handleChangeEmail = async () => {
+  try {
+    const password = prompt("Please enter your current password to confirm:");
+    if (!password) return;
+
+    const credential = EmailAuthProvider.credential(
+      auth.currentUser.email,
+      password
+    );
+    await reauthenticateWithCredential(auth.currentUser, credential);
+
+    await updateEmail(auth.currentUser, newEmail);
+    setResetMsg("Email updated successfully!");
+    loadUserProfile();
+    setNewEmail("");
+  } catch (error) {
+    console.error("Error updating email:", error);
+    setResetMsg("Error updating email. Please make sure your password is correct and try again.");
+  }
   };
 
   const handleChangePassword = async () => {
     try {
       await sendPasswordResetEmail(auth, auth.currentUser.email);
-      alert("Password reset email sent! Please check your inbox.");
+      setResetMsg("Password reset email sent! Please check your inbox.");
     } catch (error) {
       console.error("Error sending reset email:", error);
-      alert("Error sending reset email.");
+      setResetMsg("There was an error sending the password reset email. Please try again.");
     }
   };
 
@@ -114,6 +123,11 @@ const CustomerSettings = () => {
 
         <div className="settings-item" style={{ marginTop: '10px' }}>
           <button onClick={handleChangePassword}>Send Password Reset Email</button>
+        {resetMsg && (
+  <p style={{ color: resetMsg.startsWith("Password reset") ? "green" : "red", marginTop: "10px" }}>
+    {resetMsg}
+  </p>
+)}
         </div>
       </section>
 
