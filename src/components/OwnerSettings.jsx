@@ -30,6 +30,7 @@ const OwnerSettings = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [newEmail, setNewEmail] = useState("");
+  const [resetMsg, setResetMsg] = useState('');
   const navigate = useNavigate();
   const userId = auth.currentUser?.uid;
 

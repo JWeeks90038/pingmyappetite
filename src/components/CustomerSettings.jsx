@@ -14,6 +14,7 @@ const CustomerSettings = () => {
   const [newEmail, setNewEmail] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
+  const [resetMsg, setResetMsg] = useState('');
   const navigate = useNavigate();
   const userId = auth.currentUser?.uid;
 
