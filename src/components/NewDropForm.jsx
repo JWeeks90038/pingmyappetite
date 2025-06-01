@@ -25,13 +25,13 @@ const NewDropForm = ({ truckLat, truckLng }) => {
 
   useEffect(() => {
   // Log currentUser to confirm authentication
-  console.log("Current user UID:", auth.currentUser?.uid);
+  //console.log("Current user UID:", auth.currentUser?.uid);
 
   if (currentUser) {
     // Fetch and log custom claims to check isTruckOwner
     currentUser.getIdTokenResult()
       .then((idTokenResult) => {
-        console.log("Custom Claims:", idTokenResult.claims);
+        //console.log("Custom Claims:", idTokenResult.claims);
       })
       .catch((error) => {
         console.error("Error fetching ID token result:", error);
@@ -82,7 +82,7 @@ const NewDropForm = ({ truckLat, truckLng }) => {
       createdAt: serverTimestamp(),
     };
 
-    console.log("Submitting drop:", drop);
+    //console.log("Submitting drop:", drop);
 
     try {
       await addDoc(collection(db, "drops"), drop);

@@ -7,9 +7,9 @@ admin.initializeApp({
 
 const db = admin.firestore();
 db.collection('users').limit(1).get().then(snap => {
-  console.log('Firestore connection test: Found', snap.size, 'user(s)');
+  //console.log('Firestore connection test: Found', snap.size, 'user(s)');
 }).catch(err => {
-  console.error('Firestore connection failed:', err);
+  //console.error('Firestore connection failed:', err);
   process.exit(1);
 });
 
@@ -21,14 +21,14 @@ async function setClaimsForAllAccessOwners() {
     .get();
 
   if (snapshot.empty) {
-    console.log("No owners with all-access plan found.");
+    //console.log("No owners with all-access plan found.");
     return;
   }
 
   const promises = [];
   snapshot.forEach(doc => {
   const uid = doc.id;
-  console.log(`Checking UID: ${uid}`);
+  //console.log(`Checking UID: ${uid}`);
   promises.push(
     admin.auth().getUser(uid)
       .then(userRecord => {
@@ -42,12 +42,12 @@ async function setClaimsForAllAccessOwners() {
 });
 
   await Promise.all(promises);
-  console.log("Custom claims set for all matching owners.");
+  //console.log("Custom claims set for all matching owners.");
 }
 
 setClaimsForAllAccessOwners()
   .then(() => process.exit(0))
   .catch(err => {
-    console.error("Error setting custom claims:", err);
+    //console.error("Error setting custom claims:", err);
     process.exit(1);
   });

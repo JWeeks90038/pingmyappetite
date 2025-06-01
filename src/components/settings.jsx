@@ -46,7 +46,7 @@ const Settings = () => {
     setCancelLoading(true);
     setCancelMsg('');
     try {
-      const res = await fetch('http://localhost:4242/cancel-subscription', {
+      const res = await fetch('/cancel-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscriptionId }),
@@ -65,7 +65,7 @@ const Settings = () => {
 
   // NEW: Stripe Customer Portal handler
   const handleManageSubscription = async () => {
-    const res = await fetch('http://localhost:4242/create-customer-portal-session', {
+    const res = await fetch('/create-customer-portal-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: auth.currentUser.uid }),

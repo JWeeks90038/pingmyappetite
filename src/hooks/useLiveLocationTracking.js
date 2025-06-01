@@ -40,7 +40,7 @@ const useLiveLocationTracking = (userPlan) => {
                 { merge: true }
               );
 
-              console.log("Live GPS position saved:", { latitude, longitude });
+              //console.log("Live GPS position saved:", { latitude, longitude });
             }
           },
           (err) => console.error("Error getting location:", err),

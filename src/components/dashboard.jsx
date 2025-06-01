@@ -100,7 +100,7 @@ const Dashboard = ({ isLoaded }) => {
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
             }, { merge: true });
-            console.log("Truck location updated after plan upgrade.");
+            //console.log("Truck location updated after plan upgrade.");
           },
           (error) => {
             console.error('Geolocation error:', error);
@@ -115,7 +115,7 @@ const Dashboard = ({ isLoaded }) => {
     if (userRole === "owner" && userPlan === "all-access") {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('Geolocation success:', position.coords);
+          //console.log('Geolocation success:', position.coords);
           setLocation({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -149,14 +149,14 @@ const Dashboard = ({ isLoaded }) => {
 
  const handleSubmit = async (e) => {
   e.preventDefault();
-  console.log("Submitting manual location: ", manualLocation);
+  //console.log("Submitting manual location: ", manualLocation);
   if (userPlan === "basic" && user?.uid) {
     try {
       const geocoder = new window.google.maps.Geocoder();
       geocoder.geocode({ address: manualLocation }, async (results, status) => {
         if (status === "OK" && results[0]) {
           const { lat, lng } = results[0].geometry.location;
-          console.log("Geocoded lat/lng:", lat(), lng());
+          //console.log("Geocoded lat/lng:", lat(), lng());
           const truckDocRef = doc(db, "truckLocations", user.uid);
           await setDoc(truckDocRef, {
             manualLocation,
@@ -169,14 +169,14 @@ const Dashboard = ({ isLoaded }) => {
             ownerUid: user.uid,
             kitchenType: ownerData?.kitchenType || "truck",
           });
-          console.log("Manual location submitted and geocoded:", lat(), lng());
+          //console.log("Manual location submitted and geocoded:", lat(), lng());
         } else {
-          console.error("Geocode error:", status);
+          //console.error("Geocode error:", status);
           alert("Could not locate address. Please try a different one.");
         }
       });
     } catch (error) {
-      console.error("Error saving manual location: ", error);
+      //console.error("Error saving manual location: ", error);
     }
   }
 };
@@ -184,14 +184,14 @@ const Dashboard = ({ isLoaded }) => {
   useEffect(() => {
     const fetchOwnerData = async () => {
       if (!user?.uid) return;
-      console.log("Fetching owner data for UID:", user.uid);
+      //console.log("Fetching owner data for UID:", user.uid);
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        console.log("Owner data fetched:", docSnap.data());
+        //console.log("Owner data fetched:", docSnap.data());
         setOwnerData({ uid: user.uid, ...docSnap.data() });
       } else {
-        console.warn("Owner document not found for UID:", user.uid);
+        //console.warn("Owner document not found for UID:", user.uid);
       }
     };
 
@@ -320,15 +320,15 @@ useEffect(() => {
 
     const data = docSnap.data();
 
-    console.log("Fetched truckLocations data:", data);
+    //console.log("Fetched truckLocations data:", data);
 
     const { lat, lng, isLive, visible } = data;
 
     // Prevent marker logic from running prematurely
     if (!lat || !lng || !isLive || typeof visible !== "boolean") return;
-    console.warn("Skipping marker creation due to missing data", { lat, lng, isLive, visible });
-    console.log("Owner dashboard marker kitchenType:", data.kitchenType);
-    console.log("Icon URL:", getOwnerTruckIcon(data.kitchenType));
+    //console.warn("Skipping marker creation due to missing data", { lat, lng, isLive, visible });
+    //console.log("Owner dashboard marker kitchenType:", data.kitchenType);
+    //console.log("Icon URL:", getOwnerTruckIcon(data.kitchenType));
     
     const position = { lat, lng };
 
@@ -353,7 +353,7 @@ useEffect(() => {
   });
 
   return () => {
-    console.log("Cleaning up marker for user", user?.uid);
+    //console.log("Cleaning up marker for user", user?.uid);
     if (truckMarkerRef.current) {
       truckMarkerRef.current.setMap(null);
       truckMarkerRef.current = null;

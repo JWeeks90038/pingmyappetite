@@ -29,7 +29,7 @@ const CustomerSettings = () => {
   const loadUserProfile = async () => {
     try {
       const docSnap = await getDoc(doc(db, "users", userId));
-      console.log("Document data:", docSnap.data());
+      //console.log("Document data:", docSnap.data());
       if (docSnap.exists()) {
         setUserProfile(docSnap.data());
       }

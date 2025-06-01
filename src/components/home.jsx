@@ -44,7 +44,7 @@ const handleCodeSubmit = async (e) => {
     e.preventDefault();
     setStatus("Sending...");
     try {
-      const res = await fetch('http://localhost:3000/api/send-beta-code', {
+      const res = await fetch('/api/send-beta-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

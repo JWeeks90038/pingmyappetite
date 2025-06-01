@@ -27,7 +27,7 @@ app.use(express.json());
 // Create a subscription endpoint
 app.post('/create-subscription', async (req, res) => {
   const { email, paymentMethodId, priceId, uid } = req.body;
-  console.log('Received uid:', uid); 
+  //console.log('Received uid:', uid); 
   try {
     // 1. Check if user already has a Stripe customer ID
     let customerId;
@@ -35,7 +35,7 @@ app.post('/create-subscription', async (req, res) => {
       const userDoc = await admin.firestore().collection('users').doc(uid).get();
       if (userDoc.exists && userDoc.data().stripeCustomerId) {
         customerId = userDoc.data().stripeCustomerId;
-        console.log('Reusing existing Stripe customer:', customerId, 'for uid:', uid);
+        //console.log('Reusing existing Stripe customer:', customerId, 'for uid:', uid);
       }
     }
 
@@ -49,12 +49,12 @@ app.post('/create-subscription', async (req, res) => {
       });
       customerId = customer.id;
       if (uid) {
-        console.log('About to save stripeCustomerId:', customerId, 'for uid:', uid);
+        //console.log('About to save stripeCustomerId:', customerId, 'for uid:', uid);
         await admin.firestore().collection('users').doc(uid).set(
           { stripeCustomerId: customerId },
           { merge: true }
         );
-        console.log('Saved stripeCustomerId to Firestore for uid:', uid);
+        //console.log('Saved stripeCustomerId to Firestore for uid:', uid);
       }
     } else {
       // Attach the new payment method to the existing customer
@@ -83,7 +83,7 @@ if (uid) {
       { subscriptionId: subscription.id },
       { merge: true }
     );
-    console.log('Saved subscriptionId to Firestore for uid:', uid);
+    //console.log('Saved subscriptionId to Firestore for uid:', uid);
 
     // --- Add this block to save card info ---
     const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
@@ -95,10 +95,10 @@ if (uid) {
       { cardInfo },
       { merge: true }
     );
-    console.log('Saved card info to Firestore for uid:', uid);
+    //console.log('Saved card info to Firestore for uid:', uid);
     // --- End block ---
   } catch (firestoreErr) {
-    console.error('Error saving subscriptionId or card info to Firestore:', firestoreErr);
+    //console.error('Error saving subscriptionId or card info to Firestore:', firestoreErr);
   }
 }
 
@@ -112,9 +112,9 @@ if (uid) {
     };
     try {
       await sgMail.send(msg);
-      console.log(`Welcome email sent to ${email}`);
+      //console.log(`Welcome email sent to ${email}`);
     } catch (emailErr) {
-      console.error('Error sending welcome email:', emailErr.message);
+      //console.error('Error sending welcome email:', emailErr.message);
       // Don't fail the subscription if email fails
     }
 
@@ -223,12 +223,12 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
           );
         });
         await Promise.all(updatePromises);
-        console.log(`Removed subscriptionId and downgraded plan for user(s) with subscriptionId ${subscriptionId}`);
+        //console.log(`Removed subscriptionId and downgraded plan for user(s) with subscriptionId ${subscriptionId}`);
       } else {
-        console.log(`No user found with subscriptionId ${subscriptionId}`);
+        //console.log(`No user found with subscriptionId ${subscriptionId}`);
       }
     } catch (err) {
-      console.error('Error updating user after subscription cancellation:', err);
+      //console.error('Error updating user after subscription cancellation:', err);
     }
   }
 

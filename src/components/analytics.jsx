@@ -16,7 +16,7 @@ import '../assets/Analytics.css';
 ChartJS.register(LineElement, BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend, PointElement);
 
 const Analytics = ({ ownerData }) => {
-  console.log("Analytics ownerData:", ownerData);
+  //console.log("Analytics ownerData:", ownerData);
 
   const [plan, setPlan] = useState(null);
   const [pingStats, setPingStats] = useState({

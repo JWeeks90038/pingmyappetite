@@ -31,7 +31,7 @@ const LocationUpdate = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Save manual location or handle logic for Basic users
-    console.log("Submitted Location: ", manualLocation);
+    //console.log("Submitted Location: ", manualLocation);
   };
 
   return (

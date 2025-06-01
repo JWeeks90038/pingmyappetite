@@ -104,7 +104,7 @@ const CustomerDashboard = () => {
       return;
     }
 
-    console.log("Claiming drop", dropId, "as", user.uid, "claimedBy:", dropData.claimedBy);
+    //console.log("Claiming drop", dropId, "as", user.uid, "claimedBy:", dropData.claimedBy);
 
     await updateDoc(dropRef, {
       claimedBy: arrayUnion(user.uid),
@@ -227,7 +227,7 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
 
   // Helper to pick the correct icon
 const getTruckIcon = (kitchenType, hasActiveDrop) => {
-  console.log('kitchenType:', kitchenType, 'hasActiveDrop:', hasActiveDrop);
+  //console.log('kitchenType:', kitchenType, 'hasActiveDrop:', hasActiveDrop);
   let iconUrl;
   switch (kitchenType) {
     case 'trailer':
@@ -248,7 +248,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
 };
 
   const handleTruckIconClick = async (truckId) => {
-  console.log("Truck icon clicked:", truckId);
+  //console.log("Truck icon clicked:", truckId);
   try {
     const truckDoc = await getDoc(doc(db, "truckLocations", truckId));
     if (truckDoc.exists()) {
@@ -341,7 +341,7 @@ const handleViewMenu = () => {
   const q = query(dropsRef, where("expiresAt", ">", now));
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
-    console.log("Drops snapshot size:", snapshot.size, snapshot.docs.map(doc => doc.data()));
+    //console.log("Drops snapshot size:", snapshot.size, snapshot.docs.map(doc => doc.data()));
     const fetchedDrops = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -417,7 +417,7 @@ const visible = data.visible === true;
       const lastActive = data.lastActive || 0;
       const isStale = nowMs - lastActive > FIVE_MIN;
 
-      console.log('Truck:', data.truckName, 'isLive:', isLive, 'visible:', visible, 'isStale:', isStale, 'showTrucks:', showTrucks);
+      //console.log('Truck:', data.truckName, 'isLive:', isLive, 'visible:', visible, 'isStale:', isStale, 'showTrucks:', showTrucks);
 
       if (change.type === 'removed' || !isLive || !visible || isStale || !showTrucks) {
         if (foodTruckMarkers.current[id]) {
@@ -429,7 +429,7 @@ const visible = data.visible === true;
 
       const position = { lat, lng };
       const hasActiveDrop = activeDrops.some(drop => drop.truckId === id);
-      console.log('Creating marker for:', data.truckName, 'kitchenType:', data.kitchenType);
+      //console.log('Creating marker for:', data.truckName, 'kitchenType:', data.kitchenType);
       const icon = getTruckIcon(data.kitchenType, hasActiveDrop);
 
       if (!foodTruckMarkers.current[id]) {
@@ -512,7 +512,7 @@ useEffect(() => {
     markerCluster.current = new MarkerClusterer({ map: mapInstance.current, markers: [] });
 
     (onSnapshot(collection(db, 'pings'), (snapshot) => {
-      console.log("Data fetched successfully:", snapshot.docs.map((doc) => doc.data())); // Corrected log
+      //console.log("Data fetched successfully:", snapshot.docs.map((doc) => doc.data())); // Corrected log
     
       pingMarkers.current.forEach((marker) => marker.setMap(null));
       pingMarkers.current = [];
@@ -623,7 +623,7 @@ const filtered = snapshot.docs.filter((doc) => {
         pingId: uuidv4(),
       };
   
-      console.log("Sending ping data:", pingData);
+      //console.log("Sending ping data:", pingData);
   
       await addDoc(pingsRef, pingData);
   

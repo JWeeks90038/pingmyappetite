@@ -28,7 +28,14 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://grubana.com',
+    'http://localhost:5173',
+    /^https:\/\/.*\.vercel\.app$/ // Allow any Vercel preview deployment
+  ],
+  credentials: true,
+}));
 app.use(express.urlencoded({ extended: true })); // Parse from data
 app.use(express.json()); // Parse JSON data
 app.use('/auth', authRoutes); // Use the authentication routes
@@ -253,5 +260,5 @@ app.post("/api/validate-code", async (req, res) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+   // console.log(`Server is running on http://localhost:${PORT}`);
 });

@@ -13,7 +13,7 @@ export const AuthContextProvider = ({ children }) => {
   const auth = getAuth();
 
   useEffect(() => {
-  console.log("[AuthContext] Setting up onAuthStateChanged listener");
+  //console.log("[AuthContext] Setting up onAuthStateChanged listener");
 
   const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
     if (!currentUser) {
@@ -26,16 +26,16 @@ export const AuthContextProvider = ({ children }) => {
     }
 
     try {
-      console.log("[AuthContext] Authenticated user detected:", currentUser.uid);
+      //console.log("[AuthContext] Authenticated user detected:", currentUser.uid);
 
       // Force refresh the ID token to ensure custom claims are included
       const idTokenResult = await currentUser.getIdTokenResult(true);
-      console.log("[AuthContext] Custom claims:", idTokenResult.claims);
+      //console.log("[AuthContext] Custom claims:", idTokenResult.claims);
 
       // Log additional debugging info
       const token = await currentUser.getIdToken();
-      console.log("[AuthContext] Firebase ID token:", token);
-      console.log("[AuthContext] currentUser object:", currentUser);
+      //console.log("[AuthContext] Firebase ID token:", token);
+      //console.log("[AuthContext] currentUser object:", currentUser);
 
       // Wait briefly to ensure Firestore gets the token correctly (helps fix timing issues)
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -43,19 +43,19 @@ export const AuthContextProvider = ({ children }) => {
       setUser(currentUser);
 
       const userDocRef = doc(db, "users", currentUser.uid);
-      console.log("[AuthContext] Attempting to read Firestore user doc:", userDocRef.path);
+      //console.log("[AuthContext] Attempting to read Firestore user doc:", userDocRef.path);
 
       let userSnap;
       let retries = 3;
       while (retries > 0) {
         try {
           userSnap = await getDoc(userDocRef);
-          console.log("[AuthContext] Successfully read user doc");
+          //console.log("[AuthContext] Successfully read user doc");
           break;
         } catch (err) {
-          console.error("[AuthContext] Error reading user doc:", err);
+          //console.error("[AuthContext] Error reading user doc:", err);
           if (err.code === "permission-denied") {
-            console.warn("[AuthContext] Firestore read failed, retrying in 200ms...", err);
+            //console.warn("[AuthContext] Firestore read failed, retrying in 200ms...", err);
             await new Promise((res) => setTimeout(res, 200));
             retries--;
           } else {
@@ -68,7 +68,7 @@ export const AuthContextProvider = ({ children }) => {
       }
 
       if (!userSnap.exists()) {
-        console.log("[AuthContext] User doc not found, creating new doc");
+        //console.log("[AuthContext] User doc not found, creating new doc");
         const newUser = {
           uid: currentUser.uid,
           username: currentUser.displayName || "",
@@ -86,12 +86,12 @@ export const AuthContextProvider = ({ children }) => {
         setUserPlan(newUser.plan);
       } else {
         const data = userSnap.data();
-        console.log("[AuthContext] User doc data found:", data);
+        //console.log("[AuthContext] User doc data found:", data);
         setUserRole(data.role || "customer");
         setUserPlan(data.plan || "basic");
       }
     } catch (err) {
-      console.error("[AuthContext] Error accessing Firestore user doc:", err);
+      //console.error("[AuthContext] Error accessing Firestore user doc:", err);
       setUserRole(null);
       setUserPlan(null);
     }
@@ -100,7 +100,7 @@ export const AuthContextProvider = ({ children }) => {
   });
 
   return () => {
-    console.log("[AuthContext] Cleaning up onAuthStateChanged listener");
+    //console.log("[AuthContext] Cleaning up onAuthStateChanged listener");
     unsubscribe();
   };
 }, []);

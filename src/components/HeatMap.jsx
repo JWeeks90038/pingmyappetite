@@ -74,7 +74,7 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Auth state changed. Current user:", user);
+      //console.log("Auth state changed. Current user:", user);
       setCurrentUser(user || null);
     });
     return () => unsubscribe();
@@ -88,7 +88,7 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          console.log("User geolocation detected:", position.coords);
+          //console.log("User geolocation detected:", position.coords);
           setMapCenter(coords);
           if (mapRef.current) {
             mapRef.current.panTo(coords)
@@ -125,7 +125,7 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
       },
     };
   });
-      console.log("Filtered ping data:", data);
+      //console.log("Filtered ping data:", data);
       setPingData(data);
     });
     return () => unsubscribe();
@@ -133,14 +133,14 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
 
   useEffect(() => {
     if (!currentUser) return;
-    console.log("Attempting to fetch data from Firestore...");
+    //console.log("Attempting to fetch data from Firestore...");
     const unsubscribe = onSnapshot(collection(db, "truckLocations"), (snapshot) => {
-      console.log("Pings data fetched successfully:", snapshot.docs.map((doc) => doc.data()));
+      //console.log("Pings data fetched successfully:", snapshot.docs.map((doc) => doc.data()));
       const trucks = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      console.log("Truck locations fetched:", trucks);
+      //console.log("Truck locations fetched:", trucks);
       setTruckLocations(trucks);
     });
     return () => unsubscribe();
@@ -158,7 +158,7 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
           ? userDoc.data().truckName || "Food Truck"
           : "Food Truck";
       }
-      console.log("Resolved truck names:", updatedNames);
+      //console.log("Resolved truck names:", updatedNames);
       setTruckNames(updatedNames);
     };
     fetchAllTruckNames();
@@ -249,7 +249,7 @@ const updateTruckMarkers = useCallback(() => {
   
   useEffect(() => {
     if (mapReady) {
-      console.log("Map loaded");
+      //console.log("Map loaded");
       throttledUpdateTruckMarkers();
     }
   }, [mapReady, truckLocations, truckNames, throttledUpdateTruckMarkers]);
@@ -260,7 +260,7 @@ const updateTruckMarkers = useCallback(() => {
         ...prev,
         [cuisine]: !prev[cuisine], // Toggle the filter for the selected cuisine
       };
-      console.log("Updated filters:", updated);
+      //console.log("Updated filters:", updated);
       return updated;
     });
   };
@@ -312,7 +312,7 @@ const updateTruckMarkers = useCallback(() => {
         return new window.google.maps.LatLng(lat, lng);
       });
   
-    console.log("Filtered heatmap points:", data.length);
+    //console.log("Filtered heatmap points:", data.length);
     return data;
   }, [pingData, filters, mapRef.current]);
   

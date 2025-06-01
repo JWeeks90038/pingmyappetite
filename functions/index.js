@@ -36,9 +36,7 @@ const cutoff = Timestamp.fromDate(cutoffDate);
     });
 
     await batch.commit();
-    console.log(
-      "Archived and deleted " + oldPings.size + " old pings.",
-    );
+    //console.log("Archived and deleted " + oldPings.size + " old pings.",);
   },
 );
 
@@ -60,9 +58,7 @@ export const deleteExpiredDrops = onSchedule(
 
     if (!expiredDrops.empty) {
       await batch.commit();
-      console.log(
-        "Deleted " + expiredDrops.size + " expired drops.",
-      );
+      //console.log("Deleted " + expiredDrops.size + " expired drops.",);
     }
     return null;
   },

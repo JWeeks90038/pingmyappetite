@@ -31,7 +31,7 @@ const PaymentForm = () => {
     }
 
     // 2. Call backend to create subscription
-  const res = await fetch('http://localhost:4242/create-subscription', {
+  const res = await fetch('/create-subscription', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

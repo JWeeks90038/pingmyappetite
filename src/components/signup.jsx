@@ -81,7 +81,7 @@ const userData = {
           updatedAt: serverTimestamp(),
           lastActive: Date.now(),
         }, { merge: true });
-        console.log('Truck location updated with geolocation');
+        //console.log('Truck location updated with geolocation');
       },
       (error) => {
         console.error('Geolocation error:', error);

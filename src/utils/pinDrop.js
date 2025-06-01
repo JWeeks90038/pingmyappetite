@@ -11,7 +11,7 @@ const PinDrop = async ({ lat, lng, userId, notes, cuisine }) => {
       cuisine,  // Add cuisine here
       timestamp: serverTimestamp(),
     });
-    console.log("Pin drop added!");
+    //console.log("Pin drop added!");
   } catch (error) {
     console.error("Error adding pin drop:", error);
   }
