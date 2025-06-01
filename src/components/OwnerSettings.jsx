@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { sendPasswordResetEmail, updateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
 
@@ -101,7 +101,7 @@ const OwnerSettings = () => {
     }
   };
 
-  const handleChangeEmail = async () => {
+ const handleChangeEmail = async () => {
   try {
     const password = prompt("Please enter your current password to confirm:");
     if (!password) return;
@@ -112,15 +112,14 @@ const OwnerSettings = () => {
     );
     await reauthenticateWithCredential(auth.currentUser, credential);
 
-    await updateEmail(auth.currentUser, newEmail);
-    setResetMsg("Email updated successfully!");
-    loadUserProfile();
+    await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
+    setResetMsg("Verification email sent! Please check your new email and follow the link to confirm the change.");
     setNewEmail("");
   } catch (error) {
     console.error("Error updating email:", error);
     setResetMsg("Error updating email. Please make sure your password is correct and try again.");
   }
-  };
+};
 
   const handleChangePassword = async () => {
     try {
