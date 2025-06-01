@@ -35,7 +35,7 @@ import PaymentForm from "./components/PaymentForm";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
-const stripePromise = loadStripe("pk_test_51RSgWeRq7ehrln63VLzbn9qj6ukzkLJyd4SBwcLwyWXITk602nPFxdDpoEKjBECqIC71TSgR1fs36Tou9lae5qiq00W1uHh6kW");
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 function App() {
   const { user, userRole, loading } = useAuth();
