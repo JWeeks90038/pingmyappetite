@@ -102,7 +102,7 @@ const MediaUploader = ({ showProfile, showCover, showMenu }) => {
             disabled={uploadingType === "cover"}
             className="upload-button"
           >
-            {uploadingType === "cover" ? "Uploading..." : "Upload Cover Photo"}
+            {uploadingType === "cover" ? "Uploading..." : "Upload Truck or Trailer Photo"}
           </button>
         </div>
       )}

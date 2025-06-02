@@ -784,7 +784,6 @@ return (
 {/* Drop Summary */}
     {showDropSummary && activeTruck && (
   <div className="drop-summary-card" style={{ marginTop: '20px' }}>
-    {claimMessage && <p style={{ color: 'green' }}>{claimMessage}</p>}
 
     {claimedDrop && claimCode && (
       <div style={{ background: '#e6ffe6', padding: '1em', marginBottom: '1em', borderRadius: '8px', textAlign: 'center' }}>
@@ -806,19 +805,22 @@ return (
           <p><strong>Claimed:</strong> {drop.claimedBy?.length ?? 0}</p>
           <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
         {user && (
-  <button
-    disabled={
-      drop.claimedBy?.includes(user.uid) || 
-      drop.claimedBy?.length >= drop.quantity
-    }
-    onClick={() => handleClaimDrop(drop.id)}
-  >
-    {drop.claimedBy?.includes(user.uid)
-      ? "Already Claimed"
-      : drop.claimedBy?.length >= drop.quantity
-      ? "Fully Claimed"
-      : "Claim Drop"}
-  </button>
+  <>
+    <button
+      disabled={
+        drop.claimedBy?.includes(user.uid) || 
+        drop.claimedBy?.length >= drop.quantity
+      }
+      onClick={() => handleClaimDrop(drop.id)}
+    >
+      {drop.claimedBy?.includes(user.uid)
+        ? "Already Claimed"
+        : drop.claimedBy?.length >= drop.quantity
+        ? "Fully Claimed"
+        : "Claim Drop"}
+    </button>
+    {claimMessage && <p style={{ color: 'green' }}>{claimMessage}</p>}
+  </>
 )}
         </div>
       ))
