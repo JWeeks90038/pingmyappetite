@@ -50,7 +50,7 @@ function App() {
     <Elements stripe={stripePromise}>
     <LoadScript
       googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-      libraries={LIBRARIES}
+      libraries={["visualization"]} 
     >
       <BrowserRouter>
         <Navbar /> {/* Always render Navbar */}

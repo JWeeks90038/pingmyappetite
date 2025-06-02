@@ -213,50 +213,6 @@ app.get("/api/example", (req, res) => {
     res.json({ message: "This is an example API route." });
 });
 
-app.post("/api/send-beta-code", async (req, res) => {
-    const { email } = req.body;
-    if (!email || !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
-        return res.status(400).json({ error: "Valid email required." });
-    }
-
-    const code = uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase(); // Unique 6-char code
-
-     // Store code and email in Firestore
-    await db.collection("betaCodes").doc(code).set({
-      email,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      used: false,
-    });
-
-    const msg = {
-        to: email,
-        from: "team@grubana.com", // Use your verified sender
-        subject: "Your Grubana Beta Access Code",
-        text: `Welcome to the Grubana Beta! Your access code is: ${code}`,
-    };
-
-    try {
-        await sgMail.send(msg);
-        res.status(200).json({ message: "Invite sent!" });
-    } catch (error) {
-        console.error("SendGrid error:", error.response?.body || error);
-        res.status(500).json({ error: "Failed to send email." });
-    }
-});
-
-app.post("/api/validate-code", async (req, res) => {
-    const { code } = req.body;
-    if (!code) return res.json({ valid: false });
-
-    const doc = await db.collection("betaCodes").doc(code.trim().toUpperCase()).get();
-    if (doc.exists && !doc.data().used) {
-        // Optionally mark as used:
-        // await db.collection("betaCodes").doc(code.trim().toUpperCase()).update({ used: true });
-        return res.json({ valid: true });
-    }
-    return res.json({ valid: false });
-});
-
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

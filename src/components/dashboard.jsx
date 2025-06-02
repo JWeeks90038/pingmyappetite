@@ -502,7 +502,6 @@ useEffect(() => {
   </label>
 </div>
 
-  
       <h2>Live Demand Map</h2>
       <p>
         Customers can click on your truck icon to display your menu and claim your drops on their

@@ -6,110 +6,11 @@ import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the ma
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
-const VALID_CODES = ["GRUBANA2024", "BETAFOODIE"]; // Add your codes here
+
 
 const Home = () => {
-  const [hasAccess, setHasAccess] = useState(false);
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("");
 
-const handleCodeSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setStatus("Checking code...");
-  try {
-    const res = await fetch('/api/validate-code', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    const data = await res.json();
-    if (data.valid) {
-      setHasAccess(true);
-      setError("");
-      setStatus("");
-    } else {
-      setError("Invalid code. Please try again.");
-      setStatus("");
-    }
-  } catch {
-    setError("Failed to validate code. Please try again.");
-    setStatus("");
-  }
-};
-
-    const handleBetaSubmit = async (e) => {
-    e.preventDefault();
-    setStatus("Sending...");
-    try {
-      const res = await fetch('/api/send-beta-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStatus("Success! Check your email for the code.");
-      } else {
-        setStatus(data.error || "Failed to send invite.");
-      }
-    } catch {
-      setStatus("Failed to send invite.");
-    }
-  };
-
-  // Beta code access gate
-  // If the user does not have access, show the access gate
-
-  if (!hasAccess) {
-    return (
-      <div className="access-gate">
-        <h2>Enter Beta Access Code</h2>
-        <form onSubmit={handleCodeSubmit}>
-          <input
-            type="text"
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            placeholder="Enter your code"
-            required
-            style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
-          />
-          <button type="submit" className="btn" style={{ padding: "10px 20px", fontSize: "16px" }}>
-            Enter
-          </button>
-        </form>
-        {error && <p style={{ color: "red" }}>{error}</p>}
-
-        {/* Add this below the code form */}
-        <div style={{ marginTop: "2rem" }}>
-          <h3>Don't have a code?</h3>
-          <form className="beta-form" onSubmit={handleBetaSubmit}>
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Enter your email to request access"
-              required
-              style={{ padding: "10px", fontSize: "16px", marginRight: "10px" }}
-            />
-            <button
-              type="submit"
-              className="btn"
-              style={{ padding: "10px 20px", fontSize: "16px" }}
-            >
-              Request Beta Access
-            </button>
-            {status && <p>{status}</p>}
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  //end of beta code access gate
   return (
     <>
       <header className="hero">
