@@ -503,7 +503,7 @@ useEffect(() => {
 </div>
 
 
-   {user && userPlan && isLoaded && (
+  {isLoaded && (
   <>
     <h2>Live Demand Map</h2>
     <p>
