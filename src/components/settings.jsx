@@ -65,11 +65,12 @@ const Settings = () => {
 
   // NEW: Stripe Customer Portal handler
   const handleManageSubscription = async () => {
-    const res = await fetch('/create-customer-portal-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: auth.currentUser.uid }),
-    });
+ const API_URL = import.meta.env.VITE_API_URL || '';
+const res = await fetch(`${API_URL}/create-customer-portal-session`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ uid: auth.currentUser.uid }),
+});
     const data = await res.json();
     if (data.url) {
       window.location.href = data.url; // Redirect to Stripe portal
