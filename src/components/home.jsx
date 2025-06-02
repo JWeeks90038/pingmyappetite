@@ -111,7 +111,7 @@ const Home = () => {
             }}
           >
             <a
-              href="#"
+              href="https://www.instagram.com/grubanaapp/"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#E1306C" }}
