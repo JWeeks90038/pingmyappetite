@@ -810,6 +810,27 @@ p a:hover {
     border: 1px solid #ddd;
 }
 
+/* Example class for your heatmap key container */
+.heatmap-key-container {
+    width: 100%;
+    max-width: 350px;
+    margin: 0 auto 16px auto;
+    box-sizing: border-box;
+    overflow-x: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heatmap-key-bar {
+    width: 100%;
+    min-width: 120px;
+    max-width: 220px;
+    height: 16px;
+    border-radius: 8px;
+    margin: 0 8px;
+}
+
 /* Active Pings */
 .active-pings {
     max-width: 600px;

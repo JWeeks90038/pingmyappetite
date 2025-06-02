@@ -42,9 +42,11 @@ const styles = {
     padding: '10px',
     borderRadius: '8px',
     backgroundColor: '#f5f5f5',
-    width: '400px',
+    width: '100%',           // Responsive width
+    maxWidth: '350px',       // Prevents stretching on large screens
     boxShadow: '0px 0px 10px rgba(0,0,0,0.1)',
     textAlign: 'center',
+    boxSizing: 'border-box', // Ensures padding doesn't cause overflow
   },
   heading: {
     marginBottom: '10px',
@@ -62,9 +64,12 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    width: '100%',
   },
   gradient: {
     width: '100%',
+    minWidth: '0',           // Allow shrinking on small screens
+    maxWidth: '220px',
     height: '20px',
     borderRadius: '4px',
     border: '1px solid #ccc',
@@ -73,6 +78,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     width: '100%',
+    maxWidth: '220px',
     marginTop: '5px',
     fontSize: '12px',
     color: '#555',
