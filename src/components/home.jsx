@@ -20,7 +20,7 @@ const handleCodeSubmit = async (e) => {
   setError("");
   setStatus("Checking code...");
   try {
-    const res = await fetch("http://localhost:3000/api/validate-code", {
+    const res = await fetch('/api/validate-code', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
