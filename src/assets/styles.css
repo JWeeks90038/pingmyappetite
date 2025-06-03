@@ -874,36 +874,31 @@ p a:hover {
 }
 
 /* Pricing Plans */
-.pricing-plans {
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
-    flex-wrap: wrap;
-    gap: 2rem;
-    margin: 0 auto;
-    width: 100%;
-    max-width: 1000px;
-    box-sizing: border-box;
-    overflow-x: auto; /* Prevent horizontal scroll */
-    padding: 0 10px;
+.pricing-section {
+    padding: 20px;
+    max-width: 700px;
+    margin: 40px auto;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
-.plan {
-    background: white;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 350px;
-    min-width: 260px;
-    text-align: center;
-    margin: 1rem 0;
-    box-sizing: border-box;
-    flex: 1 1 300px;
+.pricing-container {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow: hidden; /* Prevent content overflow */
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pricing-plan {
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 24px;
+    min-width: 260px;
+    max-width: 350px;
+    flex: 1 1 300px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 16px;
 }
 
 /* Responsive: Stack plans vertically on small screens */
@@ -1755,13 +1750,24 @@ section {
 footer {
     background-color: #b7b3b3;
     color: white;
-    padding: 20px;
+    padding: 10px 0;           /* Reduce vertical padding, remove horizontal */
     text-align: center;
-    width: 100%;
-    bottom: 0px;
-    height: 30px;
+    width: 100vw;              /* Full viewport width */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;              /* Let height fit content */
     position: relative;
-    border-radius: 15px; /* Rounded corners */
+    border-radius: 0;          /* Remove border radius for flush edges */
+    box-sizing: border-box;    /* Ensure padding doesn't cause overflow */
+    margin: 0;                 /* Remove any margin */
+    overflow-x: hidden;        /* Prevent horizontal scroll */
+    z-index: 100;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 30px;
 }
 
 footer p {

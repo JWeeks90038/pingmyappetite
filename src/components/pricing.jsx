@@ -20,50 +20,44 @@ const Pricing = () => {
     <div>
 
       {/* Pricing Section */}
-      <section className="pricing">
-        <h1>Food Truck & Trailer Owners</h1>
-        <h2>Gain visibility, track demand, and connect with hungry customers.</h2>
-        <h3>*Try it free for 30 days*</h3>
-        <p>More eyes = more orders!</p>
-
-        {/* Pricing Plans */}
-        <div className="pricing-plans">
-
-          {/* Basic Plan */}
-          <div className="plan basic-plan">
-            <h2>BASIC</h2>
-            <p className="price">Free</p>
-            <ul>
-              <li>✅ Appear on the Grubana discovery map</li>
-              <li>✅ Get pinged by nearby customers</li>
-              <li>✅ Access your truck dashboard</li>
-              <li>✅ Manual location updates</li>
-            </ul>
-            <button className="subscribe-btn disabled" disabled>Included</button>
-          </div>
-
-          {/* Pro Plan */}
-          <div className="plan pro-plan">
-            <h2>ALL ACCESS</h2>
-            <p className="price">$19.99 / month</p>
-            <ul>
-              <li>✅ Real-time menu display on map icon</li>
-              <li>✅ Access to citywide heat maps showing demand zones</li>
-              <li>✅ 30-day engagement analytics (pings, views, locations)</li> {/* Analytics exclusive to All Access */}
-              <li>✅ Radius-based trend alerts (e.g. “interest within 10km”)</li>
-              <li>✅ Priority placement on trending truck lists</li>
-              <li>✅ Scheduled location publishing (pre-set your route)</li>
-              <li>✅ Unlock exclusive promotional features (menu drops, featured placement)</li>
-            </ul>
-            <button
-    className="subscribe-btn"
-    onClick={handleSubscribe}
-  >
-    Start Free 30-Day Trial
-  </button>
-          </div>
-        </div>
-      </section>
+     <section className="pricing-section">
+  <h1>Food Truck & Trailer Owners</h1>
+  <h2>Gain visibility, track demand, and connect with hungry customers.</h2>
+  <h3>*Try it free for 30 days*</h3>
+  <p>More eyes = more orders!</p>
+  <div className="pricing-container">
+    <div className="pricing-plan">
+      <h2>BASIC</h2>
+      <p className="price">Free</p>
+      <ul>
+        <li>✅ Appear on the Grubana discovery map</li>
+        <li>✅ Get pinged by nearby customers</li>
+        <li>✅ Access your truck dashboard</li>
+        <li>✅ Manual location updates</li>
+      </ul>
+      <button className="subscribe-btn disabled" disabled>Included</button>
+    </div>
+    <div className="pricing-plan">
+      <h2>ALL ACCESS</h2>
+      <p className="price">$19.99 / month</p>
+      <ul>
+        <li>✅ Real-time menu display on map icon</li>
+        <li>✅ Access to citywide heat maps showing demand zones</li>
+        <li>✅ 30-day engagement analytics (pings, views, locations)</li>
+        <li>✅ Radius-based trend alerts (e.g. “interest within 10km”)</li>
+        <li>✅ Priority placement on trending truck lists</li>
+        <li>✅ Scheduled location publishing (pre-set your route)</li>
+        <li>✅ Unlock exclusive promotional features (menu drops, featured placement)</li>
+      </ul>
+      <button
+        className="subscribe-btn"
+        onClick={handleSubscribe}
+      >
+        Start Free 30-Day Trial
+      </button>
+    </div>
+  </div>
+</section>
 
       {/* Payment Integration */}
       <section className="payment-section">
