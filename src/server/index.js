@@ -262,7 +262,7 @@ app.post('/api/contact', async (req, res) => {
   }
   try {
     await sgMail.send({
-      to: 'support@grubana.com', // Your support email
+      to: 'team@grubana.com', // Your support email
       from: 'no-reply@grubana.com', // Must be a verified sender in SendGrid
       subject: `Contact Form Submission from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,

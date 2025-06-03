@@ -126,7 +126,7 @@ const FAQ = () => {
         {
           q: "How can I contact support?",
           a:
-            "You can reach our support team at any time by emailing us at support@grubana.com."
+            "You can reach our support team at any time by emailing us at team@grubana.com."
         },
       ],
     },

@@ -97,7 +97,7 @@ const handleSubmit = async (e) => {
         <div className="contact-info">
           <h2>Other Ways to Reach Us</h2>
           <p>
-            <strong>Email:</strong> <a href="mailto:support@grubana.com">support@grubana.com</a><br />
+            <strong>Email:</strong> <a href="mailto:team@grubana.com">team@grubana.com</a><br />
             <strong>Instagram:</strong> <a href="https://www.instagram.com/grubanaapp/" target="_blank" rel="noopener noreferrer">@grubanaapp</a><br />
             <strong>Facebook:</strong> <a href="https://www.facebook.com/profile.php?id=61576765928284" target="_blank" rel="noopener noreferrer">Grubana on Facebook</a>
           </p>

@@ -34,26 +34,25 @@ const Navbar = () => {
         </div>
       </div>
       <ul className={`nav-links${menuOpen ? ' open' : ''}`}>
-        <li><Link to="/home" onClick={() => setMenuOpen(false)}>Home</Link></li>
-        <li><Link to="/pricing" onClick={() => setMenuOpen(false)}>Pricing</Link></li>
-        {loading ? (
-          <li>Loading...</li>
-        ) : user ? (
-          <>
-           <li><Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
+  <li><Link to="/home" onClick={() => setMenuOpen(false)}>Home</Link></li>
+  <li><Link to="/pricing" onClick={() => setMenuOpen(false)}>Pricing</Link></li>
+  <li><Link to="/contact" onClick={() => setMenuOpen(false)}>Contact Us</Link></li>
+  <li><Link to="/about" onClick={() => setMenuOpen(false)}>About Us</Link></li>
+  {loading ? (
+    <li>Loading...</li>
+  ) : user ? (
+    <>
+      <li><Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
       <li><Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link></li>
-      <li><Link to="/contact" onClick={() => setMenuOpen(false)}>Contact Us</Link></li>
-      <li><Link to="/about" onClick={() => setMenuOpen(false)}>About Us</Link></li>
       <li><LogoutLink /></li>
-          </>
-        ) : (
-          <>
-            <li><Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link></li>
-            {/* Only show Sign Up if not authenticated */}
-            {!user && <li><Link to="/signup" onClick={() => setMenuOpen(false)}>Sign Up</Link></li>}
-          </>
-        )}
-      </ul>
+    </>
+  ) : (
+    <>
+      <li><Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link></li>
+      {!user && <li><Link to="/signup" onClick={() => setMenuOpen(false)}>Sign Up</Link></li>}
+    </>
+  )}
+</ul>
     </nav>
   );
 };
