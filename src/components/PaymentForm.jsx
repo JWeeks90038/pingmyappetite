@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth, db } from "../firebase";
 import { doc, updateDoc } from "firebase/firestore";
 
-const priceId = "price_1RShnKRq7ehrln63Ej7fYWz6"; // <-- Replace with real Price ID
+const priceId = "price_1RVmr0RsRfaVTYCjkEzJgm7m"; 
 
 const PaymentForm = () => {
   const stripe = useStripe();
