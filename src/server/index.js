@@ -21,7 +21,15 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://www.grubana.com',
+    'http://localhost:5173',
+    /^https:\/\/.*\.vercel\.app$/
+  ],
+  credentials: true,
+}));
+
 app.use(express.json());
 
 // Create a subscription endpoint
@@ -221,6 +229,29 @@ app.post('/api/send-beta-code', async (req, res) => {
   } catch (err) {
     console.error("Send Invite Error:", err);
     res.status(500).json({ message: "Failed to send invite" });
+  }
+});
+
+app.post('/create-customer-portal-session', async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: { message: 'No user ID provided.' } });
+
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) return res.status(404).json({ error: { message: 'User not found.' } });
+
+    const customerId = userDoc.data().stripeCustomerId;
+    if (!customerId) return res.status(400).json({ error: { message: 'No Stripe customer ID found for user.' } });
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: 'https://www.grubana.com/settings', // Use your production URL
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Error creating customer portal session:', err.message);
+    res.status(400).json({ error: { message: err.message } });
   }
 });
 
