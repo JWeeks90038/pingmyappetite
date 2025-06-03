@@ -574,6 +574,24 @@ useEffect(() => {
     <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
   </svg>
 </a>
+
+<a
+  href="#top"
+  onClick={e => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }}
+  style={{
+    display: "inline-block",
+    margin: "30px auto 0 auto",
+    color: "#2c6f57",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontWeight: "bold"
+  }}
+>
+  Back to Top ↑
+</a>
 </div>
     </div>
   );

@@ -34,6 +34,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import PaymentForm from "./components/PaymentForm";
 import useSubscriptionStatus from "./hooks/useSubscriptionStatus";
 import { auth } from "./firebase";
+import ScrollToTop from "./components/ScrollToTop";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
@@ -66,6 +67,7 @@ function App() {
     >
       <BrowserRouter>
         <Navbar /> {/* Always render Navbar */}
+        <ScrollToTop /> {/* Scroll to top on route change */}
         <Routes>
           {/* Public Pages */}
           <Route element={<PublicLayout />}>

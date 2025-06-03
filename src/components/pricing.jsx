@@ -94,6 +94,24 @@ const Pricing = () => {
         </div>
       </section>
 
+      <a
+  href="#top"
+  onClick={e => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }}
+  style={{
+    display: "inline-block",
+    margin: "30px auto 0 auto",
+    color: "#2c6f57",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontWeight: "bold"
+  }}
+>
+  Back to Top ↑
+</a>
+
     </div>
   );
 };
