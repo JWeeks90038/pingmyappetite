@@ -882,8 +882,9 @@ p a:hover {
     gap: 2rem;
     margin: 0 auto;
     width: 100%;
-    max-width: 1000px; /* Allow more space for plans side by side */
+    max-width: 1000px;
     box-sizing: border-box;
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .plan {
@@ -912,7 +913,7 @@ p a:hover {
         max-width: 98vw;
     }
     .plan {
-        width: 90vw;
+        width: 98vw;
         max-width: 400px;
         min-width: unset;
     }

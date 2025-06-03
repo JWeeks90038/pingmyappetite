@@ -27,7 +27,7 @@ const Pricing = () => {
         <p>More eyes = more orders!</p>
 
         {/* Pricing Plans */}
-        <div className="pricing-plan">
+        <div className="pricing-plans">
 
           {/* Basic Plan */}
           <div className="plan basic-plan">
