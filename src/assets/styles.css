@@ -92,37 +92,6 @@ nav ul li a:hover {
     font-weight: bold;
 }
 
-/* How It Works */
-.how-it-works {
-    background-color: #ffcc00;
-    padding: 50px 20px;
-    text-align: center;
-}
-
-.how-it-works h2 {
-    font-size: 28px;
-}
-
-.steps {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-}
-
-.steps div {
-    background: white;
-    padding: 20px;
-    width: 300px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.steps h3 {
-    color: #ff5733;
-}
-
 /* High-Demand Section */
 .high-demand {
     text-align: center;
@@ -142,14 +111,14 @@ nav ul li a:hover {
 
 /* Testimonials */
 .testimonials {
-    background-color: #ff5733;
+    background-color: #2c6f57;
     color: white;
     text-align: center;
     padding: 50px 20px;
 }
 
 .testimonial {
-    background: #474747;
+    background: #ace1af;
     padding: 20px;
     margin: 20px auto;
     width: 90%;
@@ -1030,7 +999,7 @@ p a:hover {
 /* How It Works */
 .how-it-works {
     padding: 50px 20px;
-    background: #fff;
+    background: #2c6f57;
 }
 
 .steps {
@@ -1038,18 +1007,7 @@ p a:hover {
     justify-content: center;
     gap: 30px;
     flex-wrap: wrap;
-}
-
-.step {
-    background: #007BFF;
-    color: #474747;
-    padding: 20px;
-    border-radius: 10px;
-    width: 30%;
-}
-
-.step h3 {
-    font-size: 1.5rem;
+    background: #ace1af;
 }
 
 /* Success Stories */
