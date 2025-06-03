@@ -29,26 +29,37 @@ const Pricing = () => {
     <div className="pricing-plan">
       <h2>BASIC</h2>
       <p className="price">Free</p>
-      <ul>
-        <li>✅ Appear on the Grubana discovery map</li>
-        <li>✅ Get pinged by nearby customers</li>
-        <li>✅ Access your truck dashboard</li>
-        <li>✅ Manual location updates</li>
-      </ul>
-      <button className="subscribe-btn disabled" disabled>Included</button>
+    <div>
+      <div>✅ Appear on the Grubana discovery map</div>
+      <div>✅ Get pinged by nearby customers</div>
+      <div>✅ Access your truck dashboard</div>
+      <div>✅ Manual location updates</div>
+      <div style={{ color: 'red' }}>❌ Real-time menu display on map icon</div>
+      <div style={{ color: 'red' }}>❌ Access to citywide heat maps showing demand zones</div>
+      <div style={{ color: 'red' }}>❌ 30-day engagement analytics (pings, views, locations)</div>
+      <div style={{ color: 'red' }}>❌ Radius-based trend alerts (e.g. “interest within 10km”)</div>
+      <div style={{ color: 'red' }}>❌ Priority placement on trending truck lists</div>
+      <div style={{ color: 'red' }}>❌ Scheduled location publishing (pre-set your route)</div>
+      <div style={{ color: 'red' }}>❌ Unlock exclusive promotional features (menu drops, featured placement)</div>
     </div>
-    <div className="pricing-plan">
-      <h2>ALL ACCESS</h2>
-      <p className="price">$19.99 / month</p>
-      <ul>
-        <li>✅ Real-time menu display on map icon</li>
-        <li>✅ Access to citywide heat maps showing demand zones</li>
-        <li>✅ 30-day engagement analytics (pings, views, locations)</li>
-        <li>✅ Radius-based trend alerts (e.g. “interest within 10km”)</li>
-        <li>✅ Priority placement on trending truck lists</li>
-        <li>✅ Scheduled location publishing (pre-set your route)</li>
-        <li>✅ Unlock exclusive promotional features (menu drops, featured placement)</li>
-      </ul>
+    <button className="subscribe-btn disabled" disabled>Included</button>
+  </div>
+  <div className="pricing-plan">
+    <h2>ALL ACCESS</h2>
+    <p className="price">$19.99 / month</p>
+    <div>
+      <div>✅ Real-time menu display on map icon</div>
+      <div>✅ Access to citywide heat maps showing demand zones</div>
+      <div>✅ 30-day engagement analytics (pings, views, locations)</div>
+      <div>✅ Radius-based trend alerts (e.g. “interest within 10km”)</div>
+      <div>✅ Priority placement on trending truck lists</div>
+      <div>✅ Scheduled location publishing (pre-set your route)</div>
+      <div>✅ Unlock exclusive promotional features (menu drops, featured placement)</div>
+      <div>✅ Appear on the Grubana discovery map</div>
+      <div>✅ Get pinged by nearby customers</div>
+      <div>✅ Access your truck dashboard</div>
+      <div>✅ Manual location updates</div>
+    </div>
       <button
         className="subscribe-btn"
         onClick={handleSubscribe}
