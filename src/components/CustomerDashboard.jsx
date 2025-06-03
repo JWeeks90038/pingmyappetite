@@ -26,6 +26,7 @@ import FavoriteButton from './FavoriteButton';
 import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
 
+<div id="top"></div>
 
 const CustomerDashboard = () => {
   const [user, setUser] = useState(null);
@@ -933,7 +934,7 @@ return (
     )}
 
     <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

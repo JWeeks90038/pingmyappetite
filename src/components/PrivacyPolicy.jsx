@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import '../assets/styles.css';
 
+<div id="top"></div>
+
 const PrivacyPolicy = () => {
   return (
     <div>
@@ -150,7 +152,7 @@ const PrivacyPolicy = () => {
 </section>
 
 <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

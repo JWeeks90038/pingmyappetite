@@ -6,6 +6,8 @@ import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
 import '../assets/styles.css';
 
+<div id="top"></div>
+
 const SignUp = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -303,7 +305,7 @@ if (formData.plan === 'all-access') {
 </form>
 
 <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

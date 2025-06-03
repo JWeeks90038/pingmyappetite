@@ -5,6 +5,8 @@ import '../assets/styles.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
+<div id="top"></div>
+
 const Pricing = () => {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
@@ -95,7 +97,7 @@ const Pricing = () => {
       </section>
 
       <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

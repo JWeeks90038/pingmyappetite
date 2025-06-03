@@ -5,6 +5,8 @@ import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, rea
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
 
+<div id="top"></div>
+
 const OwnerSettings = ({
   plan,
   cardInfo,
@@ -304,7 +306,7 @@ const OwnerSettings = ({
       </section>
 
       <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

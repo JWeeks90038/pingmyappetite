@@ -1,5 +1,7 @@
 import React from 'react';
 
+<div id="top"></div>
+
 const RefundPolicy = () => (
   <div className="legal-container">
     <h1>Refund Policy</h1>
@@ -47,7 +49,7 @@ const RefundPolicy = () => (
     </section>
 
     <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

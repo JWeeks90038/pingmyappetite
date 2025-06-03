@@ -34,6 +34,8 @@ import { useAuth } from "./AuthContext";
 import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
 
+<div id="top"></div>
+
 const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole } = useAuth(); // Get user info (plan and role)
   useLiveLocationTracking(userPlan);
@@ -576,7 +578,7 @@ useEffect(() => {
 </a>
 
 <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

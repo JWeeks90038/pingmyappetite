@@ -1,6 +1,8 @@
 import React from 'react';
 import '../assets/FAQ.css'; // Optional: Add custom styling here
 
+<div id="top"></div>
+
 const FAQ = () => {
   const faqData = [
     {
@@ -146,7 +148,7 @@ const FAQ = () => {
       ))}
 
       <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

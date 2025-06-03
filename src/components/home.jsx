@@ -6,7 +6,7 @@ import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the ma
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
-
+<div id="top"></div>
 
 const Home = () => {
   const [email, setEmail] = useState("");
@@ -157,7 +157,7 @@ const Home = () => {
           </div>
 
           <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });

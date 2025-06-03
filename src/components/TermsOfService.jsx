@@ -2,6 +2,8 @@ import React from 'react';
 import Footer from '../components/footer';
 import '../assets/styles.css';
 
+<div id="top"></div>
+
 const TermsOfService = () => {
   return (
     <div className="legal-container">
@@ -135,7 +137,7 @@ const TermsOfService = () => {
       </section>
 
       <a
-  href="#top"
+  href="#"
   onClick={e => {
     e.preventDefault();
     window.scrollTo({ top: 0, behavior: "smooth" });
