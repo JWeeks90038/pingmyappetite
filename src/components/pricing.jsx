@@ -34,13 +34,13 @@ const Pricing = () => {
       <div>✅ Get pinged by nearby customers</div>
       <div>✅ Access your truck dashboard</div>
       <div>✅ Manual location updates</div>
-      <div style={{ color: 'red' }}>❌ Real-time menu display on map icon</div>
-      <div style={{ color: 'red' }}>❌ Access to citywide heat maps showing demand zones</div>
-      <div style={{ color: 'red' }}>❌ 30-day engagement analytics (pings, views, locations)</div>
-      <div style={{ color: 'red' }}>❌ Radius-based trend alerts (e.g. “interest within 10km”)</div>
-      <div style={{ color: 'red' }}>❌ Priority placement on trending truck lists</div>
-      <div style={{ color: 'red' }}>❌ Scheduled location publishing (pre-set your route)</div>
-      <div style={{ color: 'red' }}>❌ Unlock exclusive promotional features (menu drops, featured placement)</div>
+      <div>❌ Real-time menu display on map icon</div>
+      <div>❌ Access to citywide heat maps showing demand zones</div>
+      <div>❌ 30-day engagement analytics (pings, views, locations)</div>
+      <div>❌ Radius-based trend alerts (e.g. “interest within 10km”)</div>
+      <div>❌ Priority placement on trending truck lists</div>
+      <div>❌ Scheduled location publishing (pre-set your route)</div>
+      <div>❌ Unlock exclusive promotional features (menu drops, featured placement)</div>
     </div>
     <button className="subscribe-btn disabled" disabled>Included</button>
   </div>
