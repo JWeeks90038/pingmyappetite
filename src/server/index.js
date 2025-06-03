@@ -43,7 +43,7 @@ app.post('/create-subscription', async (req, res) => {
       const userDoc = await admin.firestore().collection('users').doc(uid).get();
       if (userDoc.exists && userDoc.data().stripeCustomerId) {
         customerId = userDoc.data().stripeCustomerId;
-        //console.log('Reusing existing Stripe customer:', customerId, 'for uid:', uid);
+        console.log('Reusing existing Stripe customer:', customerId, 'for uid:', uid);
       }
     }
 
