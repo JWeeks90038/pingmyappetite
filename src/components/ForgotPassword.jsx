@@ -14,7 +14,7 @@ const ForgotPassword = () => {
 
     try {
       await sendPasswordResetEmail(auth, email, {
-        url: 'http://localhost:5173/password-reset-success', // URL to redirect to after password reset
+        url: 'https://www.grubana.com/password-reset-success',
         handleCodeInApp: false,
       });
       setMessage("Password reset email sent! Check your inbox.");

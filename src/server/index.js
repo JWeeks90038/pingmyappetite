@@ -175,7 +175,7 @@ app.post('/create-customer-portal-session', async (req, res) => {
     // Create a portal session
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: 'http://localhost:5173/settings', // Change to your settings page in production
+      return_url: 'https://www.grubana.com/settings', // Change to your settings page in production
     });
 
     res.json({ url: session.url });
