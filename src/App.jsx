@@ -13,13 +13,11 @@ import Dashboard from './components/dashboard';
 import CustomerDashboard from './components/CustomerDashboard';
 import Home from './components/home';
 import ForgotPassword from './components/ForgotPassword';
-import About from './components/about';
 import Pricing from './components/pricing';
 import Checkout from './components/checkout';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import RefundPolicy from './components/RefundPolicy';
-import Contact from './components/contact';
 import Settings from './components/settings';
 import Signup from './components/signup';
 import SignupCustomer from './components/SignupCustomer';
@@ -35,6 +33,8 @@ import PaymentForm from "./components/PaymentForm";
 import useSubscriptionStatus from "./hooks/useSubscriptionStatus";
 import { auth } from "./firebase";
 import ScrollToTop from "./components/ScrollToTop";
+import Contact from "./components/contact";
+import About from "./components/about";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];

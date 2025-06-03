@@ -1,21 +1,33 @@
 import React from 'react';
-import { Link } from 'react-router-dom';// Adjust the path based on your structure
-import '../assets/styles.css'; // Adjust the path based on your structure
+import { Link } from 'react-router-dom';
+import '../assets/styles.css';
 
 const About = () => {
   return (
     <div>
-      {/* Navigation */}
-      <nav>
-        <ul>
-        <Link to="/index">Home</Link>
-        <Link to="/map">Home</Link>
-        <Link to="/ping-requests">Home</Link>
-        <Link to="/pricing">Home</Link>
-        <Link to="/about">Home</Link>
-        <Link to="/contact">Home</Link>
-        </ul>
-      </nav>
+      {/* Mission Statement Section */}
+      <section className="about-mission">
+        <h1>About Us</h1>
+        <h2>Our Mission</h2>
+        <p>
+          At <strong>Grubana</strong>, our mission is simple: to bridge the gap between mobile food vendors and the communities they serve. Born out of a genuine need for better connection, visibility, and support within the mobile food industry, Grubana was created to fill the space that traditional platforms often overlook.
+        </p>
+        <p>
+          We started Grubana after realizing just how disconnected the experience was for food truck owners, trailer operators, and their customers. Mobile kitchens are on the rise, but too many vendors struggle to be discovered, and too many hungry customers miss out on amazing local food — simply because there wasn’t a modern, reliable system in place to connect the two. We saw the gap, and we decided to close it.
+        </p>
+        <p>
+          Grubana is built to complete the circle — to support food truck, trailer, and cart owners in growing their businesses, while helping customers easily find and enjoy unique food experiences near them. From real-time drop alerts and live maps to vendor profiles and interactive features, our platform is designed to be as dynamic and mobile as the vendors it supports.
+        </p>
+        <p>
+          While there are other food truck websites and apps out there, most tend to focus heavily on private events, catering, or scheduled bookings. Grubana takes a different approach. Our focus is on the everyday customer — the person walking down the street, exploring their neighborhood, or searching for a great local bite. We aim to make mobile food discoverable in real time, helping people connect with the food trucks and trailers operating in their community right now. It’s about spontaneity, convenience, and community — not just events.
+        </p>
+        <p>
+          We’re not just here to build a platform — we’re here to build a community. That means listening closely to the feedback of both vendors and customers, embracing constructive criticism, and continuously improving the system to better serve everyone involved. Whether you’re cooking behind the wheel or searching for your next favorite meal on the go, Grubana is here to make that experience smoother, smarter, and more satisfying.
+        </p>
+        <p>
+          <strong>Grubana is proudly veteran-owned and operated</strong>, built with dedication, discipline, and a deep respect for service — values we bring into everything we do.
+        </p>
+      </section>
 
       {/* About Section */}
       <section className="about">
