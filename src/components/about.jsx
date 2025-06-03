@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import '../assets/styles.css';
+import founderImg from '../assets/jonas.jpg';
 
 const About = () => {
   return (
@@ -29,66 +31,84 @@ const About = () => {
         </p>
       </section>
 
-      {/* About Section */}
-      <section className="about">
-        <h1>Ping My Appetite</h1>
+      <section className="about-team">
+  <h2>Meet the Founder</h2>
+  <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+    <img
+      src={founderImg}
+      alt="Jonas Weeks, Founder of Grubana"
+      style={{
+        width: "120px",
+        height: "120px",
+        borderRadius: "50%",
+        objectFit: "cover",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+      }}
+    />
+    <p style={{ flex: 1, minWidth: "200px" }}>
+      Grubana was created & developed by Jonas Weeks, a passionate foodie and veteran who saw the need for a better way to connect mobile kitchens with hungry communities. With years of experience in both the food industry and technology, Jonas is dedicated to helping food truck owners thrive and food lovers discover new favorites.
+    </p>
+  </div>
+</section>
+
+      <section className="about-values">
+        <h2>Our Core Values</h2>
+        <ul>
+          <li>🍽️ Community First</li>
+          <li>🚚 Empowering Small Businesses</li>
+          <li>💡 Innovation & Simplicity</li>
+          <li>🤝 Integrity & Service</li>
+          <li>🌎 Diversity & Inclusion</li>
+        </ul>
+      </section>
+
+      <section className="about-cta">
+        <h2>Join the Grubana Community!</h2>
         <p>
-          Connecting food lovers with their favorite food trucks has never been easier! Our platform revolutionizes the way customers and food truck owners interact, making it effortless to discover, request, and follow mobile food vendors in real-time.
+          Whether you’re a food truck owner or a foodie fan, we invite you to join us on this journey. <Link to="/signup">Sign up today</Link> or <Link to="/contact">contact us</Link> to learn more!
         </p>
+      </section>
 
-        <div className="about-content">
-          <div className="about-box">
-            <h2>For Customers</h2>
-            <p>Are you tired of searching for your favorite food truck only to find out it's already moved? With our platform, you can:</p>
-            <ul>
-              <li>📍 <strong>Locate food trucks in real-time</strong> using our interactive map.</li>
-              <li>🍔 <strong>Request trucks to come to your area</strong> with a simple "ping."</li>
-              <li>🌟 <strong>Vote for the best food trucks</strong> in different categories.</li>
-              <li>🔔 <strong>Get notifications</strong> when your favorite trucks are nearby.</li>
-            </ul>
-          </div>
-
-          <div className="about-box">
-            <h2>For Food Truck Owners</h2>
-            <p>We empower food truck businesses to grow by providing the tools they need to succeed:</p>
-            <ul>
-              <li>🚀 <strong>Boost revenue</strong> by responding to real-time customer demand.</li>
-              <li>📊 <strong>Use heat maps</strong> to identify high-traffic areas.</li>
-              <li>📢 <strong>Gain exposure</strong> through featured listings and customer votes.</li>
-              <li>💬 <strong>Engage with customers</strong> via reviews and notifications.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="how-it-works">
-          <h2>How It Works</h2>
-          <p>We’ve made it easy for both food lovers and business owners to use our platform. Here’s a simple breakdown:</p>
-          <div className="steps">
-            <div className="step">
-              <h3>1. Discover</h3>
-              <p>Customers can browse an interactive map to find food trucks near them or see where their favorite ones are heading next.</p>
-            </div>
-            <div className="step">
-              <h3>2. Request</h3>
-              <p>Customers can "ping" food trucks to request them in specific areas, allowing truck owners to see real-time demand.</p>
-            </div>
-            <div className="step">
-              <h3>3. Connect</h3>
-              <p>Food truck owners can communicate with customers, update their locations, and maximize their sales with analytics and heat maps.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="success-stories">
-          <h2>Success Stories</h2>
-          <p>See how food trucks have transformed their businesses with our platform.</p>
-          <div className="testimonial">
-            <p>"Since joining, I've doubled my daily sales! Knowing where customers want us to be has changed the game."</p>
-            <h4>- Carlos, Owner of Taco Paradise 🌮</h4>
-          </div>
-          <div className="testimonial">
-            <p>"The heat maps and analytics help us plan our schedule better, leading to sold-out days more often!"</p>
-            <h4>- Amy, Owner of Sweet Treats 🍦</h4>
+      <section className="about-social">
+        <h2>Follow Us</h2>
+        <div className="social-media">
+          <h3 style={{ textAlign: "center" }}>Follow Grubana</h3>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "20px",
+              fontSize: "28px",
+              marginTop: "10px",
+            }}
+          >
+            <a
+              href="https://www.instagram.com/grubanaapp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#E1306C" }}
+              className="social-icon"
+            >
+              <FaInstagram />
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61576765928284"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#1877F2" }}
+              className="social-icon"
+            >
+              <FaFacebook />
+            </a>
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#010101" }}
+              className="social-icon"
+            >
+              <FaTiktok />
+            </a>
           </div>
         </div>
       </section>
