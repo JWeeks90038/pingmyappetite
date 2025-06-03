@@ -11,7 +11,6 @@ const About = () => {
     <div>
       {/* Mission Statement Section */}
       <section className="about-mission">
-        <h1>About Us</h1>
         <h2>Our Mission</h2>
         <p>
           At <strong>Grubana</strong>, our mission is simple: to bridge the gap between mobile food vendors and the communities they serve. Born out of a genuine need for better connection, visibility, and support within the mobile food industry, Grubana was created to fill the space that traditional platforms often overlook.
@@ -56,7 +55,7 @@ const About = () => {
       }}
     />
     <p style={{ flex: 1, minWidth: "200px" }}>
-      Grubana was created & developed by Jonas Weeks, a passionate foodie and veteran who saw the need for a better way to connect mobile kitchens with hungry communities. With years of experience in both the food industry and technology, Jonas is dedicated to helping food truck owners thrive and food lovers discover new favorites.
+      Grubana was created & developed by Jonas Weeks, a passionate foodie and veteran who saw the need for a better way to connect mobile kitchens with hungry communities. With experience in the food industry, logisitcs & technology, Jonas is dedicated to helping mobile venders thrive and food lovers discover new favorites.
     </p>
   </div>
 </section>
@@ -64,11 +63,10 @@ const About = () => {
       <section className="about-values">
         <h2>Our Core Values</h2>
         <div>
-          <div>🍽️ Community First</div>
-          <div>🚚 Empowering Small Businesses</div>
-          <div>💡 Innovation & Simplicity</div>
+          <div>✅ Community First</div>
+          <div>🔷 Innovation & Simplicity</div>
           <div>🤝 Integrity & Service</div>
-          <div>🌎 Diversity & Inclusion</div>
+          <div>⭐ Empowering Small Businesses</div>
         </div>
       </section>
 

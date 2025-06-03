@@ -999,7 +999,7 @@ p a:hover {
 /* How It Works */
 .how-it-works {
     padding: 50px 20px;
-    background: #2c6f57;
+    background: #fff;
 }
 
 .steps {
@@ -1007,7 +1007,18 @@ p a:hover {
     justify-content: center;
     gap: 30px;
     flex-wrap: wrap;
-    background: #ace1af;
+}
+
+.step {
+    background: #007BFF;
+    color: #474747;
+    padding: 20px;
+    border-radius: 10px;
+    width: 30%;
+}
+
+.step h3 {
+    font-size: 1.5rem;
 }
 
 /* Success Stories */

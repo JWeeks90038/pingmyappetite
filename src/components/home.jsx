@@ -16,19 +16,15 @@ const Home = () => {
       <header className="hero">
         <h1>Welcome to Grubana!</h1>
   <h2>Hungry for Something Amazing?</h2>
-  <p>
-    Foodie Fans: Crave it, pin it, get it!   <span className="footer-divider">  |  </span>    Mobile Kitchens: Try free for 30 days!
-  </p>
   <div className="hero-buttons">
-    <Link to="/signup" className="btn">I’m a Foodie Fan — Let’s Go!</Link>
-    <Link to="/signup" className="btn">I'm a Food Truck or Food Trailer Owner</Link>
+    <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
+    <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
   </div>
 </header>
 
 <section className="heat-map">
   <h3>Where’s the Flavor Trending?</h3>
-  <p>Drop a pin and show mobile kitchens where the next big craving is. They're ready to roll where the demand is hot!</p>
-
+  <p>Drop a pin and show food trucks & food trailers where the next big craving is. They're ready to roll where the demand is hot!</p>
 
         <div className="heatmap-wrapper">
           {/* HeatMap component rendering */}
