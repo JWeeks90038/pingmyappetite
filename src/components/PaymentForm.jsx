@@ -15,7 +15,7 @@ const PaymentForm = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-    const handlePaymentSuccess = async () => {
+  const handlePaymentSuccess = async () => {
     const user = auth.currentUser;
     if (user) {
       await updateDoc(doc(db, "users", user.uid), {
@@ -29,7 +29,6 @@ const PaymentForm = () => {
     e.preventDefault();
     setLoading(true);
 
-    // 1. Create payment method
     const cardElement = elements.getElement(CardElement);
     const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
       type: "card",
@@ -42,47 +41,42 @@ const PaymentForm = () => {
       return;
     }
 
-    // 2. Call backend to create subscription
-  const res = await fetch('/create-subscription', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email,
-    paymentMethodId: paymentMethod.id,
-    priceId,
-    uid: auth.currentUser.uid
-  }),
-});
+    // Use your API base URL
+    const API_URL = import.meta.env.VITE_API_URL;
+    const res = await fetch(`${API_URL}/create-subscription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        paymentMethodId: paymentMethod.id,
+        priceId,
+        uid: auth.currentUser.uid
+      }),
+    });
 
-const data = await res.json();
+    const data = await res.json();
     if (data.error) {
       setMessage(data.error.message);
       setLoading(false);
       return;
     }
 
-    if (data.error) {
-      setMessage(data.error.message);
+    if (!data.clientSecret) {
+      setMessage("Subscription created!");
       setLoading(false);
+      await handlePaymentSuccess();
       return;
     }
 
-if (!data.clientSecret) {
-  setMessage("Subscription created!");
-  setLoading(false);
-  await handlePaymentSuccess();
-  return;
-}
-
-// Confirm payment if clientSecret exists
-const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
-if (confirmResult.error) {
-  setMessage(confirmResult.error.message);
-} else if (confirmResult.paymentIntent.status === "succeeded") {
-  setMessage("Subscription successful!");
-  await handlePaymentSuccess();
-}
-setLoading(false);
+    // Confirm payment if clientSecret exists
+    const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
+    if (confirmResult.error) {
+      setMessage(confirmResult.error.message);
+    } else if (confirmResult.paymentIntent.status === "succeeded") {
+      setMessage("Subscription successful!");
+      await handlePaymentSuccess();
+    }
+    setLoading(false);
   };
 
   return (
