@@ -7,6 +7,12 @@ const Footer = () => {
     <footer className="footer">
       {/* Privacy Policy link at the top of the footer */}
       <div className="footer-top">
+        <Link to="/faq" className="footer-link">
+          FAQ
+        </Link>
+
+        <span className="footer-divider">  |  </span>
+
         <Link to="/PrivacyPolicy" className="footer-link">
           Privacy Policy
         </Link>

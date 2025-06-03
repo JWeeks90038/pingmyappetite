@@ -132,7 +132,7 @@ const FAQ = () => {
 
   return (
     <div className="faq-page">
-      <h1>Grubana FAQ</h1>
+      <h1>Frequently Asked Questions</h1>
       {faqData.map((section, i) => (
         <div key={i} className="faq-section">
           <h2>{section.category}</h2>

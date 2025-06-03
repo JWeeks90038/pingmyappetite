@@ -36,7 +36,6 @@ const Navbar = () => {
       <ul className={`nav-links${menuOpen ? ' open' : ''}`}>
         <li><Link to="/home" onClick={() => setMenuOpen(false)}>Home</Link></li>
         <li><Link to="/pricing" onClick={() => setMenuOpen(false)}>Pricing</Link></li>
-        <li><Link to="/faq" onClick={() => setMenuOpen(false)}>FAQ</Link></li>
         {loading ? (
           <li>Loading...</li>
         ) : user ? (

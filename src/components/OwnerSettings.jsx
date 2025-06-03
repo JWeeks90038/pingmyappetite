@@ -5,7 +5,12 @@ import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, rea
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
 
-const OwnerSettings = () => {
+const OwnerSettings = ({
+  plan,
+  cardInfo,
+  handleManageSubscription,
+  stripeMsg
+}) => {
   const [userProfile, setUserProfile] = useState({
     truckName: "Loading...",
     ownerName: "Loading...",
@@ -250,11 +255,22 @@ const OwnerSettings = () => {
         <button onClick={handleSaveSocialLinks}>Save Social Media Links</button>
       </section>
 
-      <section style={{ marginTop: '40px' }}>
-        <h2>Subscription Information</h2>
-        <p>Status: <strong>{userProfile.subscriptionStatus}</strong></p>
-        <p>Payment Method: <strong>{userProfile.paymentMethod}</strong></p>
-        <button onClick={manageSubscription}>Manage Subscription</button>
+       <section style={{ marginTop: '40px' }}>
+        <h2>Subscription Management</h2>
+        <p>
+          <strong>Current Plan:</strong> {plan === 'all-access' ? 'All-Access (Paid)' : 'Basic (Free)'}
+        </p>
+        {cardInfo && (
+          <p>
+            <strong>Card on file:</strong> {cardInfo.brand?.toUpperCase()} ending in {cardInfo.last4}
+          </p>
+        )}
+        <button onClick={handleManageSubscription}>
+          Manage Subscription
+        </button>
+        {stripeMsg && (
+          <p style={{ color: "red", marginTop: "10px" }}>{stripeMsg}</p>
+        )}
       </section>
 
       <section style={{ marginTop: '40px' }}>

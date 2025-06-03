@@ -87,23 +87,7 @@ const res = await fetch(`${API_URL}/create-customer-portal-session`, {
     return (
       <>
         <OwnerSettings />
-        <div style={{ marginTop: 32 }}>
-          <h3>Subscription Management</h3>
-          <p>
-            <strong>Current Plan:</strong> {plan === 'all-access' ? 'All-Access (Paid)' : 'Basic (Free)'}
-          </p>
-          {cardInfo && (
-            <p>
-              <strong>Card on file:</strong> {cardInfo.brand?.toUpperCase()} ending in {cardInfo.last4}
-            </p>
-          )}
-          <button onClick={handleManageSubscription}>
-            Manage Subscription
-          </button>
-          {stripeMsg && (
-  <p style={{ color: "red", marginTop: "10px" }}>{stripeMsg}</p>
-)}
-        </div>
+    
       </>
     );
   } else if (role === 'customer') {
