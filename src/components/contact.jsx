@@ -20,17 +20,31 @@ const Contact = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Simple validation
-    if (!formData.name || !formData.email || !formData.message) {
-      setError('Please fill out all fields.');
-      return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!formData.name || !formData.email || !formData.message) {
+    setError('Please fill out all fields.');
+    return;
+  }
+  setError('');
+  setSubmitted(false);
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    });
+    if (response.ok) {
+      setSubmitted(true);
+      setFormData({ name: '', email: '', message: '' });
+    } else {
+      setError('Failed to send message. Please try again later.');
     }
-    // Simulate sending message
-    setSubmitted(true);
-    setFormData({ name: '', email: '', message: '' });
-  };
+  } catch (err) {
+    setError('Failed to send message. Please try again later.');
+  }
+};
 
   return (
     <div className="contact-page">

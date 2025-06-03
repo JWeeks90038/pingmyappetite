@@ -287,18 +287,22 @@ if (formData.plan === 'all-access') {
     placeholder="Confirm your password"
   />
 
-  <label htmlFor="plan">Choose Your Plan:</label>
-<select
-  id="plan"
-  name="plan"
-  value={formData.plan}
-  onChange={handleChange}
-  required
->
-  <option value="">Select Plan</option>
-  <option value="basic">Basic (Free)</option>
-  <option value="all-access">All-Access (Paid)</option>
-</select>
+{formData.role === 'owner' && (
+  <>
+    <label htmlFor="plan">Choose Your Plan:</label>
+    <select
+      id="plan"
+      name="plan"
+      value={formData.plan}
+      onChange={handleChange}
+      required
+    >
+      <option value="">Select Plan</option>
+      <option value="basic">Basic (Free)</option>
+      <option value="all-access">All-Access (Paid)</option>
+    </select>
+  </>
+)}
 
   <button type="submit" className="btn">Sign Up</button>
   <p>Already have an account? <Link to="/login">Login</Link></p>

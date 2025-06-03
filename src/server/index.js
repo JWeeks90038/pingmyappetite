@@ -255,5 +255,25 @@ app.post('/create-customer-portal-session', async (req, res) => {
   }
 });
 
+app.post('/api/contact', async (req, res) => {
+  const { name, email, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  try {
+    await sgMail.send({
+      to: 'support@grubana.com', // Your support email
+      from: 'no-reply@grubana.com', // Must be a verified sender in SendGrid
+      subject: `Contact Form Submission from ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+      html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p>${message}</p>`,
+    });
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("Contact form email error:", err);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Stripe server running on port ${PORT}`));
