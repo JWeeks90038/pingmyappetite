@@ -876,23 +876,46 @@ p a:hover {
 /* Pricing Plans */
 .pricing-plans {
     display: flex;
-    justify-content: center; /* Centers the plan horizontally */
-    align-items: center; /* Centers the plan vertically */
-    flex-wrap: wrap; /* Ensures responsiveness */
-    margin: 0 auto; /* Centers the container */
-    width: 100%; /* Full width */
-    max-width: 600px; /* Optional: Constrain the width */
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1000px; /* Allow more space for plans side by side */
+    box-sizing: border-box;
 }
 
 .plan {
     background: white;
-    padding: 30px; /* Add more padding for better spacing */
+    padding: 30px;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%; /* Take full width of the parent container */
-    max-width: 500px; /* Optional: Constrain the width */
+    width: 100%;
+    max-width: 350px;
+    min-width: 260px;
     text-align: center;
-    margin: 0 auto; /* Center the plan */
+    margin: 1rem 0;
+    box-sizing: border-box;
+    flex: 1 1 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Responsive: Stack plans vertically on small screens */
+@media (max-width: 800px) {
+    .pricing-plans {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        max-width: 98vw;
+    }
+    .plan {
+        width: 90vw;
+        max-width: 400px;
+        min-width: unset;
+    }
 }
 
 .plan h2 {

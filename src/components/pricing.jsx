@@ -69,7 +69,11 @@ const Pricing = () => {
       <section className="payment-section">
         <h2>Secure Payments with Stripe</h2>
         <p>We use Stripe to process payments securely and efficiently.</p>
-        <img src="square-logo.png" alt="Square Payments" />
+        <img
+  src="https://stripe.com/img/v3/home/twitter.png"
+  alt="Stripe Payments"
+  style={{ height: "40px", marginTop: "10px" }}
+/>
       </section>
 
       {/* Testimonials */}

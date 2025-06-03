@@ -30,6 +30,56 @@ app.use(cors({
   credentials: true,
 }));
 
+// Stripe webhook endpoint
+app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET // Set this in your .env
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed.', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  if (event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object;
+    const subscriptionId = subscription.id;
+
+    try {
+      // Find the user by subscriptionId
+      const usersRef = admin.firestore().collection('users');
+      const snapshot = await usersRef.where('subscriptionId', '==', subscriptionId).get();
+
+      if (!snapshot.empty) {
+        // Update all matching users (should be only one)
+        const updatePromises = [];
+        snapshot.forEach((doc) => {
+          updatePromises.push(
+            doc.ref.update({
+              subscriptionId: admin.firestore.FieldValue.delete(),
+              plan: 'basic', // or your default plan
+            })
+          );
+        });
+        await Promise.all(updatePromises);
+        //console.log(`Removed subscriptionId and downgraded plan for user(s) with subscriptionId ${subscriptionId}`);
+      } else {
+        //console.log(`No user found with subscriptionId ${subscriptionId}`);
+      }
+    } catch (err) {
+      //console.error('Error updating user after subscription cancellation:', err);
+    }
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.json());
 
 // Create a subscription endpoint
@@ -160,56 +210,6 @@ app.post('/cancel-subscription', async (req, res) => {
     console.error('Error canceling subscription:', err.message);
     res.status(400).json({ error: { message: err.message } });
   }
-});
-
-// Stripe webhook endpoint
-app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET // Set this in your .env
-    );
-  } catch (err) {
-    console.error('Webhook signature verification failed.', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  // Handle the event
-  if (event.type === 'customer.subscription.deleted') {
-    const subscription = event.data.object;
-    const subscriptionId = subscription.id;
-
-    try {
-      // Find the user by subscriptionId
-      const usersRef = admin.firestore().collection('users');
-      const snapshot = await usersRef.where('subscriptionId', '==', subscriptionId).get();
-
-      if (!snapshot.empty) {
-        // Update all matching users (should be only one)
-        const updatePromises = [];
-        snapshot.forEach((doc) => {
-          updatePromises.push(
-            doc.ref.update({
-              subscriptionId: admin.firestore.FieldValue.delete(),
-              plan: 'basic', // or your default plan
-            })
-          );
-        });
-        await Promise.all(updatePromises);
-        //console.log(`Removed subscriptionId and downgraded plan for user(s) with subscriptionId ${subscriptionId}`);
-      } else {
-        //console.log(`No user found with subscriptionId ${subscriptionId}`);
-      }
-    } catch (err) {
-      //console.error('Error updating user after subscription cancellation:', err);
-    }
-  }
-
-  res.json({ received: true });
 });
 
 app.post('/api/send-beta-code', async (req, res) => {
