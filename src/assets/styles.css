@@ -149,11 +149,23 @@ nav ul li a:hover {
 }
 
 .testimonial {
-    background: rgba(255, 255, 255, 0.2);
+    background: #474747;
+    padding: 20px;
+    margin: 20px auto;
+    width: 90%;
+    max-width: 700px;
+    border-radius: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+@media (max-width: 600px) {
+  .testimonial {
+    width: 100%;
     padding: 15px;
-    margin: 15px auto;
-    width: 70%;
-    border-radius: 5px;
+    font-size: 1rem;
+  }
 }
 
 /* Blog & Social Media */
@@ -968,31 +980,6 @@ p a:hover {
     margin-top: 10px;
 }
 
-/* Testimonials */
-.testimonials {
-    text-align: center;
-    padding: 50px 20px;
-    background: #ace1af
-}
-
-.testimonial {
-    background: #474747;
-    padding: 20px;
-    margin: 20px auto;
-    width: 50%;
-    border-radius: 10px;
-}
-
-.testimonial p {
-    font-size: 1.2rem;
-}
-
-.testimonial h4 {
-    font-size: 1rem;
-    font-weight: bold;
-    margin-top: 10px;
-}
-
 /* About Section */
 .about {
     text-align: center;
@@ -1070,17 +1057,6 @@ p a:hover {
     text-align: center;
     padding: 50px 20px;
     background: #f8f9fa;
-}
-
-.testimonial {
-    background: #d3d3d3;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.2rem;
-    color: #333;
-    padding: 20px;
-    margin: 20px auto;
-    width: 50%;
-    border-radius: 10px;
 }
 
 /* Dashboard Section */

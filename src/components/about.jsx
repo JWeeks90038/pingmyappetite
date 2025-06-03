@@ -4,6 +4,8 @@ import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import '../assets/styles.css';
 import founderImg from '../assets/jonas.jpg';
 
+<div id="top"></div>
+
 const About = () => {
   return (
     <div>
@@ -33,7 +35,15 @@ const About = () => {
 
       <section className="about-team">
   <h2>Meet the Founder</h2>
-  <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap" }}>
+  <div style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: "18px",
+      textAlign: "center",
+      marginBottom: "24px"
+    }}
+  >
     <img
       src={founderImg}
       alt="Jonas Weeks, Founder of Grubana"
@@ -53,13 +63,13 @@ const About = () => {
 
       <section className="about-values">
         <h2>Our Core Values</h2>
-        <ul>
-          <li>🍽️ Community First</li>
-          <li>🚚 Empowering Small Businesses</li>
-          <li>💡 Innovation & Simplicity</li>
-          <li>🤝 Integrity & Service</li>
-          <li>🌎 Diversity & Inclusion</li>
-        </ul>
+        <div>
+          <div>🍽️ Community First</div>
+          <div>🚚 Empowering Small Businesses</div>
+          <div>💡 Innovation & Simplicity</div>
+          <div>🤝 Integrity & Service</div>
+          <div>🌎 Diversity & Inclusion</div>
+        </div>
       </section>
 
       <section className="about-cta">
@@ -112,6 +122,25 @@ const About = () => {
           </div>
         </div>
       </section>
+
+<a
+  href="#"
+  onClick={e => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }}
+  style={{
+    display: "inline-block",
+    margin: "30px auto 0 auto",
+    color: "#2c6f57",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontWeight: "bold"
+  }}
+>
+  Back to Top ↑
+</a>
+
     </div>
   );
 };
