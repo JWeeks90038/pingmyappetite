@@ -4,10 +4,12 @@ import { useAuth } from './AuthContext';
 import LogoutLink from './logout';
 import Logo from './logo.jsx'; 
 import '../assets/navbar.css';
+import useSubscriptionStatus from "../hooks/useSubscriptionStatus";
 
 const Navbar = () => {
   const { user, userRole, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { status: subscriptionStatus, loading: subLoading } = useSubscriptionStatus();
 
   return (
     <nav className="navbar">
@@ -40,10 +42,12 @@ const Navbar = () => {
             {userRole === 'customer' && (
               <li><Link to="/customer-dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
             )}
-            {userRole === 'owner' && (
+            {userRole === 'owner' && subscriptionStatus === "active" && (
               <li><Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
             )}
-            <li><Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link></li>
+            {userRole === 'owner' && subscriptionStatus === "active" && (
+              <li><Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link></li>
+            )}
             <li><LogoutLink /></li>
           </>
         ) : (

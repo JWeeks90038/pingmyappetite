@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useNavigate } from 'react-router-dom';
+import { auth, db } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 const priceId = "price_1RShnKRq7ehrln63Ej7fYWz6"; // <-- Replace with real Price ID
 
@@ -12,6 +14,16 @@ const PaymentForm = () => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+    const handlePaymentSuccess = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await updateDoc(doc(db, "users", user.uid), {
+        subscriptionStatus: "active"
+      });
+      navigate("/dashboard");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,24 +67,22 @@ const data = await res.json();
       return;
     }
 
-    if (!data.clientSecret) {
-      // No immediate payment required (e.g., subscription created)
-      setMessage("Subscription created!");
-      setLoading(false);
-      // Redirect after short delay
-      setTimeout(() => navigate('/dashboard'), 1500);
-      return;
-    }
+if (!data.clientSecret) {
+  setMessage("Subscription created!");
+  setLoading(false);
+  await handlePaymentSuccess();
+  return;
+}
 
-    // Confirm payment if clientSecret exists
-    const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
-    if (confirmResult.error) {
-      setMessage(confirmResult.error.message);
-    } else if (confirmResult.paymentIntent.status === "succeeded") {
-      setMessage("Subscription successful!");
-      setTimeout(() => navigate('/dashboard'), 1500);
-    }
-    setLoading(false);
+// Confirm payment if clientSecret exists
+const confirmResult = await stripe.confirmCardPayment(data.clientSecret);
+if (confirmResult.error) {
+  setMessage(confirmResult.error.message);
+} else if (confirmResult.paymentIntent.status === "succeeded") {
+  setMessage("Subscription successful!");
+  await handlePaymentSuccess();
+}
+setLoading(false);
   };
 
   return (

@@ -32,10 +32,22 @@ import { getAuth } from 'firebase/auth';
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import PaymentForm from "./components/PaymentForm";
+import useSubscriptionStatus from "./hooks/useSubscriptionStatus";
+import { auth } from "./firebase";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+function ProtectedDashboardRoute({ children }) {
+  const { status, loading } = useSubscriptionStatus();
+  const user = auth.currentUser;
+
+  if (loading) return <div>Loading...</div>;
+  if (!user || status !== "active") return <Navigate to="/checkout" />;
+
+  return children;
+}
 
 function App() {
   const { user, userRole, loading } = useAuth();
@@ -125,11 +137,17 @@ function App() {
           {/* Owner Pages */}
           <Route element={<OwnerLayout />}>
             <Route
-              path="/dashboard"
-              element={
-                userRole === 'owner' ? <Dashboard /> : <Navigate to="/login" />
-              }
-            />
+  path="/dashboard"
+  element={
+    userRole === 'owner' ? (
+      <ProtectedDashboardRoute>
+        <Dashboard />
+      </ProtectedDashboardRoute>
+    ) : (
+      <Navigate to="/login" />
+    )
+  }
+/>
             <Route
               path="/analytics"
               element={
