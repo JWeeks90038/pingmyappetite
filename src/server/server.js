@@ -213,6 +213,37 @@ app.get("/api/example", (req, res) => {
     res.json({ message: "This is an example API route." });
 });
 
+app.post('/create-customer-portal-session', async (req, res) => {
+  try {
+    const { uid } = req.body;
+    if (!uid) {
+      return res.status(400).json({ error: { message: 'No user ID provided.' } });
+    }
+
+    // Get the user's Stripe customer ID from Firestore
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: { message: 'User not found.' } });
+    }
+    const userData = userDoc.data();
+    const customerId = userData.stripeCustomerId;
+    if (!customerId) {
+      return res.status(400).json({ error: { message: 'No Stripe customer ID found for user.' } });
+    }
+
+    // Create a portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: 'https://www.grubana.com/settings', // Use your production URL
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Error creating customer portal session:', err.message);
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
