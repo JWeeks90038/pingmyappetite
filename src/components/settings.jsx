@@ -85,10 +85,12 @@ const res = await fetch(`${API_URL}/create-customer-portal-session`, {
   
   if (role === 'owner') {
     return (
-      <>
-        <OwnerSettings />
-    
-      </>
+         <OwnerSettings
+      plan={plan}
+      cardInfo={cardInfo}
+      handleManageSubscription={handleManageSubscription}
+      stripeMsg={stripeMsg}
+    />
     );
   } else if (role === 'customer') {
     return <CustomerSettings />;
