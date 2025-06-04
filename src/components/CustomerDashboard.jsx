@@ -60,6 +60,7 @@ const CustomerDashboard = () => {
   });
 
   const mapRef = useRef(null);
+  const qrRef = useRef(null);
   const mapInstance = useRef(null);
   const markerCluster = useRef(null);
   const pingMarkers = useRef([]);
@@ -869,12 +870,36 @@ return (
               </div>
             )}
 
-            / --- QR CODE SECTION START ---
-<h3 style={{ textAlign: 'center' }}>Scan to Visit Our Website</h3>
-<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-  <QRCode value="https://grubana.com" size={128} />
+            {/* --- QR CODE SECTION START --- */}
+<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '32px 0 16px 0' }}>
+  <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan to Visit Our Website</h3>
+  <div ref={qrRef} style={{ marginBottom: 8 }}>
+    <QRCode value="https://grubana.com" size={128} />
+  </div>
+  <button
+    onClick={() => {
+      const canvas = qrRef.current.querySelector("canvas");
+      if (!canvas) return;
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "grubana-qr.png";
+      link.click();
+    }}
+    style={{
+      padding: "6px 18px",
+      background: "#2c6f57",
+      color: "#fff",
+      border: "none",
+      borderRadius: "5px",
+      fontSize: "1rem",
+      cursor: "pointer"
+    }}
+  >
+    Download QR Code
+  </button>
 </div>
-// --- QR CODE SECTION END ---
+{/* --- QR CODE SECTION END --- */}
 
           {/* Social Media Links */}
           <div style={{ textAlign: 'center', marginTop: '10px' }}>

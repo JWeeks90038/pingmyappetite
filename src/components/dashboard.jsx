@@ -66,6 +66,7 @@ console.log("userRole:", userRole);
 console.log("userPlan:", userPlan);
 
   const truckMarkerRef = useRef(null);
+  const qrRef = useRef(null);
   const auth = getAuth();
   const navigate = useNavigate();
 
@@ -418,6 +419,17 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [user]);
 
+// Download QR code handler
+  const handleDownloadQR = () => {
+    const canvas = qrRef.current.querySelector("canvas");
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "grubana-qr.png";
+    link.click();
+  };
+
   return (
     <div className="dashboard">
       <br />
@@ -519,12 +531,28 @@ useEffect(() => {
   <Analytics userId={user?.uid} ownerData={ownerData} />
 )}
 
-/ --- QR CODE SECTION START ---
-<h3 style={{ textAlign: 'center' }}>Scan to Visit Our Website</h3>
-<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-  <QRCode value="https://grubana.com" size={128} />
-</div>
-// --- QR CODE SECTION END ---
+{/* --- QR CODE SECTION START --- */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '40px 0 20px 0' }}>
+        <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan to Visit Our Website</h3>
+        <div ref={qrRef} style={{ marginBottom: 8 }}>
+          <QRCode value="https://grubana.com" size={128} />
+        </div>
+        <button
+          onClick={handleDownloadQR}
+          style={{
+            padding: "6px 18px",
+            background: "#2c6f57",
+            color: "#fff",
+            border: "none",
+            borderRadius: "5px",
+            fontSize: "1rem",
+            cursor: "pointer"
+          }}
+        >
+          Download QR Code
+        </button>
+      </div>
+      {/* --- QR CODE SECTION END --- */}
 
 <h3 style={{ textAlign: 'center' }}>Follow Us</h3>
 
