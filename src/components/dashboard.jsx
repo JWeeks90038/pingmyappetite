@@ -60,6 +60,10 @@ const Dashboard = ({ isLoaded }) => {
     twitter: "",
   });
 
+  console.log("user:", user);
+console.log("userRole:", userRole);
+console.log("userPlan:", userPlan);
+
   const truckMarkerRef = useRef(null);
   const auth = getAuth();
   const navigate = useNavigate();
@@ -88,7 +92,7 @@ const Dashboard = ({ isLoaded }) => {
   // Only run if user and userRole are loaded
   if (user && userRole === "owner" && userPlan && userPlan !== "all-access" && userPlan !== "basic") {
     navigate("/checkout");
-    
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
