@@ -8,7 +8,7 @@
   /* Optional - Customize the background of the logo area */
 .logo-wrapper {
   background-color: #fff;
-  padding: 0 10px;         /* Remove top padding */
+  padding: 2 6px;         /* Remove top padding */
   border-radius: 15px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: auto;             /* Don't stretch full width */
@@ -19,6 +19,7 @@
   text-align: center;
   box-sizing: border-box;
   margin-bottom: 0;        /* Remove extra margin */
+  max-width: 40px;
 }
 
 .logo-header-stack {
