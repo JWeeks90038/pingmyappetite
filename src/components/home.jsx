@@ -5,6 +5,7 @@ import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is co
 import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the map
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
+import Logo from "./logo"; // Assuming Logo component is correctly implemented
 
 
 const Home = () => {
