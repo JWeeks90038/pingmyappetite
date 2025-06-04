@@ -51,7 +51,8 @@
 .logo-img {
   display: block;
   margin: 0 auto;
-  /* Add more styles as needed */
+  max-width: 60px; /* Adjust this value as needed */
+  height: auto;
 }
 
 @media (max-width: 480px) {

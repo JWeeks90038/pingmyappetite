@@ -5,7 +5,6 @@ import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is co
 import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the map
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
-import Logo from "./logo"; // Assuming Logo component is correctly implemented
 
 
 const Home = () => {
@@ -14,14 +13,9 @@ const Home = () => {
   return (
     <>
       <header className="hero">
-  <div id="top"></div>
-  <div className="logo-header-stack">
-    <Logo />
-    <div>
-      <h1>Welcome to Grubana!</h1>
-      <h2>Hungry for Something Amazing?</h2>
-    </div>
-  </div>
+        <div id="top"></div>
+        <h1>Welcome to Grubana!</h1>
+  <h2>Hungry for Something Amazing?</h2>
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
