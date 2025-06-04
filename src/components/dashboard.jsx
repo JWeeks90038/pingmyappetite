@@ -33,7 +33,7 @@ import { FaInstagram, FaFacebook, FaTiktok } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
-import { QRCode } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 
 
 const Dashboard = ({ isLoaded }) => {
@@ -535,7 +535,7 @@ useEffect(() => {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '40px 0 20px 0' }}>
         <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan to Visit Our Website</h3>
         <div ref={qrRef} style={{ marginBottom: 8 }}>
-          <QRCode value="https://grubana.com" size={128} />
+          <QRCodeCanvas value="https://grubana.com" size={128} />
         </div>
         <button
           onClick={handleDownloadQR}
