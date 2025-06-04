@@ -85,11 +85,10 @@ const Dashboard = ({ isLoaded }) => {
 
   // --- Place this useEffect after the above ---
   useEffect(() => {
-    if (
-      userRole === "owner" &&
-      userPlan === "all-access" &&
-      previousPlan === "basic"
-    ) {
+  // Only run if user and userRole are loaded
+  if (user && userRole === "owner" && userPlan && userPlan !== "all-access" && userPlan !== "basic") {
+    navigate("/checkout");
+    
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
