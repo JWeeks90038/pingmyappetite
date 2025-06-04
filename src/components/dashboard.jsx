@@ -518,88 +518,97 @@ useEffect(() => {
   <Analytics userId={user?.uid} ownerData={ownerData} />
 )}
 
-      <h3 style={{ textAlign: 'center' }}>Follow Us</h3>
+<h3 style={{ textAlign: 'center' }}>Follow Us</h3>
 
 <div
   style={{
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'column',
     alignItems: 'center',
     width: '100%',
-    gap: '20px',
-    fontSize: '28px',
     marginTop: '10px',
   }}
 >
-  {socialLinks.instagram && (
-    <a
-      href={socialLinks.instagram}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: '#E1306C' }}
-      className="social-icon"
-    >
-      <FaInstagram />
-    </a>
-  )}
-  {socialLinks.facebook && (
-    <a
-      href={socialLinks.facebook}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: '#1877F2' }}
-      className="social-icon"
-    >
-      <FaFacebook />
-    </a>
-  )}
-  {socialLinks.tiktok && (
-    <a
-      href={socialLinks.tiktok}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: '#010101' }}
-      className="social-icon"
-    >
-      <FaTiktok />
-    </a>
-  )}
-  <a
-  href="#"
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{ color: '#000000' }}
-  className="social-icon"
-  aria-label="X"
->
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="28"
-    viewBox="0 0 448 512"
-    fill="currentColor"
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: '20px',
+      fontSize: '28px',
+      marginBottom: '16px',
+    }}
   >
-    <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
-  </svg>
-</a>
+    {socialLinks.instagram && (
+      <a
+        href={socialLinks.instagram}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: '#E1306C' }}
+        className="social-icon"
+      >
+        <FaInstagram />
+      </a>
+    )}
+    {socialLinks.facebook && (
+      <a
+        href={socialLinks.facebook}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: '#1877F2' }}
+        className="social-icon"
+      >
+        <FaFacebook />
+      </a>
+    )}
+    {socialLinks.tiktok && (
+      <a
+        href={socialLinks.tiktok}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: '#010101' }}
+        className="social-icon"
+      >
+        <FaTiktok />
+      </a>
+    )}
+    <a
+      href="#"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#000000' }}
+      className="social-icon"
+      aria-label="X"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        height="28"
+        viewBox="0 0 448 512"
+        fill="currentColor"
+      >
+        <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
+      </svg>
+    </a>
+  </div>
 
-<a
-  href="#"
-  onClick={e => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }}
-  style={{
-    display: "inline-block",
-    margin: "30px auto 0 auto",
-    color: "#2c6f57",
-    textDecoration: "underline",
-    cursor: "pointer",
-    fontWeight: "bold",
-    fontSize: "16px"
-  }}
->
-  Back to Top ↑
-</a>
+  <a
+    href="#"
+    onClick={e => {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }}
+    style={{
+      display: "inline-block",
+      color: "#2c6f57",
+      textDecoration: "underline",
+      cursor: "pointer",
+      fontWeight: "bold",
+      fontSize: "16px",
+      margin: "0 auto"
+    }}
+  >
+    Back to Top ↑
+  </a>
 </div>
     </div>
   );
