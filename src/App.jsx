@@ -41,14 +41,13 @@ const LIBRARIES = ['places', 'visualization'];
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 function ProtectedDashboardRoute({ children }) {
-  const { status, loading } = useSubscriptionStatus();
-  const user = auth.currentUser;
+  const { user, userPlan, loading } = useAuth();
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
 
-  // Allow both "active" (paid) and "basic" (free) statuses
-  if (status !== "active" && status !== "basic") return <Navigate to="/checkout" />;
+  // Allow both "all-access" and "basic" plans
+  if (userPlan !== "all-access" && userPlan !== "basic") return <Navigate to="/checkout" />;
 
   return children;
 }
