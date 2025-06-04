@@ -43,6 +43,12 @@
   height: auto;
 }
 
+.logo-img {
+  display: block;
+  margin: 0 auto;
+  /* Add more styles as needed */
+}
+
 @media (max-width: 480px) {
   .logo-svg {
     max-width: 90vw;         /* Make sure it fits on small screens */
