@@ -872,7 +872,7 @@ return (
 
             {/* --- QR CODE SECTION START --- */}
 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '32px 0 16px 0' }}>
-  <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan to Visit Our Website</h3>
+  <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan or Share the QR Code!</h3>
   <div ref={qrRef} style={{ marginBottom: 8 }}>
     <QRCodeCanvas value="https://grubana.com" size={128} />
   </div>
@@ -896,7 +896,7 @@ return (
       cursor: "pointer"
     }}
   >
-    Download QR Code
+    Download QR Code to Share!
   </button>
 </div>
 {/* --- QR CODE SECTION END --- */}
