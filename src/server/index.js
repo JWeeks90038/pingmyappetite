@@ -46,21 +46,24 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
- if (
+if (
   event.type === 'customer.subscription.deleted' ||
   (event.type === 'customer.subscription.updated' &&
     event.data.object.cancel_at_period_end === true)
 ) {
   const subscription = event.data.object;
   const customerId = subscription.customer;
+  console.log('Webhook received for customer:', customerId);
 
   try {
     const usersRef = admin.firestore().collection('users');
     const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+    console.log('Matching users:', snapshot.size);
 
     if (!snapshot.empty) {
       const updatePromises = [];
       snapshot.forEach((doc) => {
+        console.log('Updating user:', doc.id);
         updatePromises.push(
           doc.ref.update({
             subscriptionId: admin.firestore.FieldValue.delete(),
@@ -70,6 +73,9 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
         );
       });
       await Promise.all(updatePromises);
+      console.log('User(s) updated to basic plan.');
+    } else {
+      console.log('No user found for customer:', customerId);
     }
   } catch (err) {
     console.error('Error updating user after subscription cancellation:', err);
