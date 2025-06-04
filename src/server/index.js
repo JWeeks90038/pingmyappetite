@@ -46,12 +46,15 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'customer.subscription.deleted') {
+ if (
+  event.type === 'customer.subscription.deleted' ||
+  (event.type === 'customer.subscription.updated' &&
+    event.data.object.cancel_at_period_end === true)
+) {
   const subscription = event.data.object;
   const customerId = subscription.customer;
 
   try {
-    // Find the user by Stripe customer ID
     const usersRef = admin.firestore().collection('users');
     const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
 
@@ -61,6 +64,7 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
         updatePromises.push(
           doc.ref.update({
             subscriptionId: admin.firestore.FieldValue.delete(),
+            subscriptionStatus: admin.firestore.FieldValue.delete(),
             plan: 'basic',
           })
         );
