@@ -33,7 +33,7 @@ import { FaInstagram, FaFacebook, FaTiktok } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 
 
 const Dashboard = ({ isLoaded }) => {

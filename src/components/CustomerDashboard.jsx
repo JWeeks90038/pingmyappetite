@@ -25,7 +25,7 @@ import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import FavoriteButton from './FavoriteButton';
 import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 
 
 const CustomerDashboard = () => {
