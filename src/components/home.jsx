@@ -6,7 +6,6 @@ import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the ma
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
-<div id="top"></div>
 
 const Home = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +13,7 @@ const Home = () => {
   return (
     <>
       <header className="hero">
+        <div id="top"></div>
         <h1>Welcome to Grubana!</h1>
   <h2>Hungry for Something Amazing?</h2>
   <div className="hero-buttons">

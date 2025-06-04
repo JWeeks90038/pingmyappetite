@@ -27,7 +27,6 @@ import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
 import QRCode from "qrcode.react";
 
-<div id="top"></div>
 
 const CustomerDashboard = () => {
   const [user, setUser] = useState(null);
@@ -644,6 +643,7 @@ const filtered = snapshot.docs.filter((doc) => {
 
 return (
   <div className="dashboard">
+    <div id="top"></div>
     <h2>Welcome{username ? `, ${username}` : ''}!</h2>
 
     <MediaUploader showCover={false} showProfile={true} showMenu={false} />

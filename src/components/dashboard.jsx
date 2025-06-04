@@ -35,7 +35,6 @@ import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
 import QRCode from "qrcode.react";
 
-<div id="top"></div>
 
 const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole } = useAuth(); // Get user info (plan and role)
@@ -432,6 +431,7 @@ useEffect(() => {
 
   return (
     <div className="dashboard">
+      <div id="top"></div>
       <br />
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
       {userEmail && <p>Email: {userEmail}</p>}

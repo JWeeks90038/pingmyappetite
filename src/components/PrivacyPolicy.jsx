@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import '../assets/styles.css';
 
-<div id="top"></div>
 
 const PrivacyPolicy = () => {
   return (

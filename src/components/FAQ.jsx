@@ -1,7 +1,6 @@
 import React from 'react';
 import '../assets/FAQ.css'; // Optional: Add custom styling here
 
-<div id="top"></div>
 
 const FAQ = () => {
   const faqData = [
@@ -134,6 +133,7 @@ const FAQ = () => {
 
   return (
     <div className="faq-page">
+      <div id="top"></div>
       <h1>Frequently Asked Questions</h1>
       {faqData.map((section, i) => (
         <div key={i} className="faq-section">

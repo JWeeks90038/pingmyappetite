@@ -6,7 +6,6 @@ import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
 import '../assets/styles.css';
 
-<div id="top"></div>
 
 const SignUp = () => {
   const navigate = useNavigate();

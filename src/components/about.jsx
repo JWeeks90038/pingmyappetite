@@ -4,11 +4,11 @@ import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import '../assets/styles.css';
 import founderImg from '../assets/jonas.jpg';
 
-<div id="top"></div>
 
 const About = () => {
   return (
     <div>
+      <div id="top"></div>
       {/* Mission Statement Section */}
       <section className="about-mission">
         <h2>Our Mission</h2>

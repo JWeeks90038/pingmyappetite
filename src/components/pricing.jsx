@@ -5,7 +5,6 @@ import '../assets/styles.css';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
-<div id="top"></div>
 
 const Pricing = () => {
   const navigate = useNavigate();

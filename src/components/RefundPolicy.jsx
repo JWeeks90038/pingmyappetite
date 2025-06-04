@@ -1,6 +1,5 @@
 import React from 'react';
 
-<div id="top"></div>
 
 const RefundPolicy = () => (
   <div className="legal-container">

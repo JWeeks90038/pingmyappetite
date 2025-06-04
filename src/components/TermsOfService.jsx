@@ -2,11 +2,11 @@ import React from 'react';
 import Footer from '../components/footer';
 import '../assets/styles.css';
 
-<div id="top"></div>
 
 const TermsOfService = () => {
   return (
     <div className="legal-container">
+      <div id="top"></div>
       <h1>Terms of Service</h1>
 
       <section className="section">

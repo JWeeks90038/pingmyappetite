@@ -5,7 +5,6 @@ import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, rea
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
 
-<div id="top"></div>
 
 const OwnerSettings = ({
   plan,
