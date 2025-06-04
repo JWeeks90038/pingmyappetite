@@ -46,36 +46,31 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === 'customer.subscription.deleted') {
-    const subscription = event.data.object;
-    const subscriptionId = subscription.id;
+  const subscription = event.data.object;
+  const customerId = subscription.customer;
 
-    try {
-      // Find the user by subscriptionId
-      const usersRef = admin.firestore().collection('users');
-      const snapshot = await usersRef.where('subscriptionId', '==', subscriptionId).get();
+  try {
+    // Find the user by Stripe customer ID
+    const usersRef = admin.firestore().collection('users');
+    const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
 
-      if (!snapshot.empty) {
-        // Update all matching users (should be only one)
-        const updatePromises = [];
-        snapshot.forEach((doc) => {
-          updatePromises.push(
-            doc.ref.update({
-              subscriptionId: admin.firestore.FieldValue.delete(),
-              plan: 'basic', // or your default plan
-            })
-          );
-        });
-        await Promise.all(updatePromises);
-        //console.log(`Removed subscriptionId and downgraded plan for user(s) with subscriptionId ${subscriptionId}`);
-      } else {
-        //console.log(`No user found with subscriptionId ${subscriptionId}`);
-      }
-    } catch (err) {
-      //console.error('Error updating user after subscription cancellation:', err);
+    if (!snapshot.empty) {
+      const updatePromises = [];
+      snapshot.forEach((doc) => {
+        updatePromises.push(
+          doc.ref.update({
+            subscriptionId: admin.firestore.FieldValue.delete(),
+            plan: 'basic',
+          })
+        );
+      });
+      await Promise.all(updatePromises);
     }
+  } catch (err) {
+    console.error('Error updating user after subscription cancellation:', err);
   }
+}
 
   res.json({ received: true });
 });
