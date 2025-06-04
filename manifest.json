@@ -1,0 +1,20 @@
+{
+  "short_name": "Grubana",
+  "name": "Grubana Food Truck Locator",
+  "icons": [
+    {
+      "src": "/grubana-logo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/favicon-logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2c6f57"
+}
