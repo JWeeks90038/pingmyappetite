@@ -25,6 +25,7 @@ import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import FavoriteButton from './FavoriteButton';
 import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
+import QRCode from "qrcode.react";
 
 <div id="top"></div>
 
@@ -867,6 +868,13 @@ return (
                 />
               </div>
             )}
+
+            / --- QR CODE SECTION START ---
+<h3 style={{ textAlign: 'center' }}>Scan to Visit Our Website</h3>
+<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+  <QRCode value="https://grubana.com" size={128} />
+</div>
+// --- QR CODE SECTION END ---
 
           {/* Social Media Links */}
           <div style={{ textAlign: 'center', marginTop: '10px' }}>

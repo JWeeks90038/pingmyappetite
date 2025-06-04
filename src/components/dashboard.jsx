@@ -33,6 +33,7 @@ import { FaInstagram, FaFacebook, FaTiktok } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
+import QRCode from "qrcode.react";
 
 <div id="top"></div>
 
@@ -517,6 +518,13 @@ useEffect(() => {
       {ownerData && (
   <Analytics userId={user?.uid} ownerData={ownerData} />
 )}
+
+/ --- QR CODE SECTION START ---
+<h3 style={{ textAlign: 'center' }}>Scan to Visit Our Website</h3>
+<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+  <QRCode value="https://grubana.com" size={128} />
+</div>
+// --- QR CODE SECTION END ---
 
 <h3 style={{ textAlign: 'center' }}>Follow Us</h3>
 
