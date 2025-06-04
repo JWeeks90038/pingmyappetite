@@ -509,7 +509,7 @@ useEffect(() => {
 
       <h2>Live Demand Map</h2>
       <p>
-        Customers can click on your truck icon to display your menu and claim your drops on their
+        Customers can click on your truck icon to display your menu and if you have All-Access, customers can claim your drops on their
         dashboard! <br></br>The below heat map shows where customers are requesting mobile vendors in real time:
       </p>
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
