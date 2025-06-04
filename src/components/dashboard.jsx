@@ -524,6 +524,8 @@ useEffect(() => {
   style={{
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
     gap: '20px',
     fontSize: '28px',
     marginTop: '10px',
@@ -592,7 +594,8 @@ useEffect(() => {
     color: "#2c6f57",
     textDecoration: "underline",
     cursor: "pointer",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    fontSize: "16px"
   }}
 >
   Back to Top ↑
