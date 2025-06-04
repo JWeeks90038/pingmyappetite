@@ -45,7 +45,10 @@ function ProtectedDashboardRoute({ children }) {
   const user = auth.currentUser;
 
   if (loading) return <div>Loading...</div>;
-  if (!user || status !== "active") return <Navigate to="/checkout" />;
+  if (!user) return <Navigate to="/login" />;
+
+  // Allow both "active" (paid) and "basic" (free) statuses
+  if (status !== "active" && status !== "basic") return <Navigate to="/checkout" />;
 
   return children;
 }
