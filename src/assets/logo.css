@@ -7,20 +7,25 @@
   
   /* Optional - Customize the background of the logo area */
 .logo-wrapper {
-  background-color: #ffffff;
-  padding: 10px 10px 0px 10px;
+  background-color: #fff;
+  padding: 0 10px;         /* Remove top padding */
   border-radius: 15px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 100%;           /* Stretch to fill parent */
-  max-width: none;
-  min-width: 0;
-  min-height: 60px;
+  width: auto;             /* Don't stretch full width */
+  min-height: unset;       /* Remove min-height */
   display: flex;
-  align-items: center;
+  align-items: center;     /* Vertically center logo and text */
   justify-content: center;
-  /* Remove margin: 0 auto; */
   text-align: center;
   box-sizing: border-box;
+  margin-bottom: 0;        /* Remove extra margin */
+}
+
+.logo-header-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem; /* Adjust spacing between logo and headings */
 }
   
   /* Custom style for the text (Ping My Appetite) */

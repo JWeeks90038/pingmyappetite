@@ -13,9 +13,14 @@ const Home = () => {
   return (
     <>
       <header className="hero">
-        <div id="top"></div>
-        <h1>Welcome to Grubana!</h1>
-  <h2>Hungry for Something Amazing?</h2>
+  <div id="top"></div>
+  <div className="logo-header-stack">
+    <Logo />
+    <div>
+      <h1>Welcome to Grubana!</h1>
+      <h2>Hungry for Something Amazing?</h2>
+    </div>
+  </div>
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
