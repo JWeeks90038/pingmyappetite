@@ -1,5 +1,5 @@
 import React from 'react';
-import logoPng from '../public/logo.png'; // Adjust the path if needed
+import logoPng from '../assets/logo.png'; // Adjust the path if needed
 import '../assets/logo.css'; // Optional for styling
 
 const Logo = () => {
