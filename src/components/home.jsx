@@ -36,7 +36,7 @@ const Home = () => {
   <div className="heatmap-content">
     <h3>Where’s the Flavor Trending?</h3>
     <p>
-  Customers: drop a pin to <strong>ping</strong> your favorite food trucks and food trailers! Let them know where the cravings are hottest—your pin helps bring amazing eats right to your area. <br></br> Vendors: View your heatmap that reflects the demand!
+  Customers: drop a pin to <strong>ping</strong> your favorite food trucks and food trailers! Let them know where the cravings are hottest—your pin helps bring amazing eats right to your area. <br></br><br></br> Vendors: View your heatmap that reflects the demand!
 </p>
     <div className="heatmap-wrapper">
       <HeatMap />
