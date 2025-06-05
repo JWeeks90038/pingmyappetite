@@ -104,6 +104,7 @@ nav ul li a:hover {
   pointer-events: none;
   overflow: hidden;
   border-radius: 10px;
+  filter: brightness(0.5) blur(2px); /* optional for readability */
 }
 
 .heatmap-content {
@@ -1370,7 +1371,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #333;
+    color: #fff;
 }
 
 p a {
@@ -1571,7 +1572,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #333;
+    color: #fff;
 }
 
 p a {
