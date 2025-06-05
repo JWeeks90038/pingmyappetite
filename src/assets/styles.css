@@ -1812,6 +1812,13 @@ section {
   }
 }
 
+/* Add to styles.css */
+.homepage-video video {
+  max-width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
 /* Footer */
 footer {
     background-color: #b7b3b3;
