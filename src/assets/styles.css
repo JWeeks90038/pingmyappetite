@@ -1773,30 +1773,30 @@ section {
     to { transform: rotate(360deg); }
   }
 
-  /* Desktop: radio left of label */
-.radio-group {
+/* Desktop: radio left of label */
+.kitchen-radio-group {
   display: flex;
   gap: 24px;
   justify-content: flex-start;
   margin-bottom: 16px;
 }
 
-.radio-option {
+.kitchen-radio-option {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Mobile: radio above label */
+/* Mobile: radio above label and centered */
 @media (max-width: 600px) {
-  .radio-group {
+  .kitchen-radio-group {
     flex-direction: column;
     gap: 16px;
-    align-items: flex-start;
+    align-items: center; /* Center the group on mobile */
   }
-  .radio-option {
+  .kitchen-radio-option {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center; /* Center each option on mobile */
     gap: 4px;
   }
 }
