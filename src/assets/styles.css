@@ -1798,6 +1798,10 @@ section {
   word-break: break-all;
 }
 
+.contact-info p {
+    color: #333
+}
+
 #spinner-container {
     display: flex;
     justify-content: center;
