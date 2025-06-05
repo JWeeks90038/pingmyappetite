@@ -95,7 +95,7 @@ const handleSubmit = async (e) => {
         </form>
 
         <div className="contact-info">
-          <h2>Other Ways to Reach Us</h2>
+          <h2>Other Ways to Connect</h2>
           <p>
             <strong>Email:</strong> <a href="mailto:team@grubana.com">team@grubana.com</a><br />
             <strong>Instagram:</strong> <a href="https://www.instagram.com/grubanaapp/" target="_blank" rel="noopener noreferrer">@grubanaapp</a><br />
