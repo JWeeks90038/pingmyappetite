@@ -19,7 +19,7 @@ const About = () => {
           We started Grubana after realizing just how disconnected the experience was for food truck owners, trailer operators, and their customers. Mobile kitchens are on the rise, but too many vendors struggle to be discovered, and too many hungry customers miss out on amazing local food — simply because there wasn’t a modern, reliable system in place to connect the two. We saw the gap, and we decided to close it.
         </p>
         <p>
-          Grubana is built to complete the circle — to support food truck, trailer, and cart owners in growing their businesses, while helping customers easily find and enjoy unique food experiences near them. From real-time drop alerts and live maps to vendor profiles and interactive features, our platform is designed to be as dynamic and mobile as the vendors it supports.
+          Grubana is built to complete the circle — to support food truck and trailer owners in growing their businesses, while helping customers easily find and enjoy unique food experiences near them. From real-time drop alerts and live maps to vendor profiles and interactive features, our platform is designed to be as dynamic and mobile as the vendors it supports.
         </p>
         <p>
           While there are other food truck websites and apps out there, most tend to focus heavily on private events, catering, or scheduled bookings. Grubana takes a different approach. Our focus is on the everyday customer — the person walking down the street, exploring their neighborhood, or searching for a great local bite. We aim to make mobile food discoverable in real time, helping people connect with the food trucks and trailers operating in their community right now. It’s about spontaneity, convenience, and community — not just events.
@@ -55,7 +55,7 @@ const About = () => {
       }}
     />
     <p style={{ flex: 1, minWidth: "200px" }}>
-      Grubana was created & developed by Jonas Weeks, a passionate foodie and veteran who saw the need for a better way to connect mobile kitchens with hungry communities. With experience in the food industry, logisitcs & technology, Jonas is dedicated to helping mobile venders thrive and food lovers discover new favorites.
+      Grubana was created & developed by Jonas Weeks, a passionate foodie and veteran who saw the need for a better way to connect mobile kitchens with hungry communities. With experience in the mobile food industry, logisitcs & technology, Jonas is dedicated to helping mobile venders thrive and food lovers discover new favorites.
     </p>
   </div>
 </section>

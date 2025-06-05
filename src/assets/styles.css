@@ -1128,9 +1128,16 @@ label {
     font-size: 16px;
 }
 
-input[type="radio"],
 input[type="checkbox"] {
     margin-right: 10px;
+}
+
+/* Prevent radio buttons from stretching full width */
+input[type="radio"] {
+  width: auto;
+  margin: 0 auto;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 #pay-button {
@@ -1789,20 +1796,19 @@ section {
 
 /* Mobile: radio above label and centered */
 @media (max-width: 600px) {
-  .kitchen-radio-group,
-  .kitchen-radio-option {
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
+  .kitchen-radio-group {
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
     width: 100%;
   }
-}
-
-@media (max-width: 600px) {
-  #signup-form {
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
+  .kitchen-radio-option {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
   }
 }
 

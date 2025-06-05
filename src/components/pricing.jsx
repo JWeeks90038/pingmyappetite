@@ -32,15 +32,13 @@ const Pricing = () => {
       <p className="price">Free</p>
     <div>
       <div>✅ Appear on the Grubana discovery map</div>
-      <div>✅ Get pinged by nearby customers</div>
+      <div>✅ View demand pins on heat map by nearby customers</div>
       <div>✅ Access your truck dashboard</div>
       <div>✅ Manual location updates</div>
       <div>❌ Real-time menu display on map icon</div>
       <div>❌ Access to citywide heat maps showing demand zones</div>
       <div>❌ 30-day engagement analytics (pings, views, locations)</div>
       <div>❌ Radius-based trend alerts (e.g. “interest within 10km”)</div>
-      <div>❌ Priority placement on trending truck lists</div>
-      <div>❌ Scheduled location publishing (pre-set your route)</div>
       <div>❌ Unlock exclusive promotional features (menu drops, featured placement)</div>
     </div>
     <button className="subscribe-btn disabled" disabled>Included</button>
@@ -50,16 +48,14 @@ const Pricing = () => {
     <p className="price">$19.99 / month</p>
     <div>
       <div>✅ Real-time menu display on map icon</div>
+      <div>✅ Real-time location updates</div>
       <div>✅ Access to citywide heat maps showing demand zones</div>
       <div>✅ 30-day engagement analytics (pings, views, locations)</div>
       <div>✅ Radius-based trend alerts (e.g. “interest within 10km”)</div>
-      <div>✅ Priority placement on trending truck lists</div>
-      <div>✅ Scheduled location publishing (pre-set your route)</div>
       <div>✅ Unlock exclusive promotional features (menu drops, featured placement)</div>
       <div>✅ Appear on the Grubana discovery map</div>
-      <div>✅ Get pinged by nearby customers</div>
+      <div>✅ View demand pins on heat map by nearby customers</div>
       <div>✅ Access your truck dashboard</div>
-      <div>✅ Manual location updates</div>
     </div>
       <button
         className="subscribe-btn"
