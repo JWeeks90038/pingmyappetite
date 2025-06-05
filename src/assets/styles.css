@@ -73,29 +73,55 @@ nav ul li a:hover {
     background-color: #ace1af;
 }
 
-/* Heat Map Section */
 .heat-map {
-    text-align: center;
-    padding: 50px 20px;
-    background-color: white;
+  position: relative;
+  overflow: hidden;
+  max-width: 1000px; /* or your preferred width */
+  margin: 50px auto;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  min-height: 400px; /* ensures the section has height */
 }
 
-#map-container {
-    width: 100%;
-    height: 400px;
-    background-color: #ddd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: bold;
+.heatmap-video-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
-/* Add to styles.css */
-.homepage-video video {
-  max-width: 100%;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+.heatmap-bg-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  min-height: 400px;
+  border-radius: 10px;
+  filter: brightness(0.5) blur(2px); /* optional for readability */
+  display: block;
+}
+
+.heatmap-content {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  padding: 2em 1em;
+  text-align: center;
+}
+
+/* Responsive: adjust height for mobile */
+@media (max-width: 600px) {
+  .heat-map,
+  .heatmap-video-bg,
+  .heatmap-bg-video {
+    min-height: 220px;
+    height: 220px;
+    border-radius: 8px;
+  }
 }
 
 /* High-Demand Section */
