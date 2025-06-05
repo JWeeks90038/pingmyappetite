@@ -1792,12 +1792,20 @@ section {
   .kitchen-radio-group {
     flex-direction: column;
     gap: 16px;
-    align-items: center; /* Center the group on mobile */
+    align-items: center;
+    justify-content: center;
+    width: 100%;
   }
   .kitchen-radio-option {
     flex-direction: column;
-    align-items: center; /* Center each option on mobile */
+    align-items: center;
+    justify-content: center;
     gap: 4px;
+    width: 100%;
+  }
+  .kitchen-radio-option input[type="radio"] {
+    margin: 0 auto;
+    display: block;
   }
 }
 
