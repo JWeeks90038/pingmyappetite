@@ -363,7 +363,7 @@ nav ul li a:hover {
 
 .cta p {
     font-size: 1.2rem;
-    color: #fff;
+    color: #666;
 }
 
 /* General Styles */
@@ -1333,7 +1333,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #333;
+    color: #fff;
 }
 
 p a {
@@ -1534,7 +1534,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #333;
+    color: #fff;
 }
 
 p a {
