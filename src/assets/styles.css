@@ -91,6 +91,13 @@ nav ul li a:hover {
     font-weight: bold;
 }
 
+/* Add to styles.css */
+.homepage-video video {
+  max-width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
 /* High-Demand Section */
 .high-demand {
     text-align: center;
@@ -1333,7 +1340,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #fff;
+    color: #333;
 }
 
 p a {
@@ -1534,7 +1541,7 @@ button:hover {
 p {
     text-align: center;
     font-size: 1rem;
-    color: #fff;
+    color: #333;
 }
 
 p a {
@@ -1810,43 +1817,6 @@ section {
     gap: 4px;
     width: 100%;
   }
-}
-
-.heat-map {
-  position: relative;
-  overflow: hidden;
-}
-
-.heatmap-video-bg {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none; /* So clicks go through to content */
-}
-
-.heatmap-bg-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  min-height: 300px;
-  filter: brightness(0.5) blur(2px); /* Optional: darken and blur for readability */
-}
-
-.heatmap-content {
-  position: relative;
-  z-index: 2;
-  color: #fff; /* Make text white for contrast */
-  padding: 2em 1em;
-  text-align: center;
-}
-
-/* Add to styles.css */
-.homepage-video video {
-  max-width: 100%;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
 }
 
 /* Footer */
