@@ -1789,23 +1789,20 @@ section {
 
 /* Mobile: radio above label and centered */
 @media (max-width: 600px) {
-  .kitchen-radio-group {
-    flex-direction: column;
-    gap: 16px;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-  }
+  .kitchen-radio-group,
   .kitchen-radio-option {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
     width: 100%;
   }
-  .kitchen-radio-option input[type="radio"] {
-    margin: 0 auto;
-    display: block;
+}
+
+@media (max-width: 600px) {
+  #signup-form {
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
   }
 }
 
