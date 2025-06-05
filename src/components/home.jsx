@@ -22,38 +22,32 @@ const Home = () => {
   </div>
 </header>
 
-{/* Add your video here */}
-      <div className="homepage-video" style={{ textAlign: "center", margin: "2em 0" }}>
-        <video
-          src="/homepage.mp4" // If in public folder
-          controls
-          autoPlay
-          loop
-          muted
-          style={{ maxWidth: "100%", borderRadius: "12px", boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}
-        >
-          Sorry, your browser doesn't support embedded videos.
-        </video>
-      </div>
-
 <section className="heat-map">
-  <h3>Where’s the Flavor Trending?</h3>
-  <p>Drop a pin and show food trucks & food trailers where the next big craving is. They're ready to roll where the demand is hot!</p>
-
-        <div className="heatmap-wrapper">
-          {/* HeatMap component rendering */}
-          <HeatMap />
-
-          {/* Frosted overlay (blurred effect) */}
-          <div className="heatmap-frost">
-            <div className="blur-message">
-              <Link to="/signup" className="blur-link">
-                <p>Sign up to unlock the full map!</p>
-              </Link>
-            </div>
-          </div>
+  <div className="heatmap-video-bg">
+    <video
+      src="/homepage.mp4"
+      autoPlay
+      loop
+      muted
+      playsInline
+      className="heatmap-bg-video"
+    />
+  </div>
+  <div className="heatmap-content">
+    <h3>Where’s the Flavor Trending?</h3>
+    <p>Drop a pin and show food trucks & food trailers where the next big craving is. They're ready to roll where the demand is hot!</p>
+    <div className="heatmap-wrapper">
+      <HeatMap />
+      <div className="heatmap-frost">
+        <div className="blur-message">
+          <Link to="/signup" className="blur-link">
+            <p>Sign up to unlock the full map!</p>
+          </Link>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
      <section className="how-it-works">
   <h2>How Grubana Works:</h2>
