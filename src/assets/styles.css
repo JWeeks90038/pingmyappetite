@@ -343,6 +343,10 @@ nav ul li a:hover {
     color: #333;
 }
 
+.sign-up-container p {
+    color: #333;
+}
+
 .sign-up p {
     text-align: center;
     font-size: 16px;
