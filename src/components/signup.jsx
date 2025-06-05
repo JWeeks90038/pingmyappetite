@@ -142,8 +142,8 @@ if (formData.plan === 'all-access') {
   {formData.role === 'owner' && (
     <>
       <label>Type of Mobile Kitchen:</label>
-      <div style={{ marginBottom: '1em' }}>
-        <label>
+      <div className="kitchen-radio-group">
+      <label className="kitchen-radio-option">
           <input
             type="radio"
             name="kitchenType"
@@ -152,10 +152,10 @@ if (formData.plan === 'all-access') {
             onChange={handleChange}
             required
           />{' '}
-          Food Truck
+           <span>Food Truck</span>
         </label>
         {' '}
-        <label>
+        <label className="kitchen-radio-option">
           <input
             type="radio"
             name="kitchenType"
@@ -164,7 +164,7 @@ if (formData.plan === 'all-access') {
             onChange={handleChange}
             required
           />{' '}
-          Food Trailer
+          <span>Food Trailer</span>
         </label>
       </div>
 

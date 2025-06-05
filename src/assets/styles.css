@@ -1773,6 +1773,34 @@ section {
     to { transform: rotate(360deg); }
   }
 
+  /* Desktop: radio left of label */
+.radio-group {
+  display: flex;
+  gap: 24px;
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile: radio above label */
+@media (max-width: 600px) {
+  .radio-group {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .radio-option {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
 /* Footer */
 footer {
     background-color: #b7b3b3;
