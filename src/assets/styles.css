@@ -93,7 +93,7 @@ nav ul li a:hover {
   pointer-events: none;
   overflow: hidden;
   border-radius: 10px;
-  filter: brightness(0.5) blur(2px); /* optional for readability */
+  filter: brightness(0.5) blur(1px); /* optional for readability */
 }
 
 .heatmap-bg-video {
