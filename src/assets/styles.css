@@ -53,6 +53,10 @@ nav ul li a:hover {
     margin: 0;
 }
 
+.hero h1 {
+   color: black;
+}
+
 .hero p {
     font-size: 20px;
     margin-top: 10px;

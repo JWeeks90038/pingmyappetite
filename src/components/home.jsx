@@ -16,7 +16,7 @@ const Home = () => {
         <div id="top"></div>
         <h1>Welcome to Grubana!</h1>
 <h2>Hungry for Something Amazing?</h2>
- <h3>Open the gates to the Ultimate Food Truck & Food Trailer Locator Near You!</h3>
+ <h3>The Gates are OPEN to the Ultimate Food Truck & Food Trailer Locator Near You!</h3>
   <meta name="description" content="Find the best food trucks and food trailers near you in real time. Discover trending locations, exclusive deals, and more with Grubana." />
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
