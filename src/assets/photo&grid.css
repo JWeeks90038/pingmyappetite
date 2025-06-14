@@ -1,0 +1,94 @@
+.customer-dashboard {
+    padding: 20px;
+  }
+  
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .banner-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #f0f0f0;
+  }
+  
+  .banner-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .banner-upload-label {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 5px;
+  }
+  
+  .profile-image-container {
+    margin-top: 20px;
+  }
+  
+  .profile-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .see-more-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .photo-grid-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .photo-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .photo-item {
+    text-align: center;
+  }
+  
+  .photo-thumbnail {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  
+  .close-grid-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+  }
+  

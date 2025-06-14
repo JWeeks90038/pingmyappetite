@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /login/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /api/
+Disallow: /private/
+Allow: /
+
+Sitemap: https://grubana.com/sitemap.xml

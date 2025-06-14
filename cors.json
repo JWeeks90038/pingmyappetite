@@ -1,0 +1,10 @@
+[
+    {
+        "origin": [
+      "http://localhost:5173",
+      "https://www.grubana.com"
+    ],
+      "method": ["GET", "POST", "PUT"],
+      "maxAgeSeconds": 3600
+    }
+  ]

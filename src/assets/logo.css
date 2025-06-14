@@ -1,0 +1,63 @@
+
+  /* Add some subtle hover effect for the logo to make it interactive */
+  .logo-wrapper:hover .logo-svg {
+    transform: scale(1.05); /* Slight zoom effect */
+    transition: transform 0.3s ease;
+  }
+  
+  /* Optional - Customize the background of the logo area */
+.logo-wrapper {
+  background-color: #fff;
+  padding: 2 6px;         /* Remove top padding */
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: auto;             /* Don't stretch full width */
+  min-height: unset;       /* Remove min-height */
+  display: flex;
+  align-items: center;     /* Vertically center logo and text */
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+  margin-bottom: 0;        /* Remove extra margin */
+}
+
+.logo-header-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem; /* Adjust spacing between logo and headings */
+}
+  
+  /* Custom style for the text (Ping My Appetite) */
+  .logo-svg text {
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: bold;
+  }
+  
+  /* Custom styling for the "PMA" abbreviation */
+  .logo-svg text {
+    fill: url(#textGradient); /* Applies the gradient from SVG */
+  }
+
+ .logo-svg {
+  display: block;
+  margin: 0 auto;
+  margin-top: 10px; /* Adjust as needed */
+  width: 80%;
+  max-width: 450px; /* Adjust as needed */
+  height: auto;
+}
+
+.logo-img {
+  display: block;
+  margin: 0 auto;
+  max-width: 70px; /* Adjust this value as needed */
+  height: auto;
+}
+
+@media (max-width: 480px) {
+  .logo-svg {
+    max-width: 90vw;         /* Make sure it fits on small screens */
+  }
+}
+  
