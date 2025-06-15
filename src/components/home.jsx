@@ -17,7 +17,7 @@ const Home = () => {
         <h1>Grubana: Find Food Trucks & Food Trailers Near You</h1>
 <h2>Discover the Best Local Food Trucks and Food Trailers in Real-Time</h2>
 <h3>The Ultimate Food Truck & Food Trailer Locator App — Now Serving Your Area!</h3>
-  <meta name="description" content="Find the best food trucks and food trailers near you in real time. Discover trending locations, exclusive deals, and more with Grubana." />
+  <meta name="description" content="Discover the best food trucks and food trailers near you in real time. Explore trending locations, exclusive deals, and live maps with Grubana—the ultimate street food finder." />
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
