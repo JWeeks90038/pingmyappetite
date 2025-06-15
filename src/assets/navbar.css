@@ -36,7 +36,9 @@
 
 .nav-links,
 .navbar ul {
-  margin-left: 12px; /* or whatever spacing you want */
+  margin-left: auto; /* pushes links to the right in a flex container */
+  display: flex;
+  gap: 20px;
 }
 
 .logout-link:hover,
