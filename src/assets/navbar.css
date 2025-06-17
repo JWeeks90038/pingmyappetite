@@ -1,11 +1,11 @@
 .navbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;;
+  justify-content: flex-start; /* Only one semicolon */
   background-color: #b7b3b3;
   padding: 0 16px;
   position: relative;
-  min-height: 60px; /* Adjust as needed for your logo */
+  min-height: 60px;
 }
 
 /* navbar.css */
@@ -34,8 +34,7 @@
     line-height: 2;
 }
 
-.nav-links,
-.navbar ul {
+.nav-links {
   margin-left: auto; /* pushes links to the right in a flex container */
   display: flex;
   gap: 20px;
