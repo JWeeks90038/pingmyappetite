@@ -259,17 +259,11 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
 
       const truckDrops = activeDrops.filter(drop => drop.truckId === truckId);
 
-      setActiveTruck({
-        id: truckId,
-        ...truckData,
-        drops: truckDrops, // <-- set currentDrop if found
-      });
-      setShowDropSummary(true);
-
-      // Fetch owner data, but hold off on showing menu
+      // Fetch owner data to get hours and other details
       const ownerDoc = await getDoc(doc(db, "users", ownerUid));
+      let ownerData = {};
       if (ownerDoc.exists()) {
-        const ownerData = ownerDoc.data();
+        ownerData = ownerDoc.data();
         setMenuUrl(ownerData.menuUrl || '');
         setSocialLinks({
           instagram: ownerData.instagram || '',
@@ -280,6 +274,19 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
       } else {
         console.warn("Owner doc not found for UID:", ownerUid);
       }
+
+      // Combine truck data with owner data for hours and other info
+      setActiveTruck({
+        id: truckId,
+        ...truckData,
+        // Include owner data fields like hours
+        hours: ownerData.hours || '',
+        ownerName: ownerData.ownerName || '',
+        description: ownerData.description || '',
+        drops: truckDrops,
+      });
+      setShowDropSummary(true);
+
     } else {
       console.warn("Truck doc not found for ID:", truckId);
     }
@@ -769,20 +776,82 @@ return (
 
           {/* Menu Content */}
 {menuUrl ? (
-  menuUrl.endsWith('.pdf') ? (
-    <iframe
-      src={menuUrl}
-      style={{ width: '100%', height: '100%' }}
-      title="Menu PDF"
-    />
-  ) : (
-    <img
-      src={menuUrl}
-      alt="Menu"
-      style={{ maxWidth: '100%', maxHeight: '100%' }}
-    />
-  )
-) : null}
+  <div>
+    {/* Truck Information Header */}
+    {activeTruck && (
+      <div style={{
+        backgroundColor: '#f8f9fa',
+        padding: '15px',
+        marginBottom: '15px',
+        borderRadius: '8px',
+        borderLeft: '4px solid #2c6f57'
+      }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#2c6f57' }}>
+          {activeTruck.truckName || 'Food Truck'}
+        </h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
+          {activeTruck.hours && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontSize: '16px' }}>🕒</span>
+              <strong>Hours:</strong> {activeTruck.hours}
+            </div>
+          )}
+          {activeTruck.cuisine && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontSize: '16px' }}>🍽️</span>
+              <strong>Cuisine:</strong> {activeTruck.cuisine}
+            </div>
+          )}
+          {activeTruck.kitchenType && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontSize: '16px' }}>🚚</span>
+              <strong>Type:</strong> {activeTruck.kitchenType}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    
+    {/* Menu Display */}
+    {menuUrl.endsWith('.pdf') ? (
+      <iframe
+        src={menuUrl}
+        style={{ width: '100%', height: 'calc(100% - 120px)' }}
+        title="Menu PDF"
+      />
+    ) : (
+      <img
+        src={menuUrl}
+        alt="Menu"
+        style={{ maxWidth: '100%', maxHeight: 'calc(100% - 120px)', objectFit: 'contain' }}
+      />
+    )}
+  </div>
+) : (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100%',
+    flexDirection: 'column',
+    color: '#666'
+  }}>
+    <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
+    <p>No menu available for this truck</p>
+    {activeTruck && activeTruck.hours && (
+      <div style={{ 
+        marginTop: '20px', 
+        padding: '15px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '8px',
+        textAlign: 'center'
+      }}>
+        <p><strong>🕒 Hours:</strong> {activeTruck.hours}</p>
+        {activeTruck.cuisine && <p><strong>🍽️ Cuisine:</strong> {activeTruck.cuisine}</p>}
+      </div>
+    )}
+  </div>
+)}
 
 {/* Drop Summary */}
     {showDropSummary && activeTruck && (
