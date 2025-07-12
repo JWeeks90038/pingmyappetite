@@ -658,3 +658,34 @@ app.post('/session-details', async (req, res) => {
 
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Stripe server running on port ${PORT}`));
+
+// Test endpoint for SendGrid without full contact form logic
+app.post('/test-email', async (req, res) => {
+  console.log('Test email endpoint called');
+  
+  if (!process.env.SENDGRID_API_KEY) {
+    return res.status(500).json({ error: 'SendGrid not configured' });
+  }
+  
+  try {
+    console.log('Attempting to send test email...');
+    
+    const result = await sgMail.send({
+      to: 'grubana.co@gmail.com',
+      from: 'grubana.co@gmail.com',
+      subject: 'Test Email from Server',
+      text: 'This is a test email to verify SendGrid is working.',
+      html: '<p>This is a test email to verify SendGrid is working.</p>',
+    });
+    
+    console.log('Email sent successfully:', result);
+    res.status(200).json({ success: true, message: 'Test email sent' });
+  } catch (err) {
+    console.error('Test email error:', err);
+    res.status(500).json({ 
+      error: 'Test email failed', 
+      details: err.message,
+      code: err.code
+    });
+  }
+});
