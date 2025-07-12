@@ -689,3 +689,58 @@ app.post('/test-email', async (req, res) => {
     });
   }
 });
+
+// Detailed SendGrid diagnostic endpoint
+app.get('/test-sendgrid', async (req, res) => {
+  console.log('SendGrid diagnostic endpoint called');
+  
+  const apiKey = process.env.SENDGRID_API_KEY;
+  
+  if (!apiKey) {
+    return res.status(500).json({ 
+      error: 'SendGrid API key not configured',
+      configured: false 
+    });
+  }
+  
+  // Test if API key format looks correct
+  const keyFormat = apiKey.startsWith('SG.') ? 'valid_format' : 'invalid_format';
+  
+  try {
+    // Try to verify the API key by making a simple request
+    const response = await fetch('https://api.sendgrid.com/v3/user/account', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const accountData = await response.json();
+      res.status(200).json({ 
+        success: true,
+        apiKeyValid: true,
+        keyFormat,
+        accountType: accountData.type || 'unknown',
+        message: 'API key is valid'
+      });
+    } else {
+      const errorData = await response.json();
+      res.status(response.status).json({ 
+        error: 'API key validation failed',
+        apiKeyValid: false,
+        keyFormat,
+        statusCode: response.status,
+        details: errorData
+      });
+    }
+  } catch (err) {
+    console.error('SendGrid diagnostic error:', err);
+    res.status(500).json({ 
+      error: 'Failed to validate SendGrid',
+      apiKeyValid: false,
+      keyFormat,
+      details: err.message
+    });
+  }
+});
