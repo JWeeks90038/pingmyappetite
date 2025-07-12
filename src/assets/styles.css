@@ -931,58 +931,72 @@ p a:hover {
     flex: 1 1 300px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     margin-bottom: 16px;
+    position: relative;
 }
 
-/* Responsive: Stack plans vertically on small screens */
-@media (max-width: 800px) {
-    .pricing-plans {
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        max-width: 98vw;
-    }
-    .plan {
-        width: 98vw;
-        max-width: 98vw;
-        min-width: unset;
-    }
-}
-
-.plan h2 {
-    font-size: 1.5rem;
-    margin-bottom: 10px;
-}
-
-.price {
-    font-size: 1.8rem;
-    font-weight: bold;
-    margin-bottom: 15px;
-    color: #333
-}
-
-.plan ul {
-    list-style: none;
-    padding: 0;
-}
-
-.plan ul li {
-    padding: 8px 0;
-    font-size: 1rem;
-}
-
-.subscribe-btn {
-    background-color: #2c6f57;
+/* Featured plan styling */
+.pricing-plan.featured {
+    background: linear-gradient(135deg, #2c6f57, #34b372);
     color: white;
-    padding: 10px;
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(44, 111, 87, 0.3);
+    border: 2px solid #2c6f57;
+}
+
+.pricing-plan.featured h2 {
+    color: white;
+}
+
+.pricing-plan.featured .price {
+    color: white;
+}
+
+/* Popular badge */
+.popular-badge {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff6b35;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Subscribe button styling */
+.subscribe-btn {
+    background: #2c6f57;
+    color: white;
     border: none;
-    border-radius: 5px;
+    padding: 12px 24px;
+    border-radius: 6px;
     font-size: 1rem;
+    font-weight: bold;
     cursor: pointer;
-    margin-top: 15px;
+    width: 100%;
+    margin-top: 20px;
+    transition: background-color 0.3s ease;
 }
 
 .subscribe-btn:hover {
-    background-color: #ace1af;
+    background: #1e4d3f;
+}
+
+.subscribe-btn.disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+.pricing-plan.featured .subscribe-btn {
+    background: white;
+    color: #2c6f57;
+}
+
+.pricing-plan.featured .subscribe-btn:hover {
+    background: #f0f0f0;
 }
 
 /* Payment Section */

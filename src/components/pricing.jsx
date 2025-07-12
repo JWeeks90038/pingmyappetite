@@ -10,62 +10,91 @@ const Pricing = () => {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
 
-  const handleSubscribe = () => {
+  const handleSubscribe = (plan = 'all-access') => {
     if (!user || userRole !== 'owner') {
       navigate('/signup');
     } else {
-      navigate('/checkout');
+      // Pass the plan type to checkout
+      navigate('/checkout', { state: { selectedPlan: plan } });
     }
   };
   return (
     <div>
 
       {/* Pricing Section */}
-     <section className="pricing-section">
-  <h1>Food Truck & Trailer Owners</h1>
-  <h2>Gain visibility, track demand, and connect with hungry customers.</h2>
-  <h3>*Try it free for 30 days*</h3>
-  <p>More eyes = more orders!</p>
-  <div className="pricing-container">
-    <div className="pricing-plan">
-      <h2>BASIC</h2>
-      <p className="price">Free</p>
-    <div>
-      <div>✅ Appear on the Grubana discovery map</div>
-      <div>✅ View demand pins on heat map by nearby customers</div>
-      <div>✅ Access your truck dashboard</div>
-      <div>✅ Manual location updates</div>
-      <div>❌ Real-time menu display on map icon</div>
-      <div>❌ Access to citywide heat maps showing demand zones</div>
-      <div>❌ 30-day engagement analytics (pings, views, locations)</div>
-      <div>❌ Radius-based trend alerts (e.g. “interest within 10km”)</div>
-      <div>❌ Unlock exclusive promotional features (menu drops, featured placement)</div>
-    </div>
-    <button className="subscribe-btn disabled" disabled>Included</button>
-  </div>
-  <div className="pricing-plan">
-    <h2>ALL ACCESS</h2>
-    <p className="price">$19.99 / month</p>
-    <div>
-      <div>✅ Real-time menu display on map icon</div>
-      <div>✅ Real-time location updates</div>
-      <div>✅ Access to citywide heat maps showing demand zones</div>
-      <div>✅ 30-day engagement analytics (pings, views, locations)</div>
-      <div>✅ Radius-based trend alerts (e.g. “interest within 10km”)</div>
-      <div>✅ Unlock exclusive promotional features (menu drops, featured placement)</div>
-      <div>✅ Appear on the Grubana discovery map</div>
-      <div>✅ View demand pins on heat map by nearby customers</div>
-      <div>✅ Access your truck dashboard</div>
-    </div>
-      <button
-        className="subscribe-btn"
-        onClick={handleSubscribe}
-      >
-        Start Free 30-Day Trial
-      </button>
-    </div>
-  </div>
-</section>
+      <section className="pricing-section">
+        <h1>Food Truck & Trailer Owners</h1>
+        <h2>Gain visibility, track demand, and connect with hungry customers.</h2>
+        <h3>*Try Pro or All Access free for 30 days*</h3>
+        <p>More eyes = more orders!</p>
+        <div className="pricing-container">
+          
+          {/* Basic Plan - Free */}
+          <div className="pricing-plan">
+            <h2>BASIC</h2>
+            <p className="price">Free</p>
+            <div>
+              <div>✅ Appear on the Grubana discovery map</div>
+              <div>✅ View demand pins on heat map by nearby customers</div>
+              <div>✅ Access your truck dashboard</div>
+              <div>✅ Manual location updates</div>
+              <div>❌ Real-time GPS location tracking</div>
+              <div>❌ Real-time menu display on map icon</div>
+              <div>❌ Access to citywide heat maps showing demand zones</div>
+              <div>❌ 30-day engagement analytics</div>
+              <div>❌ Create promotional drops and deals</div>
+            </div>
+            <button className="subscribe-btn disabled" disabled>Included</button>
+          </div>
+
+          {/* Pro Plan - $9.99 */}
+          <div className="pricing-plan">
+            <h2>PRO</h2>
+            <p className="price">$9.99 / month</p>
+            <div>
+              <div>✅ Everything in Basic</div>
+              <div>✅ Real-time GPS location tracking</div>
+              <div>✅ Real-time menu display on map icon</div>
+              <div>✅ Access to citywide heat maps showing demand zones</div>
+              <div>✅ Basic engagement metrics</div>
+              <div>❌ Advanced 30-day analytics dashboard</div>
+              <div>❌ Create promotional drops and deals</div>
+              <div>❌ Featured placement in search results</div>
+              <div>❌ Radius-based trend alerts</div>
+            </div>
+            <button
+              className="subscribe-btn"
+              onClick={() => handleSubscribe('pro')}
+            >
+              Start Free 30-Day Trial
+            </button>
+          </div>
+
+          {/* All Access Plan - $19.99 */}
+          <div className="pricing-plan featured">
+            <div className="popular-badge">Most Popular</div>
+            <h2>ALL ACCESS</h2>
+            <p className="price">$19.99 / month</p>
+            <div>
+              <div>✅ Everything in Basic & Pro</div>
+              <div>✅ Advanced 30-day analytics dashboard</div>
+              <div>✅ Create promotional drops and deals</div>
+              <div>✅ Featured placement in search results</div>
+              <div>✅ Radius-based trend alerts</div>
+              <div>✅ Priority customer support</div>
+              <div>✅ Custom branding options</div>
+              <div>✅ Export analytics data</div>
+              <div>✅ Multiple location management</div>
+            </div>
+            <button
+              className="subscribe-btn"
+              onClick={() => handleSubscribe('all-access')}
+            >
+              Start Free 30-Day Trial
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Payment Integration */}
       <section className="payment-section">

@@ -15,6 +15,7 @@ import Home from './components/home';
 import ForgotPassword from './components/ForgotPassword';
 import Pricing from './components/pricing';
 import Checkout from './components/checkout';
+import Success from './components/Success';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import RefundPolicy from './components/RefundPolicy';
@@ -104,6 +105,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/logout" element={<Logout />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/success" element={<Success />} />
           </Route>
 
           {/* Customer Pages */}

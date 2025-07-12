@@ -1,33 +1,68 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import '../assets/styles.css';
 import PaymentForm from './PaymentForm';
 
 const Checkout = () => {
+  const location = useLocation();
+  const selectedPlan = location.state?.selectedPlan || 'all-access';
+
+  const planDetails = {
+    pro: {
+      name: 'Pro Plan',
+      price: '$9.99/month',
+      amount: 999,
+      features: [
+        '✅ Everything in Basic',
+        '✅ Real-time GPS location tracking',
+        '✅ Real-time menu display on map icon',
+        '✅ Access to citywide heat maps showing demand zones',
+        '✅ Basic engagement metrics'
+      ]
+    },
+    'all-access': {
+      name: 'All Access Plan',
+      price: '$19.99/month',
+      amount: 1999,
+      features: [
+        '✅ Everything in Basic & Pro',
+        '✅ Advanced 30-day analytics dashboard',
+        '✅ Create promotional drops and deals',
+        '✅ Featured placement in search results',
+        '✅ Radius-based trend alerts',
+        '✅ Priority customer support',
+        '✅ Custom branding options',
+        '✅ Export analytics data',
+        '✅ Multiple location management'
+      ]
+    }
+  };
+
+  const currentPlan = planDetails[selectedPlan];
+
   return (
     <>
       <section className="checkout-container">
         <h1>Secure Checkout</h1>
-        <p>Subscribe to the All-Access Plan for $19.99/month.</p>
+        <p>Subscribe to the {currentPlan.name} for {currentPlan.price}.</p>
+        <p><strong>30-day free trial included!</strong></p>
 
-        {/* All-Access Plan Features */}
-        <div className="all-access-features" style={{ margin: "24px 0" }}>
-          <h3>All-Access Plan Includes:</h3>
+        {/* Selected Plan Features */}
+        <div className="selected-plan-features" style={{ margin: "24px 0" }}>
+          <h3>{currentPlan.name} Includes:</h3>
           <div style={{ textAlign: "center", maxWidth: 500, margin: "0 auto" }}>
-            <div>✅ Real-time location tracking for your food truck</div>
-            <div>✅ Unlimited drop notifications to customers</div>
-            <div>✅ Access to advanced analytics and customer insights</div>
-            <div>✅ Social media integration and promotion tools</div>
-            <div>✅ Priority support</div>
-            <div>...and more exclusive features!</div>
+            {currentPlan.features.map((feature, index) => (
+              <div key={index} style={{ margin: "8px 0" }}>{feature}</div>
+            ))}
           </div>
         </div>
 
         <h2>Payment Details</h2>
         <div id="payment-form">
-          <PaymentForm amount={1999} />
+          <PaymentForm planType={selectedPlan} />
         </div>
 
         <p className="secure-info">🔒 Secure Payment via Stripe</p>
+        <p className="trial-info">💡 Your 30-day free trial starts immediately. You won't be charged until the trial ends.</p>
       </section>
     </>
   );

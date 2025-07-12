@@ -46,41 +46,97 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-if (
-  event.type === 'customer.subscription.deleted' ||
-  (event.type === 'customer.subscription.updated' &&
-    event.data.object.cancel_at_period_end === true)
-) {
-  const subscription = event.data.object;
-  const customerId = subscription.customer;
-  console.log('Webhook received for customer:', customerId);
-
-  try {
-    const usersRef = admin.firestore().collection('users');
-    const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
-    console.log('Matching users:', snapshot.size);
-
-    if (!snapshot.empty) {
-      const updatePromises = [];
-      snapshot.forEach((doc) => {
-        console.log('Updating user:', doc.id);
-        updatePromises.push(
-          doc.ref.update({
-            subscriptionId: admin.firestore.FieldValue.delete(),
-            subscriptionStatus: admin.firestore.FieldValue.delete(),
-            plan: 'basic',
-          })
-        );
-      });
-      await Promise.all(updatePromises);
-      console.log('User(s) updated to basic plan.');
-    } else {
-      console.log('No user found for customer:', customerId);
+  // Helper function to update user subscription in Firebase
+  const updateUserSubscription = async (customerId, updates) => {
+    try {
+      const usersRef = admin.firestore().collection('users');
+      const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+      
+      if (!snapshot.empty) {
+        const updatePromises = [];
+        snapshot.forEach((doc) => {
+          updatePromises.push(doc.ref.update({
+            ...updates,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }));
+        });
+        await Promise.all(updatePromises);
+        console.log('User(s) updated:', updates);
+      } else {
+        console.log('No user found for customer:', customerId);
+      }
+    } catch (err) {
+      console.error('Error updating user subscription:', err);
     }
-  } catch (err) {
-    console.error('Error updating user after subscription cancellation:', err);
+  };
+
+  // Helper function to determine plan type from price ID
+  const getPlanFromPriceId = (priceId) => {
+    if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) return 'pro';
+    if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) return 'all-access';
+    return 'basic';
+  };
+
+  // Handle different webhook events
+  switch (event.type) {
+    case 'customer.subscription.created':
+      const createdSub = event.data.object;
+      await updateUserSubscription(createdSub.customer, {
+        subscriptionId: createdSub.id,
+        subscriptionStatus: createdSub.status,
+        plan: getPlanFromPriceId(createdSub.items.data[0].price.id),
+        priceId: createdSub.items.data[0].price.id,
+        trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
+        currentPeriodEnd: new Date(createdSub.current_period_end * 1000)
+      });
+      break;
+
+    case 'customer.subscription.updated':
+      const updatedSub = event.data.object;
+      await updateUserSubscription(updatedSub.customer, {
+        subscriptionStatus: updatedSub.status,
+        plan: updatedSub.cancel_at_period_end ? 'basic' : getPlanFromPriceId(updatedSub.items.data[0].price.id),
+        currentPeriodEnd: new Date(updatedSub.current_period_end * 1000),
+        cancelAtPeriodEnd: updatedSub.cancel_at_period_end
+      });
+      break;
+
+    case 'customer.subscription.deleted':
+      const deletedSub = event.data.object;
+      await updateUserSubscription(deletedSub.customer, {
+        subscriptionId: admin.firestore.FieldValue.delete(),
+        subscriptionStatus: admin.firestore.FieldValue.delete(),
+        plan: 'basic',
+        priceId: admin.firestore.FieldValue.delete(),
+        trialEnd: admin.firestore.FieldValue.delete(),
+        currentPeriodEnd: admin.firestore.FieldValue.delete(),
+        cancelAtPeriodEnd: admin.firestore.FieldValue.delete()
+      });
+      break;
+
+    case 'invoice.payment_succeeded':
+      const invoice = event.data.object;
+      if (invoice.subscription) {
+        await updateUserSubscription(invoice.customer, {
+          subscriptionStatus: 'active',
+          lastPaymentDate: new Date(invoice.created * 1000)
+        });
+      }
+      break;
+
+    case 'invoice.payment_failed':
+      const failedInvoice = event.data.object;
+      if (failedInvoice.subscription) {
+        await updateUserSubscription(failedInvoice.customer, {
+          subscriptionStatus: 'past_due',
+          lastFailedPayment: new Date(failedInvoice.created * 1000)
+        });
+      }
+      break;
+
+    default:
+      console.log(`Unhandled event type: ${event.type}`);
   }
-}
 
   res.json({ received: true });
 });
@@ -277,6 +333,65 @@ app.post('/api/contact', async (req, res) => {
   } catch (err) {
     console.error("Contact form email error:", err);
     res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// Create a checkout session endpoint
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    const { priceId, planType, uid } = req.body;
+    
+    console.log('Creating checkout session for plan:', planType, 'priceId:', priceId);
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [{
+        price: priceId, // Your Stripe price ID
+        quantity: 1,
+      }],
+      subscription_data: {
+        trial_period_days: 30, // 30-day trial
+        metadata: {
+          planType: planType,
+          uid: uid || '',
+        }
+      },
+      metadata: {
+        planType: planType,
+        uid: uid || '',
+      },
+      success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/pricing`,
+      allow_promotion_codes: true,
+    });
+
+    console.log('Checkout session created:', session.id);
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get session details endpoint
+app.post('/session-details', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['subscription']
+    });
+
+    res.json({
+      sessionId: session.id,
+      planType: session.metadata?.planType || 'all-access',
+      subscriptionId: session.subscription?.id,
+      customerId: session.customer
+    });
+  } catch (error) {
+    console.error('Error retrieving session:', error);
+    res.status(400).json({ error: error.message });
   }
 });
 
