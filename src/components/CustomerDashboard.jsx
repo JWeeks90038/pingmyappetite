@@ -283,6 +283,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
         hours: ownerData.hours || '',
         ownerName: ownerData.ownerName || '',
         description: ownerData.description || '',
+        coverUrl: ownerData.coverUrl || '',
         drops: truckDrops,
       });
       setShowDropSummary(true);
@@ -681,16 +682,30 @@ return (
 
       <select value={cuisineType} onChange={(e) => setCuisineType(e.target.value)}>
         <option value="">Select Cuisine</option>
-        <option value="mexican">Mexican</option>
-        <option value="bbq">BBQ</option>
-        <option value="sushi">Sushi</option>
         <option value="american">American</option>
-        <option value="italian">Italian</option>
+        <option value="asian-fusion">Asian Fusion</option>
+        <option value="bbq">BBQ</option>
+        <option value="burgers">Burgers</option>
         <option value="chinese">Chinese</option>
+        <option value="coffee">Coffee & Café</option>
+        <option value="desserts">Desserts & Sweets</option>
+        <option value="drinks">Drinks & Beverages</option>
+        <option value="greek">Greek</option>
+        <option value="halal">Halal</option>
+        <option value="healthy">Healthy & Fresh</option>
         <option value="indian">Indian</option>
-        <option value="vegan">Vegan</option>
-        <option value="desserts">Desserts</option>
-        <option value="drinks">Drinks</option>
+        <option value="italian">Italian</option>
+        <option value="korean">Korean</option>
+        <option value="latin">Latin American</option>
+        <option value="mediterranean">Mediterranean</option>
+        <option value="mexican">Mexican</option>
+        <option value="pizza">Pizza</option>
+        <option value="seafood">Seafood</option>
+        <option value="southern">Southern Comfort</option>
+        <option value="sushi">Sushi & Japanese</option>
+        <option value="thai">Thai</option>
+        <option value="vegan">Vegan & Vegetarian</option>
+        <option value="wings">Wings</option>
       </select>
 
       <button onClick={handleSendPing}>Send Ping</button>
@@ -812,6 +827,24 @@ return (
       </div>
     )}
     
+    {/* Truck Cover Photo */}
+    {activeTruck && activeTruck.coverUrl && (
+      <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+        <img
+          src={activeTruck.coverUrl}
+          alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
+          style={{
+            width: '100%',
+            maxWidth: '600px',
+            height: '200px',
+            objectFit: 'cover',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}
+        />
+      </div>
+    )}
+    
     {/* Menu Display */}
     {menuUrl.endsWith('.pdf') ? (
       <iframe
@@ -836,6 +869,24 @@ return (
     flexDirection: 'column',
     color: '#666'
   }}>
+    {/* Truck Cover Photo - shown even when no menu */}
+    {activeTruck && activeTruck.coverUrl && (
+      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <img
+          src={activeTruck.coverUrl}
+          alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
+          style={{
+            width: '100%',
+            maxWidth: '500px',
+            height: '200px',
+            objectFit: 'cover',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}
+        />
+      </div>
+    )}
+    
     <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
     <p>No menu available for this truck</p>
     {activeTruck && activeTruck.hours && (
