@@ -436,16 +436,98 @@ useEffect(() => {
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
       {userEmail && <p>Email: {userEmail}</p>}
       {userPlan ? (
-        <p>
-          Your current plan: <strong>{userPlan}</strong>
-        </p>
+        <div style={{ margin: "15px 0", padding: "15px", backgroundColor: 
+          userPlan === "basic" ? "#f8f9fa" : 
+          userPlan === "pro" ? "#e8f5e8" : "#e3f2fd", 
+          borderRadius: "8px", border: `2px solid ${
+          userPlan === "basic" ? "#dee2e6" : 
+          userPlan === "pro" ? "#28a745" : "#2196f3"}`
+        }}>
+          <p style={{ margin: "0", fontWeight: "bold", fontSize: "1.1rem" }}>
+            Current Plan: <span style={{ textTransform: "uppercase", color: 
+              userPlan === "basic" ? "#6c757d" : 
+              userPlan === "pro" ? "#28a745" : "#2196f3" 
+            }}>{userPlan}</span>
+            {userPlan === "basic" && " (Free)"}
+            {userPlan === "pro" && " ($9.99/month)"}
+            {userPlan === "all-access" && " ($19.99/month)"}
+          </p>
+          <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#666" }}>
+            {userPlan === "basic" && (
+              <div>
+                ✅ Discovery map • ✅ Demand pins • ✅ Manual location updates
+                <br />
+                🚀 <em>Upgrade for real-time GPS tracking and more!</em>
+              </div>
+            )}
+            {userPlan === "pro" && (
+              <div>
+                ✅ Real-time GPS tracking • ✅ Menu display • ✅ Citywide heat maps
+                <br />
+                📊 <em>Upgrade to All Access for analytics and promotional drops!</em>
+              </div>
+            )}
+            {userPlan === "all-access" && (
+              <div>
+                ✅ Advanced analytics • ✅ Promotional drops • ✅ Featured placement
+                <br />
+                🎉 <em>You have access to all features!</em>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <p>Loading plan info...</p>
       )}
 
-      {/* --- UPGRADE BUTTON FOR BASIC PLAN OWNERS --- */}
+      {/* --- UPGRADE BUTTONS FOR BASIC AND PRO PLAN OWNERS --- */}
       {userRole === "owner" && userPlan === "basic" && (
         <div style={{ margin: "20px 0", textAlign: "center" }}>
+          <p style={{ marginBottom: "10px", color: "#666" }}>
+            🚀 Unlock real-time GPS tracking, menu display, and citywide heat maps
+          </p>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <button
+              style={{
+                padding: "10px 20px",
+                background: "#28a745",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                fontSize: "1rem",
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                navigate("/checkout", { state: { selectedPlan: 'pro' } });
+              }}
+            >
+              Upgrade to Pro ($9.99/mo)
+            </button>
+            <button
+              style={{
+                padding: "10px 20px",
+                background: "#007bff",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                fontSize: "1rem",
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                navigate("/checkout", { state: { selectedPlan: 'all-access' } });
+              }}
+            >
+              Upgrade to All Access ($19.99/mo)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {userRole === "owner" && userPlan === "pro" && (
+        <div style={{ margin: "20px 0", textAlign: "center" }}>
+          <p style={{ marginBottom: "10px", color: "#666" }}>
+            📊 Unlock advanced analytics, promotional drops, and featured placement
+          </p>
           <button
             style={{
               padding: "10px 24px",
@@ -457,39 +539,69 @@ useEffect(() => {
               cursor: "pointer"
             }}
             onClick={() => {
-              // Navigate to your existing payment page for upgrade
-              navigate("/checkout");
+              navigate("/checkout", { state: { selectedPlan: 'all-access' } });
             }}
           >
-            Upgrade to All-Access Plan
+            Upgrade to All Access ($19.99/mo)
           </button>
         </div>
       )}
 
-      {/* Show location input for Basic Plan users */}
+      {/* Location Section - Feature Gated by Plan */}
       {userPlan === "basic" ? (
-        <form onSubmit={handleSubmit}>
-          <label>Enter your truck's location:</label>
-          <input
-            type="text"
-            value={manualLocation}
-            onChange={handleLocationChange}
-            placeholder="Enter address or coordinates"
-            required
-          />
-          <button type="submit">Save Location</button>
-        </form>
-      ) : (
-        <div>
-          {/* For All Access Plan users, show geolocation */}
-          <h3>Your Current Location:</h3>
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
+          <h3>📍 Manual Location Entry</h3>
+          <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+            Basic plan allows manual location updates. Upgrade for real-time GPS tracking!
+          </p>
+          <form onSubmit={handleSubmit}>
+            <label>Enter your truck's location:</label>
+            <input
+              type="text"
+              value={manualLocation}
+              onChange={handleLocationChange}
+              placeholder="Enter address or coordinates"
+              required
+              style={{ 
+                width: "100%", 
+                padding: "8px", 
+                margin: "8px 0",
+                borderRadius: "4px",
+                border: "1px solid #ddd"
+              }}
+            />
+            <button 
+              type="submit"
+              style={{
+                padding: "8px 16px",
+                background: "#28a745",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+            >
+              Save Location
+            </button>
+          </form>
+        </div>
+      ) : userPlan === "pro" || userPlan === "all-access" ? (
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
+          <h3>🛰️ Real-Time GPS Location</h3>
+          <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+            Your location is automatically tracked and updated in real-time.
+          </p>
           {location ? (
-  <p>
-    {address ? address : "Loading address..."}
-  </p>
-) : (
-  <p>Loading location...</p>
-)}
+            <p style={{ color: "#28a745" }}>
+              📍 {address ? address : "Loading address..."}
+            </p>
+          ) : (
+            <p>Loading location...</p>
+          )}
+        </div>
+      ) : (
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#fff3cd", borderRadius: "8px" }}>
+          <p>Loading location features...</p>
         </div>
       )}
 
@@ -503,7 +615,74 @@ useEffect(() => {
   )
 ) : null}
 
-      <MediaUploader showCover={true} showProfile={false} showMenu={true} />
+      {/* Media Uploader - Enhanced for Pro+ Plans */}
+      <div style={{ margin: "20px 0" }}>
+        {userPlan === "basic" ? (
+          <div style={{ padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
+            <h3>📸 Media Upload (Basic)</h3>
+            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+              Upload your profile and menu images. Upgrade for real-time menu display on map!
+            </p>
+            <MediaUploader showCover={true} showProfile={false} showMenu={true} />
+          </div>
+        ) : (
+          <div style={{ padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
+            <h3>📸 Media Upload (Pro+)</h3>
+            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+              Your menu will be displayed in real-time when customers click your map icon!
+            </p>
+            <MediaUploader showCover={true} showProfile={false} showMenu={true} />
+          </div>
+        )}
+      </div>
+
+      {/* Promotional Drops - All Access Only */}
+      {userPlan === "all-access" ? (
+        truckLat && truckLng ? (
+          <div style={{ 
+            marginTop: "20px", 
+            padding: "15px", 
+            backgroundColor: "#e3f2fd", 
+            borderRadius: "8px",
+            border: "2px solid #2196f3"
+          }}>
+            <h3>🎯 Create Promotional Drops</h3>
+            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "15px" }}>
+              Create special deals and promotions for customers to claim!
+            </p>
+            <NewDropForm truckLat={truckLat} truckLng={truckLng} />
+          </div>
+        ) : (
+          <p>Loading your truck's location for drops...</p>
+        )
+      ) : (
+        <div style={{ 
+          marginTop: "20px", 
+          padding: "15px", 
+          backgroundColor: "#fff3cd", 
+          borderRadius: "8px",
+          border: "1px solid #ffc107"
+        }}>
+          <h3>🎯 Promotional Drops (All Access Feature)</h3>
+          <p style={{ fontSize: "0.9rem", color: "#856404", marginBottom: "10px" }}>
+            Create special deals and promotions that customers can claim directly from the map. 
+            This feature is available with the All Access plan.
+          </p>
+          <button
+            style={{
+              padding: "8px 16px",
+              background: "#007bff",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+            onClick={() => navigate("/checkout", { state: { selectedPlan: 'all-access' } })}
+          >
+            Upgrade to All Access
+          </button>
+        </div>
+      )}
 
       <div style={{ marginTop: "20px" }}>
   <label style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -521,15 +700,94 @@ useEffect(() => {
 </div>
 
       <h2>Live Demand Map</h2>
-      <p>
-        Customers can click on your truck icon to display your menu and if you have All-Access, customers can claim your drops on their
-        dashboard! <br></br>The below heat map shows where customers are requesting mobile vendors in real time:
-      </p>
-      <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} />
+      {userPlan === "basic" ? (
+        <p>
+          Customers can click on your truck icon to see basic information. 
+          <br />
+          The heat map below shows where customers are requesting mobile vendors in real time.
+          <br />
+          <span style={{ color: "#666", fontStyle: "italic" }}>
+            Upgrade to Pro for real-time menu display and citywide heat maps, or All Access for advanced analytics!
+          </span>
+        </p>
+      ) : (
+        <p>
+          Customers can click on your truck icon to display your menu{userPlan === "all-access" ? " and claim your promotional drops" : ""}! 
+          <br />
+          The heat map below shows where customers are requesting mobile vendors in real time:
+        </p>
+      )}
+      <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} userPlan={userPlan} />
 
-      {ownerData && (
-  <Analytics userId={user?.uid} ownerData={ownerData} />
-)}
+      {/* Analytics Section - Plan-based Access */}
+      {ownerData && userPlan === "all-access" && (
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#e3f2fd", borderRadius: "8px" }}>
+          <h3>📊 Advanced Analytics Dashboard</h3>
+          <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "15px" }}>
+            30-day analytics, trends, and insights to optimize your business.
+          </p>
+          <Analytics userId={user?.uid} ownerData={ownerData} />
+        </div>
+      )}
+
+      {ownerData && userPlan === "pro" && (
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#fff3cd", borderRadius: "8px" }}>
+          <h3>📊 Analytics (All Access Feature)</h3>
+          <p style={{ fontSize: "0.9rem", color: "#856404", marginBottom: "10px" }}>
+            Get detailed 30-day analytics, customer insights, and trend analysis with the All Access plan.
+          </p>
+          <button
+            style={{
+              padding: "8px 16px",
+              background: "#007bff",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+            onClick={() => navigate("/checkout", { state: { selectedPlan: 'all-access' } })}
+          >
+            Upgrade to All Access
+          </button>
+        </div>
+      )}
+
+      {ownerData && userPlan === "basic" && (
+        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
+          <h3>📊 Analytics (Pro+ Feature)</h3>
+          <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+            Get detailed analytics and customer insights to grow your business.
+          </p>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button
+              style={{
+                padding: "8px 16px",
+                background: "#28a745",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+              onClick={() => navigate("/checkout", { state: { selectedPlan: 'pro' } })}
+            >
+              Upgrade to Pro
+            </button>
+            <button
+              style={{
+                padding: "8px 16px",
+                background: "#007bff",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
+              }}
+              onClick={() => navigate("/checkout", { state: { selectedPlan: 'all-access' } })}
+            >
+              Upgrade to All Access
+            </button>
+          </div>
+        </div>
+      )}
 
 {/* --- QR CODE SECTION START --- */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '40px 0 20px 0' }}>

@@ -7,7 +7,8 @@ let watchId = null;
 
 const useLiveLocationTracking = (userPlan) => {
   useEffect(() => {
-    if (userPlan !== "all-access") return;
+    // Only enable live tracking for Pro and All Access plans
+    if (userPlan !== "pro" && userPlan !== "all-access") return;
 
     const startLiveTracking = () => {
       if ("geolocation" in navigator) {

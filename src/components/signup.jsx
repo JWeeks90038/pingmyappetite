@@ -62,7 +62,7 @@ const userData = {
   createdAt: serverTimestamp(),
 };
 
-      if (formData.role === 'owner' && formData.plan === 'all-access') {
+      if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -94,10 +94,10 @@ const userData = {
        // Create user document in 'users' collection
         await setDoc(doc(db, 'users', user.uid), userData);
 
-      // Navigate based on the role (owner or customer)
+      // Navigate based on the role and plan
       // Redirect based on plan
-if (formData.plan === 'all-access') {
-  navigate('/checkout'); 
+if (formData.plan === 'pro' || formData.plan === 'all-access') {
+  navigate('/checkout', { state: { selectedPlan: formData.plan } }); 
 } else {
   navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
 }
@@ -297,8 +297,9 @@ if (formData.plan === 'all-access') {
       required
     >
       <option value="">Select Plan</option>
-      <option value="basic">Basic (Free)</option>
-      <option value="all-access">All-Access (Paid)</option>
+      <option value="basic">Basic (Free) - Discovery map, demand pins, manual updates</option>
+      <option value="pro">Pro ($9.99/month) - Real-time GPS tracking + menu display</option>
+      <option value="all-access">All Access ($19.99/month) - Analytics, drops, featured placement</option>
     </select>
   </>
 )}
