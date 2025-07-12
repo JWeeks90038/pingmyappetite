@@ -31,6 +31,16 @@ app.use(cors({
   credentials: true,
 }));
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ message: 'Grubana API Server', status: 'running' });
+});
+
 // Stripe webhook endpoint
 app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
