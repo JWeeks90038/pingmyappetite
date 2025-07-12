@@ -280,6 +280,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
         id: truckId,
         ...truckData,
         // Include owner data fields like hours
+        truckName: truckData.truckName || ownerData.ownerName || ownerData.truckName || 'Food Truck',
         hours: ownerData.hours || '',
         ownerName: ownerData.ownerName || '',
         description: ownerData.description || '',
@@ -502,9 +503,31 @@ useEffect(() => {
     collection(db, 'favorites'),
     where('userId', '==', user.uid)
   );
-  const unsubscribe = onSnapshot(q, (snapshot) => {
+  const unsubscribe = onSnapshot(q, async (snapshot) => {
     // Store the whole doc data (including truckName)
-    setFavorites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const favoritesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Update any favorites that don't have truck names
+    const updatePromises = favoritesList.map(async (fav) => {
+      if (!fav.truckName || fav.truckName === '') {
+        try {
+          const ownerDoc = await getDoc(doc(db, 'users', fav.truckId));
+          if (ownerDoc.exists()) {
+            const ownerData = ownerDoc.data();
+            const truckName = ownerData.truckName || ownerData.ownerName || 'Food Truck';
+            if (truckName && truckName !== 'Food Truck') {
+              await updateDoc(doc(db, 'favorites', fav.id), { truckName });
+              fav.truckName = truckName; // Update local state immediately
+            }
+          }
+        } catch (error) {
+          console.error('Error updating favorite truck name:', error);
+        }
+      }
+    });
+    
+    await Promise.all(updatePromises);
+    setFavorites(favoritesList);
   });
   return () => unsubscribe();
 }, [user]);
@@ -725,7 +748,16 @@ return (
   ) : (
     <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
       {favorites.map((fav) => (
-        <li key={fav.id}>{fav.truckName || fav.truckId}</li>
+        <li key={fav.id} style={{ padding: '8px 0', borderBottom: '1px solid #eee' }}>
+          <span style={{ fontWeight: 'bold' }}>
+            {fav.truckName || 'Food Truck'}
+          </span>
+          {fav.truckName && fav.truckName !== 'Food Truck' && (
+            <span style={{ fontSize: '0.9em', color: '#666', marginLeft: '8px' }}>
+              • Favorited
+            </span>
+          )}
+        </li>
       ))}
     </ul>
   )}

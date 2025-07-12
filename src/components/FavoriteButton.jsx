@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 const FavoriteButton = ({ userId, truckOwnerId, truckName }) => {
   const [isFavorite, setIsFavorite] = useState(false);
@@ -41,10 +41,26 @@ const FavoriteButton = ({ userId, truckOwnerId, truckName }) => {
       setIsFavorite(false);
       setFavDocId(null);
     } else {
+      // Get the most up-to-date truck name from the users collection
+      let finalTruckName = truckName || '';
+      
+      if (!finalTruckName) {
+        try {
+          const ownerDoc = await getDoc(doc(db, 'users', truckOwnerId));
+          if (ownerDoc.exists()) {
+            const ownerData = ownerDoc.data();
+            finalTruckName = ownerData.truckName || ownerData.ownerName || 'Food Truck';
+          }
+        } catch (error) {
+          console.error('Error fetching truck name:', error);
+          finalTruckName = 'Food Truck';
+        }
+      }
+      
       await addDoc(collection(db, 'favorites'), {
         userId,
         truckId: truckOwnerId,
-        truckName: truckName || '', // <-- Add this line
+        truckName: finalTruckName,
         createdAt: new Date(),
       });
       setIsFavorite(true);
