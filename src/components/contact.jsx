@@ -30,18 +30,40 @@ const handleSubmit = async (e) => {
   setSubmitted(false);
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
+    // Use Formspree as backup if SendGrid fails
+    const sendGridResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     });
-    if (response.ok) {
+    
+    if (sendGridResponse.ok) {
+      setSubmitted(true);
+      setFormData({ name: '', email: '', message: '' });
+      return;
+    }
+    
+    // If SendGrid fails, fall back to Formspree
+    console.log('SendGrid failed, trying Formspree fallback...');
+    const formspreeResponse = await fetch('https://formspree.io/f/xdkobklr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        _subject: `Contact Form from ${formData.name}`,
+      }),
+    });
+    
+    if (formspreeResponse.ok) {
       setSubmitted(true);
       setFormData({ name: '', email: '', message: '' });
     } else {
       setError('Failed to send message. Please try again later.');
     }
   } catch (err) {
+    console.error('Contact form error:', err);
     setError('Failed to send message. Please try again later.');
   }
 };
