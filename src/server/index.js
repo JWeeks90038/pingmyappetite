@@ -36,6 +36,15 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
 
+// Test endpoint to check environment configuration
+app.get('/test-config', (req, res) => {
+  res.status(200).json({ 
+    sendgridConfigured: !!process.env.SENDGRID_API_KEY,
+    stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
+    nodeEnv: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ message: 'Grubana API Server', status: 'running' });
@@ -555,9 +564,19 @@ app.post('/create-customer-portal-session', async (req, res) => {
 
 app.post('/api/contact', async (req, res) => {
   const { name, email, message } = req.body;
+  
+  console.log('Contact form submission:', { name, email, message: message?.length });
+  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
+  
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Missing fields' });
   }
+  
+  if (!process.env.SENDGRID_API_KEY) {
+    console.error('SendGrid API key not configured');
+    return res.status(500).json({ error: 'Email service not configured' });
+  }
+  
   try {
     await sgMail.send({
       to: 'grubana.co@gmail.com', // Your support email
@@ -566,10 +585,15 @@ app.post('/api/contact', async (req, res) => {
       text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
       html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p>${message}</p>`,
     });
+    console.log('Contact email sent successfully');
     res.status(200).json({ success: true });
   } catch (err) {
     console.error("Contact form email error:", err);
-    res.status(500).json({ error: "Failed to send message" });
+    console.error("Error details:", err.response?.body || err.message);
+    res.status(500).json({ 
+      error: "Failed to send message",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
