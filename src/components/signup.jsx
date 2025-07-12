@@ -97,6 +97,25 @@ const userData = {
       // Create user document in 'users' collection (always as Basic first)
       await setDoc(doc(db, 'users', user.uid), userData);
 
+      // Send welcome email for Basic plan users
+      if (formData.plan === 'basic' || !formData.plan) {
+        try {
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          await fetch(`${API_URL}/api/send-welcome-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: formData.email,
+              username: formData.username || formData.ownerName,
+              plan: 'basic'
+            }),
+          });
+        } catch (emailErr) {
+          console.error('Error sending welcome email:', emailErr);
+          // Don't fail signup if email fails
+        }
+      }
+
       // Redirect based on intended plan
       if (formData.plan === 'pro' || formData.plan === 'all-access') {
         // Redirect to checkout with intended plan (user will be upgraded after payment)

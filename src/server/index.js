@@ -92,14 +92,103 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   switch (event.type) {
     case 'customer.subscription.created':
       const createdSub = event.data.object;
+      const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
+      
       await updateUserSubscription(createdSub.customer, {
         subscriptionId: createdSub.id,
         subscriptionStatus: createdSub.status,
-        plan: getPlanFromPriceId(createdSub.items.data[0].price.id),
+        plan: planType,
         priceId: createdSub.items.data[0].price.id,
         trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
         currentPeriodEnd: new Date(createdSub.current_period_end * 1000)
       });
+
+      // Send welcome email for paid plans
+      if (planType !== 'basic') {
+        try {
+          const customer = await stripe.customers.retrieve(createdSub.customer);
+          if (customer.email) {
+            // Get user data from Firestore to get username
+            const usersRef = admin.firestore().collection('users');
+            const snapshot = await usersRef.where('stripeCustomerId', '==', createdSub.customer).get();
+            let username = '';
+            
+            if (!snapshot.empty) {
+              const userData = snapshot.docs[0].data();
+              username = userData.username || userData.ownerName || '';
+            }
+
+            // Send welcome email via internal API call
+            const welcomeEmailData = {
+              email: customer.email,
+              username: username,
+              plan: planType
+            };
+
+            // Use the sendgrid mail directly since we're in the same server
+            const planMessages = {
+              pro: {
+                subject: '🎉 Welcome to Grubana Pro!',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
+                    <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
+                    
+                    <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
+                    <ul>
+                      <li>✅ Everything in Basic</li>
+                      <li>✅ Real-time GPS location tracking</li>
+                      <li>✅ Real-time menu display on map icon</li>
+                      <li>✅ Access to citywide heat maps</li>
+                      <li>✅ Basic engagement metrics</li>
+                    </ul>
+                    
+                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+                    
+                    <p>Happy food trucking!<br/>The Grubana Team</p>
+                  </div>
+                `
+              },
+              'all-access': {
+                subject: '🎉 Welcome to Grubana All Access!',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
+                    <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
+                    
+                    <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
+                    <ul>
+                      <li>✅ Everything in Basic & Pro</li>
+                      <li>✅ Advanced 30-day analytics dashboard</li>
+                      <li>✅ Create promotional drops and deals</li>
+                      <li>✅ Featured placement in search results</li>
+                      <li>✅ Priority customer support</li>
+                    </ul>
+                    
+                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+                    
+                    <p>Happy food trucking!<br/>The Grubana Team</p>
+                  </div>
+                `
+              }
+            };
+
+            const messageContent = planMessages[planType];
+            if (messageContent) {
+              await sgMail.send({
+                to: customer.email,
+                from: 'grubana.co@gmail.com',
+                subject: messageContent.subject,
+                html: messageContent.html,
+              });
+              console.log(`Welcome email sent to ${customer.email} for ${planType} plan`);
+            }
+          }
+        } catch (emailErr) {
+          console.error('Error sending welcome email from webhook:', emailErr);
+          // Don't fail the webhook if email fails
+        }
+      }
       break;
 
     case 'customer.subscription.updated':
@@ -284,6 +373,125 @@ app.post('/cancel-subscription', async (req, res) => {
   }
 });
 
+// Send welcome email endpoint
+app.post('/api/send-welcome-email', async (req, res) => {
+  const { email, username, plan = 'basic' } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  const planMessages = {
+    basic: {
+      subject: '🎉 Welcome to Grubana!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #2c6f57;">Welcome to Grubana${username ? `, ${username}` : ''}! 🚚</h1>
+          <p>Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.</p>
+          
+          <h2 style="color: #2c6f57;">Your Basic Plan Includes:</h2>
+          <ul>
+            <li>✅ Appear on the Grubana discovery map</li>
+            <li>✅ View demand pins from hungry customers</li>
+            <li>✅ Access to your truck dashboard</li>
+            <li>✅ Manual location updates</li>
+          </ul>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #2c6f57;">🚀 Ready to Upgrade?</h3>
+            <p>Unlock real-time GPS tracking, menu display, analytics, and promotional drops!</p>
+            <a href="https://grubana.com/pricing" style="background: #2c6f57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Pricing Plans</a>
+          </div>
+          
+          <p>Get started by logging into your dashboard: <a href="https://grubana.com/login">https://grubana.com/login</a></p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    },
+    pro: {
+      subject: '🎉 Welcome to Grubana Pro!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
+          <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
+          
+          <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
+          <ul>
+            <li>✅ Everything in Basic</li>
+            <li>✅ Real-time GPS location tracking</li>
+            <li>✅ Real-time menu display on map icon</li>
+            <li>✅ Access to citywide heat maps</li>
+            <li>✅ Basic engagement metrics</li>
+          </ul>
+          
+          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #28a745;">🎯 Want Even More?</h3>
+            <p>Upgrade to All Access for advanced analytics and promotional drops!</p>
+            <a href="https://grubana.com/pricing" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Upgrade to All Access</a>
+          </div>
+          
+          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    },
+    'all-access': {
+      subject: '🎉 Welcome to Grubana All Access!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
+          <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
+          
+          <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
+          <ul>
+            <li>✅ Everything in Basic & Pro</li>
+            <li>✅ Advanced 30-day analytics dashboard</li>
+            <li>✅ Create promotional drops and deals</li>
+            <li>✅ Featured placement in search results</li>
+            <li>✅ Priority customer support</li>
+            <li>✅ Custom branding options</li>
+          </ul>
+          
+          <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #007bff;">🎯 Pro Tips to Maximize Your Success:</h3>
+            <ul>
+              <li>Create promotional drops to attract customers</li>
+              <li>Monitor your analytics to find peak demand times</li>
+              <li>Use the heat map to find the best locations</li>
+              <li>Keep your menu photos updated for maximum appeal</li>
+            </ul>
+          </div>
+          
+          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+          
+          <p>Need help getting started? Contact us at grubana.co@gmail.com</p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    }
+  };
+
+  const messageContent = planMessages[plan] || planMessages.basic;
+
+  try {
+    await sgMail.send({
+      to: email,
+      from: 'grubana.co@gmail.com',
+      subject: messageContent.subject,
+      html: messageContent.html,
+    });
+    
+    console.log(`Welcome email sent to ${email} for ${plan} plan`);
+    res.status(200).json({ success: true, message: 'Welcome email sent successfully' });
+  } catch (err) {
+    console.error('Error sending welcome email:', err);
+    res.status(500).json({ error: 'Failed to send welcome email' });
+  }
+});
+
 app.post('/api/send-beta-code', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
@@ -334,8 +542,8 @@ app.post('/api/contact', async (req, res) => {
   }
   try {
     await sgMail.send({
-      to: 'team@grubana.com', // Your support email
-      from: 'no-reply@grubana.com', // Must be a verified sender in SendGrid
+      to: 'grubana.co@gmail.com', // Your support email
+      from: 'grubana.co@gmail.com', // Must be a verified sender in SendGrid
       subject: `Contact Form Submission from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
       html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p>${message}</p>`,
