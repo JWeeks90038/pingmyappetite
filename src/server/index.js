@@ -577,21 +577,40 @@ app.post('/api/contact', async (req, res) => {
     return res.status(500).json({ error: 'Email service not configured' });
   }
   
+  // Use environment variable for sender email, fallback to default
+  const senderEmail = process.env.SENDGRID_SENDER_EMAIL || 'grubana.co@gmail.com';
+  const recipientEmail = process.env.CONTACT_EMAIL || 'grubana.co@gmail.com';
+  
   try {
-    await sgMail.send({
-      to: 'grubana.co@gmail.com', // Your support email
-      from: 'grubana.co@gmail.com', // Must be a verified sender in SendGrid
+    const emailData = {
+      to: recipientEmail,
+      from: senderEmail, // Must be a verified sender in SendGrid
       subject: `Contact Form Submission from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-      html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p>${message}</p>`,
-    });
+      html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p><strong>Message:</strong></p><p>${message}</p>`,
+      replyTo: email // Allow replying directly to the customer
+    };
+    
+    console.log('Sending email with config:', { to: recipientEmail, from: senderEmail });
+    
+    await sgMail.send(emailData);
     console.log('Contact email sent successfully');
     res.status(200).json({ success: true });
   } catch (err) {
     console.error("Contact form email error:", err);
     console.error("Error details:", err.response?.body || err.message);
+    console.error("Error code:", err.code);
+    
+    // Provide more specific error messages
+    let errorMessage = "Failed to send message";
+    if (err.code === 403) {
+      errorMessage = "Email service authentication failed. Please contact support.";
+    } else if (err.code === 400) {
+      errorMessage = "Invalid email configuration. Please contact support.";
+    }
+    
     res.status(500).json({ 
-      error: "Failed to send message",
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
@@ -667,12 +686,15 @@ app.post('/test-email', async (req, res) => {
     return res.status(500).json({ error: 'SendGrid not configured' });
   }
   
+  const senderEmail = process.env.SENDGRID_SENDER_EMAIL || 'grubana.co@gmail.com';
+  const recipientEmail = process.env.CONTACT_EMAIL || 'grubana.co@gmail.com';
+  
   try {
-    console.log('Attempting to send test email...');
+    console.log('Attempting to send test email...', { from: senderEmail, to: recipientEmail });
     
     const result = await sgMail.send({
-      to: 'grubana.co@gmail.com',
-      from: 'grubana.co@gmail.com',
+      to: recipientEmail,
+      from: senderEmail,
       subject: 'Test Email from Server',
       text: 'This is a test email to verify SendGrid is working.',
       html: '<p>This is a test email to verify SendGrid is working.</p>',
@@ -682,10 +704,12 @@ app.post('/test-email', async (req, res) => {
     res.status(200).json({ success: true, message: 'Test email sent' });
   } catch (err) {
     console.error('Test email error:', err);
+    console.error('Error response body:', err.response?.body);
     res.status(500).json({ 
       error: 'Test email failed', 
       details: err.message,
-      code: err.code
+      code: err.code,
+      senderEmail: senderEmail // Help debug which email is being used
     });
   }
 });
