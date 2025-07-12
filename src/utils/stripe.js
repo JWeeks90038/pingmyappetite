@@ -8,7 +8,7 @@ export const STRIPE_CONFIG = {
   },
   
   // Stripe public key (safe to expose in client-side code)
-  PUBLISHABLE_KEY: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY,
+  PUBLISHABLE_KEY: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY,
   
   // Plan details for reference
   PLANS: {
