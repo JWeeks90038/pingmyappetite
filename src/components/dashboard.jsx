@@ -37,7 +37,7 @@ import { QRCodeCanvas } from "qrcode.react";
 
 
 const Dashboard = ({ isLoaded }) => {
-  const { user, userPlan, userRole } = useAuth(); // Get user info (plan and role)
+  const { user, userPlan, userRole, userSubscriptionStatus } = useAuth(); // Get subscription status too
   useLiveLocationTracking(userPlan);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState("");
@@ -478,6 +478,59 @@ useEffect(() => {
         </div>
       ) : (
         <p>Loading plan info...</p>
+      )}
+
+      {/* --- PAYMENT INCOMPLETE WARNING --- */}
+      {userRole === "owner" && userPlan === "basic" && (
+        <div style={{ 
+          margin: "20px 0", 
+          padding: "20px", 
+          backgroundColor: "#fff3cd", 
+          borderRadius: "8px",
+          border: "2px solid #ffc107",
+          textAlign: "center"
+        }}>
+          <h3 style={{ color: "#856404", marginBottom: "15px" }}>⚠️ Complete Your Upgrade</h3>
+          <p style={{ color: "#856404", marginBottom: "15px" }}>
+            You're currently on the Basic plan. Complete your upgrade to unlock premium features!
+          </p>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <button
+              style={{
+                padding: "12px 20px",
+                background: "#28a745",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                fontSize: "1rem",
+                cursor: "pointer",
+                fontWeight: "bold"
+              }}
+              onClick={() => {
+                navigate("/checkout", { state: { selectedPlan: 'pro' } });
+              }}
+            >
+              Upgrade to Pro ($9.99/mo)
+            </button>
+            <button
+              style={{
+                padding: "12px 20px",
+                background: "#007bff",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                fontSize: "1rem",
+                cursor: "pointer",
+                fontWeight: "bold"
+              }}
+              onClick={() => {
+                navigate("/checkout", { state: { selectedPlan: 'all-access' } });
+              }}
+            >
+              Upgrade to All Access ($19.99/mo)
+            </button>
+          </div>
+        </div>
       )}
 
       {/* --- UPGRADE BUTTONS FOR BASIC AND PRO PLAN OWNERS --- */}

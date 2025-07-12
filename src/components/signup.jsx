@@ -60,47 +60,51 @@ const userData = {
   ...fieldsToSave,
   uid: user.uid,
   createdAt: serverTimestamp(),
+  // SECURITY FIX: Always create user as Basic first, only upgrade after payment
+  plan: 'basic',
+  subscriptionStatus: 'active', // Basic is always active
 };
 
+      // For Pro/All Access plans, create basic account first, then redirect to checkout
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        await setDoc(doc(db, 'truckLocations', user.uid), {
-          ...formData,
-          ownerUid: user.uid,
-          uid: user.uid,
-          truckName: formData.truckName,
-          kitchenType: formData.kitchenType,
-          cuisine: formData.cuisine,
-          lat: latitude,
-          lng: longitude,
-          isLive: true,
-          visible: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastActive: Date.now(),
-        }, { merge: true });
-        //console.log('Truck location updated with geolocation');
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
+        // Set basic location data for geolocation (will be upgraded after payment)
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords;
+              await setDoc(doc(db, 'truckLocations', user.uid), {
+                ownerUid: user.uid,
+                uid: user.uid,
+                truckName: formData.truckName,
+                kitchenType: formData.kitchenType,
+                cuisine: formData.cuisine,
+                lat: latitude,
+                lng: longitude,
+                isLive: false, // Start as hidden until payment
+                visible: false, // Start as hidden until payment
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                lastActive: Date.now(),
+              }, { merge: true });
+            },
+            (error) => {
+              console.error('Geolocation error:', error);
+            }
+          );
+        }
       }
-    );
-  }
-}
 
-       // Create user document in 'users' collection
-        await setDoc(doc(db, 'users', user.uid), userData);
+      // Create user document in 'users' collection (always as Basic first)
+      await setDoc(doc(db, 'users', user.uid), userData);
 
-      // Navigate based on the role and plan
-      // Redirect based on plan
-if (formData.plan === 'pro' || formData.plan === 'all-access') {
-  navigate('/checkout', { state: { selectedPlan: formData.plan } }); 
-} else {
-  navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
-}
+      // Redirect based on intended plan
+      if (formData.plan === 'pro' || formData.plan === 'all-access') {
+        // Redirect to checkout with intended plan (user will be upgraded after payment)
+        navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } }); 
+      } else {
+        // Basic plan - go directly to dashboard
+        navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
+      }
     } catch (err) {
       setError(err.message);
       console.error('Error signing up:', err);

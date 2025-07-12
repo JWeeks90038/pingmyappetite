@@ -42,13 +42,22 @@ const LIBRARIES = ['places', 'visualization'];
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 function ProtectedDashboardRoute({ children }) {
-  const { user, userPlan, loading } = useAuth();
+  const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
 
-  // Allow both "all-access" and "basic" plans
-  if (userPlan !== "all-access" && userPlan !== "basic") return <Navigate to="/checkout" />;
+  // SECURITY: Only allow access if user has valid plan and subscription status
+  // Basic plan is always allowed
+  // Pro/All Access require active or trialing subscription status
+  const hasValidAccess = 
+    userPlan === "basic" || 
+    (userPlan === "pro" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing")) ||
+    (userPlan === "all-access" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing"));
+
+  if (!hasValidAccess) {
+    return <Navigate to="/checkout" />;
+  }
 
   return children;
 }
