@@ -749,6 +749,7 @@ return (
         <option value="thai">Thai</option>
         <option value="vegan">Vegan & Vegetarian</option>
         <option value="wings">Wings</option>
+        <option value="other">Other</option>
       </select>
 
       <button onClick={handleSendPing}>Send Ping</button>

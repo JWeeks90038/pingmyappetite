@@ -5,38 +5,54 @@ import {getFirestore, Timestamp} from "firebase-admin/firestore";
 admin.initializeApp();
 const db = getFirestore();
 
-// Delete old pings (archive first)
+// Delete old pings (archive first) - FIXED VERSION
 export const deleteOldPings = onSchedule(
   {
     schedule: "every 24 hours",
     timeZone: "America/Los_Angeles",
   },
   async () => {
-    const now = Date.now();
-    const cutoffDate = new Date(now - 30 * 24 * 60 * 60 * 1000); // 30 days ago
-const cutoff = Timestamp.fromDate(cutoffDate);
+    try {
+      const now = Date.now();
+      // 30 days ago
+      const cutoffDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      const cutoff = Timestamp.fromDate(cutoffDate);
 
-    const oldPings = await db
-      .collection("pings")
-      .where("timestamp", "<", cutoff)
-      .get();
+      console.log(`Checking for pings older than: ${cutoffDate.toISOString()}`);
 
-    const batch = db.batch();
+      const oldPings = await db
+        .collection("pings")
+        .where("timestamp", "<", cutoff)
+        .get();
 
-    oldPings.forEach((doc) => {
-      const data = doc.data();
-      // Archive the ping to pingAnalytics before deleting
-      const archiveRef = db.collection("pingAnalytics").doc(doc.id);
-      batch.set(archiveRef, {
-        ...data,
-        archivedAt: Timestamp.now(),
+      console.log(`Found ${oldPings.size} pings to archive and delete`);
+
+      if (oldPings.empty) {
+        console.log("No old pings to delete");
+        return;
+      }
+
+      const batch = db.batch();
+
+      oldPings.forEach((doc) => {
+        const data = doc.data();
+        // Archive the ping to pingAnalytics before deleting
+        const archiveRef = db.collection("pingAnalytics").doc(doc.id);
+        batch.set(archiveRef, {
+          ...data,
+          archivedAt: Timestamp.now(),
+        });
+        // Delete original ping
+        batch.delete(doc.ref);
       });
-      // Delete original ping
-      batch.delete(doc.ref);
-    });
 
-    await batch.commit();
-    //console.log("Archived and deleted " + oldPings.size + " old pings.",);
+      await batch.commit();
+      const message = "Successfully archived and deleted " +
+        `${oldPings.size} old pings`;
+      console.log(message);
+    } catch (error) {
+      console.error("Error in deleteOldPings function:", error);
+    }
   },
 );
 

@@ -12,6 +12,7 @@ import {
   PointElement
 } from 'chart.js';
 import '../assets/Analytics.css';
+import { getCuisineDisplayName, normalizeCuisineValue } from '../constants/cuisineTypes';
 
 ChartJS.register(LineElement, BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend, PointElement);
 
@@ -92,7 +93,15 @@ useEffect(() => {
       const pings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       const last7 = pings.filter(p => p.timestamp.seconds >= sevenDaysAgo.seconds);
-      const cuisineMatches = last7.filter(p => cuisines.includes(p.cuisineType));
+      // Improved cuisine matching with normalization
+      const cuisineMatches = last7.filter(p => {
+        if (!p.cuisineType) return false;
+        const normalizedPingCuisine = normalizeCuisineValue(p.cuisineType);
+        return cuisines.some(ownerCuisine => {
+          const normalizedOwnerCuisine = normalizeCuisineValue(ownerCuisine);
+          return normalizedPingCuisine === normalizedOwnerCuisine;
+        });
+      });
 
       const getLoc = (p) =>
         p.location || (p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null);
@@ -121,8 +130,11 @@ useEffect(() => {
         hourCounts[hour] = (hourCounts[hour] || 0) + 1;
         dateCounts[day] = (dateCounts[day] || 0) + 1;
 
+        // Use standardized cuisine mapping for consistent display
         if (p.cuisineType) {
-          cuisineMap[p.cuisineType] = (cuisineMap[p.cuisineType] || 0) + 1;
+          const normalizedCuisine = normalizeCuisineValue(p.cuisineType);
+          const displayName = getCuisineDisplayName(normalizedCuisine);
+          cuisineMap[displayName] = (cuisineMap[displayName] || 0) + 1;
         }
       });
 
@@ -147,6 +159,11 @@ useEffect(() => {
       const cuisineTrends = Object.entries(cuisineMap)
         .sort((a, b) => b[1] - a[1])
         .map(([cuisine, count]) => `${cuisine} (${count})`);
+
+      // Debug log for development - you can remove this later
+      if (Object.keys(cuisineMap).length > 0) {
+        console.log('Analytics - Detected cuisines:', cuisineMap);
+      }
 
       const dailyAvg = (last7.length / 7).toFixed(1);
       const prevWeekPings = pings.filter(p =>
@@ -215,7 +232,13 @@ useEffect(() => {
     datasets: [{
       label: 'Cuisine Types',
       data: Object.values(pingStats.cuisineMap),
-      backgroundColor: ['#ffcd56', '#36a2eb', '#ff6384', '#4bc0c0', '#9966ff']
+      backgroundColor: [
+        '#ffcd56', '#36a2eb', '#ff6384', '#4bc0c0', '#9966ff',
+        '#ff9f40', '#c9cbcf', '#4bc0c0', '#ff6384', '#36a2eb',
+        '#ffcd56', '#9966ff', '#ff9f40', '#c9cbcf', '#4bc0c0',
+        '#ff6384', '#36a2eb', '#ffcd56', '#9966ff', '#ff9f40',
+        '#c9cbcf', '#4bc0c0', '#ff6384', '#36a2eb', '#ffcd56'
+      ]
     }]
   };
 
@@ -259,6 +282,33 @@ useEffect(() => {
       <div className="analytics-item"><strong>Daily Avg:</strong> {pingStats.dailyAvg}</div>
       <div className="analytics-item"><strong>Interest Change vs Last Week:</strong> {pingStats.trendDiff >= 0 ? '+' : ''}{pingStats.trendDiff} pings</div>
       <div className="analytics-item"><strong>Customer Favorites:</strong> {favoritesCount}</div>
+      
+      {/* Detailed Cuisine Breakdown */}
+      {Object.keys(pingStats.cuisineMap).length > 0 && (
+        <div className="analytics-item">
+          <strong>Cuisine Demand Breakdown:</strong>
+          <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
+            {Object.entries(pingStats.cuisineMap)
+              .sort((a, b) => b[1] - a[1])
+              .map(([cuisine, count]) => (
+                <li key={cuisine} style={{ marginBottom: '4px' }}>
+                  <span style={{ 
+                    display: 'inline-block', 
+                    minWidth: '150px',
+                    fontWeight: 'bold',
+                    color: '#2c6f57'
+                  }}>
+                    {cuisine}:
+                  </span>
+                  <span style={{ marginLeft: '10px' }}>
+                    {count} ping{count !== 1 ? 's' : ''}
+                  </span>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      )}
     </div>
     
   );

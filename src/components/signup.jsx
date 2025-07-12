@@ -253,12 +253,31 @@ const userData = {
         required
       >
         <option value="">Select Cuisine</option>
-        <option value="tacos">Tacos</option>
+       <option value="">Select Cuisine</option>
+        <option value="american">American</option>
+        <option value="asian-fusion">Asian Fusion</option>
         <option value="bbq">BBQ</option>
-        <option value="pizza">Pizza</option>
-        <option value="sushi">Sushi</option>
-        <option value="vegan">Vegan</option>
         <option value="burgers">Burgers</option>
+        <option value="chinese">Chinese</option>
+        <option value="coffee">Coffee & Café</option>
+        <option value="desserts">Desserts & Sweets</option>
+        <option value="drinks">Drinks & Beverages</option>
+        <option value="greek">Greek</option>
+        <option value="halal">Halal</option>
+        <option value="healthy">Healthy & Fresh</option>
+        <option value="indian">Indian</option>
+        <option value="italian">Italian</option>
+        <option value="korean">Korean</option>
+        <option value="latin">Latin American</option>
+        <option value="mediterranean">Mediterranean</option>
+        <option value="mexican">Mexican</option>
+        <option value="pizza">Pizza</option>
+        <option value="seafood">Seafood</option>
+        <option value="southern">Southern Comfort</option>
+        <option value="sushi">Sushi & Japanese</option>
+        <option value="thai">Thai</option>
+        <option value="vegan">Vegan & Vegetarian</option>
+        <option value="wings">Wings</option>
         <option value="other">Other</option>
       </select>
 
