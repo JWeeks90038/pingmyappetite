@@ -375,11 +375,17 @@ app.post('/cancel-subscription', async (req, res) => {
 
 // Send welcome email endpoint
 app.post('/api/send-welcome-email', async (req, res) => {
+  console.log('Welcome email endpoint called with:', req.body);
+  
   const { email, username, plan = 'basic' } = req.body;
   
   if (!email) {
+    console.log('Missing email in request');
     return res.status(400).json({ error: 'Email is required' });
   }
+
+  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
+  console.log('Attempting to send welcome email to:', email, 'for plan:', plan);
 
   const planMessages = {
     basic: {
@@ -477,18 +483,30 @@ app.post('/api/send-welcome-email', async (req, res) => {
   const messageContent = planMessages[plan] || planMessages.basic;
 
   try {
-    await sgMail.send({
+    const messageContent = planMessages[plan] || planMessages.basic;
+    
+    console.log('Sending email with subject:', messageContent.subject);
+    
+    const mailOptions = {
       to: email,
       from: 'grubana.co@gmail.com',
       subject: messageContent.subject,
       html: messageContent.html,
-    });
+    };
     
-    console.log(`Welcome email sent to ${email} for ${plan} plan`);
+    console.log('Mail options configured, attempting to send...');
+    await sgMail.send(mailOptions);
+    
+    console.log(`Welcome email sent successfully to ${email} for ${plan} plan`);
     res.status(200).json({ success: true, message: 'Welcome email sent successfully' });
   } catch (err) {
     console.error('Error sending welcome email:', err);
-    res.status(500).json({ error: 'Failed to send welcome email' });
+    console.error('Error details:', err.response?.body || err.message);
+    res.status(500).json({ 
+      error: 'Failed to send welcome email', 
+      details: err.message,
+      sendgridConfigured: !!process.env.SENDGRID_API_KEY
+    });
   }
 });
 

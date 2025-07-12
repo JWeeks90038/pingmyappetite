@@ -101,7 +101,9 @@ const userData = {
       if (formData.plan === 'basic' || !formData.plan) {
         try {
           const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-          await fetch(`${API_URL}/api/send-welcome-email`, {
+          console.log('Sending welcome email to:', formData.email, 'via API:', API_URL);
+          
+          const response = await fetch(`${API_URL}/api/send-welcome-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -110,6 +112,13 @@ const userData = {
               plan: 'basic'
             }),
           });
+
+          const result = await response.json();
+          console.log('Welcome email response:', result);
+          
+          if (!response.ok) {
+            console.error('Welcome email failed:', result);
+          }
         } catch (emailErr) {
           console.error('Error sending welcome email:', emailErr);
           // Don't fail signup if email fails
