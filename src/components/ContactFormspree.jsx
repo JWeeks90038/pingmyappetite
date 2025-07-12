@@ -34,7 +34,7 @@ const ContactFormspree = () => {
 
     try {
       // Direct Formspree submission - no backend needed
-      const response = await fetch('https://formspree.io/f/xdkobklr', {
+      const response = await fetch('https://formspree.io/f/xjkrnnjd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

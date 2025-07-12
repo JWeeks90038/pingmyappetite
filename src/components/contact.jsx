@@ -30,33 +30,20 @@ const handleSubmit = async (e) => {
   setSubmitted(false);
 
   try {
-    // Use Formspree as backup if SendGrid fails
-    const sendGridResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    
-    if (sendGridResponse.ok) {
-      setSubmitted(true);
-      setFormData({ name: '', email: '', message: '' });
-      return;
-    }
-    
-    // If SendGrid fails, fall back to Formspree
-    console.log('SendGrid failed, trying Formspree fallback...');
-    const formspreeResponse = await fetch('https://formspree.io/f/xdkobklr', {
+    // Send contact form via Formspree
+    const response = await fetch('https://formspree.io/f/xjkrnnjd', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: formData.name,
         email: formData.email,
         message: formData.message,
-        _subject: `Contact Form from ${formData.name}`,
+        _subject: `Contact Form Submission from ${formData.name}`,
+        _replyto: formData.email,
       }),
     });
     
-    if (formspreeResponse.ok) {
+    if (response.ok) {
       setSubmitted(true);
       setFormData({ name: '', email: '', message: '' });
     } else {
