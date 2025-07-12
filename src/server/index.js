@@ -23,6 +23,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 app.use(cors({
   origin: [
+    'https://grubana.com',
     'https://www.grubana.com',
     'http://localhost:5173',
     /^https:\/\/.*\.vercel\.app$/
