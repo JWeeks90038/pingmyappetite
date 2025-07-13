@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase";
+import { db } from "../services/firebase";
 
 const AuthContext = createContext();
 
@@ -9,7 +9,6 @@ export const AuthContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userPlan, setUserPlan] = useState(null);
-  const [userSubscriptionStatus, setUserSubscriptionStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const auth = getAuth();
 
@@ -21,7 +20,6 @@ export const AuthContextProvider = ({ children }) => {
         setUser(null);
         setUserRole(null);
         setUserPlan(null);
-        setUserSubscriptionStatus(null);
         setLoading(false);
         if (unsubUserDoc) unsubUserDoc();
         return;
@@ -39,7 +37,6 @@ export const AuthContextProvider = ({ children }) => {
             email: currentUser.email || "",
             role: "customer",
             plan: "basic",
-            subscriptionStatus: "active", // Basic is always active
             menuUrl: "",
             instagram: "",
             facebook: "",
@@ -49,12 +46,10 @@ export const AuthContextProvider = ({ children }) => {
           await setDoc(userDocRef, newUser);
           setUserRole(newUser.role);
           setUserPlan(newUser.plan);
-          setUserSubscriptionStatus(newUser.subscriptionStatus);
         } else {
           const data = userSnap.data();
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");
-          setUserSubscriptionStatus(data.subscriptionStatus || "active"); // Basic/customers default to active
         }
         setLoading(false);
       });
@@ -68,8 +63,8 @@ export const AuthContextProvider = ({ children }) => {
   }, [auth]);
 
   return (
-    <AuthContext.Provider value={{ user, userRole, userPlan, userSubscriptionStatus, loading }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, userRole, userPlan, loading }}>
+      {children}
     </AuthContext.Provider>
   );
 };

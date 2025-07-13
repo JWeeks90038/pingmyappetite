@@ -27,17 +27,40 @@ const Success = () => {
             });
 
             let planType = 'all-access'; // default
+            let customerId = null;
+            let subscriptionId = null;
+            
             if (response.ok) {
               const sessionData = await response.json();
               planType = sessionData.planType || 'all-access';
+              customerId = sessionData.customerId;
+              subscriptionId = sessionData.subscriptionId;
+              console.log('Session data:', sessionData);
+            } else {
+              console.error('Failed to fetch session details:', response.status);
             }
 
-            await updateDoc(doc(db, 'users', user.uid), {
+            // Update user document with subscription info
+            const updateData = {
               subscriptionStatus: 'trialing',
               subscriptionSessionId: sessionId,
               plan: planType,
               updatedAt: new Date()
-            });
+            };
+
+            // Add Stripe customer ID if available
+            if (customerId) {
+              updateData.stripeCustomerId = customerId;
+            }
+
+            // Add subscription ID if available
+            if (subscriptionId) {
+              updateData.subscriptionId = subscriptionId;
+            }
+
+            await updateDoc(doc(db, 'users', user.uid), updateData);
+            
+            console.log('User subscription updated:', updateData);
           }
           setLoading(false);
           

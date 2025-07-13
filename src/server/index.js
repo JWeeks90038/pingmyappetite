@@ -67,10 +67,26 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   }
 
   // Helper function to update user subscription in Firebase
-  const updateUserSubscription = async (customerId, updates) => {
+  const updateUserSubscription = async (customerId, updates, subscriptionMetadata = null) => {
     try {
       const usersRef = admin.firestore().collection('users');
-      const snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+      let snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+      
+      // If no user found by customer ID, try to find by Firebase UID in metadata
+      if (snapshot.empty && subscriptionMetadata && subscriptionMetadata.uid) {
+        console.log('No user found by Stripe customer ID, trying Firebase UID:', subscriptionMetadata.uid);
+        const userDoc = await usersRef.doc(subscriptionMetadata.uid).get();
+        if (userDoc.exists()) {
+          // Update this user and also save the Stripe customer ID
+          await userDoc.ref.update({
+            ...updates,
+            stripeCustomerId: customerId, // Link the Stripe customer ID
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log('User updated by Firebase UID and linked to Stripe customer:', subscriptionMetadata.uid);
+          return;
+        }
+      }
       
       if (!snapshot.empty) {
         const updatePromises = [];
@@ -110,7 +126,7 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
         priceId: createdSub.items.data[0].price.id,
         trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
         currentPeriodEnd: new Date(createdSub.current_period_end * 1000)
-      });
+      }, createdSub.metadata);
 
       // Send welcome email for paid plans
       if (planType !== 'basic') {
@@ -621,9 +637,46 @@ app.post('/create-checkout-session', async (req, res) => {
   try {
     const { priceId, planType, uid } = req.body;
     
-    console.log('Creating checkout session for plan:', planType, 'priceId:', priceId);
+    console.log('Creating checkout session for plan:', planType, 'priceId:', priceId, 'uid:', uid);
 
-    const session = await stripe.checkout.sessions.create({
+    // If we have a uid, get user email from Firebase and create/find Stripe customer
+    let customer = null;
+    if (uid) {
+      try {
+        const userDoc = await admin.firestore().collection('users').doc(uid).get();
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const email = userData.email;
+          
+          // Check if user already has a Stripe customer ID
+          if (userData.stripeCustomerId) {
+            console.log('Using existing Stripe customer:', userData.stripeCustomerId);
+            customer = userData.stripeCustomerId;
+          } else if (email) {
+            // Create new Stripe customer
+            console.log('Creating new Stripe customer for email:', email);
+            const newCustomer = await stripe.customers.create({
+              email: email,
+              metadata: {
+                firebaseUid: uid,
+                username: userData.username || userData.ownerName || ''
+              }
+            });
+            customer = newCustomer.id;
+            
+            // Save customer ID back to Firebase
+            await admin.firestore().collection('users').doc(uid).update({
+              stripeCustomerId: customer
+            });
+            console.log('Saved Stripe customer ID to Firebase:', customer);
+          }
+        }
+      } catch (firebaseError) {
+        console.error('Error getting user from Firebase:', firebaseError);
+      }
+    }
+
+    const sessionConfig = {
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [{
@@ -644,7 +697,14 @@ app.post('/create-checkout-session', async (req, res) => {
       success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/pricing`,
       allow_promotion_codes: true,
-    });
+    };
+
+    // If we have a customer, add it to the session
+    if (customer) {
+      sessionConfig.customer = customer;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     console.log('Checkout session created:', session.id);
     res.json({ sessionId: session.id, url: session.url });
