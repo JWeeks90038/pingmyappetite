@@ -10,12 +10,15 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth, db } from '../firebase';
+import * as ImagePicker from 'expo-image-picker';
+import { auth, db, storage } from '../firebase';
 import { signOut, updateProfile } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   doc, 
   getDoc, 
   setDoc, 
+  updateDoc,
   collection, 
   query, 
   where, 
@@ -34,6 +37,7 @@ export default function ProfileScreen({ navigation }) {
   const [userRole, setUserRole] = useState('customer');
   const [userPlan, setUserPlan] = useState('basic');
   const [foodTruckPhoto, setFoodTruckPhoto] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     setUser(auth.currentUser);
@@ -81,9 +85,9 @@ export default function ProfileScreen({ navigation }) {
         setUserRole(userData.role || 'customer');
         setUserPlan(userData.plan || 'basic');
         
-        // Load food truck photo for owners
-        if (userData.role === 'owner' && userData.foodTruckPhoto) {
-          setFoodTruckPhoto(userData.foodTruckPhoto);
+        // Load food truck photo for owners (using same field as web app)
+        if (userData.role === 'owner' && userData.coverUrl) {
+          setFoodTruckPhoto(userData.coverUrl);
         }
       } else {
         // If no Firestore doc, use what we can from auth
@@ -245,19 +249,95 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  const uploadTruckPhoto = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload truck photos.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9], // Good aspect ratio for truck photos
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploadingPhoto(true);
+        
+        try {
+          // Create a unique filename
+          const timestamp = Date.now();
+          const filename = `truck-photos/${auth.currentUser.uid}-${timestamp}.jpg`;
+          
+          // Convert URI to blob for upload
+          const response = await fetch(result.assets[0].uri);
+          const blob = await response.blob();
+          
+          // Upload to Firebase Storage
+          const storageRef = ref(storage, filename);
+          await uploadBytes(storageRef, blob);
+          
+          // Get download URL
+          const downloadURL = await getDownloadURL(storageRef);
+          
+          // Update user document in Firestore (using same field as web app)
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+            coverUrl: downloadURL,
+            lastUpdated: new Date()
+          });
+          
+          // Update local state
+          setFoodTruckPhoto(downloadURL);
+          
+          Alert.alert('Success', 'Truck photo updated successfully!');
+        } catch (uploadError) {
+          console.error('Error uploading photo:', uploadError);
+          Alert.alert('Error', 'Failed to upload truck photo. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Profile Header */}
       <View style={styles.header}>
-        {/* Food Truck Photo Section - Featured at top for owners */}
-        {userRole === 'owner' && foodTruckPhoto && (
+        {/* Food Truck Photo Section - For owners */}
+        {userRole === 'owner' && (
           <View style={styles.foodTruckSection}>
-            <Image 
-              source={{ uri: foodTruckPhoto }} 
-              style={styles.foodTruckImage}
-              resizeMode="cover"
-            />
-            <Text style={styles.truckPhotoLabel}>My Food Truck</Text>
+            {foodTruckPhoto ? (
+              <Image 
+                source={{ uri: foodTruckPhoto }} 
+                style={styles.foodTruckImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.placeholderTruckImage}>
+                <Ionicons name="camera" size={40} color="#999" />
+                <Text style={styles.placeholderText}>No truck photo</Text>
+              </View>
+            )}
+            <TouchableOpacity 
+              style={styles.uploadPhotoButton}
+              onPress={uploadTruckPhoto}
+              disabled={uploadingPhoto}
+            >
+              <Ionicons name="camera" size={16} color="#2c6f57" />
+              <Text style={styles.uploadPhotoText}>
+                {uploadingPhoto ? 'Uploading...' : 'Upload Truck or Trailer Photo'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
         
@@ -499,6 +579,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  placeholderTruckImage: {
+    width: 120,
+    height: 80,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  uploadPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 10,
+    gap: 6,
+  },
+  uploadPhotoText: {
+    color: '#2c6f57',
+    fontSize: 12,
+    fontWeight: '600',
   },
   truckPhotoLabel: {
     color: '#fff',
