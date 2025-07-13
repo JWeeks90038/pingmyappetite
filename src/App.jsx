@@ -47,6 +47,15 @@ function ProtectedDashboardRoute({ children }) {
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
 
+  // CRITICAL FIX: For paid plans, wait for subscription status to load
+  // This prevents race condition where userSubscriptionStatus is still null
+  const isPaidPlan = userPlan === "pro" || userPlan === "all-access";
+  const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === null;
+  
+  if (subscriptionStatusLoading) {
+    return <div>Loading subscription status...</div>;
+  }
+
   // SECURITY: Only allow access if user has valid plan and subscription status
   // Basic plan is always allowed
   // Pro/All Access require active or trialing subscription status

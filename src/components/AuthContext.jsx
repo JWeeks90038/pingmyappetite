@@ -54,7 +54,17 @@ export const AuthContextProvider = ({ children }) => {
           const data = userSnap.data();
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");
-          setUserSubscriptionStatus(data.subscriptionStatus || "active"); // Basic/customers default to active
+          
+          // More defensive subscription status handling
+          let subscriptionStatus = data.subscriptionStatus;
+          
+          // If plan is basic and no subscription status, default to active
+          if (data.plan === "basic" && !subscriptionStatus) {
+            subscriptionStatus = "active";
+          }
+          // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
+          
+          setUserSubscriptionStatus(subscriptionStatus);
         }
         setLoading(false);
       });
