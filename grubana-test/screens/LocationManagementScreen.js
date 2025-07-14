@@ -9,9 +9,13 @@ import {
   ActivityIndicator,
   Switch,
   TextInput,
+  Modal,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { 
   doc, 
   getDoc, 
@@ -20,6 +24,15 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
+// Configure notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function LocationManagementScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [userPlan, setUserPlan] = useState('basic');
@@ -27,6 +40,7 @@ export default function LocationManagementScreen({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
   const [autoLocationEnabled, setAutoLocationEnabled] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
+  const [locationSubscription, setLocationSubscription] = useState(null);
   const [businessHours, setBusinessHours] = useState({
     monday: { open: '09:00', close: '17:00', closed: false },
     tuesday: { open: '09:00', close: '17:00', closed: false },
@@ -36,22 +50,35 @@ export default function LocationManagementScreen({ navigation }) {
     saturday: { open: '10:00', close: '18:00', closed: false },
     sunday: { open: '10:00', close: '16:00', closed: false },
   });
+  const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
+  const [showTimePickerModal, setShowTimePickerModal] = useState(false);
+  const [selectedDay, setSelectedDay] = useState('monday');
+  const [selectedTimeType, setSelectedTimeType] = useState('open'); // 'open' or 'close'
+  const [tempTime, setTempTime] = useState(new Date());
+  const [locationAlertsEnabled, setLocationAlertsEnabled] = useState(false);
+  const [showLocationAlertsModal, setShowLocationAlertsModal] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(false);
 
   useEffect(() => {
     loadLocationData();
-    
-    // Set up real-time location tracking for pro/all-access users
-    let locationSubscription = null;
-    if (userPlan === 'pro' || userPlan === 'all-access') {
-      startLocationTracking();
-    }
 
     return () => {
+      // Clean up location subscription when component unmounts
       if (locationSubscription) {
         locationSubscription.remove();
       }
     };
-  }, [userPlan]);
+  }, []);
+
+  // Separate effect for handling location tracking based on user plan
+  useEffect(() => {
+    if (userPlan === 'pro' || userPlan === 'all-access') {
+      if (autoLocationEnabled && !locationSubscription) {
+        // Only start if auto location is enabled and no subscription exists
+        startLocationTracking();
+      }
+    }
+  }, [userPlan, autoLocationEnabled]);
 
   const loadLocationData = async () => {
     try {
@@ -65,6 +92,7 @@ export default function LocationManagementScreen({ navigation }) {
         setUserPlan(userData.plan || 'basic');
         setIsOnline(userData.isOnline || false);
         setAutoLocationEnabled(userData.autoLocationEnabled || false);
+        setLocationAlertsEnabled(userData.locationAlertsEnabled || false);
         setManualAddress(userData.currentAddress || '');
         setBusinessHours(userData.businessHours || businessHours);
         
@@ -72,6 +100,10 @@ export default function LocationManagementScreen({ navigation }) {
           setCurrentLocation(userData.currentLocation);
         }
       }
+
+      // Check notification permission status
+      const { status } = await Notifications.getPermissionsAsync();
+      setNotificationPermission(status === 'granted');
     } catch (error) {
       console.error('Error loading location data:', error);
     } finally {
@@ -93,21 +125,33 @@ export default function LocationManagementScreen({ navigation }) {
     }
 
     try {
+      console.log('LocationManagementScreen: Starting location tracking...');
+      
+      // Request foreground permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please enable location services for real-time tracking.');
+        setAutoLocationEnabled(false);
         return;
       }
 
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (backgroundStatus !== 'granted') {
-        Alert.alert(
-          'Background Location Required',
-          'Please enable background location access for continuous tracking while the app is closed.'
-        );
+      console.log('LocationManagementScreen: Foreground permission granted');
+
+      // For background tracking, request background permissions
+      try {
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        if (backgroundStatus !== 'granted') {
+          console.log('LocationManagementScreen: Background permission not granted, continuing with foreground only');
+        } else {
+          console.log('LocationManagementScreen: Background permission granted');
+        }
+      } catch (backgroundError) {
+        console.log('LocationManagementScreen: Background permission request failed:', backgroundError);
+        // Continue without background permission
       }
 
       // Start watching position
+      console.log('LocationManagementScreen: Creating location watcher...');
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -115,27 +159,49 @@ export default function LocationManagementScreen({ navigation }) {
           distanceInterval: 10, // Update when moved 10 meters
         },
         (location) => {
+          console.log('LocationManagementScreen: Location update received');
           updateLocationInFirebase(location);
         }
       );
 
+      console.log('LocationManagementScreen: Location tracking started successfully');
+      setLocationSubscription(subscription);
       setAutoLocationEnabled(true);
+      
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
         autoLocationEnabled: true
       });
 
-      return subscription;
+      Alert.alert('Success', 'Real-time GPS tracking is now active!');
     } catch (error) {
-      console.error('Error starting location tracking:', error);
-      Alert.alert('Error', 'Failed to start location tracking');
+      console.error('LocationManagementScreen: Error starting location tracking:', error);
+      setAutoLocationEnabled(false);
+      Alert.alert('Error', `Failed to start location tracking: ${error.message}`);
     }
   };
 
   const stopLocationTracking = async () => {
-    setAutoLocationEnabled(false);
-    await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-      autoLocationEnabled: false
-    });
+    try {
+      console.log('LocationManagementScreen: Stopping location tracking...');
+      
+      if (locationSubscription) {
+        locationSubscription.remove();
+        setLocationSubscription(null);
+        console.log('LocationManagementScreen: Location subscription removed');
+      }
+
+      setAutoLocationEnabled(false);
+      
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        autoLocationEnabled: false
+      });
+
+      console.log('LocationManagementScreen: Location tracking stopped successfully');
+      Alert.alert('Success', 'Real-time GPS tracking has been disabled.');
+    } catch (error) {
+      console.error('LocationManagementScreen: Error stopping location tracking:', error);
+      Alert.alert('Error', `Failed to stop location tracking: ${error.message}`);
+    }
   };
 
   const updateLocationInFirebase = async (location) => {
@@ -250,6 +316,156 @@ export default function LocationManagementScreen({ navigation }) {
     return `${Math.floor(diffHours / 24)} days ago`;
   };
 
+  // Business Hours Functions
+  const openBusinessHoursModal = () => {
+    setShowBusinessHoursModal(true);
+  };
+
+  const closeBusinessHoursModal = () => {
+    setShowBusinessHoursModal(false);
+  };
+
+  const openTimePicker = (day, timeType) => {
+    setSelectedDay(day);
+    setSelectedTimeType(timeType);
+    
+    // Convert time string to Date object
+    const timeStr = businessHours[day][timeType];
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    setTempTime(date);
+    
+    setShowTimePickerModal(true);
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    if (Platform.OS === 'android') {
+      setShowTimePickerModal(false);
+    }
+    
+    if (selectedTime) {
+      setTempTime(selectedTime);
+      if (Platform.OS === 'ios') {
+        // For iOS, update immediately
+        updateBusinessHours(selectedTime);
+      } else {
+        // For Android, update when picker closes
+        updateBusinessHours(selectedTime);
+      }
+    }
+  };
+
+  const updateBusinessHours = (time) => {
+    const timeStr = time.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
+    setBusinessHours(prev => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        [selectedTimeType]: timeStr
+      }
+    }));
+  };
+
+  const toggleDayClosed = (day) => {
+    setBusinessHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        closed: !prev[day].closed
+      }
+    }));
+  };
+
+  const saveBusinessHours = async () => {
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        businessHours: businessHours,
+        lastUpdated: new Date()
+      });
+      
+      Alert.alert('Success', 'Business hours updated successfully!');
+      setShowBusinessHoursModal(false);
+    } catch (error) {
+      console.error('Error saving business hours:', error);
+      Alert.alert('Error', 'Failed to save business hours');
+    }
+  };
+
+  // Notification Functions
+  const requestNotificationPermission = async () => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      setNotificationPermission(finalStatus === 'granted');
+      return finalStatus === 'granted';
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return false;
+    }
+  };
+
+  const openLocationAlertsModal = async () => {
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications to use location alerts.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Settings', onPress: () => Notifications.openSettings?.() }
+        ]
+      );
+      return;
+    }
+    setShowLocationAlertsModal(true);
+  };
+
+  const toggleLocationAlerts = async () => {
+    try {
+      const newStatus = !locationAlertsEnabled;
+      setLocationAlertsEnabled(newStatus);
+      
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        locationAlertsEnabled: newStatus,
+        lastUpdated: new Date()
+      });
+
+      if (newStatus) {
+        // Schedule a test notification
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Location Alerts Enabled! 📍',
+            body: 'Customers will now be notified when you arrive at popular locations.',
+            data: { type: 'location_alert_enabled' },
+          },
+          trigger: { seconds: 2 },
+        });
+      }
+
+      Alert.alert(
+        'Success', 
+        newStatus 
+          ? 'Location alerts enabled! Customers will be notified when you arrive at popular locations.'
+          : 'Location alerts disabled.'
+      );
+    } catch (error) {
+      console.error('Error toggling location alerts:', error);
+      Alert.alert('Error', 'Failed to update location alerts');
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -261,7 +477,11 @@ export default function LocationManagementScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
@@ -376,18 +596,167 @@ export default function LocationManagementScreen({ navigation }) {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={openBusinessHoursModal}
+          >
             <Ionicons name="time" size={20} color="#2c6f57" />
             <Text style={styles.actionText}>Set Business Hours</Text>
             <Ionicons name="chevron-forward" size={16} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={openLocationAlertsModal}
+          >
             <Ionicons name="notifications" size={20} color="#2c6f57" />
             <Text style={styles.actionText}>Location Alerts</Text>
             <Ionicons name="chevron-forward" size={16} color="#666" />
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Business Hours Modal */}
+      <Modal
+        visible={showBusinessHoursModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeBusinessHoursModal}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Business Hours</Text>
+            <TouchableOpacity onPress={saveBusinessHours}>
+              <Text style={styles.saveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {Object.entries(businessHours).map(([day, hours]) => (
+              <View key={day} style={styles.dayRow}>
+                <View style={styles.dayHeader}>
+                  <Text style={styles.dayName}>
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </Text>
+                  <Switch
+                    value={!hours.closed}
+                    onValueChange={() => toggleDayClosed(day)}
+                    trackColor={{ false: '#ccc', true: '#2c6f57' }}
+                    thumbColor={!hours.closed ? '#fff' : '#f4f3f4'}
+                  />
+                </View>
+                
+                {!hours.closed && (
+                  <View style={styles.timeRow}>
+                    <TouchableOpacity 
+                      style={styles.timeButton}
+                      onPress={() => openTimePicker(day, 'open')}
+                    >
+                      <Text style={styles.timeLabel}>Open</Text>
+                      <Text style={styles.timeValue}>{hours.open}</Text>
+                    </TouchableOpacity>
+                    
+                    <Text style={styles.timeSeparator}>to</Text>
+                    
+                    <TouchableOpacity 
+                      style={styles.timeButton}
+                      onPress={() => openTimePicker(day, 'close')}
+                    >
+                      <Text style={styles.timeLabel}>Close</Text>
+                      <Text style={styles.timeValue}>{hours.close}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Time Picker Modal */}
+      {showTimePickerModal && (
+        <Modal
+          visible={showTimePickerModal}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.timePickerOverlay}>
+            <View style={styles.timePickerContainer}>
+              <View style={styles.timePickerHeader}>
+                <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.timePickerTitle}>
+                  {selectedTimeType === 'open' ? 'Opening' : 'Closing'} Time
+                </Text>
+                <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
+                  <Text style={styles.saveText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <DateTimePicker
+                value={tempTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleTimeChange}
+                style={styles.timePicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Location Alerts Modal */}
+      <Modal
+        visible={showLocationAlertsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowLocationAlertsModal(false)}>
+              <Text style={styles.cancelText}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Location Alerts</Text>
+            <View style={{ width: 60 }} />
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.alertsStatus}>
+              <Text style={styles.alertsStatusText}>
+                Location Alerts are currently {locationAlertsEnabled ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+
+            <View style={styles.alertsToggle}>
+              <Text style={styles.alertsToggleLabel}>Enable Location Alerts</Text>
+              <Switch
+                value={locationAlertsEnabled}
+                onValueChange={toggleLocationAlerts}
+                trackColor={{ false: '#ccc', true: '#2c6f57' }}
+                thumbColor={locationAlertsEnabled ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.alertsInfo}>
+              <Text style={styles.alertsInfoTitle}>How it works:</Text>
+              <Text style={styles.alertsInfoText}>
+                • Customers will receive notifications when you arrive at popular locations
+              </Text>
+              <Text style={styles.alertsInfoText}>
+                • Alerts are sent to users who have favorited your food truck
+              </Text>
+              <Text style={styles.alertsInfoText}>
+                • Notifications include your current location and menu highlights
+              </Text>
+              <Text style={styles.alertsInfoText}>
+                • You can customize alert frequency in your dashboard
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -396,6 +765,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    paddingBottom: 20, // Reduced from 100 to normal padding
   },
   loadingContainer: {
     flex: 1,
@@ -559,5 +931,156 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#333',
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  cancelText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  saveText: {
+    fontSize: 16,
+    color: '#2c6f57',
+    fontWeight: '600',
+  },
+  // Business Hours Modal styles
+  dayRow: {
+    marginBottom: 20,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dayName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+  },
+  timeButton: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  timeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timeSeparator: {
+    fontSize: 14,
+    color: '#666',
+    marginHorizontal: 10,
+  },
+  // Time Picker Modal styles
+  timePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  timePickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34, // Safe area for iOS
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  timePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timePicker: {
+    height: 216,
+  },
+  // Location Alerts Modal styles
+  alertsStatus: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  alertsStatusText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  alertsToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    marginBottom: 20,
+  },
+  alertsToggleLabel: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  alertsInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+  },
+  alertsInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  alertsInfoText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 5,
   },
 });

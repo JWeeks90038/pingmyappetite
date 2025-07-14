@@ -11,6 +11,10 @@ import { auth, db } from './firebase';
 
 // Import screens
 import LoginScreen from './screens/LoginScreen.js';
+import SignupSelectionScreen from './screens/SignupSelectionScreen.js';
+import CustomerSignupScreen from './screens/CustomerSignupScreen.js';
+import OwnerSignupScreen from './screens/OwnerSignupScreen.js';
+import PaymentScreen from './screens/PaymentScreen.js';
 import HomeScreen from './screens/HomeScreen.js';
 import MapScreen from './screens/MapScreen.js';
 import ProfileScreen from './screens/ProfileScreen.js';
@@ -27,6 +31,10 @@ function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+      <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
+      <Stack.Screen name="OwnerSignup" component={OwnerSignupScreen} />
+      <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
     </Stack.Navigator>
   );
 }

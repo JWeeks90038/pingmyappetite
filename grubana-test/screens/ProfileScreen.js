@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { auth, db, storage } from '../firebase';
 import { signOut, updateProfile } from 'firebase/auth';
@@ -86,8 +87,10 @@ export default function ProfileScreen({ navigation }) {
         setUserPlan(userData.plan || 'basic');
         
         // Load food truck photo for owners (using same field as web app)
-        if (userData.role === 'owner' && userData.coverUrl) {
-          setFoodTruckPhoto(userData.coverUrl);
+        if (userData.role === 'owner') {
+          // Use coverUrl as primary field (same as web app)
+          const truckPhoto = userData.coverUrl || userData.foodTruckPhoto;
+          setFoodTruckPhoto(truckPhoto);
         }
       } else {
         // If no Firestore doc, use what we can from auth
@@ -122,18 +125,42 @@ export default function ProfileScreen({ navigation }) {
         );
       }
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const unsubscribe = onSnapshot(q, async (snapshot) => {
         const pings = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
+        
+        // Enhance ping data with better user information
+        const enhancedPings = await Promise.all(pings.map(async (ping) => {
+          let enhancedPing = { ...ping };
+
+          // For owner view: enhance customer information
+          if (userRole === 'owner' && (!ping.username || ping.username === 'Anonymous')) {
+            try {
+              if (ping.userId) {
+                const userDoc = await getDoc(doc(db, 'users', ping.userId));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  enhancedPing.username = userData.displayName || userData.name || ping.username || 'Anonymous';
+                  enhancedPing.customerEmail = userData.email; // Add email for owner reference
+                }
+              }
+            } catch (error) {
+              console.log('Could not fetch user data for ping:', ping.id);
+            }
+          }
+
+          return enhancedPing;
+        }));
+
         // Sort locally instead of in Firestore query
-        pings.sort((a, b) => {
+        enhancedPings.sort((a, b) => {
           const aTime = a.timestamp?.toDate?.() || new Date(a.timestamp || 0);
           const bTime = b.timestamp?.toDate?.() || new Date(b.timestamp || 0);
           return bTime - aTime;
         });
-        setUserPings(pings);
+        setUserPings(enhancedPings);
       }, (error) => {
         console.log('Error loading user pings:', error);
         setUserPings([]); // Set empty array on error
@@ -249,6 +276,12 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  const formatFullDate = (timestamp) => {
+    if (!timestamp) return 'Unknown date';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleString();
+  };
+
   const uploadTruckPhoto = async () => {
     try {
       // Request permission
@@ -328,22 +361,15 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.placeholderText}>No truck photo</Text>
               </View>
             )}
-            <TouchableOpacity 
-              style={styles.uploadPhotoButton}
-              onPress={uploadTruckPhoto}
-              disabled={uploadingPhoto}
-            >
-              <Ionicons name="camera" size={16} color="#2c6f57" />
-              <Text style={styles.uploadPhotoText}>
-                {uploadingPhoto ? 'Uploading...' : 'Upload Truck or Trailer Photo'}
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
         
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={80} color="#2c6f57" />
-        </View>
+        {/* Avatar only for customers */}
+        {userRole !== 'owner' && (
+          <View style={styles.avatarContainer}>
+            <Ionicons name="person-circle" size={80} color="#2c6f57" />
+          </View>
+        )}
         
         {editing ? (
           <View style={styles.editContainer}>
@@ -354,6 +380,21 @@ export default function ProfileScreen({ navigation }) {
               placeholder="Enter your name"
               autoFocus
             />
+            
+            {/* Upload Photo Button - Only show in edit mode for owners */}
+            {userRole === 'owner' && (
+              <TouchableOpacity 
+                style={styles.uploadPhotoButton}
+                onPress={uploadTruckPhoto}
+                disabled={uploadingPhoto}
+              >
+                <Ionicons name="camera" size={16} color="#2c6f57" />
+                <Text style={styles.uploadPhotoText}>
+                  {uploadingPhoto ? 'Uploading...' : 'Upload Truck or Trailer Photo'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            
             <View style={styles.editButtons}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
@@ -427,21 +468,29 @@ export default function ProfileScreen({ navigation }) {
               userPings.map((ping) => (
                 <View key={ping.id} style={styles.pingCard}>
                   <View style={styles.pingHeader}>
-                    <Text style={styles.pingCuisine}>{ping.cuisineType}</Text>
+                    <Text style={styles.pingCuisine}>🍽️ {ping.cuisineType}</Text>
                     <Text style={styles.pingDate}>
                       {formatDate(ping.timestamp)}
                     </Text>
                   </View>
                   <Text style={styles.pingCustomer}>
-                    Customer: {ping.username || 'Anonymous'}
+                    👤 Customer: {ping.username || 'Anonymous'}
                   </Text>
-                  {ping.desiredTime && (
-                    <Text style={styles.pingTime}>
-                      Requested time: {ping.desiredTime}
+                  {ping.customerEmail && (
+                    <Text style={styles.pingEmail}>
+                      📧 {ping.customerEmail}
                     </Text>
                   )}
-                  <Text style={styles.pingAddress} numberOfLines={1}>
-                    📍 {ping.address}
+                  {ping.desiredTime && (
+                    <Text style={styles.pingTime}>
+                      ⏰ Requested time: {ping.desiredTime}
+                    </Text>
+                  )}
+                  <Text style={styles.pingAddress} numberOfLines={2}>
+                    📍 {ping.address || 'Location not provided'}
+                  </Text>
+                  <Text style={styles.pingTimestamp}>
+                    🕒 {formatFullDate(ping.timestamp)}
                   </Text>
                 </View>
               ))
@@ -450,17 +499,6 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Business Tools</Text>
-            <TouchableOpacity 
-              style={styles.toolButton}
-              onPress={() => {
-                // Switch to Analytics tab
-                navigation.getParent()?.navigate('Analytics');
-              }}
-            >
-              <Ionicons name="analytics" size={20} color="#2c6f57" />
-              <Text style={styles.toolText}>View Analytics</Text>
-              <Ionicons name="chevron-forward" size={16} color="#666" />
-            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.toolButton}
               onPress={() => navigation.navigate('LocationManagement')}
@@ -569,24 +607,24 @@ const styles = StyleSheet.create({
   foodTruckSection: {
     alignItems: 'center',
     marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 15,
-    padding: 15,
+    padding: 10,
   },
   foodTruckImage: {
-    width: 120,
-    height: 80,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#fff',
+    width: 140,
+    height: 90,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#2c6f57',
   },
   placeholderTruckImage: {
-    width: 120,
-    height: 80,
-    borderRadius: 10,
+    width: 140,
+    height: 90,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#ddd',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -598,16 +636,18 @@ const styles = StyleSheet.create({
   uploadPhotoButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 10,
-    gap: 6,
+    backgroundColor: 'rgba(44, 111, 87, 0.1)',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginVertical: 15,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#2c6f57',
   },
   uploadPhotoText: {
     color: '#2c6f57',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   truckPhotoLabel: {
@@ -737,12 +777,14 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2c6f57',
   },
   pingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   pingCuisine: {
     fontSize: 16,
@@ -760,13 +802,27 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   pingAddress: {
-    fontSize: 12,
-    color: '#666',
-  },
-  pingCustomer: {
     fontSize: 14,
     color: '#666',
     marginBottom: 5,
+  },
+  pingCustomer: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 5,
+    fontWeight: '500',
+  },
+  pingEmail: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+    fontStyle: 'italic',
+  },
+  pingTimestamp: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 5,
+    fontStyle: 'italic',
   },
   toolButton: {
     flexDirection: 'row',

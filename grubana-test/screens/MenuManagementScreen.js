@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   collection, 
   doc, 
@@ -26,11 +27,12 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { auth, db, storage } from '../firebase';
 
 export default function MenuManagementScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [menuPhoto, setMenuPhoto] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [menuItems, setMenuItems] = useState([]);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [newItem, setNewItem] = useState({
@@ -111,8 +113,9 @@ export default function MenuManagementScreen({ navigation }) {
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('MenuManagementScreen: User data loaded, has menuPhoto:', !!userData.menuPhoto);
-          setMenuPhoto(userData.menuPhoto || null);
+          console.log('MenuManagementScreen: User data loaded, has menuUrl:', !!userData.menuUrl);
+          // Use menuUrl field (same as web app) for consistency
+          setMenuPhoto(userData.menuUrl || null);
         } else {
           console.log('MenuManagementScreen: User document does not exist');
         }
@@ -180,6 +183,7 @@ export default function MenuManagementScreen({ navigation }) {
 
   const pickImage = async () => {
     try {
+      // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -187,29 +191,66 @@ export default function MenuManagementScreen({ navigation }) {
         return;
       }
 
+      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsEditing: false, // Disable cropping to keep full menu
         quality: 0.8,
+        exif: false, // Don't include EXIF data to reduce file size
       });
 
       if (!result.canceled) {
-        // In a real app, you'd upload to Firebase Storage
-        // For now, we'll store the local URI
-        setMenuPhoto(result.assets[0].uri);
+        setUploadingPhoto(true);
         
-        // Save to user document
-        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-          menuPhoto: result.assets[0].uri,
-          lastUpdated: new Date()
-        });
-
-        Alert.alert('Success', 'Menu photo updated successfully!');
+        try {
+          console.log('MenuManagementScreen: Starting photo upload...');
+          
+          // Create a unique filename
+          const timestamp = Date.now();
+          const filename = `menu-photos/${auth.currentUser.uid}-${timestamp}.jpg`;
+          console.log('MenuManagementScreen: Upload filename:', filename);
+          
+          // Convert URI to blob for upload
+          console.log('MenuManagementScreen: Converting image to blob...');
+          const response = await fetch(result.assets[0].uri);
+          const blob = await response.blob();
+          console.log('MenuManagementScreen: Blob created, size:', blob.size);
+          
+          // Upload to Firebase Storage
+          console.log('MenuManagementScreen: Uploading to Firebase Storage...');
+          const storageRef = ref(storage, filename);
+          await uploadBytes(storageRef, blob);
+          console.log('MenuManagementScreen: Upload successful');
+          
+          // Get download URL
+          console.log('MenuManagementScreen: Getting download URL...');
+          const downloadURL = await getDownloadURL(storageRef);
+          console.log('MenuManagementScreen: Download URL obtained:', downloadURL.substring(0, 50) + '...');
+          
+          // Update user document in Firestore (using same field as web app)
+          console.log('MenuManagementScreen: Updating Firestore document...');
+          await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+            menuUrl: downloadURL,
+            lastUpdated: new Date()
+          });
+          console.log('MenuManagementScreen: Firestore update successful');
+          
+          // Update local state
+          setMenuPhoto(downloadURL);
+          
+          Alert.alert('Success', 'Menu photo updated successfully!');
+        } catch (uploadError) {
+          console.error('MenuManagementScreen: Error uploading menu photo:', uploadError);
+          console.error('MenuManagementScreen: Error code:', uploadError.code);
+          console.error('MenuManagementScreen: Error message:', uploadError.message);
+          Alert.alert('Error', `Failed to upload menu photo: ${uploadError.message}`);
+        }
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to update menu photo');
+      console.error('MenuManagementScreen: Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image');
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -325,18 +366,38 @@ export default function MenuManagementScreen({ navigation }) {
         {/* Menu Photo Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Menu Photo</Text>
-          <TouchableOpacity onPress={pickImage} style={styles.photoContainer}>
-            {menuPhoto ? (
+          
+          {menuPhoto ? (
+            <View style={styles.photoContainer}>
               <Image source={{ uri: menuPhoto }} style={styles.menuImage} />
-            ) : (
+              <TouchableOpacity 
+                onPress={pickImage} 
+                style={styles.changePhotoButton}
+                disabled={uploadingPhoto}
+              >
+                <Ionicons name="camera" size={16} color="#2c6f57" />
+                <Text style={styles.changePhotoText}>
+                  {uploadingPhoto ? 'Uploading...' : 'Change Menu Photo'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              onPress={pickImage} 
+              style={styles.placeholderContainer}
+              disabled={uploadingPhoto}
+            >
               <View style={styles.placeholderImage}>
                 <Ionicons name="camera" size={40} color="#666" />
-                <Text style={styles.placeholderText}>Tap to add menu photo</Text>
+                <Text style={styles.placeholderText}>
+                  {uploadingPhoto ? 'Uploading...' : 'Tap to add menu photo'}
+                </Text>
               </View>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+          
           <Text style={styles.photoHint}>
-            Upload a photo of your menu for customers to see
+            Upload a photo of your menu for customers to see. This will sync with your web app.
           </Text>
         </View>
 
@@ -525,15 +586,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  placeholderContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   menuImage: {
-    width: 300,
-    height: 200,
+    width: '100%',
+    height: 300,
     borderRadius: 10,
-    resizeMode: 'cover',
+    resizeMode: 'contain', // Changed from 'cover' to 'contain' to show full image
+    marginBottom: 15,
+    backgroundColor: '#f8f9fa', // Light background to see image bounds
+  },
+  changePhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(44, 111, 87, 0.1)',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#2c6f57',
+    alignSelf: 'center',
+  },
+  changePhotoText: {
+    color: '#2c6f57',
+    fontSize: 14,
+    fontWeight: '600',
   },
   placeholderImage: {
-    width: 300,
-    height: 200,
+    width: '100%',
+    height: 300,
     borderRadius: 10,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
@@ -546,12 +630,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#666',
     fontSize: 16,
+    textAlign: 'center',
   },
   photoHint: {
     textAlign: 'center',
     color: '#666',
     fontSize: 14,
     fontStyle: 'italic',
+    marginTop: 15,
+    paddingHorizontal: 10,
   },
   categorySection: {
     marginBottom: 20,

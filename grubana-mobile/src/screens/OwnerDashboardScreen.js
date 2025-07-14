@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useAuth } from '../components/AuthContext';
@@ -141,7 +142,12 @@ const OwnerDashboardScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Truck Dashboard</Text>
+        <Image 
+          source={require('../../assets/grubana-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>Owner Dashboard</Text>
         <Text style={styles.subtitle}>Manage your food truck presence</Text>
       </View>
 
@@ -377,6 +383,12 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
     marginBottom: 10,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+    alignSelf: 'center',
   },
 });
 

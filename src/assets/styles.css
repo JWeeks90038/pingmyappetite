@@ -1106,17 +1106,38 @@ p a:hover {
 
 .dashboard {
     text-align: center;
-    padding: 50px 20px;
+    padding: 20px 20px 50px 20px; /* Less top padding */
     background: white;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     max-width: 1400px; /* Increase the maximum width */
 }
 
+/* Override any white background for logo area */
+.dashboard > div:first-child {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
 .dashboard h1 {
     font-size: 2.5rem;
     color: #333;
     margin-bottom: 30px;
+}
+
+/* Logo Container - Override dashboard styling */
+.logo-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-top: -20px !important; /* Compensate for dashboard padding */
+}
+
+.logo-container img {
+    background: transparent !important;
+    border: none !important;
 }
 
 /* Dashboard Grid */

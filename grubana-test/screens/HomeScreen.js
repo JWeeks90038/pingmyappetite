@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -28,12 +28,53 @@ export default function HomeScreen({ navigation }) {
       limit(10)
     );
 
-    const unsubscribePings = onSnapshot(pingsQuery, (snapshot) => {
+    const unsubscribePings = onSnapshot(pingsQuery, async (snapshot) => {
       const pings = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setRecentPings(pings);
+
+      // Enhance ping data with better user information
+      const enhancedPings = await Promise.all(pings.map(async (ping) => {
+        let enhancedPing = { ...ping };
+
+        // Try to get user info from Firebase (username and photo)
+        if (ping.userId) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', ping.userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              console.log('User data for ping:', ping.id, userData); // Debug log
+              
+              // Update username if missing or Anonymous
+              if (!ping.username || ping.username === 'Anonymous') {
+                enhancedPing.username = userData.displayName || userData.name || ping.username || 'Anonymous';
+              }
+              
+              // Add profile photo if available - check multiple possible field names
+              const profilePhoto = userData.profileUrl || 
+                                 userData.profilePhotoURL || 
+                                 userData.photoURL || 
+                                 userData.profilePhoto || 
+                                 userData.avatar || 
+                                 userData.profilePicture;
+              
+              if (profilePhoto) {
+                enhancedPing.userProfilePhoto = profilePhoto;
+                console.log('Found profile photo for user:', userData.displayName || userData.name, profilePhoto);
+              } else {
+                console.log('No profile photo found for user:', userData.displayName || userData.name, 'Available fields:', Object.keys(userData));
+              }
+            }
+          } catch (error) {
+            console.log('Could not fetch user data for ping:', ping.id, error);
+          }
+        }
+
+        return enhancedPing;
+      }));
+
+      setRecentPings(enhancedPings);
     });
 
     // Listen to active trucks
@@ -66,7 +107,35 @@ export default function HomeScreen({ navigation }) {
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    // If it's today, show "Today" + time
+    if (diffInHours < 24 && date.toDateString() === now.toDateString()) {
+      return `Today, ${date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })}`;
+    }
+    
+    // If it's recent (within 7 days), show day and time
+    if (diffInHours < 168) {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+    
+    // Otherwise show full date and time
+    return date.toLocaleDateString('en-US', { 
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
       hour: 'numeric', 
       minute: '2-digit',
       hour12: true 
@@ -152,15 +221,37 @@ export default function HomeScreen({ navigation }) {
         ) : (
           recentPings.slice(0, 5).map((ping) => (
             <View key={ping.id} style={styles.pingCard}>
-              <Text style={styles.pingUser}>
-                {ping.username || 'Anonymous'}
-              </Text>
+              <View style={styles.pingHeader}>
+                <View style={styles.pingUserSection}>
+                  {ping.userProfilePhoto ? (
+                    <Image 
+                      source={{ uri: ping.userProfilePhoto }} 
+                      style={styles.userProfilePhoto}
+                    />
+                  ) : (
+                    <Text style={styles.userPlaceholder}>👤</Text>
+                  )}
+                  <Text style={styles.pingUser}>
+                    {ping.username || 'Anonymous'}
+                  </Text>
+                </View>
+                <Text style={styles.pingTime}>
+                  🕒 {formatTime(ping.timestamp)}
+                </Text>
+              </View>
               <Text style={styles.pingCuisine}>
-                Looking for: {ping.cuisineType}
+                🍽️ Looking for: {ping.cuisineType}
               </Text>
-              <Text style={styles.pingTime}>
-                {formatTime(ping.timestamp)}
-              </Text>
+              {ping.address && (
+                <Text style={styles.pingAddress} numberOfLines={1}>
+                  📍 {ping.address}
+                </Text>
+              )}
+              {ping.desiredTime && (
+                <Text style={styles.pingDesiredTime}>
+                  ⏰ Wanted at: {ping.desiredTime}
+                </Text>
+              )}
             </View>
           ))
         )}
@@ -270,23 +361,68 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   pingCard: {
-    padding: 15,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
+    padding: 12,
+    marginBottom: 8,
     borderRadius: 8,
-    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2c6f57',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  pingUserSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  userProfilePhoto: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+  userPlaceholder: {
+    fontSize: 16,
+    marginRight: 6,
   },
   pingUser: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2c6f57',
+    flex: 1,
   },
   pingCuisine: {
     fontSize: 14,
-    color: '#2c6f57',
-    marginVertical: 2,
+    color: '#333',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  pingAddress: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    fontStyle: 'italic',
+  },
+  pingDesiredTime: {
+    fontSize: 12,
+    color: '#e67e22',
+    fontWeight: '500',
   },
   pingTime: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+    textAlign: 'right',
+    flexShrink: 0,
   },
 });

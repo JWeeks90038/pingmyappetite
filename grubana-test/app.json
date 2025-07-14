@@ -13,17 +13,35 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.grubana.mobile",
+      "config": {
+        "googleMapsApiKey": "AIzaSyBzTNlQMkIiK1_IOphDwE34L2kzpdMQWD8"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.grubana.mobile",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBzTNlQMkIiK1_IOphDwE34L2kzpdMQWD8"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app uses location to show your position and nearby food trucks."
+        }
+      ]
+    ]
   }
 }

@@ -10,6 +10,7 @@ import {
   Switch,
   Modal,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -140,7 +141,7 @@ const CustomerDashboardScreen = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // Monitor food trucks
+  // Monitor food trucks with distance filtering
   useEffect(() => {
     if (!user) return;
 
@@ -148,6 +149,7 @@ const CustomerDashboardScreen = () => {
       const trucks = [];
       const nowMs = Date.now();
       const FIVE_MIN = 5 * 60 * 1000;
+      const MAX_DISTANCE_MILES = 30; // 30 mile radius for dashboard
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
@@ -157,14 +159,37 @@ const CustomerDashboardScreen = () => {
         const isStale = nowMs - lastActive > FIVE_MIN;
 
         if (isLive && visible && !isStale) {
-          trucks.push({
-            id: doc.id,
-            ...data,
-            coordinate: {
-              latitude: data.lat,
-              longitude: data.lng,
+          // Apply distance filter if user location is available
+          if (userLocation) {
+            const distance = calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              data.lat,
+              data.lng
+            );
+            
+            if (distance <= MAX_DISTANCE_MILES) {
+              trucks.push({
+                id: doc.id,
+                ...data,
+                coordinate: {
+                  latitude: data.lat,
+                  longitude: data.lng,
+                },
+                distance: distance
+              });
             }
-          });
+          } else {
+            // If no user location, show all trucks
+            trucks.push({
+              id: doc.id,
+              ...data,
+              coordinate: {
+                latitude: data.lat,
+                longitude: data.lng,
+              }
+            });
+          }
         }
       });
 
@@ -172,7 +197,7 @@ const CustomerDashboardScreen = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, userLocation]);
 
   const handleSendPing = async () => {
     if (sendingRef.current) return;
@@ -238,9 +263,27 @@ const CustomerDashboardScreen = () => {
     }
   };
 
+  // Calculate distance between two points in miles
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 3959; // Radius of Earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
+        <Image 
+          source={require('../../assets/grubana-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>
           Welcome{username ? `, ${username}` : ''}!
         </Text>
@@ -554,6 +597,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 5,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+    alignSelf: 'center',
   },
 });
 

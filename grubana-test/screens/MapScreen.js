@@ -13,17 +13,41 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { db } from '../firebase';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { calculateDistance, formatDistance, DISTANCE_SETTINGS } from '../utils/locationUtils';
 
 export default function MapScreen() {
   const [userLocation, setUserLocation] = useState(null);
   const [foodTrucks, setFoodTrucks] = useState([]);
+  const [allFoodTrucks, setAllFoodTrucks] = useState([]); // Store all trucks
   const [selectedTruck, setSelectedTruck] = useState(null);
+  const [maxDistance, setMaxDistance] = useState(DISTANCE_SETTINGS.MAP_SCREEN_DEFAULT); // Default 25 miles
+  const [showDistanceFilter, setShowDistanceFilter] = useState(false);
 
   useEffect(() => {
     getCurrentLocation();
     const unsubscribe = listenToFoodTrucks();
     return unsubscribe;
   }, []);
+
+  // Filter trucks by distance when userLocation or maxDistance changes
+  useEffect(() => {
+    if (!userLocation || allFoodTrucks.length === 0) {
+      setFoodTrucks(allFoodTrucks);
+      return;
+    }
+
+    const filteredTrucks = allFoodTrucks.filter(truck => {
+      const distance = calculateDistanceLocal(
+        userLocation.latitude, 
+        userLocation.longitude, 
+        truck.lat, 
+        truck.lng
+      );
+      return distance <= maxDistance;
+    });
+
+    setFoodTrucks(filteredTrucks);
+  }, [userLocation, allFoodTrucks, maxDistance]);
 
   const getCurrentLocation = async () => {
     try {
@@ -53,26 +77,26 @@ export default function MapScreen() {
         id: doc.id,
         ...doc.data(),
       }));
-      setFoodTrucks(trucks);
+      setAllFoodTrucks(trucks); // Store all trucks for filtering
     });
 
     return unsubscribe;
   };
 
+  // Calculate distance between two points in miles
+  const calculateDistanceLocal = calculateDistance;
+
   const getDistanceFromUser = (truckLat, truckLng) => {
     if (!userLocation) return 'Unknown';
 
-    const R = 6371; // Radius of Earth in km
-    const dLat = (truckLat - userLocation.latitude) * Math.PI / 180;
-    const dLng = (truckLng - userLocation.longitude) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(userLocation.latitude * Math.PI / 180) * Math.cos(truckLat * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
+    const distance = calculateDistanceLocal(
+      userLocation.latitude, 
+      userLocation.longitude, 
+      truckLat, 
+      truckLng
+    );
 
-    return `${distance.toFixed(1)} km away`;
+    return formatDistance(distance);
   };
 
   const getTruckIcon = (kitchenType) => {
@@ -105,13 +129,52 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Live Food Trucks Near You</Text>
-        <Text style={styles.subtitle}>
-          {userLocation 
-            ? `Found ${foodTrucks.length} trucks nearby` 
-            : 'Getting your location...'}
-        </Text>
+        <View style={styles.headerMain}>
+          <Text style={styles.title}>Live Food Trucks Near You</Text>
+          <Text style={styles.subtitle}>
+            {userLocation 
+              ? `Found ${foodTrucks.length} trucks within ${maxDistance} miles` 
+              : 'Getting your location...'}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setShowDistanceFilter(!showDistanceFilter)}
+        >
+          <Ionicons name="options" size={24} color="#2c6f57" />
+        </TouchableOpacity>
       </View>
+
+      {/* Distance Filter Controls */}
+      {showDistanceFilter && (
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Show trucks within:</Text>
+          <View style={styles.distanceButtons}>
+            {DISTANCE_SETTINGS.DISTANCE_OPTIONS.map(distance => (
+              <TouchableOpacity
+                key={distance}
+                style={[
+                  styles.distanceButton,
+                  maxDistance === distance && styles.distanceButtonActive
+                ]}
+                onPress={() => setMaxDistance(distance)}
+              >
+                <Text style={[
+                  styles.distanceButtonText,
+                  maxDistance === distance && styles.distanceButtonTextActive
+                ]}>
+                  {distance} mi
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.filterStats}>
+            <Text style={styles.filterStatsText}>
+              {allFoodTrucks.length - foodTrucks.length} trucks filtered out
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.mapPlaceholder}>
         <Ionicons name="map-outline" size={60} color="#ccc" />
@@ -133,8 +196,18 @@ export default function MapScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="restaurant-outline" size={48} color="#ccc" />
-            <Text style={styles.emptyText}>No food trucks are live right now</Text>
-            <Text style={styles.emptySubtext}>Check back later!</Text>
+            <Text style={styles.emptyText}>
+              {allFoodTrucks.length === 0 
+                ? 'No food trucks are live right now'
+                : `No food trucks within ${maxDistance} miles`
+              }
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {allFoodTrucks.length === 0 
+                ? 'Check back later!'
+                : `Try increasing the distance filter or check back later`
+              }
+            </Text>
           </View>
         }
       />
@@ -166,9 +239,75 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#2c6f57',
     padding: 20,
     paddingTop: 60,
+  },
+  headerMain: {
+    flex: 1,
+  },
+  filterButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+  },
+  filterContainer: {
+    backgroundColor: '#fff',
+    padding: 15,
+    marginHorizontal: 15,
+    marginTop: -10,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  distanceButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  distanceButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  distanceButtonActive: {
+    backgroundColor: '#2c6f57',
+    borderColor: '#2c6f57',
+  },
+  distanceButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  distanceButtonTextActive: {
+    color: '#fff',
+  },
+  filterStats: {
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  filterStatsText: {
+    fontSize: 12,
+    color: '#999',
   },
   title: {
     fontSize: 24,

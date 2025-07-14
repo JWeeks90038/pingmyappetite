@@ -28,6 +28,7 @@ import "../assets/social-icon.css";
 import truckIconImg from "/truck-icon.png";
 import trailerIconImg from "/trailer-icon.png";
 import cartIconImg from "/cart-icon.png";
+import grubanaLogoImg from "../assets/grubana-logo.png";
 import Analytics from "./analytics";
 import { FaInstagram, FaFacebook, FaTiktok } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
@@ -63,6 +64,7 @@ const Dashboard = ({ isLoaded }) => {
   console.log("user:", user);
 console.log("userRole:", userRole);
 console.log("userPlan:", userPlan);
+console.log("Dashboard component rendering for OWNER");
 
   const truckMarkerRef = useRef(null);
   const qrRef = useRef(null);
@@ -431,9 +433,58 @@ useEffect(() => {
 
   return (
     <div className="dashboard">
-      <div id="top"></div>
-      <br />
+      {/* Logo Section */}
+      <div style={{ 
+        textAlign: 'center', 
+        margin: '0 0 20px 0', 
+        background: 'transparent !important',
+        padding: '10px 0',
+        borderRadius: '8px',
+        boxShadow: 'none !important'
+      }}>
+        <img 
+          src={grubanaLogoImg} 
+          alt="Grubana Logo" 
+          style={{ 
+            height: '80px', 
+            width: 'auto',
+            maxWidth: '300px',
+            objectFit: 'contain',
+            background: 'transparent',
+            border: 'none'
+          }}
+          onError={(e) => {
+            console.error('Logo failed to load from assets, trying public path');
+            e.target.src = "/grubana-logo.png";
+            e.target.onerror = () => {
+              console.error('All logo paths failed, showing text fallback');
+              e.target.style.display = 'none';
+              const textLogo = document.createElement('h1');
+              textLogo.innerHTML = 'GRUBANA';
+              textLogo.style.cssText = 'color: #2c6f57; margin: 0; font-size: 2.5rem; font-weight: bold;';
+              e.target.parentNode.appendChild(textLogo);
+            };
+          }}
+          onLoad={() => {
+            console.log('Grubana logo loaded successfully from:', grubanaLogoImg);
+          }}
+        />
+      </div>
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
+      <div style={{ 
+        background: '#e8f5e8', 
+        padding: '10px', 
+        borderRadius: '8px', 
+        marginBottom: '15px',
+        border: '2px solid #28a745'
+      }}>
+        <p style={{ margin: 0, fontWeight: 'bold', color: '#28a745' }}>
+          🚚 OWNER DASHBOARD - This is the food truck owner interface
+        </p>
+        <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+          Role: {userRole} | User ID: {user?.uid?.slice(-8)}
+        </p>
+      </div>
       {userEmail && <p>Email: {userEmail}</p>}
       {userPlan ? (
         <div style={{ margin: "15px 0", padding: "15px", backgroundColor: 

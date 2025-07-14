@@ -11,16 +11,15 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleAuth = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -28,11 +27,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       Alert.alert('Error', error.message);
     }
@@ -46,8 +41,12 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logo}>🍔 Grubana</Text>
-          <Text style={styles.tagline}>Find Food Trucks Near You</Text>
+          <Image 
+            source={require('../assets/grubana-logo.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.tagline}>Food Truck Discovery Near You, In Real-Time</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -70,20 +69,20 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
-            onPress={handleAuth}
+            onPress={handleLogin}
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+              {loading ? 'Signing In...' : 'Sign In'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={() => setIsSignUp(!isSignUp)}
+            onPress={() => navigation.navigate('SignupSelection')}
           >
             <Text style={styles.secondaryButtonText}>
-              {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+              Need an account? Sign Up
             </Text>
           </TouchableOpacity>
         </View>
@@ -107,15 +106,17 @@ const styles = StyleSheet.create({
     marginBottom: 50,
   },
   logo: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#2c6f57',
-    marginBottom: 10,
+    width: 400,
+    height: 200,
+    marginBottom: 20,
+    backgroundColor: 'transparent',
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
     textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
   formContainer: {
     backgroundColor: 'white',

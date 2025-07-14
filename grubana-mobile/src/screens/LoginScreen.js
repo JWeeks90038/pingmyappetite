@@ -93,7 +93,7 @@ const LoginScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => navigation.navigate('Signup')}
+            onPress={() => navigation.navigate('SignupSelection')}
           >
             <Text style={styles.secondaryButtonText}>
               Don't have an account? Sign Up
