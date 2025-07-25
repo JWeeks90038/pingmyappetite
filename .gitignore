@@ -104,3 +104,5 @@ local.env
 
 .env.*
 **/.env.*
+
+bfg-*.jar
