@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import Stripe from 'stripe';
 import bodyParser from 'body-parser';
-import sgMail from '@sendgrid/mail';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -19,7 +18,6 @@ dotenv.config();
 const app = express();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 app.use(cors({
   origin: [
@@ -38,8 +36,7 @@ app.get('/health', (req, res) => {
 
 // Test endpoint to check environment configuration
 app.get('/test-config', (req, res) => {
-  res.status(200).json({ 
-    sendgridConfigured: !!process.env.SENDGRID_API_KEY,
+  res.status(200).json({
     stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
     nodeEnv: process.env.NODE_ENV || 'development'
   });
@@ -578,60 +575,6 @@ app.post('/create-customer-portal-session', async (req, res) => {
   }
 });
 
-app.post('/api/contact', async (req, res) => {
-  const { name, email, message } = req.body;
-  
-  console.log('Contact form submission:', { name, email, message: message?.length });
-  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
-  
-  if (!name || !email || !message) {
-    return res.status(400).json({ error: 'Missing fields' });
-  }
-  
-  if (!process.env.SENDGRID_API_KEY) {
-    console.error('SendGrid API key not configured');
-    return res.status(500).json({ error: 'Email service not configured' });
-  }
-  
-  // Use environment variable for sender email, fallback to default
-  const senderEmail = process.env.SENDGRID_SENDER_EMAIL || 'grubana.co@gmail.com';
-  const recipientEmail = process.env.CONTACT_EMAIL || 'grubana.co@gmail.com';
-  
-  try {
-    const emailData = {
-      to: recipientEmail,
-      from: senderEmail, // Must be a verified sender in SendGrid
-      subject: `Contact Form Submission from ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-      html: `<p><strong>Name:</strong> ${name}<br/><strong>Email:</strong> ${email}</p><p><strong>Message:</strong></p><p>${message}</p>`,
-      replyTo: email // Allow replying directly to the customer
-    };
-    
-    console.log('Sending email with config:', { to: recipientEmail, from: senderEmail });
-    
-    await sgMail.send(emailData);
-    console.log('Contact email sent successfully');
-    res.status(200).json({ success: true });
-  } catch (err) {
-    console.error("Contact form email error:", err);
-    console.error("Error details:", err.response?.body || err.message);
-    console.error("Error code:", err.code);
-    
-    // Provide more specific error messages
-    let errorMessage = "Failed to send message";
-    if (err.code === 403) {
-      errorMessage = "Email service authentication failed. Please contact support.";
-    } else if (err.code === 400) {
-      errorMessage = "Invalid email configuration. Please contact support.";
-    }
-    
-    res.status(500).json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-});
-
 // Create a checkout session endpoint
 app.post('/create-checkout-session', async (req, res) => {
   try {
@@ -735,96 +678,3 @@ app.post('/session-details', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4242;
-app.listen(PORT, () => console.log(`Stripe server running on port ${PORT}`));
-
-// Test endpoint for SendGrid without full contact form logic
-app.post('/test-email', async (req, res) => {
-  console.log('Test email endpoint called');
-  
-  if (!process.env.SENDGRID_API_KEY) {
-    return res.status(500).json({ error: 'SendGrid not configured' });
-  }
-  
-  const senderEmail = process.env.SENDGRID_SENDER_EMAIL || 'grubana.co@gmail.com';
-  const recipientEmail = process.env.CONTACT_EMAIL || 'grubana.co@gmail.com';
-  
-  try {
-    console.log('Attempting to send test email...', { from: senderEmail, to: recipientEmail });
-    
-    const result = await sgMail.send({
-      to: recipientEmail,
-      from: senderEmail,
-      subject: 'Test Email from Server',
-      text: 'This is a test email to verify SendGrid is working.',
-      html: '<p>This is a test email to verify SendGrid is working.</p>',
-    });
-    
-    console.log('Email sent successfully:', result);
-    res.status(200).json({ success: true, message: 'Test email sent' });
-  } catch (err) {
-    console.error('Test email error:', err);
-    console.error('Error response body:', err.response?.body);
-    res.status(500).json({ 
-      error: 'Test email failed', 
-      details: err.message,
-      code: err.code,
-      senderEmail: senderEmail // Help debug which email is being used
-    });
-  }
-});
-
-// Detailed SendGrid diagnostic endpoint
-app.get('/test-sendgrid', async (req, res) => {
-  console.log('SendGrid diagnostic endpoint called');
-  
-  const apiKey = process.env.SENDGRID_API_KEY;
-  
-  if (!apiKey) {
-    return res.status(500).json({ 
-      error: 'SendGrid API key not configured',
-      configured: false 
-    });
-  }
-  
-  // Test if API key format looks correct
-  const keyFormat = apiKey.startsWith('SG.') ? 'valid_format' : 'invalid_format';
-  
-  try {
-    // Try to verify the API key by making a simple request
-    const response = await fetch('https://api.sendgrid.com/v3/user/account', {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const accountData = await response.json();
-      res.status(200).json({ 
-        success: true,
-        apiKeyValid: true,
-        keyFormat,
-        accountType: accountData.type || 'unknown',
-        message: 'API key is valid'
-      });
-    } else {
-      const errorData = await response.json();
-      res.status(response.status).json({ 
-        error: 'API key validation failed',
-        apiKeyValid: false,
-        keyFormat,
-        statusCode: response.status,
-        details: errorData
-      });
-    }
-  } catch (err) {
-    console.error('SendGrid diagnostic error:', err);
-    res.status(500).json({ 
-      error: 'Failed to validate SendGrid',
-      apiKeyValid: false,
-      keyFormat,
-      details: err.message
-    });
-  }
-});
