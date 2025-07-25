@@ -99,3 +99,8 @@ firestore-emulator-data/
 
 local.env
 .env.local
+
+**/.env
+
+.env.*
+**/.env.*
