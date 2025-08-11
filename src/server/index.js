@@ -52,14 +52,28 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   const sig = req.headers['stripe-signature'];
   let event;
 
+  console.log('🔄 Webhook received at:', new Date().toISOString());
+  console.log('📋 Webhook signature header:', sig ? 'Present' : 'Missing');
+  console.log('🔑 Webhook secret configured:', process.env.STRIPE_WEBHOOK_SECRET ? 'Yes' : 'No');
+  console.log('📦 Request body size:', req.body?.length || 0, 'bytes');
+
   try {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET // Set this in your .env
+      process.env.STRIPE_WEBHOOK_SECRET
     );
+    console.log('✅ Webhook signature verified successfully');
+    console.log('📋 Event type:', event.type);
+    console.log('🎯 Event ID:', event.id);
   } catch (err) {
-    console.error('Webhook signature verification failed.', err.message);
+    console.error('❌ Webhook signature verification failed:', err.message);
+    console.error('🔍 Error details:', {
+      hasSignature: !!sig,
+      hasSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+      bodySize: req.body?.length,
+      errorType: err.name
+    });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
