@@ -39,6 +39,8 @@ import About from "./components/about";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
+
+// Initialize Stripe with environment variable
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 function ProtectedDashboardRoute({ children }) {
