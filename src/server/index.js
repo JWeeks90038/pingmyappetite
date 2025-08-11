@@ -65,6 +65,10 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
 
   // Helper function to update user subscription in Firebase
   const updateUserSubscription = async (customerId, updates, subscriptionMetadata = null) => {
+    console.log('Updating user subscription for customer:', customerId);
+    console.log('Updates to apply:', updates);
+    console.log('Subscription metadata:', subscriptionMetadata);
+    
     try {
       const usersRef = admin.firestore().collection('users');
       let snapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
@@ -81,6 +85,7 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           });
           console.log('User updated by Firebase UID and linked to Stripe customer:', subscriptionMetadata.uid);
+          console.log('Updates applied:', updates);
           return;
         }
       }
@@ -88,15 +93,17 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
       if (!snapshot.empty) {
         const updatePromises = [];
         snapshot.forEach((doc) => {
+          console.log('Updating user document:', doc.id);
           updatePromises.push(doc.ref.update({
             ...updates,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
           }));
         });
         await Promise.all(updatePromises);
-        console.log('User(s) updated:', updates);
+        console.log('User(s) updated successfully:', updates);
       } else {
-        console.log('No user found for customer:', customerId);
+        console.error('ERROR: No user found for customer:', customerId);
+        console.log('Available metadata:', subscriptionMetadata);
       }
     } catch (err) {
       console.error('Error updating user subscription:', err);
@@ -105,8 +112,21 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
 
   // Helper function to determine plan type from price ID
   const getPlanFromPriceId = (priceId) => {
-    if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) return 'pro';
-    if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) return 'all-access';
+    console.log('Determining plan from price ID:', priceId);
+    console.log('Available price IDs:', {
+      VITE_STRIPE_PRO_PRICE_ID: process.env.VITE_STRIPE_PRO_PRICE_ID,
+      VITE_STRIPE_ALL_ACCESS_PRICE_ID: process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID
+    });
+    
+    if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) {
+      console.log('Matched PRO plan');
+      return 'pro';
+    }
+    if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) {
+      console.log('Matched ALL-ACCESS plan');
+      return 'all-access';
+    }
+    console.log('No match found, defaulting to basic plan');
     return 'basic';
   };
 
@@ -114,7 +134,15 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   switch (event.type) {
     case 'customer.subscription.created':
       const createdSub = event.data.object;
+      console.log('Subscription created webhook received:', {
+        subscriptionId: createdSub.id,
+        customerId: createdSub.customer,
+        priceId: createdSub.items.data[0].price.id,
+        status: createdSub.status
+      });
+      
       const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
+      console.log('Plan type determined:', planType);
       
       await updateUserSubscription(createdSub.customer, {
         subscriptionId: createdSub.id,
