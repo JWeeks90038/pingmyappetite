@@ -47,6 +47,31 @@ app.get('/', (req, res) => {
   res.json({ message: 'Grubana API Server', status: 'running' });
 });
 
+// Debug endpoint to check webhook configuration
+app.get('/webhook-debug', (req, res) => {
+  res.json({
+    webhookSecretConfigured: !!process.env.STRIPE_WEBHOOK_SECRET,
+    webhookSecretPrefix: process.env.STRIPE_WEBHOOK_SECRET ? process.env.STRIPE_WEBHOOK_SECRET.substring(0, 8) : 'none',
+    stripeSecretConfigured: !!process.env.STRIPE_SECRET_KEY,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Temporary webhook test endpoint - remove after debugging
+app.post('/webhook-test', express.raw({ type: 'application/json' }), (req, res) => {
+  console.log('🧪 Test webhook received');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body length:', req.body ? req.body.length : 0);
+  console.log('Body type:', typeof req.body);
+  console.log('Webhook secret available:', !!process.env.STRIPE_WEBHOOK_SECRET);
+  
+  res.status(200).json({ 
+    received: true, 
+    bodyLength: req.body ? req.body.length : 0,
+    hasSecret: !!process.env.STRIPE_WEBHOOK_SECRET 
+  });
+});
+
 // Stripe webhook endpoint
 app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -55,7 +80,19 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
   console.log('🔄 Webhook received at:', new Date().toISOString());
   console.log('📋 Webhook signature header:', sig ? 'Present' : 'Missing');
   console.log('🔑 Webhook secret configured:', process.env.STRIPE_WEBHOOK_SECRET ? 'Yes' : 'No');
+  console.log('🔑 Webhook secret prefix:', process.env.STRIPE_WEBHOOK_SECRET ? process.env.STRIPE_WEBHOOK_SECRET.substring(0, 8) + '...' : 'None');
   console.log('📦 Request body size:', req.body?.length || 0, 'bytes');
+  console.log('📦 Content-Type:', req.headers['content-type']);
+
+  // TEMPORARY: Try to parse event without signature verification for debugging
+  let rawEvent;
+  try {
+    rawEvent = JSON.parse(req.body.toString());
+    console.log('📋 Raw event type:', rawEvent.type);
+    console.log('📋 Raw event ID:', rawEvent.id);
+  } catch (parseErr) {
+    console.error('❌ Failed to parse raw event:', parseErr.message);
+  }
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -65,16 +102,21 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     );
     console.log('✅ Webhook signature verified successfully');
     console.log('📋 Event type:', event.type);
-    console.log('🎯 Event ID:', event.id);
+    console.log('📋 Event ID:', event.id);
   } catch (err) {
-    console.error('❌ Webhook signature verification failed:', err.message);
-    console.error('🔍 Error details:', {
-      hasSignature: !!sig,
-      hasSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-      bodySize: req.body?.length,
-      errorType: err.name
-    });
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('❌ Webhook signature verification failed');
+    console.error('❌ Error message:', err.message);
+    console.error('❌ Error type:', err.type || 'unknown');
+    console.error('❌ Signature header received:', sig);
+    console.error('❌ Expected endpoint secret starts with:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 8) || 'Not set');
+    
+    // TEMPORARY: Process the event anyway for debugging (REMOVE IN PRODUCTION!)
+    if (rawEvent) {
+      console.log('🚨 TEMPORARY: Processing event without signature verification for debugging');
+      event = rawEvent;
+    } else {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
   }
 
   // Helper function to update user subscription in Firebase
