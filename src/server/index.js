@@ -82,6 +82,71 @@ app.get('/webhook-debug', (req, res) => {
   });
 });
 
+// Firebase connection test endpoint
+app.get('/test-firebase', async (req, res) => {
+  try {
+    console.log('🧪 Testing Firebase connection...');
+    
+    // Check Firebase app initialization
+    if (admin.apps.length === 0) {
+      throw new Error('Firebase Admin is not initialized');
+    }
+    
+    console.log('✅ Firebase Admin initialized');
+    
+    // Test Firestore connection
+    const db = admin.firestore();
+    const testRef = db.collection('test').doc('connection-test');
+    
+    // Try to write a test document
+    await testRef.set({
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      test: 'Firebase connection test from Railway',
+      status: 'success'
+    });
+    
+    console.log('✅ Firestore write successful');
+    
+    // Try to read the document back
+    const doc = await testRef.get();
+    const data = doc.data();
+    
+    console.log('✅ Firestore read successful');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Firebase connection successful',
+      firebaseAppsCount: admin.apps.length,
+      testData: data,
+      envVarsPresent: {
+        projectId: !!process.env.FIREBASE_PROJECT_ID,
+        privateKeyId: !!process.env.FIREBASE_PRIVATE_KEY_ID,
+        privateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+        clientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+        clientId: !!process.env.FIREBASE_CLIENT_ID,
+        clientCertUrl: !!process.env.FIREBASE_CLIENT_CERT_URL
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Firebase test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      errorCode: error.code,
+      firebaseAppsCount: admin.apps.length,
+      envVarsPresent: {
+        projectId: !!process.env.FIREBASE_PROJECT_ID,
+        privateKeyId: !!process.env.FIREBASE_PRIVATE_KEY_ID,
+        privateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+        clientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+        clientId: !!process.env.FIREBASE_CLIENT_ID,
+        clientCertUrl: !!process.env.FIREBASE_CLIENT_CERT_URL
+      }
+    });
+  }
+});
+
 // Temporary webhook test endpoint - remove after debugging
 app.post('/webhook-test', express.raw({ type: 'application/json' }), (req, res) => {
   console.log('🧪 Test webhook received');
