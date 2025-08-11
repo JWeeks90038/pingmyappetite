@@ -60,5 +60,12 @@ export const getPlanDetails = (planType) => {
 
 // Helper function to get price ID
 export const getPriceId = (planType) => {
-  return STRIPE_CONFIG.PRICE_IDS[planType];
+  const priceId = STRIPE_CONFIG.PRICE_IDS[planType];
+  console.log('Getting price ID for plan:', planType);
+  console.log('Price ID found:', priceId);
+  console.log('Environment variables:', {
+    VITE_STRIPE_PRO_PRICE_ID: import.meta.env.VITE_STRIPE_PRO_PRICE_ID,
+    VITE_STRIPE_ALL_ACCESS_PRICE_ID: import.meta.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID
+  });
+  return priceId;
 };

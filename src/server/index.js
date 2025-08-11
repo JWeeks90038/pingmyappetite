@@ -637,7 +637,7 @@ app.post('/create-checkout-session', async (req, res) => {
         planType: planType,
         uid: uid || '',
       },
-      success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/pricing`,
       allow_promotion_codes: true,
     };
