@@ -40,8 +40,15 @@ import About from "./components/about";
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
 
-// Initialize Stripe with environment variable
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// Initialize Stripe with environment variable - with production debugging
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` : 'NOT FOUND');
+console.log('Environment mode:', import.meta.env.MODE);
+
+// Robust Stripe initialization with fallback and validation
+const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefined' 
+  ? loadStripe(stripeKey) 
+  : Promise.resolve(null);
 
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
@@ -80,6 +87,115 @@ function App() {
   
   if (loading) {
     return <div>Loading...</div>;
+  }
+
+  // Add Stripe validation before rendering Elements
+  if (!stripePromise) {
+    console.error('Stripe failed to initialize - check environment variables');
+    // For now, render without Stripe to prevent app crash
+    return (
+      <LoadScript
+        googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+        libraries={LIBRARIES} 
+      >
+        <BrowserRouter>
+          <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
+            ⚠️ Payment system temporarily unavailable. Please try again later.
+          </div>
+          <Navbar />
+          <ScrollToTop />
+          <Routes>
+            {/* All your existing routes */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route
+                path="/login"
+                element={
+                  user ? (
+                    userRole === 'customer' ? (
+                      <Navigate to="/customer-dashboard" />
+                    ) : userRole === 'owner' ? (
+                      <Navigate to="/dashboard" />
+                    ) : (
+                      <div>Loading...</div>
+                    )
+                  ) : (
+                    <Login />
+                  )
+                }
+              />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/forgotpassword" element={<ForgotPassword />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/privacypolicy" element={<PrivacyPolicy />} />
+              <Route path="/termsofservice" element={<TermsOfService />} />
+              <Route path="/refundpolicy" element={<RefundPolicy />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/signup-customer" element={<SignupCustomer />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/logout" element={<Logout />} />
+              <Route path="/checkout" element={<div>Payment system temporarily unavailable</div>} />
+              <Route path="/success" element={<Success />} />
+            </Route>
+
+            <Route element={<CustomerLayout />}>
+              <Route
+                path="/customer-dashboard"
+                element={
+                  userRole === 'customer' ? (
+                    <CustomerDashboard />
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  userRole === 'customer' ? <Messages /> : <Navigate to="/login" />
+                }
+              />
+              <Route
+                path="/ping-requests"
+                element={
+                  userRole === 'customer' ? <PingRequests /> : <Navigate to="/login" />
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  userRole === 'customer' ? <Settings /> : <Navigate to="/login" />
+                }
+              />
+            </Route>
+
+            <Route element={<OwnerLayout />}>
+              <Route
+                path="/dashboard"
+                element={
+                  userRole === 'owner' ? (
+                    <ProtectedDashboardRoute>
+                      <Dashboard />
+                    </ProtectedDashboardRoute>
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  userRole === 'owner' ? <Analytics /> : <Navigate to="/login" />
+                }
+              />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </LoadScript>
+    );
   }
 
   return (
