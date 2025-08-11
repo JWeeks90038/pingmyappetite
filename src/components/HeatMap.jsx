@@ -44,7 +44,6 @@ const FilterButton = React.memo(({ label, active, onClick }) => (
 const HeatMap = ({isLoaded, onMapLoad}) => {
   const db = getFirestore();
   const auth = getAuth();
-  
 
   const [currentUser, setCurrentUser] = useState(null);
   const [pingData, setPingData] = useState([]);
@@ -53,17 +52,35 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
   const [filters, setFilters] = useState({
-    mexican: true,
-    bbq: true,
-    sushi: true,
     american: true,
-    vegan: true,
-    italian: true,
+    asianfusion: true,
+    bbq: true,
+    burgers: true,
     chinese: true,
-    desserts: true, // New cuisine
-    drinks: true,   // New cuisine
-    indian: true,   // New cuisine
+    coffee: true,
+    desserts: true,
+    drinks: true,
+    greek: true,
+    halal: true,
+    healthy: true,
+    indian: true,
+    italian: true,
+    korean: true,
+    latin: true,
+    mediterranean: true,
+    mexican: true,
+    pizza: true,
+    seafood: true,
+    southern: true,
+    sushi: true,
+    thai: true,
+    vegan: true,
+    wings: true,
   });
+
+  // Modal state for cuisine filters (must be after filters)
+  const [showCuisineModal, setShowCuisineModal] = useState(false);
+  const [tempCuisineFilters, setTempCuisineFilters] = useState(filters);
 
   const [mapReady, setMapReady] = useState(false);
 
@@ -374,17 +391,82 @@ return (
     <HeatMapKey />
 
     <div style={{ marginTop: "16px", marginBottom: "10px" }}>
-      {Object.keys(filters).map((cuisine) => (
-        <FilterButton
-          key={cuisine}
-          label={cuisine}
-          active={filters[cuisine]}
-          onClick={() => toggleCuisine(cuisine)}
-        />
-      ))}
+      <button
+        style={{
+          padding: "10px 18px",
+          backgroundColor: "#1976d2",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontWeight: "bold",
+        }}
+        onClick={() => setShowCuisineModal(true)}
+      >
+        Cuisine Filters
+      </button>
     </div>
+
+    {/* Cuisine Filters Modal */}
+    {showCuisineModal && (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(0,0,0,0.4)",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <div style={{
+          background: "#fff",
+          borderRadius: "8px",
+          padding: "32px 24px 24px 24px",
+          minWidth: "320px",
+          maxWidth: "90vw",
+          boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+        }}>
+          <h2 style={{marginTop:0}}>Select Cuisines</h2>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              setFilters(tempCuisineFilters);
+              setShowCuisineModal(false);
+            }}
+          >
+            <div style={{
+              maxHeight: "50vh",
+              overflowY: "auto",
+              marginBottom: "18px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "8px 16px",
+            }}>
+              {Object.keys(filters).map((cuisine) => (
+                <label key={cuisine} style={{display: "flex", alignItems: "center", gap: "8px", fontSize: "16px"}}>
+                  <input
+                    type="checkbox"
+                    checked={tempCuisineFilters[cuisine]}
+                    onChange={() => setTempCuisineFilters(f => ({ ...f, [cuisine]: !f[cuisine] }))}
+                  />
+                  {cuisine.charAt(0).toUpperCase() + cuisine.slice(1).replace(/([A-Z])/g, ' $1').replace(/fusion/, ' Fusion').replace(/bbq/, 'BBQ').replace(/vegan/, 'Vegan & Vegetarian').replace(/desserts/, 'Desserts & Sweets').replace(/drinks/, 'Drinks & Beverages').replace(/coffee/, 'Coffee & Café').replace(/latin/, 'Latin American').replace(/sushi/, 'Sushi & Japanese').replace(/healthy/, 'Healthy & Fresh').replace(/southern/, 'Southern Comfort')}
+                </label>
+              ))}
+            </div>
+            <div style={{display: "flex", justifyContent: "flex-end", gap: "12px"}}>
+              <button type="button" onClick={() => setShowCuisineModal(false)} style={{padding: "8px 16px", borderRadius: "4px", border: "none", background: "#ccc", color: "#333"}}>Cancel</button>
+              <button type="submit" style={{padding: "8px 16px", borderRadius: "4px", border: "none", background: "#1976d2", color: "#fff", fontWeight: "bold"}}>Apply</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
   </div>
-);
-};
+ );
+}
 
 export default HeatMap;

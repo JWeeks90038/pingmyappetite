@@ -471,20 +471,7 @@ useEffect(() => {
         />
       </div>
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
-      <div style={{ 
-        background: '#e8f5e8', 
-        padding: '10px', 
-        borderRadius: '8px', 
-        marginBottom: '15px',
-        border: '2px solid #28a745'
-      }}>
-        <p style={{ margin: 0, fontWeight: 'bold', color: '#28a745' }}>
-          🚚 OWNER DASHBOARD - This is the food truck owner interface
-        </p>
-        <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#666' }}>
-          Role: {userRole} | User ID: {user?.uid?.slice(-8)}
-        </p>
-      </div>
+      
       {userEmail && <p>Email: {userEmail}</p>}
       {userPlan ? (
         <div style={{ margin: "15px 0", padding: "15px", backgroundColor: 
@@ -494,35 +481,27 @@ useEffect(() => {
           userPlan === "basic" ? "#dee2e6" : 
           userPlan === "pro" ? "#28a745" : "#2196f3"}`
         }}>
-          <p style={{ margin: "0", fontWeight: "bold", fontSize: "1.1rem" }}>
-            Current Plan: <span style={{ textTransform: "uppercase", color: 
-              userPlan === "basic" ? "#6c757d" : 
-              userPlan === "pro" ? "#28a745" : "#2196f3" 
-            }}>{userPlan}</span>
-            {userPlan === "basic" && " (Free)"}
-            {userPlan === "pro" && " ($9.99/month)"}
-            {userPlan === "all-access" && " ($19.99/month)"}
-          </p>
+          
           <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#666" }}>
             {userPlan === "basic" && (
               <div>
                 ✅ Discovery map • ✅ Demand pins • ✅ Manual location updates
                 <br />
-                🚀 <em>Upgrade for real-time GPS tracking and more!</em>
+                <em>Upgrade for real-time GPS tracking and more!</em>
               </div>
             )}
             {userPlan === "pro" && (
               <div>
                 ✅ Real-time GPS tracking • ✅ Menu display • ✅ Citywide heat maps
                 <br />
-                📊 <em>Upgrade to All Access for analytics and promotional drops!</em>
+                <em>Upgrade to All Access for analytics and promotional drops!</em>
               </div>
             )}
             {userPlan === "all-access" && (
               <div>
                 ✅ Advanced analytics • ✅ Promotional drops • ✅ Featured placement
                 <br />
-                🎉 <em>You have access to all features!</em>
+                <em>You have access to all features!</em>
               </div>
             )}
           </div>
@@ -630,7 +609,7 @@ useEffect(() => {
       {userRole === "owner" && userPlan === "pro" && (
         <div style={{ margin: "20px 0", textAlign: "center" }}>
           <p style={{ marginBottom: "10px", color: "#666" }}>
-            📊 Unlock advanced analytics, promotional drops, and featured placement
+            Unlock advanced analytics, promotional drops, and featured placement
           </p>
           <button
             style={{
@@ -691,9 +670,8 @@ useEffect(() => {
         </div>
       ) : userPlan === "pro" || userPlan === "all-access" ? (
         <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
-          <h3>🛰️ Real-Time GPS Location</h3>
           <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-            Your location is automatically tracked and updated in real-time.
+            Your location is automatic and updated in real-time, unless you hide from map.
           </p>
           {location ? (
             <p style={{ color: "#28a745" }}>
@@ -731,62 +709,13 @@ useEffect(() => {
           </div>
         ) : (
           <div style={{ padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
-            <h3>📸 Media Upload (Pro+)</h3>
             <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-              Your menu will be displayed in real-time when customers click your map icon!
+              Your truck photo & menu will be displayed in real-time when customers click your map icon!
             </p>
             <MediaUploader showCover={true} showProfile={false} showMenu={true} />
           </div>
         )}
       </div>
-
-      {/* Promotional Drops - All Access Only */}
-      {userPlan === "all-access" ? (
-        truckLat && truckLng ? (
-          <div style={{ 
-            marginTop: "20px", 
-            padding: "15px", 
-            backgroundColor: "#e3f2fd", 
-            borderRadius: "8px",
-            border: "2px solid #2196f3"
-          }}>
-            <h3>🎯 Create Promotional Drops</h3>
-            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "15px" }}>
-              Create special deals and promotions for customers to claim!
-            </p>
-            <NewDropForm truckLat={truckLat} truckLng={truckLng} />
-          </div>
-        ) : (
-          <p>Loading your truck's location for drops...</p>
-        )
-      ) : (
-        <div style={{ 
-          marginTop: "20px", 
-          padding: "15px", 
-          backgroundColor: "#fff3cd", 
-          borderRadius: "8px",
-          border: "1px solid #ffc107"
-        }}>
-          <h3>🎯 Promotional Drops (All Access Feature)</h3>
-          <p style={{ fontSize: "0.9rem", color: "#856404", marginBottom: "10px" }}>
-            Create special deals and promotions that customers can claim directly from the map. 
-            This feature is available with the All Access plan.
-          </p>
-          <button
-            style={{
-              padding: "8px 16px",
-              background: "#007bff",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-            onClick={() => navigate("/checkout", { state: { selectedPlan: 'all-access' } })}
-          >
-            Upgrade to All Access
-          </button>
-        </div>
-      )}
 
       <div style={{ marginTop: "20px" }}>
   <label style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -826,7 +755,7 @@ useEffect(() => {
       {/* Analytics Section - Plan-based Access */}
       {ownerData && userPlan === "all-access" && (
         <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#e3f2fd", borderRadius: "8px" }}>
-          <h3>📊 Advanced Analytics Dashboard</h3>
+          <h3>Advanced Analytics Dashboard</h3>
           <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "15px" }}>
             30-day analytics, trends, and insights to optimize your business.
           </p>
@@ -836,7 +765,7 @@ useEffect(() => {
 
       {ownerData && userPlan === "pro" && (
         <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#fff3cd", borderRadius: "8px" }}>
-          <h3>📊 Analytics (All Access Feature)</h3>
+          <h3>Analytics (All Access Feature)</h3>
           <p style={{ fontSize: "0.9rem", color: "#856404", marginBottom: "10px" }}>
             Get detailed 30-day analytics, customer insights, and trend analysis with the All Access plan.
           </p>
