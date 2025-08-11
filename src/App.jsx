@@ -40,13 +40,11 @@ import About from "./components/about";
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
 
-// Initialize Stripe with environment variable - with production debugging
-const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_live_51RSgWMRsRfaVTYCjJJtygE6gtMfcv5Gi0EIK4GGB2IefhoK4gVgf6NxwQSXgJbc8zu1VskfzN3ghavd3awwRafXk00FjrvGznT';
+// Initialize Stripe with environment variable
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` : 'NOT FOUND');
-console.log('Environment mode:', import.meta.env.MODE);
-console.log('All environment variables:', Object.keys(import.meta.env));
 
-// Robust Stripe initialization with fallback and validation
+// Robust Stripe initialization with validation
 const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefined' 
   ? loadStripe(stripeKey) 
   : Promise.resolve(null);
