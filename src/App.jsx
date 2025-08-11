@@ -52,6 +52,11 @@ const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefi
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 
+  console.log('ProtectedDashboardRoute - user:', user);
+  console.log('ProtectedDashboardRoute - userPlan:', userPlan);
+  console.log('ProtectedDashboardRoute - userSubscriptionStatus:', userSubscriptionStatus);
+  console.log('ProtectedDashboardRoute - loading:', loading);
+
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
 
@@ -59,6 +64,9 @@ function ProtectedDashboardRoute({ children }) {
   // This prevents race condition where userSubscriptionStatus is still null
   const isPaidPlan = userPlan === "pro" || userPlan === "all-access";
   const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === null;
+  
+  console.log('ProtectedDashboardRoute - isPaidPlan:', isPaidPlan);
+  console.log('ProtectedDashboardRoute - subscriptionStatusLoading:', subscriptionStatusLoading);
   
   if (subscriptionStatusLoading) {
     return <div>Loading subscription status...</div>;
@@ -72,10 +80,14 @@ function ProtectedDashboardRoute({ children }) {
     (userPlan === "pro" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing")) ||
     (userPlan === "all-access" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing"));
 
+  console.log('ProtectedDashboardRoute - hasValidAccess:', hasValidAccess);
+
   if (!hasValidAccess) {
+    console.log('ProtectedDashboardRoute - Redirecting to checkout due to invalid access');
     return <Navigate to="/checkout" />;
   }
 
+  console.log('ProtectedDashboardRoute - Allowing access to dashboard');
   return children;
 }
 
