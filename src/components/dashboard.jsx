@@ -40,6 +40,14 @@ import { QRCodeCanvas } from "qrcode.react";
 const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole, userSubscriptionStatus } = useAuth(); // Get subscription status too
   useLiveLocationTracking(userPlan);
+  
+  // Add debugging
+  console.log('Dashboard component mounted');
+  console.log('user:', user);
+  console.log('userRole:', userRole);
+  console.log('userPlan:', userPlan);
+  console.log('Dashboard component rendering for', userRole?.toUpperCase());
+  
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState("");
   const [manualLocation, setManualLocation] = useState("");
@@ -433,6 +441,21 @@ useEffect(() => {
 
   return (
     <div className="dashboard">
+      {/* DEBUG: Visual indicator that Dashboard is rendering */}
+      <div style={{
+        position: 'fixed',
+        top: '10px',
+        right: '10px',
+        background: 'green',
+        color: 'white',
+        padding: '10px',
+        borderRadius: '5px',
+        zIndex: 9999,
+        fontSize: '14px'
+      }}>
+        ✅ Dashboard Loaded - Plan: {userPlan}
+      </div>
+      
       {/* Logo Section */}
       <div style={{ 
         textAlign: 'center', 
