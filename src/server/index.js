@@ -294,10 +294,13 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       if (uid) {
         try {
           const userRef = admin.firestore().collection('users').doc(uid);
-          await userRef.set({ plan: planType }, { merge: true });
-          console.log(`✅ Updated user ${uid} plan to ${planType} from checkout.session.completed`);
+          await userRef.set({ 
+            plan: planType,
+            stripeCustomerId: session.customer // Add stripeCustomerId to Firestore
+          }, { merge: true });
+          console.log(`✅ Updated user ${uid} plan to ${planType} and stripeCustomerId to ${session.customer} from checkout.session.completed`);
         } catch (err) {
-          console.error(`❌ Failed to update user plan from checkout.session.completed:`, err);
+          console.error(`❌ Failed to update user plan and stripeCustomerId from checkout.session.completed:`, err);
         }
       } else {
         console.error('❌ No UID found in session metadata for checkout.session.completed');
@@ -835,7 +838,7 @@ app.post('/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       subscription_data: {
-        trial_period_days: 30, // 30-day trial
+        trial_period_days: 30,
         metadata: {
           planType: planType,
           uid: uid || '',
