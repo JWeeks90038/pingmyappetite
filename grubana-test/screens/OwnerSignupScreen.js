@@ -224,6 +224,7 @@ export default function OwnerSignupScreen({ navigation }) {
         plan: formData.plan,
         subscriptionStatus: 'active',
         createdAt: serverTimestamp(),
+    stripeCustomerId: null,
       };
 
       await setDoc(doc(db, 'users', user.uid), userData);

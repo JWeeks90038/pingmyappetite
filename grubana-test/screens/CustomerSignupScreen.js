@@ -62,6 +62,7 @@ export default function CustomerSignupScreen({ navigation }) {
         createdAt: serverTimestamp(),
         plan: 'basic',
         subscriptionStatus: 'active',
+    stripeCustomerId: null,
       });
 
       Alert.alert('Success', 'Account created successfully!', [
