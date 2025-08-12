@@ -278,21 +278,38 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
 
   // Handle different webhook events
   switch (event.type) {
-    case 'checkout.session.completed':
+    case 'checkout.session.completed': {
       const session = event.data.object;
       console.log('Checkout session completed:', {
         sessionId: session.id,
         customerId: session.customer,
         subscriptionId: session.subscription,
-        mode: session.mode
+        mode: session.mode,
+        metadata: session.metadata
       });
-      
+
+      // Update user plan in Firestore using metadata.uid and metadata.planType
+      const uid = session.metadata?.uid;
+      const planType = session.metadata?.planType || 'pro';
+      if (uid) {
+        try {
+          const userRef = admin.firestore().collection('users').doc(uid);
+          await userRef.set({ plan: planType }, { merge: true });
+          console.log(`✅ Updated user ${uid} plan to ${planType} from checkout.session.completed`);
+        } catch (err) {
+          console.error(`❌ Failed to update user plan from checkout.session.completed:`, err);
+        }
+      } else {
+        console.error('❌ No UID found in session metadata for checkout.session.completed');
+      }
+
       // For subscription mode, the actual subscription will be created separately
-      // We'll handle the plan update in customer.subscription.created
+      // We'll also handle the plan update in customer.subscription.created
       if (session.mode === 'subscription') {
         console.log('Subscription checkout completed - waiting for subscription.created event');
       }
       break;
+    }
 
     case 'customer.subscription.created':
       const createdSub = event.data.object;
