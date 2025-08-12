@@ -127,8 +127,13 @@ const userData = {
 
       // Redirect based on intended plan
       if (formData.plan === 'pro' || formData.plan === 'all-access') {
-        // Redirect to checkout with intended plan (user will be upgraded after payment)
-        navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } }); 
+        if (formData.subscriptionStatus === 'active') {
+          // Redirect to dashboard if subscription is active
+          navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
+        } else {
+          // Redirect to checkout if subscription is not active
+          navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } });
+        }
       } else {
         // Basic plan - go directly to dashboard
         navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
