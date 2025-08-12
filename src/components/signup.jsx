@@ -60,9 +60,9 @@ const userData = {
   ...fieldsToSave,
   uid: user.uid,
   createdAt: serverTimestamp(),
-  // SECURITY FIX: Always create user as Basic first, only upgrade after payment
   plan: 'basic',
   subscriptionStatus: 'active', // Basic is always active
+  stripeSubscriptionId: null, // Placeholder for Stripe subscription ID
 };
 
       // For Pro/All Access plans, create basic account first, then redirect to checkout
