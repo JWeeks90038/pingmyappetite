@@ -163,7 +163,7 @@ app.post('/webhook-test', express.raw({ type: 'application/json' }), (req, res) 
 });
 
 // Stripe webhook endpoint
-app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
