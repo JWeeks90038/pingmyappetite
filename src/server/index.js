@@ -502,7 +502,7 @@ app.post('/create-subscription', async (req, res) => {
           { stripeCustomerId: customerId },
           { merge: true }
         );
-        //console.log('Saved stripeCustomerId to Firestore for uid:', uid);
+        console.log(`✅ stripeCustomerId saved to Firestore for uid: ${uid}`);
       }
     } else {
       // Attach the new payment method to the existing customer
@@ -531,7 +531,7 @@ if (uid) {
       { subscriptionId: subscription.id },
       { merge: true }
     );
-    //console.log('Saved subscriptionId to Firestore for uid:', uid);
+    console.log(`✅ subscriptionId saved to Firestore for uid: ${uid}`);
 
     // --- Add this block to save card info ---
     const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
@@ -546,7 +546,7 @@ if (uid) {
     //console.log('Saved card info to Firestore for uid:', uid);
     // --- End block ---
   } catch (firestoreErr) {
-    //console.error('Error saving subscriptionId or card info to Firestore:', firestoreErr);
+    console.error(`❌ Error saving subscriptionId to Firestore for uid: ${uid}`, firestoreErr);
   }
 }
 
@@ -815,9 +815,10 @@ app.post('/create-checkout-session', async (req, res) => {
             customer = newCustomer.id;
             
             // Save customer ID back to Firebase
-            await admin.firestore().collection('users').doc(uid).update({
-              stripeCustomerId: customer
-            });
+            await admin.firestore().collection('users').doc(uid).set(
+              { stripeCustomerId: customer },
+              { merge: true }
+            );
             console.log('Saved Stripe customer ID to Firebase:', customer);
           }
         }

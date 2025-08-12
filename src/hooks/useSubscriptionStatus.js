@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase"; // adjust import path if needed
 
 function useSubscriptionStatus() {
@@ -9,23 +9,29 @@ function useSubscriptionStatus() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setStatus(userData.subscriptionStatus || null);
-          setPlan(userData.plan || 'basic');
-        } else {
-          setStatus(null);
-          setPlan('basic');
-        }
+        const userRef = doc(db, "users", user.uid);
+        const unsubscribeSnapshot = onSnapshot(userRef, (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const userData = docSnapshot.data();
+            setStatus(userData.subscriptionStatus || null);
+            setPlan(userData.plan || 'basic');
+          } else {
+            setStatus(null);
+            setPlan('basic');
+          }
+          setLoading(false);
+        });
+
+        return () => unsubscribeSnapshot();
       } else {
         setStatus(null);
         setPlan('basic');
+        setLoading(false);
       }
-      setLoading(false);
     });
+
     return unsubscribe;
   }, []);
 

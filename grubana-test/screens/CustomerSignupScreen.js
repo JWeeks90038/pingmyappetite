@@ -60,10 +60,10 @@ export default function CustomerSignupScreen({ navigation }) {
         username: formData.username,
         email: formData.email,
         createdAt: serverTimestamp(),
-        plan: 'basic',
-        subscriptionStatus: 'active',
-    stripeCustomerId: null,
-      });
+        plan: 'basic', // Default plan, will be updated after subscription
+        subscriptionStatus: 'inactive', // Default status, updated after payment
+        stripeCustomerId: null,
+      }, { merge: true }); // Use merge to allow updates without overwriting
 
       Alert.alert('Success', 'Account created successfully!', [
         { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) }
