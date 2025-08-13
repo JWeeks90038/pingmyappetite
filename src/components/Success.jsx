@@ -44,7 +44,7 @@ const Success = () => {
             const updateData = {
               subscriptionStatus: 'trialing',
               subscriptionSessionId: sessionId,
-              plan: planType,
+              plan: planType, // Ensure the Firestore field matches the variable
               updatedAt: new Date()
             };
 
