@@ -56,8 +56,15 @@ export const stripeWebhook = https.onRequest(
     const subscriptionId = subscription.id;
     const stripeCustomerId = subscription.customer;
     const subscriptionStatus = subscription.status;
-    const plan = subscription.items.data[0].plan.nickname || 
-      subscription.metadata.planType;
+    // Determine plan type from price ID
+    let plan = 'basic';
+    const priceId = subscription.items.data[0].price.id;
+    if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) {
+      plan = 'pro';
+    } else if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) {
+      plan = 'all-access';
+    }
+    console.log('Determined plan from price ID:', { priceId, plan });
     const uidFromMetadata = subscription.metadata?.uid;
 
     console.log("Extracted subscription details:", {
@@ -88,10 +95,11 @@ export const stripeWebhook = https.onRequest(
       console.log("Found user document to update:", userDocRef.id);
       try {
         const updateData = {
-          stripeCustomerId,
-          stripeSubscriptionId: subscriptionId,
-          subscriptionStatus,
-          plan,
+          stripeCustomerId: String(stripeCustomerId),
+          stripeSubscriptionId: String(subscriptionId),
+          subscriptionStatus: String(subscriptionStatus),
+          plan: String(plan),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
         console.log("Updating user document with data:", updateData);
         
