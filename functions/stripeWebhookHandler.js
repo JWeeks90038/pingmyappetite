@@ -26,16 +26,19 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
     const customerId = subscription.customer;
     const metadata = subscription.metadata;
 
+    console.log('Received customer.subscription.created event');
+    console.log('Subscription ID:', subscriptionId);
+    console.log('Customer ID:', customerId);
+    console.log('Metadata:', metadata);
+
     if (metadata && metadata.uid) {
       const uid = metadata.uid;
-      const planType = metadata.planType || 'basic';
 
       try {
         // Update Firestore user document with subscription ID
         const userRef = admin.firestore().collection('users').doc(uid);
         await userRef.update({
-          stripeSubscriptionId: subscriptionId, // Ensure this field is updated with the actual subscription ID
-          plan: planType,
+          stripeSubscriptionId: subscriptionId,
           subscriptionStatus: 'active',
         });
 
