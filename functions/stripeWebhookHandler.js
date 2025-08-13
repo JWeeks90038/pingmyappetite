@@ -34,7 +34,7 @@ app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, r
         // Update Firestore user document with subscription ID
         const userRef = admin.firestore().collection('users').doc(uid);
         await userRef.update({
-          stripeSubscriptionId: subscriptionId,
+          stripeSubscriptionId: subscriptionId, // Ensure this field is updated with the actual subscription ID
           plan: planType,
           subscriptionStatus: 'active',
         });
