@@ -35,6 +35,12 @@ const Success = () => {
               planType = sessionData.planType || 'all-access';
               customerId = sessionData.customerId;
               subscriptionId = sessionData.subscriptionId;
+
+              // Ensure subscriptionId is available before updating Firestore
+              if (!subscriptionId) {
+                console.error('Stripe subscription ID is missing. Firestore update will be incomplete.');
+              }
+
               console.log('Session data:', sessionData);
             } else {
               console.error('Failed to fetch session details:', response.status);
