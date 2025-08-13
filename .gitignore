@@ -105,4 +105,4 @@ local.env
 .env.*
 **/.env.*
 
-bfg-*.jar
+bfg-*.jarserviceAccountKey.json
