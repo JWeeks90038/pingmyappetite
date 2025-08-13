@@ -1,12 +1,28 @@
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const stripe = require("stripe")(functions.config().stripe.secret_key);
+import { https } from "firebase-functions/v2";
+import admin from "firebase-admin";
+import Stripe from "stripe";
+import { defineString } from "firebase-functions/params";
 
-admin.initializeApp();
+// Initialize Firebase Admin if not already initialized
+try {
+  admin.initializeApp();
+} catch (error) {
+  // App already initialized
+}
 
-exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
+// Define params
+const stripeSecretKey = defineString("STRIPE_SECRET_KEY");
+const endpointSecret = defineString("STRIPE_WEBHOOK_SECRET");
+
+export const stripeWebhook = https.onRequest(
+  { secrets: [stripeSecretKey, endpointSecret] },
+  async (req, res) => {
+  // Initialize Stripe with the secret key
+  const stripe = new Stripe(stripeSecretKey.value());
   const sig = req.headers["stripe-signature"];
-  const endpointSecret = functions.config().stripe.endpoint_secret;
+
+  console.log("Webhook received with signature:", sig);
+  console.log("Endpoint secret configured:", !!endpointSecret.value());
 
   let event;
 
@@ -14,32 +30,51 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       sig,
-      endpointSecret,
+      endpointSecret.value(),
     );
+    console.log("Webhook event constructed successfully:", event.type);
   } catch (err) {
     console.error("Webhook signature verification failed.", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log("Processing webhook event:", event.type);
+
   if (
     event.type === "customer.subscription.updated" ||
     event.type === "customer.subscription.created"
   ) {
+    console.log("Handling subscription event:", event.type);
     const subscription = event.data.object;
+    console.log("Subscription data:", {
+      id: subscription.id,
+      customer: subscription.customer,
+      status: subscription.status,
+      metadata: subscription.metadata,
+    });
+
     const subscriptionId = subscription.id;
     const stripeCustomerId = subscription.customer;
     const subscriptionStatus = subscription.status;
-    const plan = subscription.items.data[0].plan.nickname || subscription.metadata.planType;
+    const plan = subscription.items.data[0].plan.nickname || 
+      subscription.metadata.planType;
     const uidFromMetadata = subscription.metadata?.uid;
+
+    console.log("Extracted subscription details:", {
+      subscriptionId,
+      stripeCustomerId,
+      subscriptionStatus,
+      plan,
+      uidFromMetadata,
+    });
 
     let userDocRef = null;
 
     // Option 1: Match by metadata.uid (best if you set this in Checkout)
     if (uidFromMetadata) {
       userDocRef = admin.firestore().collection("users").doc(uidFromMetadata);
-    }
-    // Option 2: Match by stripeCustomerId
-    else {
+    } else {
+      // Option 2: Match by stripeCustomerId
       const snapshot = await admin.firestore().collection("users")
         .where("stripeCustomerId", "==", stripeCustomerId)
         .limit(1)
@@ -50,15 +85,29 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     }
 
     if (userDocRef) {
-      await userDocRef.update({
-        stripeCustomerId,
-        stripeSubscriptionId: subscriptionId,
-        subscriptionStatus,
-        plan
-      });
-      console.log(`Updated user with subscription ${subscriptionId}`);
+      console.log("Found user document to update:", userDocRef.id);
+      try {
+        const updateData = {
+          stripeCustomerId,
+          stripeSubscriptionId: subscriptionId,
+          subscriptionStatus,
+          plan,
+        };
+        console.log("Updating user document with data:", updateData);
+        
+        await userDocRef.update(updateData);
+        const successMsg = 
+        `Successfully updated user ${userDocRef.id} with subscription ${subscriptionId}`;
+        console.log(successMsg);
+      } catch (error) {
+        console.error("Error updating user document:", error);
+        throw error; // Re-throw to trigger webhook retry
+      }
     } else {
-      console.error(`No matching user found for customer ${stripeCustomerId}`);
+      const errorMsg = 
+        `No matching user found for customer ${stripeCustomerId} with uid ${uidFromMetadata}`;
+      console.error(errorMsg);
+      throw new Error("No matching user found"); // Trigger webhook retry
     }
   }
 
