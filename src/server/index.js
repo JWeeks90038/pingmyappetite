@@ -283,13 +283,51 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object;
-      console.log('Checkout session completed:', {
+      console.log('🎉 Checkout session completed:', {
         sessionId: session.id,
         customerId: session.customer,
         subscriptionId: session.subscription,
         mode: session.mode,
-        metadata: session.metadata
+        metadata: session.metadata,
+        customer: session.customer,
+        uid: session.metadata?.uid,
+        planType: session.metadata?.planType
       });
+
+      // Immediately retrieve the subscription details
+      try {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        console.log('📦 Retrieved subscription details:', {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          customerId: subscription.customer,
+          priceId: subscription.items.data[0].price.id,
+          metadata: subscription.metadata
+        });
+
+        // Update Firestore immediately
+        if (session.metadata?.uid) {
+          const userRef = admin.firestore().collection('users').doc(session.metadata.uid);
+          await userRef.set({
+            stripeSubscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            plan: session.metadata.planType || 'pro',
+            priceId: subscription.items.data[0].price.id,
+            stripeCustomerId: session.customer
+          }, { merge: true });
+          
+          console.log('✅ Updated user document in Firestore:', {
+            uid: session.metadata.uid,
+            subscriptionId: subscription.id,
+            plan: session.metadata.planType || 'pro'
+          });
+        } else {
+          console.error('❌ No UID found in session metadata');
+        }
+      } catch (error) {
+        console.error('❌ Error updating subscription in Firestore:', error);
+        throw error; // Re-throw to trigger webhook retry
+      }
 
       // Update user plan in Firestore using metadata.uid and metadata.planType
       const uid = session.metadata?.uid;
