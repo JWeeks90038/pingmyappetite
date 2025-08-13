@@ -62,7 +62,7 @@ const userData = {
   createdAt: serverTimestamp(),
   plan: 'basic',
   subscriptionStatus: 'active', // Basic is always active
-  stripeSubscriptionId: null, // Placeholder for Stripe subscription ID
+  subscriptionId: null, // Placeholder for Stripe subscription ID
 };
 
       // For Pro/All Access plans, create basic account first, then redirect to checkout

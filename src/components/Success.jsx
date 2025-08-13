@@ -61,7 +61,8 @@ const Success = () => {
 
             // Add subscription ID if available
             if (subscriptionId) {
-              updateData.subscriptionId = subscriptionId;
+              updateData.subscriptionId = String(subscriptionId);  // Ensure it's a string
+              updateData.stripeSubscriptionId = String(subscriptionId);  // For backwards compatibility
             }
 
             await updateDoc(doc(db, 'users', user.uid), updateData);

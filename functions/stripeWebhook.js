@@ -13,6 +13,8 @@ try {
 // Define params
 const stripeSecretKey = defineString("STRIPE_SECRET_KEY");
 const endpointSecret = defineString("STRIPE_WEBHOOK_SECRET");
+const proPriceId = defineString("STRIPE_PRO_PRICE_ID");
+const allAccessPriceId = defineString("STRIPE_ALL_ACCESS_PRICE_ID");
 
 export const stripeWebhook = https.onRequest(
   { secrets: [stripeSecretKey, endpointSecret] },
@@ -56,12 +58,14 @@ export const stripeWebhook = https.onRequest(
     const subscriptionId = subscription.id;
     const stripeCustomerId = subscription.customer;
     const subscriptionStatus = subscription.status;
+    
+    console.log('Raw subscription data:', JSON.stringify(subscription, null, 2));
     // Determine plan type from price ID
     let plan = 'basic';
     const priceId = subscription.items.data[0].price.id;
-    if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) {
+    if (priceId === proPriceId.value()) {
       plan = 'pro';
-    } else if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) {
+    } else if (priceId === allAccessPriceId.value()) {
       plan = 'all-access';
     }
     console.log('Determined plan from price ID:', { priceId, plan });
@@ -96,7 +100,8 @@ export const stripeWebhook = https.onRequest(
       try {
         const updateData = {
           stripeCustomerId: String(stripeCustomerId),
-          stripeSubscriptionId: String(subscriptionId),
+          subscriptionId: String(subscriptionId),
+          stripeSubscriptionId: String(subscriptionId), // For backwards compatibility
           subscriptionStatus: String(subscriptionStatus),
           plan: String(plan),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -109,10 +114,23 @@ export const stripeWebhook = https.onRequest(
         });
         console.log("Updating user document with data:", updateData);
         
-        await userDocRef.update(updateData);
-        const successMsg = 
-        `Successfully updated user ${userDocRef.id} with subscription ${subscriptionId}`;
+        // First check if the document exists
+        const doc = await userDocRef.get();
+        if (!doc.exists) {
+          throw new Error(`User document ${userDocRef.id} does not exist`);
+        }
+
+        // Perform an atomic update
+        await admin.firestore().runTransaction(async (transaction) => {
+          transaction.update(userDocRef, updateData);
+        });
+
+        const successMsg = `Successfully updated user ${userDocRef.id} with subscription ${subscriptionId}`;
         console.log(successMsg);
+        
+        // Verify the update
+        const updatedDoc = await userDocRef.get();
+        console.log('Updated document data:', updatedDoc.data());
       } catch (error) {
         console.error("Error updating user document:", error);
         throw error; // Re-throw to trigger webhook retry
