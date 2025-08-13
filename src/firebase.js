@@ -18,9 +18,27 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize services
-const auth = getAuth(app); // You were missing passing `app` here
+const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// Enable offline persistence
+import { enableIndexedDbPersistence } from "firebase/firestore";
+import { setPersistence, browserLocalPersistence } from "firebase/auth";
+
+// Enable Firestore offline persistence
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
+    } else if (err.code == 'unimplemented') {
+        console.warn('The current browser does not support persistence.');
+    }
+});
+
+// Enable longer auth persistence
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error("Auth persistence error:", error);
+});
 
 // Export for use in the app
 export { auth, db, storage };
