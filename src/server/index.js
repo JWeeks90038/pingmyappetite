@@ -842,14 +842,16 @@ app.post('/create-checkout-session', async (req, res) => {
         metadata: {
           planType: planType,
           uid: uid || '',
+          stripeSubscriptionId: '{SUBSCRIPTION_ID_PLACEHOLDER}' // Placeholder for subscription ID
         }
       },
       metadata: {
         planType: planType,
         uid: uid || '',
+        stripeSubscriptionId: '{SUBSCRIPTION_ID_PLACEHOLDER}' // Placeholder for subscription ID
       },
-      success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/pricing`,
+      success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,
       allow_promotion_codes: true,
     };
 
