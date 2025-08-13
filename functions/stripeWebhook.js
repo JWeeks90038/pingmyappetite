@@ -101,6 +101,12 @@ export const stripeWebhook = https.onRequest(
           plan: String(plan),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
+        
+        console.log('Updating user document:', {
+          userId: userDocRef.id,
+          updateData,
+          event: event.type
+        });
         console.log("Updating user document with data:", updateData);
         
         await userDocRef.update(updateData);
