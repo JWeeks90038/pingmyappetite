@@ -1,6 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const stripe = require("stripe")(functions.config().stripe.secret);
+const stripe = require("stripe")(functions.config().stripe.secret_key);
 
 admin.initializeApp();
 
@@ -26,25 +26,39 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
     event.type === "customer.subscription.created"
   ) {
     const subscription = event.data.object;
+    const subscriptionId = subscription.id;
     const stripeCustomerId = subscription.customer;
     const subscriptionStatus = subscription.status;
-    const plan = subscription.items.data[0].plan.nickname;
-    // Assuming plan nickname is 'pro' or 'all-access'
+    const plan = subscription.items.data[0].plan.nickname || subscription.metadata.planType;
+    const uidFromMetadata = subscription.metadata?.uid;
 
-    // Find the user in Firestore by stripeCustomerId
-    const usersRef = admin.firestore().collection("users");
-    const snapshot = await usersRef
-      .where("stripeCustomerId", "==", stripeCustomerId)
-      .get();
+    let userDocRef = null;
 
-    if (!snapshot.empty) {
-      snapshot.forEach((doc) => {
-        doc.ref.update({
-          stripeSubscriptionId: subscription.id,
-          subscriptionStatus: subscriptionStatus,
-          plan: plan,
-        });
+    // Option 1: Match by metadata.uid (best if you set this in Checkout)
+    if (uidFromMetadata) {
+      userDocRef = admin.firestore().collection("users").doc(uidFromMetadata);
+    }
+    // Option 2: Match by stripeCustomerId
+    else {
+      const snapshot = await admin.firestore().collection("users")
+        .where("stripeCustomerId", "==", stripeCustomerId)
+        .limit(1)
+        .get();
+      if (!snapshot.empty) {
+        userDocRef = snapshot.docs[0].ref;
+      }
+    }
+
+    if (userDocRef) {
+      await userDocRef.update({
+        stripeCustomerId,
+        stripeSubscriptionId: subscriptionId,
+        subscriptionStatus,
+        plan
       });
+      console.log(`Updated user with subscription ${subscriptionId}`);
+    } else {
+      console.error(`No matching user found for customer ${stripeCustomerId}`);
     }
   }
 
