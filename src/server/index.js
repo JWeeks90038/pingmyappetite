@@ -211,9 +211,11 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
   // Helper function to update user subscription in Firebase
   const updateUserSubscription = async (customerId, updates, subscriptionMetadata = null) => {
-    console.log('Updating user subscription for customer:', customerId);
-    console.log('Updates to apply:', updates);
-    console.log('Subscription metadata:', subscriptionMetadata);
+    console.log('🔄 Updating user subscription:', {
+      customerId,
+      updates,
+      metadata: subscriptionMetadata
+    });
     
     try {
       const usersRef = admin.firestore().collection('users');
@@ -221,6 +223,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       
       // If no user found by customer ID, try to find by Firebase UID in metadata
       if (snapshot.empty && subscriptionMetadata && subscriptionMetadata.uid) {
+        console.log('📝 No user found by stripeCustomerId, searching by UID:', subscriptionMetadata.uid);
         console.log('No user found by Stripe customer ID, trying Firebase UID:', subscriptionMetadata.uid);
         const userDoc = await usersRef.doc(subscriptionMetadata.uid).get();
         if (userDoc.exists()) {
@@ -316,24 +319,46 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
     case 'customer.subscription.created':
       const createdSub = event.data.object;
-      console.log('Subscription created webhook received:', {
+      console.log('🎉 New subscription created:', {
         subscriptionId: createdSub.id,
         customerId: createdSub.customer,
         priceId: createdSub.items.data[0].price.id,
-        status: createdSub.status
+        status: createdSub.status,
+        metadata: createdSub.metadata
       });
       
       const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
-      console.log('Plan type determined:', planType);
+      console.log('📋 Plan type determined:', planType);
       
-      await updateUserSubscription(createdSub.customer, {
-        subscriptionId: createdSub.id,
-        subscriptionStatus: createdSub.status,
-        plan: planType,
-        priceId: createdSub.items.data[0].price.id,
-        trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
-        currentPeriodEnd: new Date(createdSub.current_period_end * 1000)
-      }, createdSub.metadata);
+      try {
+        // First, update the stripeSubscriptionId
+        const userDoc = await admin.firestore().collection('users')
+          .where('stripeCustomerId', '==', createdSub.customer)
+          .get();
+        
+        if (!userDoc.empty) {
+          const doc = userDoc.docs[0];
+          await doc.ref.set({
+            stripeSubscriptionId: createdSub.id,
+            subscriptionStatus: createdSub.status,
+            plan: planType,
+            priceId: createdSub.items.data[0].price.id,
+            trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
+            currentPeriodEnd: new Date(createdSub.current_period_end * 1000)
+          }, { merge: true });
+          
+          console.log('✅ Successfully updated user subscription in Firestore:', {
+            userId: doc.id,
+            subscriptionId: createdSub.id,
+            plan: planType
+          });
+        } else {
+          console.error('❌ No user found for customer:', createdSub.customer);
+        }
+      } catch (error) {
+        console.error('❌ Error updating subscription in Firestore:', error);
+        throw error; // Re-throw to trigger webhook retry
+      }
 
       // Send welcome email for paid plans
       if (planType !== 'basic') {
