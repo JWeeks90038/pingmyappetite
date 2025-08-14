@@ -10,7 +10,36 @@ import { createRequire } from 'module';
 if (!admin.apps.length) {
   try {
     // Try to use service account file first (for local development)
-    const require = createRequire(import.meta.url);
+    const requ        const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
+        console.log('📋 Plan type determined:', planType);
+
+        const updateData = {
+          stripeSubscriptionId,
+          subscriptionStatus: createdSub.status,
+          plan: planType,
+          priceId: createdSub.items.data[0].price.id,
+          trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
+          currentPeriodEnd: new Date(createdSub.current_period_end * 1000),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        
+        console.log('📝 Attempting to update user with data:', updateData);
+        await userDocRef.update(updateData);
+
+        console.log(`✅ Updated Firestore for user ${uid} with subscription ID ${stripeSubscriptionId}`);
+      } catch (error) {
+        console.error('❌ Error in customer.subscription.created handler:', error);
+        console.error('❌ Error type:', error.constructor.name);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error code:', error.code);
+        
+        // Check if this is a Firebase connection error
+        if (error.message.includes('DECODER routines::unsupported') || 
+            error.message.includes('Getting metadata from plugin failed')) {
+          console.error('🚨 Firebase connection error detected - check private key formatting');
+        }
+        
+        throw error; // Re-throw to trigger webhook retryre(import.meta.url);
     const serviceAccount = require('../../serviceAccountKey.json');
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -19,11 +48,27 @@ if (!admin.apps.length) {
   } catch (error) {
     // Fallback to environment variables (for Railway deployment)
     console.log('🔄 Service account file not found, using environment variables');
+    
+    // Better private key handling for Railway
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    if (privateKey) {
+      // Handle different private key formats
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      
+      // Ensure proper BEGIN/END formatting
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        console.error('❌ Invalid private key format - missing BEGIN marker');
+      }
+      if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+        console.error('❌ Invalid private key format - missing END marker');
+      }
+    }
+    
     const serviceAccount = {
       type: "service_account",
       project_id: process.env.FIREBASE_PROJECT_ID,
       private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      private_key: privateKey,
       client_email: process.env.FIREBASE_CLIENT_EMAIL,
       client_id: process.env.FIREBASE_CLIENT_ID,
       auth_uri: "https://accounts.google.com/o/oauth2/auth",
@@ -31,6 +76,15 @@ if (!admin.apps.length) {
       auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
       client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
     };
+    
+    console.log('🔍 Firebase config check:', {
+      project_id: !!process.env.FIREBASE_PROJECT_ID,
+      private_key_id: !!process.env.FIREBASE_PRIVATE_KEY_ID,
+      private_key_length: privateKey?.length || 0,
+      client_email: !!process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: !!process.env.FIREBASE_CLIENT_ID,
+      client_cert_url: !!process.env.FIREBASE_CLIENT_CERT_URL
+    });
     
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
