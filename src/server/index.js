@@ -23,19 +23,48 @@ if (!admin.apps.length) {
     try {
       // Enhanced private key handling for Railway
       let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      
+      console.log('🔍 Private key debug info:');
+      console.log('  - Raw length:', privateKey?.length || 0);
+      console.log('  - First 50 chars:', privateKey?.substring(0, 50));
+      console.log('  - Last 50 chars:', privateKey?.substring(privateKey?.length - 50));
+      console.log('  - Contains \\n:', privateKey?.includes('\\n'));
+      console.log('  - Contains actual newlines:', privateKey?.includes('\n'));
+      console.log('  - Starts with quote:', privateKey?.startsWith('"'));
+      console.log('  - Ends with quote:', privateKey?.endsWith('"'));
+      
       if (privateKey) {
-        // Handle different private key formats
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        // Try multiple private key processing methods
+        console.log('🔧 Processing private key...');
         
-        // Validate private key format
-        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-          console.error('❌ Invalid private key format - missing BEGIN marker');
-          console.log('🔍 Private key first 50 chars:', privateKey.substring(0, 50));
+        // Method 1: Remove outer quotes if present
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+          privateKey = privateKey.slice(1, -1);
+          console.log('  - Removed outer quotes');
         }
-        if (!privateKey.includes('-----END PRIVATE KEY-----')) {
-          console.error('❌ Invalid private key format - missing END marker');
-          console.log('🔍 Private key last 50 chars:', privateKey.substring(privateKey.length - 50));
+        
+        // Method 2: Handle different newline formats
+        if (privateKey.includes('\\n')) {
+          privateKey = privateKey.replace(/\\n/g, '\n');
+          console.log('  - Replaced \\n with actual newlines');
         }
+        
+        // Method 3: Clean up any extra quotes
+        privateKey = privateKey.replace(/"/g, '');
+        console.log('  - Removed any remaining quotes');
+        
+        // Method 4: Ensure proper formatting
+        if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+          console.error('❌ After processing: missing BEGIN marker');
+        }
+        if (!privateKey.endsWith('-----END PRIVATE KEY-----')) {
+          console.error('❌ After processing: missing END marker');
+        }
+        
+        console.log('🔍 Processed private key info:');
+        console.log('  - Processed length:', privateKey.length);
+        console.log('  - First 50 chars:', privateKey.substring(0, 50));
+        console.log('  - Last 50 chars:', privateKey.substring(privateKey.length - 50));
       }
       
       const serviceAccount = {
@@ -61,6 +90,7 @@ if (!admin.apps.length) {
         client_cert_url: !!process.env.FIREBASE_CLIENT_CERT_URL
       });
       
+      console.log('🚀 Attempting Firebase initialization...');
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
