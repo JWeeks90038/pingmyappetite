@@ -100,10 +100,16 @@ console.log("Dashboard component rendering for OWNER");
 
   // --- Place this useEffect after the above ---
   useEffect(() => {
-  // Only run if user and userRole are loaded
-  if (user && userRole === "owner" && userPlan && userPlan !== "all-access" && userPlan !== "basic") {
-    navigate("/checkout");
+    // Only redirect to checkout if user is on basic plan and not subscribed to pro/all-access
+    // This was the bug: Pro users were being redirected because "pro" wasn't in the allowed list
+    if (user && userRole === "owner" && userPlan === "basic") {
+      console.log('🔄 Dashboard: Redirecting basic plan user to checkout');
+      navigate("/checkout");
+      return; // Don't execute location logic if redirecting
+    }
 
+    // Location tracking logic for paid plan users
+    if (user && userRole === "owner" && (userPlan === "pro" || userPlan === "all-access")) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {

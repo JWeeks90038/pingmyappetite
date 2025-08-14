@@ -80,23 +80,10 @@ function ProtectedDashboardRoute({ children }) {
     (userPlan === "pro" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing")) ||
     (userPlan === "all-access" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing"));
 
-  console.log('🔍 ProtectedDashboardRoute - Access Check Details:');
-  console.log('  - userPlan:', userPlan, '(type:', typeof userPlan, ')');
-  console.log('  - userSubscriptionStatus:', userSubscriptionStatus, '(type:', typeof userSubscriptionStatus, ')');
-  console.log('  - Is basic plan?', userPlan === "basic");
-  console.log('  - Is pro plan?', userPlan === "pro");
-  console.log('  - Is subscription active?', userSubscriptionStatus === "active");
-  console.log('  - Is subscription trialing?', userSubscriptionStatus === "trialing");
-  console.log('  - Pro plan access:', userPlan === "pro" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing"));
-  console.log('  - Final hasValidAccess:', hasValidAccess);
-
   if (!hasValidAccess) {
-    console.log('🚨 ProtectedDashboardRoute - Redirecting to checkout due to invalid access');
-    console.log('🚨 Debug info - Plan:', userPlan, 'Status:', userSubscriptionStatus);
     return <Navigate to="/checkout" />;
   }
 
-  console.log('✅ ProtectedDashboardRoute - Allowing access to dashboard');
   return children;
 }
 
