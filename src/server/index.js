@@ -289,69 +289,34 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         subscriptionId: session.subscription,
         mode: session.mode,
         metadata: session.metadata,
-        customer: session.customer,
         uid: session.metadata?.uid,
         planType: session.metadata?.planType
       });
 
-      // Immediately retrieve the subscription details
-      try {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription);
-        console.log('📦 Retrieved subscription details:', {
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          customerId: subscription.customer,
-          priceId: subscription.items.data[0].price.id,
-          metadata: subscription.metadata
-        });
-
-        // Update Firestore immediately
-        if (session.metadata?.uid) {
+      // For subscription mode, just link the customer ID and plan
+      // The detailed subscription info will be handled in customer.subscription.created
+      if (session.mode === 'subscription' && session.metadata?.uid) {
+        try {
           const userRef = admin.firestore().collection('users').doc(session.metadata.uid);
+          const planType = session.metadata?.planType || 'pro';
+          
           await userRef.set({
-            stripeSubscriptionId: subscription.id,
-            subscriptionStatus: subscription.status,
-            plan: session.metadata.planType || 'pro',
-            priceId: subscription.items.data[0].price.id,
-            stripeCustomerId: session.customer
+            stripeCustomerId: session.customer,
+            plan: planType,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
           
-          console.log('✅ Updated user document in Firestore:', {
-            uid: session.metadata.uid,
-            subscriptionId: subscription.id,
-            plan: session.metadata.planType || 'pro'
-          });
-        } else {
-          console.error('❌ No UID found in session metadata');
+          console.log(`✅ Updated user ${session.metadata.uid} with customer ID ${session.customer} and plan ${planType}`);
+        } catch (error) {
+          console.error('❌ Error updating user in checkout.session.completed:', error);
+          throw error; // Re-throw to trigger webhook retry
         }
-      } catch (error) {
-        console.error('❌ Error updating subscription in Firestore:', error);
-        throw error; // Re-throw to trigger webhook retry
-      }
-
-      // Update user plan in Firestore using metadata.uid and metadata.planType
-      const uid = session.metadata?.uid;
-      const planType = session.metadata?.planType || 'pro';
-      if (uid) {
-        try {
-          const userRef = admin.firestore().collection('users').doc(uid);
-          await userRef.set({ 
-            plan: planType,
-            stripeCustomerId: session.customer // Add stripeCustomerId to Firestore
-          }, { merge: true });
-          console.log(`✅ Updated user ${uid} plan to ${planType} and stripeCustomerId to ${session.customer} from checkout.session.completed`);
-        } catch (err) {
-          console.error(`❌ Failed to update user plan and stripeCustomerId from checkout.session.completed:`, err);
-        }
-      } else {
+      } else if (!session.metadata?.uid) {
         console.error('❌ No UID found in session metadata for checkout.session.completed');
+        throw new Error('UID is required in session metadata');
       }
-
-      // For subscription mode, the actual subscription will be created separately
-      // We'll also handle the plan update in customer.subscription.created
-      if (session.mode === 'subscription') {
-        console.log('Subscription checkout completed - waiting for subscription.created event');
-      }
+      
+      console.log('Checkout session completed - subscription details will be handled by subscription.created event');
       break;
     }
 
@@ -371,7 +336,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
       if (!uid) {
         console.error('⚠️  UID is missing in subscription metadata.');
-        return res.status(400).send('UID is required in metadata.');
+        throw new Error('UID is required in metadata');
       }
 
       try {
@@ -400,93 +365,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       } catch (error) {
         console.error('❌ Error updating Firestore:', error);
         throw error; // Re-throw to trigger webhook retry
-      }
-
-      // Send welcome email for paid plans
-      if (planType !== 'basic') {
-        try {
-          const customer = await stripe.customers.retrieve(createdSub.customer);
-          if (customer.email) {
-            // Get user data from Firestore to get username
-            const usersRef = admin.firestore().collection('users');
-            const snapshot = await usersRef.where('stripeCustomerId', '==', createdSub.customer).get();
-            let username = '';
-            
-            if (!snapshot.empty) {
-              const userData = snapshot.docs[0].data();
-              username = userData.username || userData.ownerName || '';
-            }
-
-            // Send welcome email via internal API call
-            const welcomeEmailData = {
-              email: customer.email,
-              username: username,
-              plan: planType
-            };
-
-            // Use the sendgrid mail directly since we're in the same server
-            const planMessages = {
-              pro: {
-                subject: '🎉 Welcome to Grubana Pro!',
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
-                    <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
-                    
-                    <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
-                    <ul>
-                      <li>✅ Everything in Basic</li>
-                      <li>✅ Real-time GPS location tracking</li>
-                      <li>✅ Real-time menu display on map icon</li>
-                      <li>✅ Access to citywide heat maps</li>
-                      <li>✅ Basic engagement metrics</li>
-                    </ul>
-                    
-                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-                    
-                    <p>Happy food trucking!<br/>The Grubana Team</p>
-                  </div>
-                `
-              },
-              'all-access': {
-                subject: '🎉 Welcome to Grubana All Access!',
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
-                    <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
-                    
-                    <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
-                    <ul>
-                      <li>✅ Everything in Basic & Pro</li>
-                      <li>✅ Advanced 30-day analytics dashboard</li>
-                      <li>✅ Create promotional drops and deals</li>
-                      <li>✅ Featured placement in search results</li>
-                      <li>✅ Priority customer support</li>
-                    </ul>
-                    
-                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-                    
-                    <p>Happy food trucking!<br/>The Grubana Team</p>
-                  </div>
-                `
-              }
-            };
-
-            const messageContent = planMessages[planType];
-            if (messageContent) {
-              await sgMail.send({
-                to: customer.email,
-                from: 'grubana.co@gmail.com',
-                subject: messageContent.subject,
-                html: messageContent.html,
-              });
-              console.log(`Welcome email sent to ${customer.email} for ${planType} plan`);
-            }
-          }
-        } catch (emailErr) {
-          console.error('Error sending welcome email from webhook:', emailErr);
-          // Don't fail the webhook if email fails
-        }
       }
       break;
 
@@ -672,9 +550,9 @@ app.post('/cancel-subscription', async (req, res) => {
   }
 });
 
-// Send welcome email endpoint
+// Send welcome email endpoint (disabled - using Formspree instead)
 app.post('/api/send-welcome-email', async (req, res) => {
-  console.log('Welcome email endpoint called with:', req.body);
+  console.log('Welcome email endpoint called (disabled):', req.body);
   
   const { email, username, plan = 'basic' } = req.body;
   
@@ -683,150 +561,27 @@ app.post('/api/send-welcome-email', async (req, res) => {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
-  console.log('Attempting to send welcome email to:', email, 'for plan:', plan);
-
-  const planMessages = {
-    basic: {
-      subject: '🎉 Welcome to Grubana!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #2c6f57;">Welcome to Grubana${username ? `, ${username}` : ''}! 🚚</h1>
-          <p>Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.</p>
-          
-          <h2 style="color: #2c6f57;">Your Basic Plan Includes:</h2>
-          <ul>
-            <li>✅ Appear on the Grubana discovery map</li>
-            <li>✅ View demand pins from hungry customers</li>
-            <li>✅ Access to your truck dashboard</li>
-            <li>✅ Manual location updates</li>
-          </ul>
-          
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #2c6f57;">🚀 Ready to Upgrade?</h3>
-            <p>Unlock real-time GPS tracking, menu display, analytics, and promotional drops!</p>
-            <a href="https://grubana.com/pricing" style="background: #2c6f57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Pricing Plans</a>
-          </div>
-          
-          <p>Get started by logging into your dashboard: <a href="https://grubana.com/login">https://grubana.com/login</a></p>
-          
-          <p>Happy food trucking!<br/>The Grubana Team</p>
-        </div>
-      `
-    },
-    pro: {
-      subject: '🎉 Welcome to Grubana Pro!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
-          <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
-          
-          <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
-          <ul>
-            <li>✅ Everything in Basic</li>
-            <li>✅ Real-time GPS location tracking</li>
-            <li>✅ Real-time menu display on map icon</li>
-            <li>✅ Access to citywide heat maps</li>
-            <li>✅ Basic engagement metrics</li>
-          </ul>
-          
-          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #28a745;">🎯 Want Even More?</h3>
-            <p>Upgrade to All Access for advanced analytics and promotional drops!</p>
-            <a href="https://grubana.com/pricing" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Upgrade to All Access</a>
-          </div>
-          
-          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-          
-          <p>Happy food trucking!<br/>The Grubana Team</p>
-        </div>
-      `
-    },
-    'all-access': {
-      subject: '🎉 Welcome to Grubana All Access!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
-          <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
-          
-          <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
-          <ul>
-            <li>✅ Everything in Basic & Pro</li>
-            <li>✅ Advanced 30-day analytics dashboard</li>
-            <li>✅ Create promotional drops and deals</li>
-            <li>✅ Featured placement in search results</li>
-            <li>✅ Priority customer support</li>
-            <li>✅ Custom branding options</li>
-          </ul>
-          
-          <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #007bff;">🎯 Pro Tips to Maximize Your Success:</h3>
-            <ul>
-              <li>Create promotional drops to attract customers</li>
-              <li>Monitor your analytics to find peak demand times</li>
-              <li>Use the heat map to find the best locations</li>
-              <li>Keep your menu photos updated for maximum appeal</li>
-            </ul>
-          </div>
-          
-          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-          
-          <p>Need help getting started? Contact us at grubana.co@gmail.com</p>
-          
-          <p>Happy food trucking!<br/>The Grubana Team</p>
-        </div>
-      `
-    }
-  };
-
-  const messageContent = planMessages[plan] || planMessages.basic;
-
-  try {
-    const messageContent = planMessages[plan] || planMessages.basic;
-    
-    console.log('Sending email with subject:', messageContent.subject);
-    
-    const mailOptions = {
-      to: email,
-      from: 'grubana.co@gmail.com',
-      subject: messageContent.subject,
-      html: messageContent.html,
-    };
-    
-    console.log('Mail options configured, attempting to send...');
-    await sgMail.send(mailOptions);
-    
-    console.log(`Welcome email sent successfully to ${email} for ${plan} plan`);
-    res.status(200).json({ success: true, message: 'Welcome email sent successfully' });
-  } catch (err) {
-    console.error('Error sending welcome email:', err);
-    console.error('Error details:', err.response?.body || err.message);
-    res.status(500).json({ 
-      error: 'Failed to send welcome email', 
-      details: err.message,
-      sendgridConfigured: !!process.env.SENDGRID_API_KEY
-    });
-  }
+  console.log('Email sending disabled - using Formspree for contact forms only');
+  
+  // Return success without sending email
+  res.status(200).json({ 
+    success: true, 
+    message: 'Email sending disabled - using Formspree for contact forms',
+    note: 'Welcome emails can be handled client-side or through other means'
+  });
 });
 
 app.post('/api/send-beta-code', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
-  try {
-    await sgMail.send({
-      to: email,
-      from: 'grubana.co@gmail.com',
-      subject: 'Beta Access Invite',
-      text: 'You have been invited to the Grubana beta!',
-      html: '<strong>You have been invited to the Grubana beta!</strong>',
-    });
-
-    res.status(200).json({ message: 'Invite sent successfully' });
-  } catch (err) {
-    console.error("Send Invite Error:", err);
-    res.status(500).json({ message: "Failed to send invite" });
-  }
+  console.log('Beta code request for:', email, '(email sending disabled)');
+  
+  // Return success without sending email since we're using Formspree
+  res.status(200).json({ 
+    message: 'Email sending disabled - using Formspree for contact forms',
+    note: 'Beta codes can be handled through other means'
+  });
 });
 
 app.post('/create-customer-portal-session', async (req, res) => {
