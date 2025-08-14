@@ -51,6 +51,7 @@ export const AuthContextProvider = ({ children }) => {
           setUserPlan(newUser.plan);
           setUserSubscriptionStatus(newUser.subscriptionStatus);
         } else {
+          console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
           const data = userSnap.data();
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");
