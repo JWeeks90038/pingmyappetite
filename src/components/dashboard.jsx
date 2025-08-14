@@ -457,21 +457,6 @@ useEffect(() => {
 
   return (
     <div className="dashboard">
-      {/* DEBUG: Visual indicator that Dashboard is rendering */}
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
-        background: 'green',
-        color: 'white',
-        padding: '10px',
-        borderRadius: '5px',
-        zIndex: 9999,
-        fontSize: '14px'
-      }}>
-        ✅ Dashboard Loaded - Plan: {userPlan}
-      </div>
-      
       {/* Logo Section */}
       <div style={{ 
         textAlign: 'center', 
@@ -602,6 +587,54 @@ useEffect(() => {
         </div>
       )}
 
+      {/* Upgrade Buttons - Moved to Top-Right Corner */}
+      {(userRole === "owner" && (userPlan === "basic" || userPlan === "pro")) && (
+        <div style={{
+          position: "fixed",
+          top: "10px",
+          right: "10px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          zIndex: 1000
+        }}>
+          {userPlan === "basic" && (
+            <button
+              style={{
+                padding: "6px 12px",
+                background: "#e0e0e0",
+                color: "#333",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "0.8rem",
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                navigate("/checkout", { state: { selectedPlan: 'pro' } });
+              }}
+            >
+              Upgrade to Pro
+            </button>
+          )}
+          <button
+            style={{
+              padding: "6px 12px",
+              background: "#e0e0e0",
+              color: "#333",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "0.8rem",
+              cursor: "pointer"
+            }}
+            onClick={() => {
+              navigate("/checkout", { state: { selectedPlan: 'all-access' } });
+            }}
+          >
+            Upgrade to All Access
+          </button>
+        </div>
+      )}
+
       {/* --- UPGRADE BUTTONS FOR BASIC AND PRO PLAN OWNERS --- */}
       {userRole === "owner" && userPlan === "basic" && (
         <div style={{ margin: "20px 0", textAlign: "center" }}>
@@ -611,12 +644,12 @@ useEffect(() => {
           <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
             <button
               style={{
-                padding: "10px 20px",
-                background: "#28a745",
-                color: "#fff",
-                border: "none",
+                padding: "8px 16px", // Reduced padding for subtlety
+                background: "#e0e0e0", // Neutral background color
+                color: "#333", // Subtle text color
+                border: "1px solid #ccc", // Add a border for a less pronounced look
                 borderRadius: "5px",
-                fontSize: "1rem",
+                fontSize: "0.9rem", // Slightly smaller font size
                 cursor: "pointer"
               }}
               onClick={() => {
@@ -627,12 +660,12 @@ useEffect(() => {
             </button>
             <button
               style={{
-                padding: "10px 20px",
-                background: "#007bff",
-                color: "#fff",
-                border: "none",
+                padding: "8px 16px", // Reduced padding for subtlety
+                background: "#e0e0e0", // Neutral background color
+                color: "#333", // Subtle text color
+                border: "1px solid #ccc", // Add a border for a less pronounced look
                 borderRadius: "5px",
-                fontSize: "1rem",
+                fontSize: "0.9rem", // Slightly smaller font size
                 cursor: "pointer"
               }}
               onClick={() => {
@@ -652,7 +685,7 @@ useEffect(() => {
           </p>
           <button
             style={{
-              padding: "10px 24px",
+              padding: "8px 24px",
               background: "#007bff",
               color: "#fff",
               border: "none",

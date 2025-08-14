@@ -444,9 +444,16 @@ return (
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
               gap: "8px 16px",
+              textAlign: "center", // Center all content
             }}>
               {Object.keys(filters).map((cuisine) => (
-                <label key={cuisine} style={{display: "flex", alignItems: "center", gap: "8px", fontSize: "16px"}}>
+                <label key={cuisine} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center", // Center checkboxes and text
+                  gap: "8px",
+                  fontSize: "16px",
+                }}>
                   <input
                     type="checkbox"
                     checked={tempCuisineFilters[cuisine]}
