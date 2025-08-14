@@ -10,36 +10,7 @@ import { createRequire } from 'module';
 if (!admin.apps.length) {
   try {
     // Try to use service account file first (for local development)
-    const requ        const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
-        console.log('📋 Plan type determined:', planType);
-
-        const updateData = {
-          stripeSubscriptionId,
-          subscriptionStatus: createdSub.status,
-          plan: planType,
-          priceId: createdSub.items.data[0].price.id,
-          trialEnd: createdSub.trial_end ? new Date(createdSub.trial_end * 1000) : null,
-          currentPeriodEnd: new Date(createdSub.current_period_end * 1000),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        
-        console.log('📝 Attempting to update user with data:', updateData);
-        await userDocRef.update(updateData);
-
-        console.log(`✅ Updated Firestore for user ${uid} with subscription ID ${stripeSubscriptionId}`);
-      } catch (error) {
-        console.error('❌ Error in customer.subscription.created handler:', error);
-        console.error('❌ Error type:', error.constructor.name);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error code:', error.code);
-        
-        // Check if this is a Firebase connection error
-        if (error.message.includes('DECODER routines::unsupported') || 
-            error.message.includes('Getting metadata from plugin failed')) {
-          console.error('🚨 Firebase connection error detected - check private key formatting');
-        }
-        
-        throw error; // Re-throw to trigger webhook retryre(import.meta.url);
+    const require = createRequire(import.meta.url);
     const serviceAccount = require('../../serviceAccountKey.json');
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -49,47 +20,68 @@ if (!admin.apps.length) {
     // Fallback to environment variables (for Railway deployment)
     console.log('🔄 Service account file not found, using environment variables');
     
-    // Better private key handling for Railway
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-    if (privateKey) {
-      // Handle different private key formats
-      privateKey = privateKey.replace(/\\n/g, '\n');
+    try {
+      // Enhanced private key handling for Railway
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      if (privateKey) {
+        // Handle different private key formats
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        
+        // Validate private key format
+        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+          console.error('❌ Invalid private key format - missing BEGIN marker');
+          console.log('🔍 Private key first 50 chars:', privateKey.substring(0, 50));
+        }
+        if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+          console.error('❌ Invalid private key format - missing END marker');
+          console.log('🔍 Private key last 50 chars:', privateKey.substring(privateKey.length - 50));
+        }
+      }
       
-      // Ensure proper BEGIN/END formatting
-      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-        console.error('❌ Invalid private key format - missing BEGIN marker');
+      const serviceAccount = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: privateKey,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
+      };
+      
+      // Debug: Log what environment variables are available
+      console.log('🔍 Firebase config check:', {
+        project_id: !!process.env.FIREBASE_PROJECT_ID,
+        private_key_id: !!process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key_length: privateKey?.length || 0,
+        client_email: !!process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: !!process.env.FIREBASE_CLIENT_ID,
+        client_cert_url: !!process.env.FIREBASE_CLIENT_CERT_URL
+      });
+      
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('✅ Firebase initialized with environment variables');
+      
+    } catch (envError) {
+      console.error('❌ Failed to initialize Firebase with environment variables:', envError);
+      console.error('❌ Error type:', envError.constructor.name);
+      console.error('❌ Error message:', envError.message);
+      
+      // Check if this is the DECODER error
+      if (envError.message.includes('DECODER routines::unsupported')) {
+        console.error('🚨 DECODER error detected - this is likely a private key formatting issue');
+        console.error('🔧 Try these solutions:');
+        console.error('   1. Ensure private key has \\n characters (not actual newlines)');
+        console.error('   2. Wrap the entire key in double quotes');
+        console.error('   3. Include the full BEGIN/END markers');
       }
-      if (!privateKey.includes('-----END PRIVATE KEY-----')) {
-        console.error('❌ Invalid private key format - missing END marker');
-      }
+      
+      throw envError;
     }
-    
-    const serviceAccount = {
-      type: "service_account",
-      project_id: process.env.FIREBASE_PROJECT_ID,
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: privateKey,
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: process.env.FIREBASE_CLIENT_ID,
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-      client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
-    };
-    
-    console.log('🔍 Firebase config check:', {
-      project_id: !!process.env.FIREBASE_PROJECT_ID,
-      private_key_id: !!process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key_length: privateKey?.length || 0,
-      client_email: !!process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: !!process.env.FIREBASE_CLIENT_ID,
-      client_cert_url: !!process.env.FIREBASE_CLIENT_CERT_URL
-    });
-    
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-    console.log('✅ Firebase initialized with environment variables');
   }
 }
 
@@ -197,6 +189,88 @@ app.get('/test-firebase', async (req, res) => {
         clientId: !!process.env.FIREBASE_CLIENT_ID,
         clientCertUrl: !!process.env.FIREBASE_CLIENT_CERT_URL
       }
+    });
+  }
+});
+
+// Railway Firebase Debug Endpoint - specifically for debugging private key issues
+app.get('/railway-debug', (req, res) => {
+  try {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      nodeEnv: process.env.NODE_ENV,
+      platform: process.platform,
+      nodeVersion: process.version,
+      firebaseAppsCount: admin.apps.length,
+      envVars: {
+        FIREBASE_PROJECT_ID: !!process.env.FIREBASE_PROJECT_ID,
+        FIREBASE_PRIVATE_KEY_ID: !!process.env.FIREBASE_PRIVATE_KEY_ID,
+        FIREBASE_PRIVATE_KEY: !!process.env.FIREBASE_PRIVATE_KEY,
+        FIREBASE_CLIENT_EMAIL: !!process.env.FIREBASE_CLIENT_EMAIL,
+        FIREBASE_CLIENT_ID: !!process.env.FIREBASE_CLIENT_ID,
+        FIREBASE_CLIENT_CERT_URL: !!process.env.FIREBASE_CLIENT_CERT_URL
+      }
+    };
+    
+    if (privateKey) {
+      // Safe private key analysis without exposing the actual key
+      debugInfo.privateKeyAnalysis = {
+        length: privateKey.length,
+        startsWithBegin: privateKey.startsWith('"-----BEGIN PRIVATE KEY-----'),
+        endsWithEnd: privateKey.endsWith('-----END PRIVATE KEY-----"'),
+        hasBackslashN: privateKey.includes('\\n'),
+        hasActualNewlines: privateKey.includes('\n'),
+        firstChars: privateKey.substring(0, 30),
+        lastChars: privateKey.substring(privateKey.length - 30),
+        characterCounts: {
+          quotes: (privateKey.match(/"/g) || []).length,
+          backslashes: (privateKey.match(/\\/g) || []).length,
+          newlines: (privateKey.match(/\n/g) || []).length
+        }
+      };
+      
+      // Test if the private key can be processed
+      try {
+        const processedKey = privateKey.replace(/\\n/g, '\n');
+        debugInfo.privateKeyProcessing = {
+          processedLength: processedKey.length,
+          processedStartsWithBegin: processedKey.startsWith('-----BEGIN PRIVATE KEY-----'),
+          processedEndsWithEnd: processedKey.endsWith('-----END PRIVATE KEY-----'),
+          canCreateServiceAccount: true
+        };
+        
+        // Try to create a service account object (without initializing Firebase)
+        const testServiceAccount = {
+          type: "service_account",
+          project_id: process.env.FIREBASE_PROJECT_ID,
+          private_key: processedKey,
+          client_email: process.env.FIREBASE_CLIENT_EMAIL
+        };
+        
+        debugInfo.serviceAccountTest = {
+          canCreateObject: true,
+          projectIdPresent: !!testServiceAccount.project_id,
+          clientEmailPresent: !!testServiceAccount.client_email,
+          privateKeyFormatValid: testServiceAccount.private_key.includes('-----BEGIN PRIVATE KEY-----')
+        };
+        
+      } catch (procError) {
+        debugInfo.privateKeyProcessing = {
+          error: procError.message,
+          canCreateServiceAccount: false
+        };
+      }
+    }
+    
+    res.json(debugInfo);
+    
+  } catch (error) {
+    res.status(500).json({
+      error: 'Debug endpoint failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -343,34 +417,69 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         subscriptionId: session.subscription,
         mode: session.mode,
         metadata: session.metadata,
+        customer: session.customer,
         uid: session.metadata?.uid,
         planType: session.metadata?.planType
       });
 
-      // For subscription mode, just link the customer ID and plan
-      // The detailed subscription info will be handled in customer.subscription.created
-      if (session.mode === 'subscription' && session.metadata?.uid) {
-        try {
+      // Immediately retrieve the subscription details
+      try {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        console.log('📦 Retrieved subscription details:', {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          customerId: subscription.customer,
+          priceId: subscription.items.data[0].price.id,
+          metadata: subscription.metadata
+        });
+
+        // Update Firestore immediately
+        if (session.metadata?.uid) {
           const userRef = admin.firestore().collection('users').doc(session.metadata.uid);
-          const planType = session.metadata?.planType || 'pro';
-          
           await userRef.set({
-            stripeCustomerId: session.customer,
-            plan: planType,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            stripeSubscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            plan: session.metadata.planType || 'pro',
+            priceId: subscription.items.data[0].price.id,
+            stripeCustomerId: session.customer
           }, { merge: true });
           
-          console.log(`✅ Updated user ${session.metadata.uid} with customer ID ${session.customer} and plan ${planType}`);
-        } catch (error) {
-          console.error('❌ Error updating user in checkout.session.completed:', error);
-          throw error; // Re-throw to trigger webhook retry
+          console.log('✅ Updated user document in Firestore:', {
+            uid: session.metadata.uid,
+            subscriptionId: subscription.id,
+            plan: session.metadata.planType || 'pro'
+          });
+        } else {
+          console.error('❌ No UID found in session metadata');
         }
-      } else if (!session.metadata?.uid) {
-        console.error('❌ No UID found in session metadata for checkout.session.completed');
-        throw new Error('UID is required in session metadata');
+      } catch (error) {
+        console.error('❌ Error updating subscription in Firestore:', error);
+        throw error; // Re-throw to trigger webhook retry
       }
-      
-      console.log('Checkout session completed - subscription details will be handled by subscription.created event');
+
+      // Update user plan in Firestore using metadata.uid and metadata.planType
+      const uid = session.metadata?.uid;
+      const planType = session.metadata?.planType || 'pro';
+      if (uid) {
+        try {
+          const userRef = admin.firestore().collection('users').doc(uid);
+          await userRef.set({ 
+            plan: planType,
+            stripeCustomerId: session.customer // Add stripeCustomerId to Firestore
+          }, { merge: true });
+          console.log(`✅ Updated user ${uid} plan to ${planType} and stripeCustomerId to ${session.customer} from checkout.session.completed`);
+        } catch (err) {
+          console.error(`❌ Failed to update user plan and stripeCustomerId from checkout.session.completed:`, err);
+        }
+      } else {
+        console.error('❌ No UID found in session metadata for checkout.session.completed');
+      }
+
+      // For subscription mode, the actual subscription will be created separately
+      // We'll also handle the plan update in customer.subscription.created
+      if (session.mode === 'subscription') {
+        console.log('Subscription checkout completed - waiting for subscription.created event');
+      }
       break;
     }
 
@@ -390,7 +499,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
       if (!uid) {
         console.error('⚠️  UID is missing in subscription metadata.');
-        throw new Error('UID is required in metadata');
+        return res.status(400).send('UID is required in metadata.');
       }
 
       try {
@@ -417,8 +526,111 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
         console.log(`✅ Updated Firestore for user ${uid} with subscription ID ${stripeSubscriptionId}`);
       } catch (error) {
-        console.error('❌ Error updating Firestore:', error);
+        console.error('❌ Error in customer.subscription.created handler:', error);
+        console.error('❌ Error type:', error.constructor.name);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Stack trace:', error.stack);
+        
+        // Check if this is a Firebase connection error
+        if (error.message.includes('DECODER routines::unsupported') || 
+            error.message.includes('Getting metadata from plugin failed') ||
+            error.message.includes('Could not load the default credentials')) {
+          console.error('🚨 Firebase connection error detected - check private key formatting and environment variables');
+          console.error('🔧 Debugging info:');
+          console.error('   - Private key length:', process.env.FIREBASE_PRIVATE_KEY?.length || 0);
+          console.error('   - Project ID set:', !!process.env.FIREBASE_PROJECT_ID);
+          console.error('   - Client email set:', !!process.env.FIREBASE_CLIENT_EMAIL);
+        }
+        
         throw error; // Re-throw to trigger webhook retry
+      }
+
+      // Send welcome email for paid plans
+      if (planType !== 'basic') {
+        try {
+          const customer = await stripe.customers.retrieve(createdSub.customer);
+          if (customer.email) {
+            // Get user data from Firestore to get username
+            const usersRef = admin.firestore().collection('users');
+            const snapshot = await usersRef.where('stripeCustomerId', '==', createdSub.customer).get();
+            let username = '';
+            
+            if (!snapshot.empty) {
+              const userData = snapshot.docs[0].data();
+              username = userData.username || userData.ownerName || '';
+            }
+
+            // Send welcome email via internal API call
+            const welcomeEmailData = {
+              email: customer.email,
+              username: username,
+              plan: planType
+            };
+
+            // Use the sendgrid mail directly since we're in the same server
+            const planMessages = {
+              pro: {
+                subject: '🎉 Welcome to Grubana Pro!',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
+                    <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
+                    
+                    <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
+                    <ul>
+                      <li>✅ Everything in Basic</li>
+                      <li>✅ Real-time GPS location tracking</li>
+                      <li>✅ Real-time menu display on map icon</li>
+                      <li>✅ Access to citywide heat maps</li>
+                      <li>✅ Basic engagement metrics</li>
+                    </ul>
+                    
+                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+                    
+                    <p>Happy food trucking!<br/>The Grubana Team</p>
+                  </div>
+                `
+              },
+              'all-access': {
+                subject: '🎉 Welcome to Grubana All Access!',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
+                    <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
+                    
+                    <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
+                    <ul>
+                      <li>✅ Everything in Basic & Pro</li>
+                      <li>✅ Advanced 30-day analytics dashboard</li>
+                      <li>✅ Create promotional drops and deals</li>
+                      <li>✅ Featured placement in search results</li>
+                      <li>✅ Priority customer support</li>
+                    </ul>
+                    
+                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+                    
+                    <p>Happy food trucking!<br/>The Grubana Team</p>
+                  </div>
+                `
+              }
+            };
+
+            const messageContent = planMessages[planType];
+            if (messageContent) {
+              await sgMail.send({
+                to: customer.email,
+                from: 'grubana.co@gmail.com',
+                subject: messageContent.subject,
+                html: messageContent.html,
+              });
+              console.log(`Welcome email sent to ${customer.email} for ${planType} plan`);
+            }
+          }
+        } catch (emailErr) {
+          console.error('Error sending welcome email from webhook:', emailErr);
+          // Don't fail the webhook if email fails
+        }
       }
       break;
 
@@ -604,9 +816,9 @@ app.post('/cancel-subscription', async (req, res) => {
   }
 });
 
-// Send welcome email endpoint (disabled - using Formspree instead)
+// Send welcome email endpoint
 app.post('/api/send-welcome-email', async (req, res) => {
-  console.log('Welcome email endpoint called (disabled):', req.body);
+  console.log('Welcome email endpoint called with:', req.body);
   
   const { email, username, plan = 'basic' } = req.body;
   
@@ -615,27 +827,150 @@ app.post('/api/send-welcome-email', async (req, res) => {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  console.log('Email sending disabled - using Formspree for contact forms only');
-  
-  // Return success without sending email
-  res.status(200).json({ 
-    success: true, 
-    message: 'Email sending disabled - using Formspree for contact forms',
-    note: 'Welcome emails can be handled client-side or through other means'
-  });
+  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
+  console.log('Attempting to send welcome email to:', email, 'for plan:', plan);
+
+  const planMessages = {
+    basic: {
+      subject: '🎉 Welcome to Grubana!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #2c6f57;">Welcome to Grubana${username ? `, ${username}` : ''}! 🚚</h1>
+          <p>Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.</p>
+          
+          <h2 style="color: #2c6f57;">Your Basic Plan Includes:</h2>
+          <ul>
+            <li>✅ Appear on the Grubana discovery map</li>
+            <li>✅ View demand pins from hungry customers</li>
+            <li>✅ Access to your truck dashboard</li>
+            <li>✅ Manual location updates</li>
+          </ul>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #2c6f57;">🚀 Ready to Upgrade?</h3>
+            <p>Unlock real-time GPS tracking, menu display, analytics, and promotional drops!</p>
+            <a href="https://grubana.com/pricing" style="background: #2c6f57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Pricing Plans</a>
+          </div>
+          
+          <p>Get started by logging into your dashboard: <a href="https://grubana.com/login">https://grubana.com/login</a></p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    },
+    pro: {
+      subject: '🎉 Welcome to Grubana Pro!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
+          <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
+          
+          <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
+          <ul>
+            <li>✅ Everything in Basic</li>
+            <li>✅ Real-time GPS location tracking</li>
+            <li>✅ Real-time menu display on map icon</li>
+            <li>✅ Access to citywide heat maps</li>
+            <li>✅ Basic engagement metrics</li>
+          </ul>
+          
+          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #28a745;">🎯 Want Even More?</h3>
+            <p>Upgrade to All Access for advanced analytics and promotional drops!</p>
+            <a href="https://grubana.com/pricing" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Upgrade to All Access</a>
+          </div>
+          
+          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    },
+    'all-access': {
+      subject: '🎉 Welcome to Grubana All Access!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
+          <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
+          
+          <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
+          <ul>
+            <li>✅ Everything in Basic & Pro</li>
+            <li>✅ Advanced 30-day analytics dashboard</li>
+            <li>✅ Create promotional drops and deals</li>
+            <li>✅ Featured placement in search results</li>
+            <li>✅ Priority customer support</li>
+            <li>✅ Custom branding options</li>
+          </ul>
+          
+          <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #007bff;">🎯 Pro Tips to Maximize Your Success:</h3>
+            <ul>
+              <li>Create promotional drops to attract customers</li>
+              <li>Monitor your analytics to find peak demand times</li>
+              <li>Use the heat map to find the best locations</li>
+              <li>Keep your menu photos updated for maximum appeal</li>
+            </ul>
+          </div>
+          
+          <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
+          
+          <p>Need help getting started? Contact us at grubana.co@gmail.com</p>
+          
+          <p>Happy food trucking!<br/>The Grubana Team</p>
+        </div>
+      `
+    }
+  };
+
+  const messageContent = planMessages[plan] || planMessages.basic;
+
+  try {
+    const messageContent = planMessages[plan] || planMessages.basic;
+    
+    console.log('Sending email with subject:', messageContent.subject);
+    
+    const mailOptions = {
+      to: email,
+      from: 'grubana.co@gmail.com',
+      subject: messageContent.subject,
+      html: messageContent.html,
+    };
+    
+    console.log('Mail options configured, attempting to send...');
+    await sgMail.send(mailOptions);
+    
+    console.log(`Welcome email sent successfully to ${email} for ${plan} plan`);
+    res.status(200).json({ success: true, message: 'Welcome email sent successfully' });
+  } catch (err) {
+    console.error('Error sending welcome email:', err);
+    console.error('Error details:', err.response?.body || err.message);
+    res.status(500).json({ 
+      error: 'Failed to send welcome email', 
+      details: err.message,
+      sendgridConfigured: !!process.env.SENDGRID_API_KEY
+    });
+  }
 });
 
 app.post('/api/send-beta-code', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
-  console.log('Beta code request for:', email, '(email sending disabled)');
-  
-  // Return success without sending email since we're using Formspree
-  res.status(200).json({ 
-    message: 'Email sending disabled - using Formspree for contact forms',
-    note: 'Beta codes can be handled through other means'
-  });
+  try {
+    await sgMail.send({
+      to: email,
+      from: 'grubana.co@gmail.com',
+      subject: 'Beta Access Invite',
+      text: 'You have been invited to the Grubana beta!',
+      html: '<strong>You have been invited to the Grubana beta!</strong>',
+    });
+
+    res.status(200).json({ message: 'Invite sent successfully' });
+  } catch (err) {
+    console.error("Send Invite Error:", err);
+    res.status(500).json({ message: "Failed to send invite" });
+  }
 });
 
 app.post('/create-customer-portal-session', async (req, res) => {
