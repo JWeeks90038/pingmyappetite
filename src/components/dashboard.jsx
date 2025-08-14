@@ -136,21 +136,27 @@ console.log("Dashboard component rendering for OWNER");
     }
   }, [userPlan, userRole, user, previousPlan]);
 
-  // Geolocation for All Access Plan
+  // Geolocation for Pro and All Access Plans
   useEffect(() => {
-    if (userRole === "owner" && userPlan === "all-access") {
+    console.log('🌍 Geolocation useEffect running for:', userPlan);
+    if (userRole === "owner" && (userPlan === "pro" || userPlan === "all-access")) {
+      console.log('🌍 Requesting geolocation for paid plan user...');
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          //console.log('Geolocation success:', position.coords);
+          console.log('🌍 Geolocation success:', position.coords);
           setLocation({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
         },
         (error) => {
-          console.error("Geolocation error: ", error);
+          console.error("🌍 Geolocation error: ", error);
+          console.error("🌍 Error code:", error.code);
+          console.error("🌍 Error message:", error.message);
         }
       );
+    } else {
+      console.log('🌍 Not requesting geolocation - userRole:', userRole, 'userPlan:', userPlan);
     }
   }, [userRole, userPlan]);
 
