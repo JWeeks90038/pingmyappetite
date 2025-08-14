@@ -365,19 +365,66 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         metadata: createdSub.metadata
       });
       
-      const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
-      console.log('📋 Plan type determined:', planType);
+      // Log raw subscription data for debugging
+      console.log('📦 Raw subscription data:', JSON.stringify(createdSub, null, 2));
+      
+      // First try to find the user by metadata.uid
+      let userRef = null;
+      if (createdSub.metadata?.uid) {
+        userRef = admin.firestore().collection('users').doc(createdSub.metadata.uid);
+        console.log('📍 Found user by metadata.uid:', createdSub.metadata.uid);
+      }
+      
+      // If no user found by uid, try finding by stripeCustomerId
+      if (!userRef) {
+        const userSnapshot = await admin.firestore().collection('users')
+          .where('stripeCustomerId', '==', createdSub.customer)
+          .limit(1)
+          .get();
+          
+        if (!userSnapshot.empty) {
+          userRef = userSnapshot.docs[0].ref;
+          console.log('📍 Found user by stripeCustomerId:', createdSub.customer);
+        }
+      }
+      
+      if (!userRef) {
+        console.error('❌ Could not find user for subscription:', createdSub.id);
+        throw new Error('User not found');
+      }
       
       try {
+        const planType = getPlanFromPriceId(createdSub.items.data[0].price.id);
+        console.log('📋 Plan type determined:', planType);
+        
         // First, update the stripeSubscriptionId
+        console.log('🔍 Looking for user with stripeCustomerId:', createdSub.customer);
         const userDoc = await admin.firestore().collection('users')
           .where('stripeCustomerId', '==', createdSub.customer)
           .get();
+        console.log('🔍 Query result - empty?', userDoc.empty);
         
+        let userRef;
         if (!userDoc.empty) {
-          const doc = userDoc.docs[0];
-          await doc.ref.set({
-            stripeSubscriptionId: createdSub.id,
+          userRef = userDoc.docs[0].ref;
+          console.log('✅ Found user by stripeCustomerId');
+        } else if (createdSub.metadata?.uid) {
+          // Backup: try to find user by uid from metadata
+          userRef = admin.firestore().collection('users').doc(createdSub.metadata.uid);
+          const userDoc = await userRef.get();
+          if (!userDoc.exists) {
+            console.error('❌ User not found by metadata uid either:', createdSub.metadata.uid);
+            throw new Error('User not found');
+          }
+          console.log('✅ Found user by metadata uid');
+        } else {
+          console.error('❌ Could not find user by either stripeCustomerId or metadata uid');
+          throw new Error('User not found');
+        }
+
+        console.log('📝 Updating user document with subscription data');
+        await userRef.set({
+          stripeSubscriptionId: createdSub.id,
             subscriptionStatus: createdSub.status,
             plan: planType,
             priceId: createdSub.items.data[0].price.id,
@@ -390,9 +437,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
             subscriptionId: createdSub.id,
             plan: planType
           });
-        } else {
-          console.error('❌ No user found for customer:', createdSub.customer);
-        }
       } catch (error) {
         console.error('❌ Error updating subscription in Firestore:', error);
         throw error; // Re-throw to trigger webhook retry
@@ -905,13 +949,11 @@ app.post('/create-checkout-session', async (req, res) => {
         metadata: {
           planType: planType,
           uid: uid || '',
-          stripeSubscriptionId: '{SUBSCRIPTION_ID_PLACEHOLDER}' // Placeholder for subscription ID
         }
       },
       metadata: {
         planType: planType,
         uid: uid || '',
-        stripeSubscriptionId: '{SUBSCRIPTION_ID_PLACEHOLDER}' // Placeholder for subscription ID
       },
       success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,
