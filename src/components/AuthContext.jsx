@@ -52,18 +52,25 @@ export const AuthContextProvider = ({ children }) => {
           setUserSubscriptionStatus(newUser.subscriptionStatus);
         } else {
           const data = userSnap.data();
+          console.log('🔍 AuthContext - User data from Firestore:', data);
+          
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");
           
           // More defensive subscription status handling
           let subscriptionStatus = data.subscriptionStatus;
           
+          console.log('🔍 AuthContext - Raw subscription status:', subscriptionStatus);
+          console.log('🔍 AuthContext - User plan:', data.plan);
+          
           // If plan is basic and no subscription status, default to active
           if (data.plan === "basic" && !subscriptionStatus) {
             subscriptionStatus = "active";
+            console.log('🔍 AuthContext - Set basic plan to active');
           }
           // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
           
+          console.log('🔍 AuthContext - Final subscription status:', subscriptionStatus);
           setUserSubscriptionStatus(subscriptionStatus);
         }
         setLoading(false);
