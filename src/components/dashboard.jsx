@@ -18,7 +18,6 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import MediaUploader from "./MediaUploader";
 import "../assets/index.css";
 import { logoutUser } from "../utils/firebaseUtils";
 import HeatMap from "../components/HeatMap";
@@ -30,7 +29,7 @@ import trailerIconImg from "/trailer-icon.png";
 import cartIconImg from "/cart-icon.png";
 import grubanaLogoImg from "../assets/grubana-logo.png";
 import Analytics from "./analytics";
-import { FaInstagram, FaFacebook, FaTiktok } from "react-icons/fa";
+import { FaInstagram, FaFacebook, FaTiktok, FaXTwitter } from "react-icons/fa6";
 import { useAuth } from "./AuthContext";
 import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
@@ -240,7 +239,7 @@ console.log("Dashboard component rendering for OWNER");
             instagram: userData.instagram || "",
             facebook: userData.facebook || "",
             tiktok: userData.tiktok || "",
-            twitter: userData.x || "",
+            twitter: userData.twitter || "",
           });
         }
       }
@@ -457,46 +456,40 @@ useEffect(() => {
 
   return (
     <div className="dashboard">
-      {/* Logo Section */}
-      <div style={{ 
-        textAlign: 'center', 
-        margin: '0 0 20px 0', 
-        background: 'transparent !important',
-        padding: '10px 0',
-        borderRadius: '8px',
-        boxShadow: 'none !important'
-      }}>
-        <img 
-          src={grubanaLogoImg} 
-          alt="Grubana Logo" 
-          style={{ 
-            height: '80px', 
-            width: 'auto',
-            maxWidth: '300px',
-            objectFit: 'contain',
-            background: 'transparent',
-            border: 'none'
-          }}
-          onError={(e) => {
-            console.error('Logo failed to load from assets, trying public path');
-            e.target.src = "/grubana-logo.png";
-            e.target.onerror = () => {
-              console.error('All logo paths failed, showing text fallback');
-              e.target.style.display = 'none';
-              const textLogo = document.createElement('h1');
-              textLogo.innerHTML = 'GRUBANA';
-              textLogo.style.cssText = 'color: #2c6f57; margin: 0; font-size: 2.5rem; font-weight: bold;';
-              e.target.parentNode.appendChild(textLogo);
-            };
-          }}
-          onLoad={() => {
-            console.log('Grubana logo loaded successfully from:', grubanaLogoImg);
-          }}
-        />
-      </div>
+
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
+
+      {/* Truck Photo and Menu Display */}
+      {ownerData?.coverUrl && (
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <img
+            src={ownerData.coverUrl}
+            alt="Truck Photo"
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+              borderRadius: "8px",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            }}
+          />
+        </div>
+      )}
+      {ownerData?.menuUrl && (
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <img
+            src={ownerData.menuUrl}
+            alt="Menu Photo"
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+              borderRadius: "8px",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            }}
+          />
+        </div>
+      )}
       
-      {userEmail && <p>Email: {userEmail}</p>}
+     
       {userPlan ? (
         <div style={{ margin: "15px 0", padding: "15px", backgroundColor: 
           userPlan === "basic" ? "#f8f9fa" : 
@@ -602,9 +595,9 @@ useEffect(() => {
             <button
               style={{
                 padding: "6px 12px",
-                background: "#e0e0e0",
-                color: "#333",
-                border: "1px solid #ccc",
+                background: "#4367f6ff",
+              color: "#fffdfdff",
+              border: "1px solid #ccc",
                 borderRadius: "4px",
                 fontSize: "0.8rem",
                 cursor: "pointer"
@@ -619,8 +612,8 @@ useEffect(() => {
           <button
             style={{
               padding: "6px 12px",
-              background: "#e0e0e0",
-              color: "#333",
+              background: "#1641eaff",
+              color: "#fffdfdff",
               border: "1px solid #ccc",
               borderRadius: "4px",
               fontSize: "0.8rem",
@@ -631,73 +624,6 @@ useEffect(() => {
             }}
           >
             Upgrade to All Access
-          </button>
-        </div>
-      )}
-
-      {/* --- UPGRADE BUTTONS FOR BASIC AND PRO PLAN OWNERS --- */}
-      {userRole === "owner" && userPlan === "basic" && (
-        <div style={{ margin: "20px 0", textAlign: "center" }}>
-          <p style={{ marginBottom: "10px", color: "#666" }}>
-            🚀 Unlock real-time GPS tracking, menu display, and citywide heat maps
-          </p>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              style={{
-                padding: "8px 16px", // Reduced padding for subtlety
-                background: "#e0e0e0", // Neutral background color
-                color: "#333", // Subtle text color
-                border: "1px solid #ccc", // Add a border for a less pronounced look
-                borderRadius: "5px",
-                fontSize: "0.9rem", // Slightly smaller font size
-                cursor: "pointer"
-              }}
-              onClick={() => {
-                navigate("/checkout", { state: { selectedPlan: 'pro' } });
-              }}
-            >
-              Upgrade to Pro ($9.99/mo)
-            </button>
-            <button
-              style={{
-                padding: "8px 16px", // Reduced padding for subtlety
-                background: "#e0e0e0", // Neutral background color
-                color: "#333", // Subtle text color
-                border: "1px solid #ccc", // Add a border for a less pronounced look
-                borderRadius: "5px",
-                fontSize: "0.9rem", // Slightly smaller font size
-                cursor: "pointer"
-              }}
-              onClick={() => {
-                navigate("/checkout", { state: { selectedPlan: 'all-access' } });
-              }}
-            >
-              Upgrade to All Access ($19.99/mo)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {userRole === "owner" && userPlan === "pro" && (
-        <div style={{ margin: "20px 0", textAlign: "center" }}>
-          <p style={{ marginBottom: "10px", color: "#666" }}>
-            Unlock advanced analytics, promotional drops, and featured placement
-          </p>
-          <button
-            style={{
-              padding: "8px 24px",
-              background: "#007bff",
-              color: "#fff",
-              border: "none",
-              borderRadius: "5px",
-              fontSize: "1rem",
-              cursor: "pointer"
-            }}
-            onClick={() => {
-              navigate("/checkout", { state: { selectedPlan: 'all-access' } });
-            }}
-          >
-            Upgrade to All Access ($19.99/mo)
           </button>
         </div>
       )}
@@ -768,26 +694,6 @@ useEffect(() => {
     <p>Loading your truck’s location for drops...</p>
   )
 ) : null}
-
-      {/* Media Uploader - Enhanced for Pro+ Plans */}
-      <div style={{ margin: "20px 0" }}>
-        {userPlan === "basic" ? (
-          <div style={{ padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
-            <h3>📸 Media Upload (Basic)</h3>
-            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-              Upload your profile and menu images. Upgrade for real-time menu display on map!
-            </p>
-            <MediaUploader showCover={true} showProfile={false} showMenu={true} />
-          </div>
-        ) : (
-          <div style={{ padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
-            <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-              Your truck photo & menu will be displayed in real-time when customers click your map icon!
-            </p>
-            <MediaUploader showCover={true} showProfile={false} showMenu={true} />
-          </div>
-        )}
-      </div>
 
       <div style={{ marginTop: "20px" }}>
   <label style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -971,23 +877,18 @@ useEffect(() => {
         <FaTiktok />
       </a>
     )}
-    <a
-      href="#"
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: '#000000' }}
-      className="social-icon"
-      aria-label="X"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        height="28"
-        viewBox="0 0 448 512"
-        fill="currentColor"
+    {socialLinks.twitter && (
+      <a
+        href={socialLinks.twitter}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: '#000000' }}
+        className="social-icon"
+        aria-label="X"
       >
-        <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
-      </svg>
-    </a>
+        <FaXTwitter />
+      </a>
+    )}
   </div>
 
   <a
@@ -1009,6 +910,31 @@ useEffect(() => {
     Back to Top ↑
   </a>
 </div>
+
+{/* Upgrade Button - Below Navbar */}
+      {(userRole === "owner" && userPlan === "pro") && (
+        <div style={{
+          marginTop: "60px", // Adjust to place below navbar
+          textAlign: "center",
+        }}>
+          <button
+            style={{
+              padding: "10px 20px",
+              background: "#007bff", // Blue color for the button
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+              fontSize: "1rem",
+              cursor: "pointer"
+            }}
+            onClick={() => {
+              navigate("/checkout", { state: { selectedPlan: 'all-access' } });
+            }}
+          >
+            Upgrade to All Access
+          </button>
+        </div>
+      )}
     </div>
   );
 };

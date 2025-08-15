@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import OwnerSettings from './OwnerSettings';
 import CustomerSettings from './CustomerSettings';
+import MediaUploader from './MediaUploader';
 
 const Settings = () => {
   const [role, setRole] = useState(null);
@@ -83,20 +84,22 @@ const res = await fetch(`${API_URL}/create-customer-portal-session`, {
     return <p>Loading settings...</p>;
   }
   
-  if (role === 'owner') {
-    return (
-         <OwnerSettings
-      plan={plan}
-      cardInfo={cardInfo}
-      handleManageSubscription={handleManageSubscription}
-      stripeMsg={stripeMsg}
-    />
-    );
-  } else if (role === 'customer') {
-    return <CustomerSettings />;
-  } else {
-    return <p>Role not found. Please contact support.</p>;
-  }
+  return (
+    <div>
+      {role === 'owner' && (
+        <OwnerSettings
+          plan={plan}
+          cardInfo={cardInfo}
+          handleManageSubscription={handleManageSubscription}
+          stripeMsg={stripeMsg}
+        />
+      )}
+      {role === 'customer' && <CustomerSettings />}
+      {role && role !== 'customer' && role !== 'owner' && (
+        <p>Role not found. Please contact support.</p>
+      )}
+    </div>
+  );
 };
 
 export default Settings;

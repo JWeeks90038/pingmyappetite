@@ -258,7 +258,6 @@ const userData = {
         required
       >
         <option value="">Select Cuisine</option>
-       <option value="">Select Cuisine</option>
         <option value="american">American</option>
         <option value="asian-fusion">Asian Fusion</option>
         <option value="bbq">BBQ</option>

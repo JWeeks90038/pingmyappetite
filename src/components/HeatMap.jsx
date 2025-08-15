@@ -53,7 +53,7 @@ const HeatMap = ({isLoaded, onMapLoad}) => {
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
   const [filters, setFilters] = useState({
     american: true,
-    asianfusion: true,
+    "asian-fusion": true,
     bbq: true,
     burgers: true,
     chinese: true,
@@ -424,10 +424,15 @@ return (
         <div style={{
           background: "#fff",
           borderRadius: "8px",
-          padding: "32px 24px 24px 24px",
+          padding: "24px 12px 24px 12px", // Reduce padding even more
           minWidth: "320px",
           maxWidth: "90vw",
+          width: "100%",
+          maxWidth: "680px", // Reduce max width further
           boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+          margin: "16px", // Add margin for small screens
+          overflowX: "hidden", // Prevent horizontal scrolling
+          overflow: "hidden", // Prevent all overflow
         }}>
           <h2 style={{marginTop:0}}>Select Cuisines</h2>
           <form
@@ -440,26 +445,51 @@ return (
             <div style={{
               maxHeight: "50vh",
               overflowY: "auto",
+              overflowX: "hidden", // Prevent horizontal scrolling
               marginBottom: "18px",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: "8px 16px",
-              textAlign: "center", // Center all content
+              gridTemplateColumns: "1fr 1fr", // Fixed 2 columns
+              gap: "8px 8px", // Reduce horizontal gap
+              padding: "0", // Remove all padding
+              justifyItems: "start", // Align items to start
+              width: "100%",
+              marginLeft: "0", // Ensure no left margin
             }}>
               {Object.keys(filters).map((cuisine) => (
                 <label key={cuisine} style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center", // Center checkboxes and text
-                  gap: "8px",
-                  fontSize: "16px",
+                  justifyContent: "flex-start", // Align checkbox and text to start
+                  gap: "6px", // Small space between checkbox and text
+                  fontSize: "14px", // Smaller font to prevent overflow
+                  cursor: "pointer",
+                  width: "100%",
+                  maxWidth: "180px", // Reduce max width to fit better
+                  whiteSpace: "normal", // Allow text wrapping
+                  wordWrap: "break-word", // Break long words
+                  lineHeight: "1.2", // Compact line height
+                  margin: "0", // Remove any default margins
                 }}>
                   <input
                     type="checkbox"
                     checked={tempCuisineFilters[cuisine]}
                     onChange={() => setTempCuisineFilters(f => ({ ...f, [cuisine]: !f[cuisine] }))}
+                    style={{
+                      margin: "0 4px 0 0", // Small right margin for spacing
+                      flexShrink: 0, // Prevent checkbox from shrinking
+                    }}
                   />
-                  {cuisine.charAt(0).toUpperCase() + cuisine.slice(1).replace(/([A-Z])/g, ' $1').replace(/fusion/, ' Fusion').replace(/bbq/, 'BBQ').replace(/vegan/, 'Vegan & Vegetarian').replace(/desserts/, 'Desserts & Sweets').replace(/drinks/, 'Drinks & Beverages').replace(/coffee/, 'Coffee & Café').replace(/latin/, 'Latin American').replace(/sushi/, 'Sushi & Japanese').replace(/healthy/, 'Healthy & Fresh').replace(/southern/, 'Southern Comfort')}
+                  {cuisine === 'asian-fusion' ? 'Asian Fusion' :
+                   cuisine === 'bbq' ? 'BBQ' :
+                   cuisine === 'coffee' ? 'Coffee & Café' :
+                   cuisine === 'desserts' ? 'Desserts & Sweets' :
+                   cuisine === 'drinks' ? 'Drinks & Beverages' :
+                   cuisine === 'latin' ? 'Latin American' :
+                   cuisine === 'sushi' ? 'Sushi & Japanese' :
+                   cuisine === 'healthy' ? 'Healthy & Fresh' :
+                   cuisine === 'southern' ? 'Southern Comfort' :
+                   cuisine === 'vegan' ? 'Vegan & Vegetarian' :
+                   cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
                 </label>
               ))}
             </div>

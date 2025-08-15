@@ -21,7 +21,7 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import truckIconImg from '/truck-icon.png';
 import MediaUploader from './MediaUploader';
 import { getStorage, ref as storageRef, getDownloadURL } from 'firebase/storage';
-import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
+import { FaInstagram, FaFacebook, FaTiktok, FaXTwitter } from 'react-icons/fa6';
 import FavoriteButton from './FavoriteButton';
 import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
@@ -92,6 +92,7 @@ const CustomerDashboard = () => {
   const [claimMessage, setClaimMessage] = useState("");
   const [favorites, setFavorites] = useState([]);
   const [favoriteTrucks, setFavoriteTrucks] = useState([]);
+  const [userClaims, setUserClaims] = useState([]);
   const [socialLinks, setSocialLinks] = useState({
     instagram: '',
     facebook: '',
@@ -107,71 +108,125 @@ const CustomerDashboard = () => {
   const foodTruckMarkers = useRef({});
   const dropInfoWindow = useRef(null); 
   const lastClickedMarkerRef = useRef({ id: null, time: 0 });
+  const claimExpirationInterval = useRef(null);
 
   const handleClaimDrop = async (dropId) => {
-  if (!user) {
-    alert("You must be logged in to claim a drop.");
-    return;
-  }
-
-  // Fetch user's lastClaimTime from Firestore
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-  const userData = userSnap.data();
-  const lastClaimTime = userData?.lastClaimTime?.toMillis ? userData.lastClaimTime.toMillis() : 0;
-
-  // Check if 1 hour has passed
-  if (Date.now() - lastClaimTime < 60 * 1000) {
-    alert("You can only claim a drop once every hour.");
-    return;
-  }
-
-  const dropRef = doc(db, "drops", dropId);
-
-  try {
-    const dropSnap = await getDoc(dropRef);
-    const dropData = dropSnap.data();
-
-    if (!dropData) return;
-
-    const alreadyClaimed = dropData.claimedBy?.includes(user.uid);
-    const remaining = (dropData.quantity ?? 0) - (dropData.claimedBy?.length ?? 0);
-
-    if (alreadyClaimed) {
-      alert("You have already claimed this drop.");
+    if (!user) {
+      setClaimMessage("You must be logged in to claim a drop.");
       return;
     }
 
-    if (remaining <= 0) {
-      alert("This drop has already been fully claimed.");
-      return;
+    try {
+      // Get the drop data first
+      const dropRef = doc(db, "drops", dropId);
+      const dropSnap = await getDoc(dropRef);
+      const dropData = dropSnap.data();
+
+      if (!dropData) {
+        setClaimMessage("Drop not found.");
+        return;
+      }
+
+      const alreadyClaimed = dropData.claimedBy?.includes(user.uid);
+      const remaining = (dropData.quantity ?? 0) - (dropData.claimedBy?.length ?? 0);
+
+      if (alreadyClaimed) {
+        setClaimMessage("You have already claimed this drop.");
+        return;
+      }
+
+      if (remaining <= 0) {
+        setClaimMessage("This drop has already been fully claimed.");
+        return;
+      }
+
+      // Check localStorage for user claims restrictions
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      
+      const userClaimsKey = `userClaims_${user.uid}`;
+      const storedClaims = JSON.parse(localStorage.getItem(userClaimsKey) || '[]');
+      
+      // Filter out expired claims
+      const activeClaims = storedClaims.filter(claim => {
+        const expiresAt = new Date(claim.expiresAt);
+        return expiresAt > now;
+      });
+      
+      // Check if user already has an active claim
+      if (activeClaims.length > 0) {
+        setClaimMessage(`You already have an active claim for "${activeClaims[0].dropTitle}". You can only claim one drop at a time.`);
+        return;
+      }
+      
+      // Check for recent claims from different trucks (within 1 hour)
+      const recentClaims = storedClaims.filter(claim => {
+        const claimedAt = new Date(claim.claimedAt);
+        return claimedAt > oneHourAgo;
+      });
+      
+      const recentDifferentTruck = recentClaims.find(claim => claim.truckId !== dropData.truckId);
+      if (recentDifferentTruck) {
+        const timeSinceLastClaim = Math.ceil((now - new Date(recentDifferentTruck.claimedAt)) / (1000 * 60));
+        const waitTime = 60 - timeSinceLastClaim;
+        setClaimMessage(`You recently claimed from another truck. Please wait ${waitTime} more minutes before claiming from a different truck.`);
+        return;
+      }
+
+      // All checks passed, store the claim locally
+      const claimData = {
+        userId: user.uid,
+        dropId: dropId,
+        dropTitle: dropData.title,
+        truckId: dropData.truckId,
+        claimedAt: now.toISOString(),
+        expiresAt: dropData.expiresAt.toDate().toISOString(),
+        status: 'active'
+      };
+      
+      // Update localStorage
+      const updatedClaims = [...storedClaims.filter(c => c.dropId !== dropId), claimData];
+      localStorage.setItem(userClaimsKey, JSON.stringify(updatedClaims));
+      
+      // Update local state
+      setUserClaims(updatedClaims);
+
+      const code = `GRB-${user.uid.slice(-4).toUpperCase()}${dropId.slice(-2)}`;
+      setClaimCode(code);
+      setClaimedDrop({ ...dropData, id: dropId });
+
+      // Clear any existing expiration interval before setting a new one
+      if (claimExpirationInterval.current) {
+        clearInterval(claimExpirationInterval.current);
+      }
+
+      // Continuously check if the drop is expired
+      claimExpirationInterval.current = setInterval(async () => {
+        const updatedDropSnap = await getDoc(dropRef);
+        const updatedDropData = updatedDropSnap.data();
+
+        if (!updatedDropData || updatedDropData.expiresAt?.toMillis() <= Date.now()) {
+          setClaimCode("");
+          setClaimedDrop(null);
+          clearInterval(claimExpirationInterval.current);
+          claimExpirationInterval.current = null;
+          
+          // Mark claim as expired in localStorage
+          const currentClaims = JSON.parse(localStorage.getItem(userClaimsKey) || '[]');
+          const updatedExpiredClaims = currentClaims.map(claim => 
+            claim.dropId === dropId ? { ...claim, status: 'expired' } : claim
+          );
+          localStorage.setItem(userClaimsKey, JSON.stringify(updatedExpiredClaims));
+          setUserClaims(updatedExpiredClaims);
+        }
+      }, 10000); // Check every 10 seconds
+      
+      setClaimMessage("Drop claimed successfully! Show your code to the truck owner.");
+    } catch (error) {
+      console.error("Error claiming drop:", error);
+      setClaimMessage("Failed to claim drop. Please try again.");
     }
-
-    //console.log("Claiming drop", dropId, "as", user.uid, "claimedBy:", dropData.claimedBy);
-
-    await updateDoc(dropRef, {
-      claimedBy: arrayUnion(user.uid),
-    });
-
-    // Update user's lastClaimTime
-    await updateDoc(userRef, {
-      lastClaimTime: serverTimestamp(),
-    });
-
-    // Set claimed drop and code for display
-    setClaimedDrop(dropData);
-    const code = `GRB-${user.uid.slice(-4).toUpperCase()}${dropId.slice(-2)}`;
-    setClaimCode(code);
-
-    // Show a success message
-  setClaimMessage("You’ve successfully claimed this drop!");
-  setTimeout(() => setClaimMessage(""), 5000); // auto-clear after 5s
-
-  } catch (error) {
-    console.error("Error claiming drop:", error);
-    alert("Failed to claim drop.");
-  }
-};
+  };
 
   // Utility to calculate distance between two lat/lng points in km
 const getDistanceInKm = (lat1, lng1, lat2, lng2) => {
@@ -291,12 +346,19 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
 };
 
   const handleTruckIconClick = async (truckId) => {
-  //console.log("Truck icon clicked:", truckId);
+  console.log("Truck icon clicked:", truckId);
+  
+  // First clear existing state to prevent stale data
+  setMenuUrl('');
+  setActiveTruck(null);
+  setShowDropSummary(false);
+  
   try {
     const truckDoc = await getDoc(doc(db, "truckLocations", truckId));
     if (truckDoc.exists()) {
       const truckData = truckDoc.data();
       const ownerUid = truckData.ownerUid;
+      console.log("Truck data:", truckData);
 
       const truckDrops = activeDrops.filter(drop => drop.truckId === truckId);
 
@@ -305,7 +367,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
       let ownerData = {};
       if (ownerDoc.exists()) {
         ownerData = ownerDoc.data();
-        setMenuUrl(ownerData.menuUrl || '');
+        console.log("Owner data:", ownerData);
         setSocialLinks({
           instagram: ownerData.instagram || '',
           facebook: ownerData.facebook || '',
@@ -316,19 +378,36 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
         console.warn("Owner doc not found for UID:", ownerUid);
       }
 
+      // Prioritize truck-specific menu URL over owner's menu URL
+      const finalMenuUrl = truckData.menuUrl || ownerData.menuUrl || '';
+      console.log("Final menu URL:", finalMenuUrl);
+      
       // Combine truck data with owner data for hours and other info
-      setActiveTruck({
+      const truckInfo = {
         id: truckId,
         ...truckData,
-        // Include owner data fields like hours
         truckName: truckData.truckName || ownerData.ownerName || ownerData.truckName || 'Food Truck',
         hours: ownerData.hours || '',
         ownerName: ownerData.ownerName || '',
         description: ownerData.description || '',
-        coverUrl: ownerData.coverUrl || '',
+        coverUrl: truckData.coverUrl || ownerData.coverUrl || '',
+        menuUrl: finalMenuUrl, // Store menu URL in truck info as backup
+        ownerMenuUrl: ownerData.menuUrl || '', // Store owner menu URL separately
         drops: truckDrops,
-      });
+      };
+      
+      console.log("Setting truck info:", truckInfo);
+      console.log("Setting menu URL:", finalMenuUrl);
+      
+      // Set all state together and use setTimeout to ensure state is set before opening modal
+      setActiveTruck(truckInfo);
+      setMenuUrl(finalMenuUrl);
       setShowDropSummary(true);
+      
+      // Small delay to ensure all state updates are processed
+      setTimeout(() => {
+        setMenuModalVisible(true);
+      }, 100);
 
     } else {
       console.warn("Truck doc not found for ID:", truckId);
@@ -506,8 +585,7 @@ const visible = data.visible === true;
         // Only click handler: open menu modal with drop info
         marker.addListener('click', () => {
           handleTruckIconClick(id);
-          setMenuModalVisible(true);
-          setCurrentTruckOwnerId(id);
+          setCurrentTruckOwnerId(data.ownerUid || id);
         });
 
         foodTruckMarkers.current[id] = marker;
@@ -552,6 +630,86 @@ useEffect(() => {
   return () => unsubscribe();
 }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      setUserClaims([]);
+      setClaimCode("");
+      setClaimedDrop(null);
+      // Clear any existing expiration interval
+      if (claimExpirationInterval.current) {
+        clearInterval(claimExpirationInterval.current);
+        claimExpirationInterval.current = null;
+      }
+      return;
+    }
+    
+    // Load user claims from localStorage
+    const userClaimsKey = `userClaims_${user.uid}`;
+    const storedClaims = JSON.parse(localStorage.getItem(userClaimsKey) || '[]');
+    
+    // Filter out expired claims
+    const now = new Date();
+    const activeClaims = storedClaims.filter(claim => {
+      const expiresAt = new Date(claim.expiresAt);
+      return expiresAt > now;
+    });
+    
+    // Update localStorage with only active claims and update state
+    localStorage.setItem(userClaimsKey, JSON.stringify(activeClaims));
+    setUserClaims(activeClaims);
+    
+    // Check if user has an active claim and restore the claim code/drop data
+    if (activeClaims.length > 0) {
+      const activeClaim = activeClaims[0]; // Get the first active claim
+      const code = `GRB-${user.uid.slice(-4).toUpperCase()}${activeClaim.dropId.slice(-2)}`;
+      setClaimCode(code);
+      
+      // Fetch the full drop data for display
+      const fetchClaimedDrop = async () => {
+        try {
+          const dropRef = doc(db, "drops", activeClaim.dropId);
+          const dropSnap = await getDoc(dropRef);
+          if (dropSnap.exists()) {
+            setClaimedDrop({ ...dropSnap.data(), id: activeClaim.dropId });
+            
+            // Set up expiration checking for the restored claim
+            claimExpirationInterval.current = setInterval(async () => {
+              const updatedDropSnap = await getDoc(dropRef);
+              const updatedDropData = updatedDropSnap.data();
+
+              if (!updatedDropData || updatedDropData.expiresAt?.toMillis() <= Date.now()) {
+                setClaimCode("");
+                setClaimedDrop(null);
+                clearInterval(claimExpirationInterval.current);
+                claimExpirationInterval.current = null;
+                
+                // Mark claim as expired in localStorage
+                const currentClaims = JSON.parse(localStorage.getItem(userClaimsKey) || '[]');
+                const updatedExpiredClaims = currentClaims.map(claim => 
+                  claim.dropId === activeClaim.dropId ? { ...claim, status: 'expired' } : claim
+                );
+                localStorage.setItem(userClaimsKey, JSON.stringify(updatedExpiredClaims));
+                setUserClaims(updatedExpiredClaims);
+              }
+            }, 10000); // Check every 10 seconds
+          }
+        } catch (error) {
+          console.error("Error fetching claimed drop:", error);
+        }
+      };
+      
+      fetchClaimedDrop();
+    }
+    
+    // Cleanup function
+    return () => {
+      if (claimExpirationInterval.current) {
+        clearInterval(claimExpirationInterval.current);
+        claimExpirationInterval.current = null;
+      }
+    };
+  }, [user]);
+
   // Handler to update favorites after change
   const handleFavoriteChange = async () => {
     if (!user) return;
@@ -559,6 +717,24 @@ useEffect(() => {
     if (userDoc.exists()) {
       setFavorites(userDoc.data().favorites || []);
     }
+  };
+
+  // Helper function to check if user has claimed a drop
+  const hasUserClaimedDrop = (dropId) => {
+    if (!user) return false;
+    
+    // Check localStorage for user claims
+    const userClaimsKey = `userClaims_${user.uid}`;
+    const storedClaims = JSON.parse(localStorage.getItem(userClaimsKey) || '[]');
+    
+    // Check if user has an active claim for this drop
+    const now = new Date();
+    const activeClaim = storedClaims.find(claim => {
+      const expiresAt = new Date(claim.expiresAt);
+      return claim.dropId === dropId && expiresAt > now && claim.status === 'active';
+    });
+    
+    return !!activeClaim;
   };
 
   const initializeMapFeatures = () => {
@@ -776,7 +952,7 @@ return (
 </section>
 
 
-    {menuModalVisible && (
+    {menuModalVisible && activeTruck && (
       <div
         className="menu-modal"
         style={{
@@ -819,7 +995,15 @@ return (
             }}
           >
             <button
-              onClick={() => setMenuModalVisible(false)}
+              onClick={() => {
+                setMenuModalVisible(false);
+                // Don't clear other state immediately to prevent flickering
+                setTimeout(() => {
+                  setShowDropSummary(false);
+                  setCurrentTruckOwnerId('');
+                  // Keep menuUrl and activeTruck for potential reopening
+                }, 300);
+              }}
               style={{
                 backgroundColor: 'transparent',
                 color: '#fff',
@@ -834,7 +1018,15 @@ return (
           </div>
 
           {/* Menu Content */}
-{menuUrl ? (
+{(() => {
+  console.log("Modal rendering - menuUrl:", menuUrl);
+  console.log("Modal rendering - activeTruck:", activeTruck);
+  
+  // Use truck-specific menu URL if available, fall back to activeTruck stored URL
+  const displayMenuUrl = menuUrl || (activeTruck && (activeTruck.menuUrl || activeTruck.ownerMenuUrl));
+  console.log("Display menu URL:", displayMenuUrl);
+  
+  return displayMenuUrl ? (
   <div>
     {/* Truck Information Header */}
     {activeTruck && (
@@ -890,15 +1082,15 @@ return (
     )}
     
     {/* Menu Display */}
-    {menuUrl.endsWith('.pdf') ? (
+    {displayMenuUrl.endsWith('.pdf') ? (
       <iframe
-        src={menuUrl}
+        src={displayMenuUrl}
         style={{ width: '100%', height: 'calc(100% - 120px)' }}
         title="Menu PDF"
       />
     ) : (
       <img
-        src={menuUrl}
+        src={displayMenuUrl}
         alt="Menu"
         style={{ maxWidth: '100%', maxHeight: 'calc(100% - 120px)', objectFit: 'contain' }}
       />
@@ -946,7 +1138,8 @@ return (
       </div>
     )}
   </div>
-)}
+);
+})()}
 
 {/* Drop Summary */}
     {showDropSummary && activeTruck && (
@@ -975,12 +1168,12 @@ return (
   <>
     <button
       disabled={
-        drop.claimedBy?.includes(user.uid) || 
+        hasUserClaimedDrop(drop.id) || 
         drop.claimedBy?.length >= drop.quantity
       }
       onClick={() => handleClaimDrop(drop.id)}
     >
-      {drop.claimedBy?.includes(user.uid)
+      {hasUserClaimedDrop(drop.id)
         ? "Already Claimed"
         : drop.claimedBy?.length >= drop.quantity
         ? "Fully Claimed"
@@ -1003,12 +1196,12 @@ return (
   {user && (
     <button
       disabled={
-        activeTruck.currentDrop.claimedBy?.includes(user.uid) ||
+        hasUserClaimedDrop(activeTruck.currentDrop.id) ||
         activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
       }
       onClick={() => handleClaimDrop(activeTruck.currentDrop.id)}
     >
-      {activeTruck.currentDrop.claimedBy?.includes(user.uid)
+      {hasUserClaimedDrop(activeTruck.currentDrop.id)
         ? "Already Claimed"
         : activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
         ? "Fully Claimed"
@@ -1114,14 +1307,7 @@ return (
                   style={{ color: '#000000' }}
                   aria-label="X"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="1em"
-                    viewBox="0 0 448 512"
-                    fill="currentColor"
-                  >
-                    <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
-                  </svg>
+                  <FaXTwitter />
                 </a>
               )}
             </div>
@@ -1148,9 +1334,8 @@ return (
   Back to Top ↑
 </a>
   </div>
+);
 
-); // <-- closes the return
-
-}; // <-- closes the CustomerDashboard component
+};
 
 export default CustomerDashboard;

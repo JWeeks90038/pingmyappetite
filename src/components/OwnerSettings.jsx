@@ -4,6 +4,10 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
+import MediaUploader from "./MediaUploader"; // Import the MediaUploader component
+import Alert from "./Alert";
+import Prompt from "./Prompt";
+import Confirm from "./Confirm";
 
 
 const OwnerSettings = ({
@@ -31,6 +35,11 @@ const OwnerSettings = ({
     tiktok: '',
     twitter: '',
   });
+
+  // Modal states
+  const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'info', title: '' });
+  const [prompt, setPrompt] = useState({ isOpen: false, message: '', field: '', defaultValue: '', title: '' });
+  const [confirm, setConfirm] = useState({ isOpen: false, message: '', onConfirm: null, title: '', type: 'warning' });
 
   const [loading, setLoading] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -88,23 +97,56 @@ const OwnerSettings = ({
     try {
       const userDocRef = doc(db, "users", userId);
       await updateDoc(userDocRef, socialLinks);
-      alert("Social media links updated successfully!");
+      setAlert({
+        isOpen: true,
+        message: 'Social media links updated successfully!',
+        type: 'success',
+        title: 'Success'
+      });
     } catch (error) {
       console.error("Error updating social links:", error);
+      setAlert({
+        isOpen: true,
+        message: 'Failed to update social media links. Please try again.',
+        type: 'error',
+        title: 'Error'
+      });
     }
   };
 
   const editField = async (field) => {
-    const newValue = prompt(`Edit ${field.replace("-", " ")}:`, userProfile[field]);
-    if (newValue) {
+    const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1');
+    setPrompt({
+      isOpen: true,
+      message: `Enter new ${fieldName.toLowerCase()}:`,
+      field: field,
+      defaultValue: userProfile[field],
+      title: `Edit ${fieldName}`
+    });
+  };
+
+  const handlePromptConfirm = async (value) => {
+    if (value && value.trim()) {
       try {
-        await updateDoc(doc(db, "users", userId), { [field]: newValue });
-        setUserProfile((prev) => ({ ...prev, [field]: newValue }));
-        alert("Updated successfully!");
+        await updateDoc(doc(db, "users", userId), { [prompt.field]: value });
+        setUserProfile((prev) => ({ ...prev, [prompt.field]: value }));
+        setAlert({
+          isOpen: true,
+          message: 'Information updated successfully!',
+          type: 'success',
+          title: 'Success'
+        });
       } catch (error) {
         console.error("Error updating:", error);
+        setAlert({
+          isOpen: true,
+          message: 'Failed to update information. Please try again.',
+          type: 'error',
+          title: 'Error'
+        });
       }
     }
+    setPrompt({ isOpen: false, message: '', field: '', defaultValue: '', title: '' });
   };
 
  const handleChangeEmail = async () => {
@@ -121,38 +163,82 @@ const OwnerSettings = ({
     await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
     setResetMsg("Verification email sent! Please check your new email and follow the link to confirm the change.");
     setNewEmail("");
+    setAlert({
+      isOpen: true,
+      message: 'Verification email sent! Please check your new email and follow the link to confirm the change.',
+      type: 'success',
+      title: 'Email Change Initiated'
+    });
   } catch (error) {
     console.error("Error updating email:", error);
     setResetMsg("Error updating email. Please make sure your password is correct and try again.");
+    setAlert({
+      isOpen: true,
+      message: 'Error updating email. Please make sure your password is correct and try again.',
+      type: 'error',
+      title: 'Email Change Failed'
+    });
   }
 };
 
   const handleChangePassword = async () => {
     try {
       await sendPasswordResetEmail(auth, auth.currentUser.email);
-     setResetMsg("Password reset email sent! Please check your inbox.");
+      setResetMsg("Password reset email sent! Please check your inbox.");
+      setAlert({
+        isOpen: true,
+        message: 'Password reset email sent! Please check your inbox.',
+        type: 'success',
+        title: 'Password Reset'
+      });
     } catch (error) {
       console.error("Error sending reset email:", error);
       setResetMsg("There was an error sending the password reset email. Please try again.");
+      setAlert({
+        isOpen: true,
+        message: 'There was an error sending the password reset email. Please try again.',
+        type: 'error',
+        title: 'Password Reset Failed'
+      });
     }
   };
 
   const handleDeleteAccount = async () => {
-    const confirmation = window.confirm("Are you sure you want to delete your account? This cannot be undone.");
-    if (confirmation) {
-      try {
-        await auth.currentUser.delete();
-        alert("Account deleted.");
-        navigate("/signup");
-      } catch (error) {
-        console.error("Error deleting account:", error);
-        alert("You may need to re-login before deleting your account.");
+    setConfirm({
+      isOpen: true,
+      message: 'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+      title: 'Delete Account',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await auth.currentUser.delete();
+          setAlert({
+            isOpen: true,
+            message: 'Account deleted successfully.',
+            type: 'success',
+            title: 'Account Deleted'
+          });
+          setTimeout(() => navigate("/signup"), 2000);
+        } catch (error) {
+          console.error("Error deleting account:", error);
+          setAlert({
+            isOpen: true,
+            message: 'You may need to re-login before deleting your account.',
+            type: 'error',
+            title: 'Account Deletion Failed'
+          });
+        }
       }
-    }
+    });
   };
 
   const saveNotificationPreferences = () => {
-    alert("Notification preferences saved! (future enhancement)");
+    setAlert({
+      isOpen: true,
+      message: 'Notification preferences saved! (This feature will be enhanced in a future update)',
+      type: 'info',
+      title: 'Preferences Saved'
+    });
   };
 
   const manageSubscription = () => {
@@ -206,6 +292,14 @@ const OwnerSettings = ({
 )}
         </div>
       </section>
+      
+      <section style={{ marginTop: '40px' }}>
+        <h2>Media Uploader</h2>
+        <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+          Upload your truck and menu photos. These will be displayed on your dashboard and map icon.
+        </p>
+        <MediaUploader showCover={true} showProfile={false} showMenu={true} />
+      </section>
 
       <section style={{ marginTop: '40px' }}>
         <h2>Social Media Links</h2>
@@ -243,13 +337,13 @@ const OwnerSettings = ({
         </label>
         <br />
         <label>
-          Twitter:
+          X (Twitter):
           <input
             type="url"
             name="twitter"
             value={socialLinks.twitter}
             onChange={handleChange}
-            placeholder="https://twitter.com/yourprofile"
+            placeholder="https://x.com/yourprofile"
           />
         </label>
         <br />
@@ -321,6 +415,35 @@ const OwnerSettings = ({
 >
   Back to Top ↑
 </a>
+
+      {/* Custom Modals */}
+      <Alert
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ isOpen: false, message: '', type: 'info', title: '' })}
+        message={alert.message}
+        type={alert.type}
+        title={alert.title}
+      />
+
+      <Prompt
+        isOpen={prompt.isOpen}
+        onClose={() => setPrompt({ isOpen: false, message: '', field: '', defaultValue: '', title: '' })}
+        onConfirm={handlePromptConfirm}
+        message={prompt.message}
+        defaultValue={prompt.defaultValue}
+        title={prompt.title}
+      />
+
+      <Confirm
+        isOpen={confirm.isOpen}
+        onClose={() => setConfirm({ isOpen: false, message: '', onConfirm: null, title: '', type: 'warning' })}
+        onConfirm={confirm.onConfirm}
+        message={confirm.message}
+        title={confirm.title}
+        type={confirm.type}
+        confirmText="Delete Account"
+        cancelText="Cancel"
+      />
     </div>
   );
 };
