@@ -8,6 +8,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+              },
+              cacheKeyWillBeUsed: async ({ request }) => {
+                return `${request.url}?version=${Date.now()}`;
+              }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'Grubana Food Truck Locator',
         short_name: 'Grubana',

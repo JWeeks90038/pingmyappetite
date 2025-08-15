@@ -79,7 +79,7 @@ const MediaUploader = ({ showProfile, showCover, showMenu }) => {
   };
 
   return (
-    <div className="media-uploader" style={{ textAlign: "center" }}>
+    <div className="media-uploader media-uploader-container" style={{ textAlign: "center" }}>
       {/* Cover Photo */}
       {showCover && (
         <div className="upload-section" style={{ marginBottom: "1rem" }}>

@@ -13,21 +13,40 @@ root {
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #ace1af;
-  text-decoration: inherit;
+/* Prevent layout shifts and ensure consistent rendering */
+* {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #ace1af;
+
+html {
+  /* Prevent zoom on iOS */
+  -webkit-text-size-adjust: 100%;
+  /* Ensure consistent viewport behavior */
+  scroll-behavior: smooth;
 }
 
 body {
+  /* Force consistent layout */
   margin: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  /* Prevent layout shifts */
+  overflow-x: hidden;
+}
+
+/* Ensure images don't cause layout shifts */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Force consistent media uploader positioning */
+.media-uploader-container {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
 }
 
 h1 {

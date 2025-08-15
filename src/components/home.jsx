@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is correctly implemented
 import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the map
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
 
@@ -15,8 +16,7 @@ const Home = () => {
       <header className="hero">
         <div id="top"></div>
         <h1>Grubana: Find Food Trucks & Food Trailers Near You</h1>
-<h2>Discover the Best Local Food Trucks and Food Trailers in Real-Time</h2>
-<h3>The Ultimate Food Truck & Food Trailer Locator App — Now Serving Your Area!</h3>
+<h2>The Ultimate Food Truck & Food Trailer Locator in Real-Time — Now Serving Your Area!</h2>
   <meta name="description" content="Discover the best food trucks and food trailers near you in real time. Explore trending locations, exclusive deals, and live maps with Grubana—the ultimate street food finder." />
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
@@ -144,22 +144,15 @@ const Home = () => {
               <FaTiktok />
             </a>
             <a
-  href="#WithinTheQuotationMarksForNowUntilICanImplementTheCorrectURLs"
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{ color: '#000000' }}
-  className="social-icon"
-  aria-label="X"
->
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    height="28"
-    viewBox="0 0 448 512"
-    fill="currentColor"
-  >
-    <path d="M400 32L272 208l128 240H320L224 280 128 480H48L176 288 48 32h96l96 160L304 32h96z" />
-  </svg>
-</a>
+              href="https://grubana.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#000000' }}
+              className="social-icon"
+              aria-label="X"
+            >
+              <FaXTwitter />
+            </a>
           </div>
 
           <a

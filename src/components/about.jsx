@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaInstagram, FaFacebook, FaTiktok } from 'react-icons/fa';
 import '../assets/styles.css';
-import founderImg from '../assets/jonas.jpg';
+import founderImg from '../assets/link-preview-image.png';
 
 
 const About = () => {
@@ -109,7 +109,7 @@ const About = () => {
               <FaFacebook />
             </a>
             <a
-              href="#"
+              href="https://grubana.com"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#010101" }}
@@ -117,6 +117,16 @@ const About = () => {
             >
               <FaTiktok />
             </a>
+                <a
+                          href="https://grubana.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#000000' }}
+                          className="social-icon"
+                          aria-label="X"
+                        >
+                          <FaXTwitter />
+                        </a>
           </div>
         </div>
       </section>

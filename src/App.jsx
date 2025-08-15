@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { LoadScript } from '@react-google-maps/api';
+import { useEffect } from 'react';
 
 import PublicLayout from './layouts/PublicLayout';
 import CustomerLayout from './layouts/CustomerLayout';
@@ -36,9 +37,13 @@ import { auth } from "./firebase";
 import ScrollToTop from "./components/ScrollToTop";
 import Contact from "./components/contact";
 import About from "./components/about";
+import { clearAppCache, checkAppVersion } from "./utils/cacheUtils";
 
 // Define outside of component
 const LIBRARIES = ['places', 'visualization'];
+
+// App version for cache busting
+const APP_VERSION = '1.0.8'; // Increment this when layout changes are made
 
 // Initialize Stripe with environment variable
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -86,6 +91,41 @@ function ProtectedDashboardRoute({ children }) {
 
 function App() {
   const { user, userRole, loading } = useAuth();
+
+  // Cache busting mechanism for mobile browsers
+  useEffect(() => {
+    const checkVersion = () => {
+      const storedVersion = localStorage.getItem('app_version');
+      if (storedVersion !== APP_VERSION) {
+        console.log(`🔄 App version updated from ${storedVersion} to ${APP_VERSION} - clearing cache`);
+        
+        // Clear various caches
+        if ('caches' in window) {
+          caches.keys().then(cacheNames => {
+            cacheNames.forEach(cacheName => {
+              console.log(`🗑️ Clearing cache: ${cacheName}`);
+              caches.delete(cacheName);
+            });
+          });
+        }
+        
+        // Update stored version
+        localStorage.setItem('app_version', APP_VERSION);
+        
+        // Force a hard reload on mobile if this is a version change
+        if (storedVersion && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          console.log('📱 Mobile detected - forcing hard reload for cache refresh');
+          window.location.reload(true);
+        }
+      }
+    };
+
+    // Make cache utilities available globally for debugging
+    window.clearAppCache = clearAppCache;
+    window.checkAppVersion = checkAppVersion;
+    
+    checkVersion();
+  }, []);
 
   window.auth = getAuth();
   

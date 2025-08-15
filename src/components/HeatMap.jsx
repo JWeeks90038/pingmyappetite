@@ -447,47 +447,59 @@ return (
               overflowX: "hidden", // Prevent horizontal scrolling
               marginBottom: "18px",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", // Responsive grid
-              gap: "8px", // Adjust gap for better spacing
-              padding: "0", // Remove all padding
-              justifyItems: "start", // Align items to start
+              gridTemplateColumns: window.innerWidth < 600 ? "1fr" : "1fr 1fr", // Single column on mobile, two on desktop
+              gap: "12px 16px", // Vertical and horizontal gap
+              padding: "8px", // Add some padding for better touch targets
               width: "100%",
-              marginLeft: "0", // Ensure no left margin
             }}>
               {Object.keys(filters).map((cuisine) => (
                 <label key={cuisine} style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "flex-start", // Align checkbox and text to start
-                  gap: "6px", // Small space between checkbox and text
-                  fontSize: "14px", // Smaller font to prevent overflow
+                  justifyContent: "flex-start",
+                  gap: "12px", // Increased gap between checkbox and text
+                  fontSize: window.innerWidth < 600 ? "16px" : "14px", // Larger font on mobile for better readability
                   cursor: "pointer",
                   width: "100%",
-                  whiteSpace: "normal", // Allow text wrapping
-                  wordWrap: "break-word", // Break long words
-                  lineHeight: "1.2", // Compact line height
-                  margin: "0", // Remove any default margins
+                  minHeight: "44px", // Minimum touch target size for mobile
+                  padding: "8px", // Add padding for better touch area
+                  borderRadius: "4px", // Subtle border radius
+                  transition: "background-color 0.2s ease",
+                  backgroundColor: "transparent",
+                  ...(window.innerWidth < 600 && {
+                    border: "1px solid #e0e0e0", // Add border on mobile for better separation
+                  })
                 }}>
                   <input
                     type="checkbox"
                     checked={tempCuisineFilters[cuisine]}
                     onChange={() => setTempCuisineFilters(f => ({ ...f, [cuisine]: !f[cuisine] }))}
                     style={{
-                      margin: "0 4px 0 0", // Small right margin for spacing
+                      width: "18px", // Fixed width for consistency
+                      height: "18px", // Fixed height for consistency
+                      margin: "0", // Remove default margins
                       flexShrink: 0, // Prevent checkbox from shrinking
+                      cursor: "pointer",
                     }}
                   />
-                  {cuisine === 'asian-fusion' ? 'Asian Fusion' :
-                   cuisine === 'bbq' ? 'BBQ' :
-                   cuisine === 'coffee' ? 'Coffee & Café' :
-                   cuisine === 'desserts' ? 'Desserts & Sweets' :
-                   cuisine === 'drinks' ? 'Drinks & Beverages' :
-                   cuisine === 'latin' ? 'Latin American' :
-                   cuisine === 'sushi' ? 'Sushi & Japanese' :
-                   cuisine === 'healthy' ? 'Healthy & Fresh' :
-                   cuisine === 'southern' ? 'Southern Comfort' :
-                   cuisine === 'vegan' ? 'Vegan & Vegetarian' :
-                   cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                  <span style={{
+                    flex: 1,
+                    textAlign: "left",
+                    lineHeight: "1.3",
+                    wordBreak: "break-word", // Handle long text
+                  }}>
+                    {cuisine === 'asian-fusion' ? 'Asian Fusion' :
+                     cuisine === 'bbq' ? 'BBQ' :
+                     cuisine === 'coffee' ? 'Coffee & Café' :
+                     cuisine === 'desserts' ? 'Desserts & Sweets' :
+                     cuisine === 'drinks' ? 'Drinks & Beverages' :
+                     cuisine === 'latin' ? 'Latin American' :
+                     cuisine === 'sushi' ? 'Sushi & Japanese' :
+                     cuisine === 'healthy' ? 'Healthy & Fresh' :
+                     cuisine === 'southern' ? 'Southern Comfort' :
+                     cuisine === 'vegan' ? 'Vegan & Vegetarian' :
+                     cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                  </span>
                 </label>
               ))}
             </div>
