@@ -9,23 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
-              },
-              cacheKeyWillBeUsed: async ({ request }) => {
-                return `${request.url}?version=${Date.now()}`;
-              }
-            }
-          }
-        ]
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       },
       manifest: {
         name: 'Grubana Food Truck Locator',
@@ -41,7 +25,7 @@ export default defineConfig({
             type: 'image/png'
           },
           {
-            src: '/favicon-logo.png',
+            src: '/grubana-logo.png',
             sizes: '512x512',
             type: 'image/png'
           }

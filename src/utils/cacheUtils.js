@@ -1,7 +1,7 @@
 // Cache clearing utility for debugging
 // Add this to browser console if needed: window.clearAppCache()
 
-window.clearAppCache = function() {
+export const clearAppCache = function() {
   console.log('🔄 Manually clearing app cache...');
   
   // Clear localStorage
@@ -33,7 +33,7 @@ window.clearAppCache = function() {
 };
 
 // Also expose a simpler version check
-window.checkAppVersion = function() {
+export const checkAppVersion = function() {
   const currentVersion = '1.0.8';
   const storedVersion = localStorage.getItem('app_version');
   console.log(`App Version: ${currentVersion}`);
@@ -42,4 +42,8 @@ window.checkAppVersion = function() {
   return { currentVersion, storedVersion, match: currentVersion === storedVersion };
 };
 
-export { clearAppCache, checkAppVersion };
+// Make functions available on window for debugging
+if (typeof window !== 'undefined') {
+  window.clearAppCache = clearAppCache;
+  window.checkAppVersion = checkAppVersion;
+}

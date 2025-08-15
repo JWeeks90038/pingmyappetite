@@ -120,7 +120,8 @@ function App() {
       }
     };
 
-    // Make cache utilities available globally for debugging
+    // Make cache utilities available globally for debugging  
+    // (They're already on window in cacheUtils.js, but keeping this for consistency)
     window.clearAppCache = clearAppCache;
     window.checkAppVersion = checkAppVersion;
     
