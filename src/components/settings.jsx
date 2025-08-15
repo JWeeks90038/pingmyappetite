@@ -66,17 +66,53 @@ const Settings = () => {
 
   // NEW: Stripe Customer Portal handler
   const handleManageSubscription = async () => {
- const API_URL = import.meta.env.VITE_API_URL || '';
-const res = await fetch(`${API_URL}/create-customer-portal-session`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ uid: auth.currentUser.uid }),
-});
-    const data = await res.json();
-    if (data.url) {
-      window.location.href = data.url; // Redirect to Stripe portal
-    } else {
-      setStripeMsg(data.error?.message || 'Could not open Stripe portal.');
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      console.log('Using API URL:', API_URL);
+      console.log('All env vars:', import.meta.env);
+      
+      if (!API_URL) {
+        setStripeMsg('API URL not configured. Please check environment variables.');
+        return;
+      }
+
+      if (!auth.currentUser?.uid) {
+        setStripeMsg('User not authenticated. Please log in again.');
+        return;
+      }
+
+      console.log('User ID being sent:', auth.currentUser.uid);
+      setStripeMsg('Connecting to server...'); // Show loading state
+      
+      const res = await fetch(`${API_URL}/create-customer-portal-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: auth.currentUser.uid }),
+      });
+
+      const data = await res.json();
+      console.log('Server response data:', data);
+      
+      if (!res.ok) {
+        console.error('Server response:', data);
+        throw new Error(`HTTP error! status: ${res.status} - ${data.error?.message || 'Unknown error'}`);
+      }
+
+      if (data.url) {
+        setStripeMsg('Redirecting to Stripe portal...');
+        window.location.href = data.url; // Redirect to Stripe portal
+      } else {
+        setStripeMsg(data.error?.message || 'Could not open Stripe portal.');
+      }
+    } catch (error) {
+      console.error('Error in handleManageSubscription:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        setStripeMsg('Unable to connect to server. Please check your internet connection or try again later.');
+      } else if (error.message.includes('userDoc.exists is not a function')) {
+        setStripeMsg('Server configuration issue detected. Please contact support or try again later. As an alternative, you can manage your subscription directly at stripe.com/billing with your account email.');
+      } else {
+        setStripeMsg(`Error: ${error.message}`);
+      }
     }
   };
 

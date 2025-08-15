@@ -426,9 +426,8 @@ return (
           borderRadius: "8px",
           padding: "24px 12px 24px 12px", // Reduce padding even more
           minWidth: "320px",
-          maxWidth: "90vw",
           width: "100%",
-          maxWidth: "680px", // Reduce max width further
+          maxWidth: "min(90vw, 680px)", // Combined max width constraints
           boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
           margin: "16px", // Add margin for small screens
           overflowX: "hidden", // Prevent horizontal scrolling
@@ -448,8 +447,8 @@ return (
               overflowX: "hidden", // Prevent horizontal scrolling
               marginBottom: "18px",
               display: "grid",
-              gridTemplateColumns: "1fr 1fr", // Fixed 2 columns
-              gap: "8px 8px", // Reduce horizontal gap
+              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", // Responsive grid
+              gap: "8px", // Adjust gap for better spacing
               padding: "0", // Remove all padding
               justifyItems: "start", // Align items to start
               width: "100%",
@@ -464,7 +463,6 @@ return (
                   fontSize: "14px", // Smaller font to prevent overflow
                   cursor: "pointer",
                   width: "100%",
-                  maxWidth: "180px", // Reduce max width to fit better
                   whiteSpace: "normal", // Allow text wrapping
                   wordWrap: "break-word", // Break long words
                   lineHeight: "1.2", // Compact line height

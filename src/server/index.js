@@ -384,7 +384,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         console.log('📝 No user found by stripeCustomerId, searching by UID:', subscriptionMetadata.uid);
         console.log('No user found by Stripe customer ID, trying Firebase UID:', subscriptionMetadata.uid);
         const userDoc = await usersRef.doc(subscriptionMetadata.uid).get();
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
           // Update this user and also save the Stripe customer ID
           await userDoc.ref.update({
             ...updates,
@@ -536,7 +536,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
         const userDocRef = admin.firestore().collection('users').doc(uid);
         const userDoc = await userDocRef.get();
 
-        if (!userDoc.exists()) {
+        if (!userDoc.exists) {
           console.error(`⚠️  User with UID ${uid} not found in Firestore.`);
           throw new Error('User not found');
         }
@@ -725,7 +725,7 @@ app.post('/create-subscription', async (req, res) => {
     let customerId;
     if (uid) {
       const userDoc = await admin.firestore().collection('users').doc(uid).get();
-      if (userDoc.exists() && userDoc.data().stripeCustomerId) {
+      if (userDoc.exists && userDoc.data().stripeCustomerId) {
         customerId = userDoc.data().stripeCustomerId;
         console.log('Reusing existing Stripe customer:', customerId, 'for uid:', uid);
       }
@@ -1009,7 +1009,7 @@ app.post('/create-customer-portal-session', async (req, res) => {
     if (!uid) return res.status(400).json({ error: { message: 'No user ID provided.' } });
 
     const userDoc = await admin.firestore().collection('users').doc(uid).get();
-    if (!userDoc.exists()) return res.status(404).json({ error: { message: 'User not found.' } });
+    if (!userDoc.exists) return res.status(404).json({ error: { message: 'User not found.' } });
 
     const customerId = userDoc.data().stripeCustomerId;
     if (!customerId) return res.status(400).json({ error: { message: 'No Stripe customer ID found for user.' } });
@@ -1038,7 +1038,7 @@ app.post('/create-checkout-session', async (req, res) => {
     if (uid) {
       try {
         const userDoc = await admin.firestore().collection('users').doc(uid).get();
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
           const userData = userDoc.data();
           const email = userData.email;
           
