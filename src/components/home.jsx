@@ -3,7 +3,8 @@ import "../assets/styles.css";
 import { Link } from "react-router-dom";
 import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is correctly implemented
 import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the map
-import { FaFacebook, FaInstagram, FaTiktok, FaTwitter } from "react-icons/fa";
+import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import "../assets/social-icon.css"; // Assuming you have a CSS file for social icons
 
 
@@ -150,7 +151,7 @@ const Home = () => {
               className="social-icon"
               aria-label="X"
             >
-              <FaTwitter />
+              <FaXTwitter />
             </a>
           </div>
 
