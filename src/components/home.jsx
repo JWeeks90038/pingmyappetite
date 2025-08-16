@@ -21,6 +21,13 @@ const Home = () => {
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
+    <section className="image-section">
+        <img 
+          src="/bdexpress.png" 
+          alt="Delicious food trucks" 
+          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+        />
+      </section>
   </div>
 </header>
 
@@ -71,6 +78,14 @@ const Home = () => {
   </div>
 </section>
 
+<section className="image-section">
+        <img 
+          src="/weenie.png" 
+          alt="Delicious food trucks" 
+          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+        />
+      </section>
+
       <section className="testimonials">
   <h2>The Community is Eating It Up with Grubana!</h2>
 
@@ -96,6 +111,13 @@ const Home = () => {
   </div>
 </section>
 
+<section className="image-section">
+        <img 
+          src="/aerostat.png" 
+          alt="Delicious food trucks" 
+          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+        />
+      </section>
       
       {/* Social Media Section */}
 
