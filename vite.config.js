@@ -9,7 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globIgnores: ['**/aerostat.png', '**/bdexpress.png', '**/weenie.png'],
+        maximumFileSizeToCacheInBytes: 5000000 // 5MB limit
       },
       manifest: {
         name: 'Grubana Food Truck Locator',
