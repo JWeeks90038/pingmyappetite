@@ -353,7 +353,11 @@ const OwnerSettings = ({
        <section style={{ marginTop: '40px' }}>
         <h2>Subscription Management</h2>
         <p>
-          <strong>Current Plan:</strong> {plan === 'all-access' ? 'All-Access (Paid)' : 'Basic (Free)'}
+          <strong>Current Plan:</strong> {
+            plan === 'all-access' ? 'All-Access (Paid)' : 
+            plan === 'pro' ? 'Pro (Paid)' : 
+            'Basic (Free)'
+          }
         </p>
         {cardInfo && (
           <p>
