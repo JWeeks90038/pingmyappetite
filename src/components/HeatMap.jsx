@@ -327,7 +327,7 @@ const updateTruckMarkers = useCallback(() => {
   
     //console.log("Filtered heatmap points:", data.length);
     return data;
-  }, [pingData, filters, mapRef.current]);
+  }, [pingData, filters]);
   
 useEffect(() => {
   if (!mapRef.current || !window.google) return;
