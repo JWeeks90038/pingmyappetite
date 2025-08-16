@@ -291,10 +291,7 @@ const updateTruckMarkers = useCallback(() => {
   };
 
   const combinedHeatmapData = useMemo(() => {
-    if (!pingData.length || !window.google || !mapRef.current) return [];
-  
-    const bounds = mapRef.current.getBounds();
-    if (!bounds) return [];
+    if (!pingData.length || !window.google) return [];
   
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -315,8 +312,7 @@ const updateTruckMarkers = useCallback(() => {
         let lng = Number(ping.lng ?? ping.longitude);
         if (!isFinite(lat) || !isFinite(lng)) return false;
   
-        const latLng = new window.google.maps.LatLng(lat, lng);
-        if (!mapRef.current.getBounds()?.contains(latLng)) return false;
+        // Removed distance/bounds check - show all pings globally
   
         const timestamp = ping.timestamp?.toDate?.();
         if (!timestamp || timestamp <= oneDayAgo) return false;
@@ -331,7 +327,7 @@ const updateTruckMarkers = useCallback(() => {
   
     //console.log("Filtered heatmap points:", data.length);
     return data;
-  }, [pingData, filters, mapRef.current]);
+  }, [pingData, filters]);
   
 useEffect(() => {
   if (!mapRef.current || !window.google) return;
