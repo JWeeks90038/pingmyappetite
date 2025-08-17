@@ -1,24 +1,36 @@
 .navbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* Only one semicolon */
+  justify-content: space-between; /* Space between logo and nav links */
   background-color: #b7b3b3;
   padding: 0 16px;
   position: relative;
-  min-height: 60px;
+  min-height: 70px; /* Increased to accommodate larger logo */
 }
 
 /* navbar.css */
 .navbar-logo {
   flex: 0 0 auto;      /* Do not grow or shrink */
-  width: 220px;        /* Or whatever width fits your logo nicely */
-  min-width: 120px;
+  width: 200px;        /* Increased width to accommodate larger logo */
+  min-width: 140px;
   display: flex;
   align-items: center;
 }
-.logo-wrapper {
+
+/* Logo image styling within navbar */
+.navbar-logo-img {
   width: 100%;
-  max-width: 220px;    /* Match the .navbar-logo width */
+  max-width: 220px; /* Increased from 160px */
+  height: auto;
+  max-height: 100px; /* Increased from 50px to make logo larger */
+  object-fit: contain; /* Maintain aspect ratio */
+  display: block;
+}
+
+/* Logo wrapper when inside navbar */
+.navbar-logo .logo-wrapper {
+  width: 100%;
+  max-width: 180px;    /* Match the .navbar-logo width */
 }
 
 .navbar a, .logout-link {
@@ -32,12 +44,19 @@
     gap: 16px;
     padding: 10px 4px;
     line-height: 2;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .nav-links {
-  margin-left: auto; /* pushes links to the right in a flex container */
+  margin-left: auto; /* Push nav links to the right */
   display: flex;
   gap: 20px;
+  align-items: center;
+  flex-wrap: nowrap; /* Prevent wrapping of nav items */
+}
+
+.nav-links li {
+  white-space: nowrap; /* Ensure nav link text stays on one line */
 }
 
 .logout-link:hover,
@@ -73,12 +92,35 @@
     transition: 0.3s;
 }
 
-/* Responsive styles for mobile */
-@media (max-width: 767px) {
+/* Add navbar-header styles for all screen sizes */
+.navbar-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Responsive styles - increased breakpoint to handle overflow earlier */
+@media (max-width: 1200px) {
   .navbar {
     flex-direction: column;
     align-items: stretch;
   }
+  
+  .navbar-header {
+    padding: 8px 0;
+  }
+  
+  .navbar-logo {
+    width: 140px; /* Smaller on mobile */
+  }
+  
+  .navbar-logo-img {
+    max-width: 120px;
+    max-height: 40px; /* Smaller height on mobile */
+  }
+  
   .nav-links {
     width: 100%;
     margin-left: 0;
@@ -91,25 +133,38 @@
     border-radius: 0 0 15px 15px;
     padding: 0;
   }
+  
   .nav-links.open {
     max-height: 500px;
   }
-  .navbar-header {
-    display: flex;
-    flex-direction: row;
-    align-items: center; /* Vertically center logo and hamburger */
-    justify-content: space-between;
-    width: 100%;
-  }
+  
   .hamburger {
     display: flex;
     align-self: center;
     margin: 0 16px 0 0; /* Adjust as needed */
   }
+  
   .nav-links li {
     display: block;
     margin: 6px 0;
     text-align: center;
     padding: 0;
+  }
+}
+
+/* Hide nav-links and show hamburger at tablet/smaller laptop sizes */
+@media (max-width: 1200px) {
+  .nav-links {
+    display: none;
+  }
+  
+  .nav-links.open {
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+  }
+  
+  .hamburger {
+    display: flex;
   }
 }

@@ -34,7 +34,7 @@ const About = () => {
       </section>
 
       <section className="about-team">
-  <h2>Meet the Founder</h2>
+  <h2>Meet the Founder & Developer</h2>
   <div style={{
       display: "flex",
       flexDirection: "column",
@@ -48,11 +48,11 @@ const About = () => {
       src={founderImg}
       alt="Jonas Weeks, Founder of Grubana"
       style={{
-        width: "120px",
-        height: "120px",
-        borderRadius: "50%",
+        width: "150px", // Keep the current width
+        height: "150px", // Keep the current height
+        borderRadius: "50%", // Reduce borderRadius to expose more of the image
         objectFit: "cover",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
+        boxShadow: "20px 2px 8px rgba(0,0,0,0.08)"
       }}
     />
     <p style={{ flex: 1, minWidth: "200px" }}>

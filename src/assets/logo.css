@@ -1,24 +1,43 @@
+/* Add some subtle hover effect for the logo to make it interactive */
+.logo-wrapper:hover .logo-svg {
+  transform: scale(1.05); /* Slight zoom effect */
+  transition: transform 0.3s ease;
+}
 
-  /* Add some subtle hover effect for the logo to make it interactive */
-  .logo-wrapper:hover .logo-svg {
-    transform: scale(1.05); /* Slight zoom effect */
-    transition: transform 0.3s ease;
-  }
-  
-  /* Optional - Customize the background of the logo area */
+/* Optional - Customize the background of the logo area */
 .logo-wrapper {
-  background-color: #fff;
-  padding: 2 6px;         /* Remove top padding */
-  border-radius: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: auto;             /* Don't stretch full width */
-  min-height: unset;       /* Remove min-height */
-  display: flex;
-  align-items: center;     /* Vertically center logo and text */
-  justify-content: center;
-  text-align: center;
-  box-sizing: border-box;
-  margin-bottom: 0;        /* Remove extra margin */
+  position: relative !important; /* Ensure it doesn't overlap with the navbar */
+  margin-top: 15px; /* Adjust this value based on the navbar height */
+  width: 100% !important; /* Use viewport width to ensure full screen width */
+  max-width: none !important; /* Override any max-width constraints */
+  height: auto;
+  z-index: 1; /* Bring the logo above other elements */
+  text-align: center; /* Center the image */
+  padding: 0; /* Remove any padding */
+  margin-left: 0; /* Ensure no left margin */
+  margin-right: 0; /* Ensure no right margin */
+  box-sizing: border-box; /* Include padding and border in width calculation */
+}
+
+/* Styling for the logo image - Updated for 80% width */
+.logo-image {
+  display: block !important; /* Ensure the image is treated as a block element */
+  margin: 0 auto !important; /* Center the image horizontally */
+  width: 60% !important; /* Slimmer width */
+  max-width: 80% !important; /* Prevent it from exceeding the screen width */
+  height: auto; /* Slimmer height */
+  padding: 0; /* Remove any padding */
+  border: 0; /* Remove any border */
+}
+
+.logo-wrapper img {
+  display: block !important;
+  margin: 0 auto !important; /* Horizontally center the image */
+  width: 50% !important; /* Increased width for larger logo */
+  max-width: 100% !important; /* Ensure it doesn't exceed container */
+  height: auto;
+  padding: 0; /* Remove any padding */
+  border: 0; /* Remove any border */
 }
 
 .logo-header-stack {
@@ -27,19 +46,19 @@
   align-items: center;
   gap: 0.5rem; /* Adjust spacing between logo and headings */
 }
-  
-  /* Custom style for the text (Ping My Appetite) */
-  .logo-svg text {
-    font-family: 'Segoe UI', sans-serif;
-    font-weight: bold;
-  }
-  
-  /* Custom styling for the "PMA" abbreviation */
-  .logo-svg text {
-    fill: url(#textGradient); /* Applies the gradient from SVG */
-  }
 
- .logo-svg {
+/* Custom style for the text (Ping My Appetite) */
+.logo-svg text {
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: bold;
+}
+
+/* Custom styling for the "PMA" abbreviation */
+.logo-svg text {
+  fill: url(#textGradient); /* Applies the gradient from SVG */
+}
+
+.logo-svg {
   display: block;
   margin: 0 auto;
   margin-top: 10px; /* Adjust as needed */
@@ -60,4 +79,3 @@
     max-width: 90vw;         /* Make sure it fits on small screens */
   }
 }
-  

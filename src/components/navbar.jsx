@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import LogoutLink from './logout';
-import Logo from './logo.jsx'; 
 import '../assets/navbar.css';
 import useSubscriptionStatus from "../hooks/useSubscriptionStatus";
 import { useAuthState } from "react-firebase-hooks/auth";
+import grubanaLogoImg from "../assets/grubana-logo-1.png";
 
 const Navbar = () => {
   const { user, userRole, loading } = useAuth();
@@ -18,7 +18,11 @@ const Navbar = () => {
       <div className="navbar-header">
         <div className="navbar-logo">
           <Link to="/home">
-            <Logo />
+            <img 
+              src={grubanaLogoImg} 
+              alt="Grubana Logo" 
+              className="navbar-logo-img"
+            />
           </Link>
         </div>
         <div
