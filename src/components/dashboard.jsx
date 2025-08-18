@@ -101,15 +101,9 @@ console.log("Dashboard component rendering for OWNER");
   useEffect(() => {
     console.log('🚀 LATEST CODE: Dashboard useEffect running - Version e1da37bc');
     
-    // Only redirect to checkout if user is on basic plan and not subscribed to pro/all-access
-    // This was the bug: Pro users were being redirected because "pro" wasn't in the allowed list
-    if (user && userRole === "owner" && userPlan === "basic") {
-      console.log('🔄 Dashboard: Redirecting basic plan user to checkout');
-      navigate("/checkout");
-      return; // Don't execute location logic if redirecting
-    }
-
-    console.log('✅ Dashboard: Pro/All-Access user detected, allowing dashboard access');
+    // Basic plan users should stay on dashboard - no redirect needed
+    // Only Pro and All-Access users need special handling
+    console.log('✅ Dashboard: Allowing dashboard access for userPlan:', userPlan);
 
     // Location tracking logic for paid plan users
     if (user && userRole === "owner" && (userPlan === "pro" || userPlan === "all-access")) {

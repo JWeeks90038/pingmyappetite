@@ -126,10 +126,16 @@ const userData = {
       }
 
       // Redirect based on intended plan
+      console.log('🔍 Signup Debug - formData.role:', formData.role);
+      console.log('🔍 Signup Debug - formData.plan:', formData.plan);
+      console.log('🔍 Signup Debug - Checking redirect logic...');
+      
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
+        console.log('🔄 Redirecting to checkout for paid plan:', formData.plan);
         // For paid plans, redirect to checkout
         navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } });
       } else {
+        console.log('🔄 Redirecting to dashboard for basic plan or customer');
         // Basic plan or customer - go directly to dashboard
         navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
       }
