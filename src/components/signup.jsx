@@ -126,16 +126,11 @@ const userData = {
       }
 
       // Redirect based on intended plan
-      if (formData.plan === 'pro' || formData.plan === 'all-access') {
-        if (formData.subscriptionStatus === 'active') {
-          // Redirect to dashboard if subscription is active
-          navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
-        } else {
-          // Redirect to checkout if subscription is not active
-          navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } });
-        }
+      if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
+        // For paid plans, redirect to checkout
+        navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } });
       } else {
-        // Basic plan - go directly to dashboard
+        // Basic plan or customer - go directly to dashboard
         navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
       }
     } catch (err) {
