@@ -524,7 +524,7 @@ useEffect(() => {
 
       {/* Upgrade Buttons - Moved to Top-Right Corner */}
       {(userRole === "owner" && (userPlan === "basic" || userPlan === "pro")) && (
-        <div style={{
+        <div className="upgrade-buttons-container" style={{
           position: "fixed",
           top: "130px",
           right: "10px",
@@ -534,6 +534,7 @@ useEffect(() => {
         }}>
           {userPlan === "basic" && (
             <button
+              className="upgrade-button"
               style={{
                 padding: "6px 12px",
                 background: "#4367f6ff",
@@ -552,6 +553,7 @@ useEffect(() => {
             </button>
           )}
           <button
+            className="upgrade-button"
             style={{
               padding: "6px 12px",
               background: "#1641eaff",

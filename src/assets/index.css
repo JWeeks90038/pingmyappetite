@@ -135,3 +135,16 @@ button:focus-visible {
 .read-the-docs {
   color: #888;
 }
+
+/* Styles for upgrade buttons on smaller screens */
+@media (max-width: 768px) {
+  .upgrade-buttons-container {
+    top: 100px; /* Adjust position for smaller screens */
+    right: 5px;
+  }
+
+  .upgrade-button {
+    padding: 4px 8px; /* Smaller padding */
+    font-size: 0.7rem; /* Smaller font size */
+  }
+}
