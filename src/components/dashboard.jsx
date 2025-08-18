@@ -520,69 +520,16 @@ useEffect(() => {
       ) : (
         <p>Loading plan info...</p>
       )}
-
-      {/* --- PAYMENT INCOMPLETE WARNING --- */}
-      {userRole === "owner" && userPlan === "basic" && (
-        <div style={{ 
-          margin: "20px 0", 
-          padding: "20px", 
-          backgroundColor: "#fff3cd", 
-          borderRadius: "8px",
-          border: "2px solid #ffc107",
-          textAlign: "center"
-        }}>
-          <h3 style={{ color: "#856404", marginBottom: "15px" }}>⚠️ Complete Your Upgrade</h3>
-          <p style={{ color: "#856404", marginBottom: "15px" }}>
-            You're currently on the Basic plan. Complete your upgrade to unlock premium features!
-          </p>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              style={{
-                padding: "12px 20px",
-                background: "#28a745",
-                color: "#fff",
-                border: "none",
-                borderRadius: "5px",
-                fontSize: "1rem",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-              onClick={() => {
-                navigate("/checkout", { state: { selectedPlan: 'pro' } });
-              }}
-            >
-              Upgrade to Pro ($9.99/mo)
-            </button>
-            <button
-              style={{
-                padding: "12px 20px",
-                background: "#007bff",
-                color: "#fff",
-                border: "none",
-                borderRadius: "5px",
-                fontSize: "1rem",
-                cursor: "pointer",
-                fontWeight: "bold"
-              }}
-              onClick={() => {
-                navigate("/checkout", { state: { selectedPlan: 'all-access' } });
-              }}
-            >
-              Upgrade to All Access ($19.99/mo)
-            </button>
-          </div>
-        </div>
-      )}
+         
 
       {/* Upgrade Buttons - Moved to Top-Right Corner */}
       {(userRole === "owner" && (userPlan === "basic" || userPlan === "pro")) && (
         <div style={{
           position: "fixed",
-          top: "10px",
+          top: "130px",
           right: "10px",
           display: "flex",
           flexDirection: "column",
-          gap: "8px",
           zIndex: 1000
         }}>
           {userPlan === "basic" && (
@@ -590,11 +537,12 @@ useEffect(() => {
               style={{
                 padding: "6px 12px",
                 background: "#4367f6ff",
-              color: "#fffdfdff",
-              border: "1px solid #ccc",
+                color: "#fffdfdff",
+                border: "1px solid #ccc",
                 borderRadius: "4px",
                 fontSize: "0.8rem",
-                cursor: "pointer"
+                cursor: "pointer",
+                marginBottom: "-25px" // Ensures the second button is directly below
               }}
               onClick={() => {
                 navigate("/checkout", { state: { selectedPlan: 'pro' } });
@@ -817,7 +765,7 @@ useEffect(() => {
       </div>
       {/* --- QR CODE SECTION END --- */}
 
-<h3 style={{ textAlign: 'center' }}>Follow Us</h3>
+<h3 style={{ textAlign: 'center' }}>Your Social Media Links (discoverable by customers in your menu modal)</h3>
 
 <div
   style={{
