@@ -353,7 +353,7 @@ const userData = {
       required
     >
       <option value="">Select Plan</option>
-      <option value="basic">Basic (Free) - Discovery map, demand pins, manual location updates</option>
+      <option value="basic">Basic (Free) - Discovery map, truck/trailer & menu photo uploads, manual location updates</option>
       <option value="pro">Pro ($9.99/month) - Basic + Real-time GPS tracking + heat map features showing demand areas</option>
       <option value="all-access">All Access ($19.99/month) - Basic/Pro + Analytics + exclusive deal drops</option>
     </select>

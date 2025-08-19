@@ -871,7 +871,6 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <h2 style="color: #2c6f57;">Your Basic Plan Includes:</h2>
           <ul>
             <li>✅ Appear on the Grubana discovery map</li>
-            <li>✅ View demand pins from hungry customers</li>
             <li>✅ Access to your truck dashboard</li>
             <li>✅ Manual location updates</li>
           </ul>
@@ -901,7 +900,6 @@ app.post('/api/send-welcome-email', async (req, res) => {
             <li>✅ Real-time GPS location tracking</li>
             <li>✅ Real-time menu display on map icon</li>
             <li>✅ Access to citywide heat maps</li>
-            <li>✅ Basic engagement metrics</li>
           </ul>
           
           <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -926,11 +924,8 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
           <ul>
             <li>✅ Everything in Basic & Pro</li>
-            <li>✅ Advanced 30-day analytics dashboard</li>
+            <li>✅ Advanced analytics dashboard</li>
             <li>✅ Create promotional drops and deals</li>
-            <li>✅ Featured placement in search results</li>
-            <li>✅ Priority customer support</li>
-            <li>✅ Custom branding options</li>
           </ul>
           
           <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">

@@ -35,13 +35,12 @@ const Pricing = () => {
             <p className="price">Free</p>
             <div>
               <div>✅ Appear on the Grubana discovery map</div>
-              <div>✅ View demand pins on heat map by nearby customers</div>
               <div>✅ Access your truck dashboard</div>
+              <div>✅ Upload Truck/Trailer Photo & Menu for Customers</div>
               <div>✅ Manual location updates</div>
               <div>❌ Real-time GPS location tracking</div>
-              <div>❌ Real-time menu display on map icon</div>
               <div>❌ Access to citywide heat maps showing demand zones</div>
-              <div>❌ 30-day engagement analytics</div>
+              <div>❌ Advanced analytics dashboard</div>
               <div>❌ Create promotional drops and deals</div>
             </div>
             <button className="subscribe-btn disabled" disabled>Included</button>
@@ -56,11 +55,8 @@ const Pricing = () => {
               <div>✅ Real-time GPS location tracking</div>
               <div>✅ Real-time menu display on map icon</div>
               <div>✅ Access to citywide heat maps showing demand zones</div>
-              <div>✅ Basic engagement metrics</div>
-              <div>❌ Advanced 30-day analytics dashboard</div>
+              <div>❌ Advanced analytics dashboard</div>
               <div>❌ Create promotional drops and deals</div>
-              <div>❌ Featured placement in search results</div>
-              <div>❌ Radius-based trend alerts</div>
             </div>
             <button
               className="subscribe-btn"
@@ -77,14 +73,8 @@ const Pricing = () => {
             <p className="price">$19.99 / month</p>
             <div>
               <div>✅ Everything in Basic & Pro</div>
-              <div>✅ Advanced 30-day analytics dashboard</div>
+              <div>✅ Advanced analytics dashboard</div>
               <div>✅ Create promotional drops and deals</div>
-              <div>✅ Featured placement in search results</div>
-              <div>✅ Radius-based trend alerts</div>
-              <div>✅ Priority customer support</div>
-              <div>✅ Custom branding options</div>
-              <div>✅ Export analytics data</div>
-              <div>✅ Multiple location management</div>
             </div>
             <button
               className="subscribe-btn"
