@@ -2113,3 +2113,43 @@ footer a:hover {
         padding: 15px;
     }
 }
+
+/* Image Section Styles */
+.image-section {
+    width: 100%;
+    margin: 20px 0;
+    overflow: hidden;
+}
+
+.image-section img {
+    width: 100%;
+    height: auto;
+    min-height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+/* Mobile specific image styles */
+@media (max-width: 768px) {
+    .image-section {
+        margin: 20px -20px; /* Extend beyond container padding */
+        width: calc(100% + 40px);
+    }
+    
+    .image-section img {
+        width: 100%;
+        min-height: 300px;
+        object-fit: cover;
+    }
+}
+
+@media (max-width: 480px) {
+    .image-section {
+        margin: 20px -15px;
+        width: calc(100% + 30px);
+    }
+    
+    .image-section img {
+        min-height: 350px;
+    }
+}

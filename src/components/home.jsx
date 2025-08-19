@@ -24,8 +24,7 @@ const Home = () => {
     <section className="image-section">
         <img 
           src="/bdexpress.png" 
-          alt="Delicious food trucks" 
-          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+          alt="Delicious food trucks"
         />
       </section>
   </div>
@@ -81,8 +80,7 @@ const Home = () => {
 <section className="image-section">
         <img 
           src="/weenie.png" 
-          alt="Delicious food trucks" 
-          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+          alt="Delicious food trucks"
         />
       </section>
 
@@ -114,8 +112,7 @@ const Home = () => {
 <section className="image-section">
         <img 
           src="/aerostat.png" 
-          alt="Delicious food trucks" 
-          style={{ width: '100%', height: 'auto', marginBottom: '20px' }} 
+          alt="Delicious food trucks"
         />
       </section>
       
