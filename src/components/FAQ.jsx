@@ -5,7 +5,7 @@ import '../assets/FAQ.css'; // Optional: Add custom styling here
 const FAQ = () => {
   const faqData = [
     {
-      category: "For Users",
+      category: "For Foodies",
       questions: [
         {
           q: "What is Grubana?",
@@ -15,7 +15,7 @@ const FAQ = () => {
         {
           q: "How do I find food trucks near me?",
           a:
-            "Just open the Grubana map on our app or site. You'll see icons representing active food trucks and trailers near your location. Use filters like cuisine type to discover what's cooking nearby."
+            "View the map on your dashboard. You'll see icons representing active food trucks and trailers near your location. Use filters like cuisine type to discover what's cooking nearby."
         },
         {
           q: "What do the icons on the map mean?",
@@ -25,12 +25,12 @@ const FAQ = () => {
         {
           q: "What are 'pings' and how do they work?",
           a:
-            "Pings let you signal interest in a truck or trailer you want to see nearby. Each user gets 3 pings per day, which they can drop anywhere on the map. The more pings a vendor receives in a certain area, the more likely they are to head there. Pings will show up as heatmap colors on the vendor map."
+            "Pings let you signal interest in a truck or trailer you want to see nearby. Each user gets 3 pings per day, which they can drop anywhere on the map. The more pings for a specific cusines in a certain area, the more likely a food truck or trailer will head there. Pings will show up as heatmap colors on the vendor map."
         },
         {
           q: "What are 'drops'?",
           a:
-            "Drops are time-limited deals or menu specials that vendors offer to nearby users. When a truck or trailer creates a drop, their icon changes to signal something special is happening. Tap the icon to view the drop and claim it before time runs out."
+            "Drops are time-limited deals or menu specials that vendors offer to nearby users. When a truck or trailer creates a drop, their icon changes color (blue for food trucks and green for trailers) to signal something special is happening. Tap the icon to view the drop and claim it before time runs out."
         },
         {
           q: "How do I claim a drop?",
@@ -40,7 +40,7 @@ const FAQ = () => {
         {
           q: "Can I view menus before visiting?",
           a:
-            "Yes. Tap any vendor icon to view their live menu, drops and location. Some menus update in real-time based on availability or deals they’re offering."
+            "Yes. Tap any vendor icon to view their live menu, drops, hours, cuisine type and location. Some menus update in real-time based on availability, deals they’re offering and when they update their menu."
         },
         {
           q: "Can I follow or save my favorite vendors?",
@@ -65,7 +65,7 @@ const FAQ = () => {
         {
           q: "How do I get my truck or trailer on Grubana?",
           a:
-            "Click Sign Up. Create your profile, upload a menu, and go live to appear on the interactive map. You can update your location manually with the Basic Plan or you can have full geolocation avtivity with the All-Access Plan. Your icon will disappear when you toggle your icon to hide or when you log out."
+            "Click Sign Up. Create your profile, upload a photo of your truck or trailer and photo (or PDF) of menu, and go live to appear on the interactive map. You can update your location manually with the Basic Plan or you can have full geolocation avtivity with the All-Access Plan. Your icon will disappear when you toggle your icon to hide or when you log out."
         },
         {
           q: "How does the heatmap work?",
@@ -90,7 +90,7 @@ const FAQ = () => {
         {
           q: "What kind of analytics are available?",
           a:
-            "Premium vendors get access to heatmaps, ping activity, favorite counts, and historical data over the last 7 & 30 days — all designed to optimize your routes and sales."
+            "Premium vendors get access to heatmaps, ping activity, favorite counts, and historical data over the last 7 & 30 days and more detailed analytics — all designed to optimize your routes and sales."
         },
         {
           q: "How much does it cost to use Grubana?",
@@ -105,7 +105,7 @@ const FAQ = () => {
         {
           q: "Can I link my social media pages to my account?",
           a:
-            "Yes! Foodie fans can select your social media icon located below your menu when they click on your truck or trailer icon which will direct them to your social media page. You social media icons will also be located at the bottom of your dashboard for your access as well."
+            "Yes! Foodie fans can select your social media icon located below your menu when they click on your truck or trailer icon which will direct them to your social media page. Your social media icons will also be located at the bottom of your dashboard for your access as well."
         },
       ],
     },

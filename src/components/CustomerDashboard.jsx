@@ -78,6 +78,34 @@ const CustomerDashboard = () => {
   const [manualAddress, setManualAddress] = useState('');
   const [useGeoLocation, setUseGeoLocation] = useState(false);
   const [showTrucks, setShowTrucks] = useState(true);
+  const [cuisineFilters, setCuisineFilters] = useState({
+    american: true,
+    "asian-fusion": true,
+    bbq: true,
+    burgers: true,
+    chinese: true,
+    coffee: true,
+    desserts: true,
+    drinks: true,
+    greek: true,
+    halal: true,
+    healthy: true,
+    indian: true,
+    italian: true,
+    korean: true,
+    latin: true,
+    mediterranean: true,
+    mexican: true,
+    pizza: true,
+    seafood: true,
+    southern: true,
+    sushi: true,
+    thai: true,
+    vegan: true,
+    wings: true,
+  });
+  const [showCuisineModal, setShowCuisineModal] = useState(false);
+  const [tempCuisineFilters, setTempCuisineFilters] = useState(cuisineFilters);
   const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [menuUrl, setMenuUrl] = useState('');
   const [currentTruckOwnerId, setCurrentTruckOwnerId] = useState('');
@@ -452,6 +480,13 @@ const handleViewMenu = () => {
           });
 
           initializeMapFeatures();
+          
+          // Trigger map resize after initialization
+          setTimeout(() => {
+            if (mapInstance.current) {
+              window.google.maps.event.trigger(mapInstance.current, 'resize');
+            }
+          }, 100);
         },
         () => {
           const fallbackLocation = { lat: 37.7749, lng: -122.4194 };
@@ -460,10 +495,31 @@ const handleViewMenu = () => {
             zoom: 12,
           });
           initializeMapFeatures();
+          
+          // Trigger map resize after initialization
+          setTimeout(() => {
+            if (mapInstance.current) {
+              window.google.maps.event.trigger(mapInstance.current, 'resize');
+            }
+          }, 100);
         }
       );
     }
   }, []);
+
+  // Ensure map resizes properly when layout changes
+  useEffect(() => {
+    if (mapInstance.current && window.google) {
+      const resizeMap = () => {
+        window.google.maps.event.trigger(mapInstance.current, 'resize');
+      };
+      
+      // Resize map after a short delay to ensure container is fully rendered
+      const timer = setTimeout(resizeMap, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [cuisineFilters, showCuisineModal]); // Trigger when layout might change
 
   useEffect(() => {
     if (!user) return;
@@ -531,11 +587,12 @@ useEffect(() => {
 useEffect(() => {
   if (!user || !window.google || !mapInstance.current) return;
 
-  const unsubscribe = onSnapshot(collection(db, 'truckLocations'), (snapshot) => {
+  const unsubscribe = onSnapshot(collection(db, 'truckLocations'), async (snapshot) => {
     const nowMs = Date.now();
     const existingIds = new Set();
 
-    snapshot.docChanges().forEach(change => {
+    // Process each truck change
+    for (const change of snapshot.docChanges()) {
       const data = change.doc.data();
       const id = change.doc.id;
       existingIds.add(id);
@@ -543,24 +600,51 @@ useEffect(() => {
       const lat = data.lat || 0;
       const lng = data.lng || 0;
       const isLive = data.isLive === true;
-const visible = data.visible === true;
+      const visible = data.visible === true;
       const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in milliseconds
       const lastActive = data.lastActive || 0;
       const isStale = nowMs - lastActive > FIVE_MIN;
 
-      //console.log('Truck:', data.truckName, 'isLive:', isLive, 'visible:', visible, 'isStale:', isStale, 'showTrucks:', showTrucks);
-
+      // Check if truck should be removed
       if (change.type === 'removed' || !isLive || !visible || isStale || !showTrucks) {
         if (foodTruckMarkers.current[id]) {
           foodTruckMarkers.current[id].setMap(null);
           delete foodTruckMarkers.current[id];
         }
-        return;
+        continue;
+      }
+
+      // Fetch owner data to get cuisine type for filtering
+      let shouldShowTruck = true;
+      try {
+        const ownerUid = data.ownerUid || id;
+        const ownerDoc = await getDoc(doc(db, "users", ownerUid));
+        if (ownerDoc.exists()) {
+          const ownerData = ownerDoc.data();
+          const truckCuisine = ownerData.cuisine?.toLowerCase().replace(/\s+/g, '-') || '';
+          
+          // If truck has a cuisine type, check if it's enabled in filters
+          if (truckCuisine && cuisineFilters.hasOwnProperty(truckCuisine)) {
+            shouldShowTruck = cuisineFilters[truckCuisine];
+          }
+          // If cuisine type not found in filters, show by default (for backward compatibility)
+        }
+      } catch (error) {
+        console.error("Error fetching owner data for cuisine filtering:", error);
+        // Show truck by default if error occurs
+      }
+
+      // Hide truck if cuisine filter doesn't match
+      if (!shouldShowTruck) {
+        if (foodTruckMarkers.current[id]) {
+          foodTruckMarkers.current[id].setMap(null);
+          delete foodTruckMarkers.current[id];
+        }
+        continue;
       }
 
       const position = { lat, lng };
       const hasActiveDrop = activeDrops.some(drop => drop.truckId === id);
-      //console.log('Creating marker for:', data.truckName, 'kitchenType:', data.kitchenType);
       const icon = getTruckIcon(data.kitchenType, hasActiveDrop);
 
       if (!foodTruckMarkers.current[id]) {
@@ -572,13 +656,13 @@ const visible = data.visible === true;
           icon,
           title: data.truckName || 'Food Truck',
           label: isFavorite
-      ? {
-          text: '❤️',
-          color: '#e74c3c',
-          fontSize: '20px',
-          fontWeight: 'bold'
-        }
-      : undefined,
+            ? {
+                text: '❤️',
+                color: '#e74c3c',
+                fontSize: '20px',
+                fontWeight: 'bold'
+              }
+            : undefined,
           animation: null,
         });
 
@@ -595,7 +679,7 @@ const visible = data.visible === true;
         marker.setIcon(icon);
         marker.setTitle(data.truckName || 'Food Truck');
       }
-    });
+    }
 
     // Remove markers for trucks no longer present
     Object.keys(foodTruckMarkers.current).forEach(id => {
@@ -611,7 +695,7 @@ const visible = data.visible === true;
     Object.values(foodTruckMarkers.current).forEach(marker => marker.setMap(null));
     foodTruckMarkers.current = {};
   };
-}, [user, showTrucks, activeDrops]);
+}, [user, showTrucks, activeDrops, cuisineFilters]);
 
 useEffect(() => {
   if (!user) {
@@ -935,15 +1019,236 @@ return (
       )}
     </section>
 
-    <div ref={mapRef} style={{ height: '500px', marginTop: '20px' }} />
+    <div 
+      ref={mapRef} 
+      style={{ 
+        height: '500px', 
+        marginTop: '20px',
+        width: '100%',
+        maxWidth: '100%',
+        margin: '20px auto',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }} 
+    />
+
+    {/* Truck Cuisine Filter Section - Moved below map */}
+    <section style={{ 
+      margin: '20px auto', 
+      padding: '15px', 
+      backgroundColor: '#f8f9fa', 
+      borderRadius: '8px',
+      maxWidth: '800px',
+      textAlign: 'center'
+    }}>
+      <h3>🍽️ Filter Food Trucks by Cuisine</h3>
+      <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '15px' }}>
+        Choose which types of cuisines you want to see on the map. Only trucks and trailers with selected cuisines will be visible.
+      </p>
+      
+      <div style={{ marginBottom: '15px' }}>
+        <button
+          style={{
+            padding: "10px 18px",
+            backgroundColor: "#1976d2",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+          onClick={() => {
+            setTempCuisineFilters(cuisineFilters);
+            setShowCuisineModal(true);
+          }}
+        >
+          Cuisine Filters
+        </button>
+        
+        <button
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#28a745",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            marginLeft: "10px",
+          }}
+          onClick={() => {
+            const allTrue = Object.keys(cuisineFilters).reduce((acc, key) => {
+              acc[key] = true;
+              return acc;
+            }, {});
+            setCuisineFilters(allTrue);
+          }}
+        >
+          Show All
+        </button>
+        
+        <button
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#dc3545",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            marginLeft: "10px",
+          }}
+          onClick={() => {
+            const allFalse = Object.keys(cuisineFilters).reduce((acc, key) => {
+              acc[key] = false;
+              return acc;
+            }, {});
+            setCuisineFilters(allFalse);
+          }}
+        >
+          Hide All
+        </button>
+      </div>
+      
+      {/* Show active filters */}
+      <div style={{ fontSize: '0.8rem', color: '#666' }}>
+        <strong>Active filters:</strong> {
+          Object.entries(cuisineFilters)
+            .filter(([key, value]) => value)
+            .map(([key]) => key === 'asian-fusion' ? 'Asian Fusion' :
+                           key === 'bbq' ? 'BBQ' :
+                           key === 'coffee' ? 'Coffee & Café' :
+                           key === 'desserts' ? 'Desserts & Sweets' :
+                           key === 'drinks' ? 'Drinks & Beverages' :
+                           key === 'latin' ? 'Latin American' :
+                           key === 'sushi' ? 'Sushi & Japanese' :
+                           key === 'healthy' ? 'Healthy & Fresh' :
+                           key === 'southern' ? 'Southern Comfort' :
+                           key === 'vegan' ? 'Vegan & Vegetarian' :
+                           key.charAt(0).toUpperCase() + key.slice(1))
+            .join(', ') || 'None'
+        }
+      </div>
+    </section>
+
+    {/* Cuisine Filters Modal */}
+    {showCuisineModal && (
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(0,0,0,0.4)",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <div style={{
+          background: "#fff",
+          borderRadius: "8px",
+          padding: "24px 12px 24px 12px",
+          minWidth: "320px",
+          width: "100%",
+          maxWidth: "min(90vw, 680px)",
+          boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+          margin: "16px",
+          overflowX: "hidden",
+          overflow: "hidden",
+        }}>
+          <h2 style={{marginTop:0}}>Select Cuisines to Show</h2>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              setCuisineFilters(tempCuisineFilters);
+              setShowCuisineModal(false);
+            }}
+          >
+            <div style={{
+              maxHeight: "50vh",
+              overflowY: "auto",
+              overflowX: "hidden",
+              marginBottom: "18px",
+              display: "grid",
+              gridTemplateColumns: window.innerWidth < 600 ? "1fr" : "1fr 1fr",
+              gap: "12px 16px",
+              padding: "8px",
+              width: "100%",
+            }}>
+              {Object.keys(cuisineFilters).map((cuisine) => (
+                <label key={cuisine} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  gap: "12px",
+                  fontSize: window.innerWidth < 600 ? "16px" : "14px",
+                  cursor: "pointer",
+                  width: "100%",
+                  minHeight: "44px",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  transition: "background-color 0.2s ease",
+                  backgroundColor: "transparent",
+                  ...(window.innerWidth < 600 && {
+                    border: "1px solid #e0e0e0",
+                  })
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={tempCuisineFilters[cuisine]}
+                    onChange={() => setTempCuisineFilters(f => ({ ...f, [cuisine]: !f[cuisine] }))}
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      margin: "0",
+                      flexShrink: 0,
+                      cursor: "pointer",
+                    }}
+                  />
+                  <span style={{
+                    flex: 1,
+                    textAlign: "left",
+                    lineHeight: "1.3",
+                    wordBreak: "break-word",
+                  }}>
+                    {cuisine === 'asian-fusion' ? 'Asian Fusion' :
+                     cuisine === 'bbq' ? 'BBQ' :
+                     cuisine === 'coffee' ? 'Coffee & Café' :
+                     cuisine === 'desserts' ? 'Desserts & Sweets' :
+                     cuisine === 'drinks' ? 'Drinks & Beverages' :
+                     cuisine === 'latin' ? 'Latin American' :
+                     cuisine === 'sushi' ? 'Sushi & Japanese' :
+                     cuisine === 'healthy' ? 'Healthy & Fresh' :
+                     cuisine === 'southern' ? 'Southern Comfort' :
+                     cuisine === 'vegan' ? 'Vegan & Vegetarian' :
+                     cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div style={{display: "flex", justifyContent: "flex-end", gap: "12px"}}>
+              <button type="button" onClick={() => setShowCuisineModal(false)} style={{padding: "8px 16px", borderRadius: "4px", border: "none", background: "#ccc", color: "#333"}}>Cancel</button>
+              <button type="submit" style={{padding: "8px 16px", borderRadius: "4px", border: "none", background: "#1976d2", color: "#fff", fontWeight: "bold"}}>Apply</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
 
     {/* Favorites List */}
-    <section style={{ margin: '20px 0' }}>
-  <h3>Your Favorite Trucks</h3>
+    <section style={{ 
+      margin: '20px auto', 
+      maxWidth: '800px',
+      textAlign: 'center',
+      padding: '15px',
+      backgroundColor: '#fff',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+  <h3>Your Favorite Trucks & Trailers</h3>
   {favorites.length === 0 ? (
     <p>No favorites yet.</p>
   ) : (
-    <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
+    <ul style={{ listStyleType: 'none', paddingLeft: 0, textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
       {favorites.map((fav) => (
         <FavoriteListItem key={fav.id} favorite={fav} />
       ))}
