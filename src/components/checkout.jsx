@@ -14,9 +14,7 @@ const Checkout = () => {
       features: [
         '✅ Everything in Basic',
         '✅ Real-time GPS location tracking',
-        '✅ Real-time menu display on map icon',
-        '✅ Access to citywide heat maps showing demand zones',
-        '✅ Basic engagement metrics'
+        '✅ Access to citywide heat maps showing demand zones'
       ]
     },
     'all-access': {
@@ -25,14 +23,8 @@ const Checkout = () => {
       amount: 1999,
       features: [
         '✅ Everything in Basic & Pro',
-        '✅ Advanced 30-day analytics dashboard',
-        '✅ Create promotional drops and deals',
-        '✅ Featured placement in search results',
-        '✅ Radius-based trend alerts',
-        '✅ Priority customer support',
-        '✅ Custom branding options',
-        '✅ Export analytics data',
-        '✅ Multiple location management'
+        '✅ Advanced analytics dashboard',
+        '✅ Create promotional drops and deals'
       ]
     }
   };

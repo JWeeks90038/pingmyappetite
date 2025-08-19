@@ -353,9 +353,9 @@ const userData = {
       required
     >
       <option value="">Select Plan</option>
-      <option value="basic">Basic (Free) - Discovery map, demand pins, manual updates</option>
-      <option value="pro">Pro ($9.99/month) - Real-time GPS tracking + menu display</option>
-      <option value="all-access">All Access ($19.99/month) - Analytics, drops, featured placement</option>
+      <option value="basic">Basic (Free) - Discovery map, demand pins, manual location updates</option>
+      <option value="pro">Pro ($9.99/month) - Basic + Real-time GPS tracking + heat map features showing demand areas</option>
+      <option value="all-access">All Access ($19.99/month) - Basic/Pro + Analytics + exclusive deal drops</option>
     </select>
   </>
 )}

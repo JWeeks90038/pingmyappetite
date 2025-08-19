@@ -118,6 +118,7 @@ console.log("Dashboard component rendering for OWNER");
               visible: true,
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
+              ownerUid: user.uid, // Ensure ownerUid is set
             }, { merge: true });
             //console.log("Truck location updated after plan upgrade.");
           },
@@ -454,34 +455,76 @@ useEffect(() => {
       <h2>Welcome{username ? `, ${username}` : ""}!</h2>
 
       {/* Truck Photo and Menu Display */}
-      {ownerData?.coverUrl && (
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <img
-            src={ownerData.coverUrl}
-            alt="Truck Photo"
-            style={{
-              maxWidth: "100%",
-              height: "auto",
-              borderRadius: "8px",
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-            }}
-          />
-        </div>
-      )}
-      {ownerData?.menuUrl && (
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <img
-            src={ownerData.menuUrl}
-            alt="Menu Photo"
-            style={{
-              maxWidth: "100%",
-              height: "auto",
-              borderRadius: "8px",
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-            }}
-          />
-        </div>
-      )}
+    {ownerData?.coverUrl && (
+  <div style={{ textAlign: "center", marginBottom: "20px" }}>
+    <img
+      src={ownerData.coverUrl}
+      alt="Truck Photo"
+      style={{
+        maxWidth: "100%",
+        height: "auto",
+        borderRadius: "8px",
+        boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+      }}
+    />
+    <button
+      style={{
+        marginTop: "8px",
+        padding: "6px 12px",
+        background: "#007bff",
+        color: "#fff",
+        border: "none",
+        borderRadius: "4px",
+        fontSize: "0.8rem",
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        navigate("/settings");
+        // Scroll to Media Uploader section after navigation
+        setTimeout(() => {
+          const mediaSection = document.querySelector('h2');
+          if (mediaSection && mediaSection.textContent === 'Media Uploader') {
+            mediaSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }}
+    >
+      Update Truck/Trailer Photo
+    </button>
+  </div>
+)}
+
+{ownerData?.menuUrl && (
+  <div style={{ textAlign: "center", marginBottom: "20px" }}>
+    <img
+      src={ownerData.menuUrl}
+      alt="Menu Photo"
+      style={{
+        maxWidth: "100%",
+        height: "auto",
+        borderRadius: "8px",
+        boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+      }}
+    />
+    <button
+      style={{
+        marginTop: "8px",
+        padding: "6px 12px",
+        background: "#007bff",
+        color: "#fff",
+        border: "none",
+        borderRadius: "4px",
+        fontSize: "0.8rem",
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        navigate("/settings#media-uploader");
+      }}
+    >
+      Update Menu Photo
+    </button>
+  </div>
+)}
       
      
       {userPlan ? (
@@ -496,21 +539,21 @@ useEffect(() => {
           <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#666" }}>
             {userPlan === "basic" && (
               <div>
-                ✅ Discovery map • ✅ Demand pins • ✅ Manual location updates
+                ✅ Discovery map • ✅ Menu display • ✅ Manual location updates
                 <br />
                 <em>Upgrade for real-time GPS tracking and more!</em>
               </div>
             )}
             {userPlan === "pro" && (
               <div>
-                ✅ Real-time GPS tracking • ✅ Menu display • ✅ Citywide heat maps
+                ✅ Real-time GPS tracking • ✅ Citywide heat maps • ✅ Menu display
                 <br />
                 <em>Upgrade to All Access for analytics and promotional drops!</em>
               </div>
             )}
             {userPlan === "all-access" && (
               <div>
-                ✅ Advanced analytics • ✅ Promotional drops • ✅ Featured placement
+                ✅ Advanced analytics • ✅ Promotional drops creation • ✅ Citywide heat maps
                 <br />
                 <em>You have access to all features!</em>
               </div>
@@ -522,55 +565,61 @@ useEffect(() => {
       )}
          
 
-      {/* Upgrade Buttons - Moved to Top-Right Corner */}
-      {(userRole === "owner" && (userPlan === "basic" || userPlan === "pro")) && (
-        <div className="upgrade-buttons-container" style={{
-          position: "fixed",
-          top: "130px",
-          right: "10px",
-          display: "flex",
-          flexDirection: "column",
-          zIndex: 1000
-        }}>
-          {userPlan === "basic" && (
-            <button
-              className="upgrade-button"
-              style={{
-                padding: "6px 12px",
-                background: "#4367f6ff",
-                color: "#fffdfdff",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "0.8rem",
-                cursor: "pointer",
-                marginBottom: "-25px" // Ensures the second button is directly below
-              }}
-              onClick={() => {
-                navigate("/checkout", { state: { selectedPlan: 'pro' } });
-              }}
-            >
-              Upgrade to Pro
-            </button>
-          )}
-          <button
-            className="upgrade-button"
-            style={{
-              padding: "6px 12px",
-              background: "#1641eaff",
-              color: "#fffdfdff",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "0.8rem",
-              cursor: "pointer"
-            }}
-            onClick={() => {
-              navigate("/checkout", { state: { selectedPlan: 'all-access' } });
-            }}
-          >
-            Upgrade to All Access
-          </button>
-        </div>
-      )}
+    {/* Upgrade Buttons - Moved to Top-Right Corner */}
+{(userRole === "owner" && (userPlan === "basic" || userPlan === "pro")) && (
+  <div
+    className="upgrade-buttons-container"
+    style={{
+      position: "fixed",
+      top: "130px",
+      right: "10px",
+      display: "flex",
+      flexDirection: "column",
+      zIndex: 1000,
+    }}
+    >
+    {userPlan === "basic" && (
+      // Uncomment the button below if needed
+      null
+      // <button
+      //   className="upgrade-button"
+      //   style={{
+      //     padding: "6px 12px",
+      //     background: "#4367f6ff",
+      //     color: "#fffdfdff",
+      //     border: "1px solid #ccc",
+      //     borderRadius: "4px",
+      //     fontSize: "0.8rem",
+      //     cursor: "pointer",
+      //     marginBottom: "-25px", // Ensures the second button is directly below
+      //   }}
+      //   onClick={() => {
+      //     navigate("/checkout", { state: { selectedPlan: 'pro' } });
+      //   }}
+      // >
+      //   Upgrade to Pro
+      // </button>
+    )}
+    {/* Uncomment the button below if needed */}
+    {/* <button
+      className="upgrade-button"
+      style={{
+        padding: "6px 12px",
+        background: "#1641eaff",
+        color: "#fffdfdff",
+        border: "1px solid #ccc",
+        borderRadius: "4px",
+        fontSize: "0.8rem",
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        navigate("/checkout", { state: { selectedPlan: 'all-access' } });
+      }}
+    >
+      Upgrade to All Access
+    </button> */}
+  </div>
+)}
 
       {/* Location Section - Feature Gated by Plan */}
       {userPlan === "basic" ? (

@@ -245,6 +245,16 @@ const OwnerSettings = ({
     alert("Subscription management coming soon!");
   };
 
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash === "#media-uploader") {
+      const mediaUploaderSection = document.querySelector("h2:contains('Media Uploader')");
+      if (mediaUploaderSection) {
+        mediaUploaderSection.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, []);
+
   if (loading) {
     return <p>Loading settings...</p>;
   }

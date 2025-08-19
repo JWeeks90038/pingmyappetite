@@ -41,7 +41,7 @@ const FilterButton = React.memo(({ label, active, onClick }) => (
   </button>
 ));
 
-const HeatMap = ({isLoaded, onMapLoad}) => {
+const HeatMap = ({isLoaded, onMapLoad, userPlan}) => {
   const db = getFirestore();
   const auth = getAuth();
 
@@ -337,7 +337,8 @@ useEffect(() => {
     heatmapRef.current = null;
   }
 
-  if (!combinedHeatmapData.length) return;
+  // Only show heatmap for Pro and All-Access plans
+  if (userPlan === "basic" || !combinedHeatmapData.length) return;
 
   const newHeatmap = new window.google.maps.visualization.HeatmapLayer({
     data: combinedHeatmapData,
@@ -363,7 +364,7 @@ useEffect(() => {
       heatmapRef.current = null;
     }
   };
-}, [combinedHeatmapData]);
+}, [combinedHeatmapData, userPlan]);
 
 return (
   <div>
@@ -377,34 +378,53 @@ return (
         setMapReady(true);
       }}
     >
-      {mapReady && combinedHeatmapData.length === 0 && (
+      {mapReady && combinedHeatmapData.length === 0 && userPlan !== "basic" && (
         <div style={{ textAlign: "center", marginTop: "20px" }}>
           <h3>No data available for the selected filters.</h3>
         </div>
       )}
     </GoogleMap>
 
-    <HeatMapKey />
+    {/* Only show heatmap features for Pro and All-Access plans */}
+    {userPlan === "pro" || userPlan === "all-access" ? (
+      <>
+        <HeatMapKey />
 
-    <div style={{ marginTop: "16px", marginBottom: "10px" }}>
-      <button
-        style={{
-          padding: "10px 18px",
-          backgroundColor: "#1976d2",
-          color: "#fff",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontWeight: "bold",
-        }}
-        onClick={() => setShowCuisineModal(true)}
-      >
-        Cuisine Filters
-      </button>
-    </div>
+        <div style={{ marginTop: "16px", marginBottom: "10px" }}>
+          <button
+            style={{
+              padding: "10px 18px",
+              backgroundColor: "#1976d2",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+            onClick={() => setShowCuisineModal(true)}
+          >
+            Cuisine Filters
+          </button>
+        </div>
+      </>
+    ) : (
+      <div style={{ 
+        marginTop: "16px", 
+        padding: "15px", 
+        backgroundColor: "#f8f9fa", 
+        borderRadius: "8px",
+        border: "1px solid #dee2e6",
+        textAlign: "center"
+      }}>
+        <h4 style={{ margin: "0 0 8px 0", color: "#666" }}>🎯 Heat Map Features</h4>
+        <p style={{ margin: "0", fontSize: "0.9rem", color: "#666" }}>
+          Upgrade to <strong>Pro</strong> or <strong>All-Access</strong> to see demand heat maps and cuisine filters that show where customers are requesting specific food types in real-time!
+        </p>
+      </div>
+    )}
 
-    {/* Cuisine Filters Modal */}
-    {showCuisineModal && (
+    {/* Cuisine Filters Modal - Only for Pro and All-Access */}
+    {(userPlan === "pro" || userPlan === "all-access") && showCuisineModal && (
       <div style={{
         position: "fixed",
         top: 0,
