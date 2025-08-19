@@ -2117,8 +2117,11 @@ footer a:hover {
 /* Image Section Styles */
 .image-section {
     width: 100%;
-    margin: 20px 0;
+    margin: 20px auto;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .image-section img {
@@ -2127,13 +2130,16 @@ footer a:hover {
     min-height: 200px;
     object-fit: cover;
     display: block;
+    margin: 0 auto;
 }
 
 /* Mobile specific image styles */
 @media (max-width: 768px) {
     .image-section {
-        margin: 20px -20px; /* Extend beyond container padding */
-        width: calc(100% + 40px);
+        margin: 20px auto;
+        width: 100%;
+        padding: 0 20px;
+        box-sizing: border-box;
     }
     
     .image-section img {
@@ -2145,8 +2151,10 @@ footer a:hover {
 
 @media (max-width: 480px) {
     .image-section {
-        margin: 20px -15px;
-        width: calc(100% + 30px);
+        margin: 20px auto;
+        width: 100%;
+        padding: 0 15px;
+        box-sizing: border-box;
     }
     
     .image-section img {
