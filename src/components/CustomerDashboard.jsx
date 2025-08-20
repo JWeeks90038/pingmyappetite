@@ -1366,7 +1366,7 @@ return (
         </h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
           {/* Current Location */}
-          {(activeTruck.lat && activeTruck.lng) && (
+          {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
               <span style={{ fontSize: '16px' }}>📍</span>
               <strong>Current Location:</strong> 
