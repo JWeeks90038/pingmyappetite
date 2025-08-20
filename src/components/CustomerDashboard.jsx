@@ -410,6 +410,23 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
       const finalMenuUrl = truckData.menuUrl || ownerData.menuUrl || '';
       console.log("Final menu URL:", finalMenuUrl);
       
+      // Reverse geocode GPS coordinates to get address if manualLocation is not available
+      let currentAddress = truckData.manualLocation;
+      if (!currentAddress && truckData.lat && truckData.lng && window.google) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          const geocodeResults = await new Promise((resolve, reject) => {
+            geocoder.geocode({ location: { lat: truckData.lat, lng: truckData.lng } }, (results, status) => {
+              status === 'OK' ? resolve(results) : reject(status);
+            });
+          });
+          currentAddress = geocodeResults[0]?.formatted_address || 'Address not available';
+        } catch (error) {
+          console.error("Error reverse geocoding:", error);
+          currentAddress = 'Address not available';
+        }
+      }
+      
       // Combine truck data with owner data for hours and other info
       const truckInfo = {
         id: truckId,
@@ -421,6 +438,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop) => {
         coverUrl: truckData.coverUrl || ownerData.coverUrl || '',
         menuUrl: finalMenuUrl, // Store menu URL in truck info as backup
         ownerMenuUrl: ownerData.menuUrl || '', // Store owner menu URL separately
+        manualLocation: currentAddress, // Use the resolved address
         drops: truckDrops,
       };
       
@@ -1351,7 +1369,7 @@ return (
           {(activeTruck.lat && activeTruck.lng) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
               <span style={{ fontSize: '16px' }}>📍</span>
-              <strong>Current Address:</strong> 
+              <strong>Current Location:</strong> 
               <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
                 {activeTruck.manualLocation || 'Address not available'}
               </span>
