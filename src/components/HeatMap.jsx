@@ -207,14 +207,24 @@ const updateTruckMarkers = useCallback(() => {
   const now = Date.now();
   const currentTruckIds = new Set();
 
+  console.log('🗺️ HeatMap: Updating truck markers, found trucks:', truckLocations.length);
+
   truckLocations.forEach((truck) => {
-    // Only show trucks that are live, visible, and recently active
-    if (
-      !truck.isLive ||
-      !truck.visible ||
-      !truck.lastActive ||
-      now - truck.lastActive > ONLINE_THRESHOLD
-    ) {
+    console.log('🗺️ HeatMap: Processing truck:', truck.id, {
+      isLive: truck.isLive,
+      visible: truck.visible,
+      lastActive: truck.lastActive,
+      timeSinceActive: truck.lastActive ? now - truck.lastActive : 'N/A'
+    });
+
+    // More lenient check for truck visibility - allow showing trucks even if some fields are missing
+    const shouldShow = truck.lat && truck.lng && truck.visible !== false && truck.isLive !== false;
+    
+    // Only hide if explicitly set to false or if truck is very stale
+    const isStale = truck.lastActive && (now - truck.lastActive > ONLINE_THRESHOLD);
+    
+    if (!shouldShow || isStale) {
+      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
       if (markerRefs.current[truck.id]) {
         markerRefs.current[truck.id].setMap(null);
         delete markerRefs.current[truck.id];
@@ -227,6 +237,7 @@ const updateTruckMarkers = useCallback(() => {
     currentTruckIds.add(truck.id);
 
     if (!markerRefs.current[truck.id]) {
+      console.log('🗺️ HeatMap: Creating new marker for truck', truck.id);
       const marker = new window.google.maps.Marker({
         position,
         map: mapRef.current,
@@ -236,6 +247,7 @@ const updateTruckMarkers = useCallback(() => {
       
       // Add click listener for truck markers
       marker.addListener('click', () => {
+        console.log('🗺️ HeatMap: Truck marker clicked:', truck.id);
         if (onTruckMarkerClick) {
           onTruckMarkerClick(truck);
         }
@@ -243,18 +255,21 @@ const updateTruckMarkers = useCallback(() => {
       
       markerRefs.current[truck.id] = marker;
     } else {
+      console.log('🗺️ HeatMap: Updating existing marker for truck', truck.id);
       animateMarkerTo(markerRefs.current[truck.id], position);
       markerRefs.current[truck.id].setTitle(truckName);
     }
   });
 
+  // Clean up markers for trucks that no longer meet criteria
   Object.keys(markerRefs.current).forEach((id) => {
     if (!currentTruckIds.has(id)) {
+      console.log('🗺️ HeatMap: Cleaning up marker for truck', id);
       markerRefs.current[id].setMap(null);
       delete markerRefs.current[id];
     }
   });
-}, [truckLocations, truckNames, animateMarkerTo]);
+}, [truckLocations, truckNames, animateMarkerTo, onTruckMarkerClick]);
   
   // Function to toggle visibility of a truck marker
   const toggleVisibility = (truckId) => {

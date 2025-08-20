@@ -152,23 +152,54 @@ console.log("Dashboard component rendering for OWNER");
     if (userRole === "owner" && (userPlan === "pro" || userPlan === "all-access")) {
       console.log('🌍 Requesting geolocation for paid plan user...');
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           console.log('🌍 Geolocation success:', position.coords);
+          const { latitude, longitude } = position.coords;
+          
           setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude: latitude,
+            longitude: longitude,
           });
+          
+          // Immediately save to Firestore to ensure marker appears
+          if (user?.uid && sessionId) {
+            try {
+              const truckDocRef = doc(db, 'truckLocations', user.uid);
+              const locationData = {
+                lat: latitude,
+                lng: longitude,
+                isLive: true,
+                visible: true,
+                updatedAt: serverTimestamp(),
+                lastActive: Date.now(),
+                sessionId: sessionId,
+                loginTime: Date.now(),
+                ownerUid: user.uid,
+                kitchenType: ownerData?.kitchenType || "truck",
+              };
+              
+              await setDoc(truckDocRef, locationData, { merge: true });
+              console.log('🌍 Location immediately saved to Firestore:', locationData);
+            } catch (error) {
+              console.error('🌍 Error saving initial location:', error);
+            }
+          }
         },
         (error) => {
           console.error("🌍 Geolocation error: ", error);
           console.error("🌍 Error code:", error.code);
           console.error("🌍 Error message:", error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
         }
       );
     } else {
       console.log('🌍 Not requesting geolocation - userRole:', userRole, 'userPlan:', userPlan);
     }
-  }, [userRole, userPlan]);
+  }, [userRole, userPlan, user, sessionId, ownerData]);
 
   useEffect(() => {
   if (location && window.google && window.google.maps) {
@@ -191,16 +222,17 @@ console.log("Dashboard component rendering for OWNER");
 
  const handleSubmit = async (e) => {
   e.preventDefault();
-  //console.log("Submitting manual location: ", manualLocation);
+  console.log("🎯 Submitting manual location: ", manualLocation);
   if (userPlan === "basic" && user?.uid) {
     try {
       const geocoder = new window.google.maps.Geocoder();
       geocoder.geocode({ address: manualLocation }, async (results, status) => {
         if (status === "OK" && results[0]) {
           const { lat, lng } = results[0].geometry.location;
-          //console.log("Geocoded lat/lng:", lat(), lng());
+          console.log("🎯 Geocoded lat/lng:", lat(), lng());
+          
           const truckDocRef = doc(db, "truckLocations", user.uid);
-          await setDoc(truckDocRef, {
+          const locationData = {
             manualLocation,
             lat: lat(),
             lng: lng(),
@@ -212,15 +244,24 @@ console.log("Dashboard component rendering for OWNER");
             loginTime: Date.now(),
             ownerUid: user.uid,
             kitchenType: ownerData?.kitchenType || "truck",
-          });
-          //console.log("Manual location submitted and geocoded:", lat(), lng());
+          };
+          
+          await setDoc(truckDocRef, locationData);
+          console.log("🎯 Manual location submitted successfully:", locationData);
+          
+          // Clear the input after successful submission
+          setManualLocation("");
+          
+          // Update local state to show immediate feedback
+          setIsVisible(true);
         } else {
-          //console.error("Geocode error:", status);
+          console.error("🎯 Geocode error:", status);
           alert("Could not locate address. Please try a different one.");
         }
       });
     } catch (error) {
-      //console.error("Error saving manual location: ", error);
+      console.error("🎯 Error saving manual location: ", error);
+      alert("Error saving location. Please try again.");
     }
   }
 };
@@ -228,14 +269,41 @@ console.log("Dashboard component rendering for OWNER");
   useEffect(() => {
     const fetchOwnerData = async () => {
       if (!user?.uid) return;
-      //console.log("Fetching owner data for UID:", user.uid);
+      console.log("📋 Fetching owner data for UID:", user.uid);
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        //console.log("Owner data fetched:", docSnap.data());
-        setOwnerData({ uid: user.uid, ...docSnap.data() });
+        console.log("📋 Owner data fetched:", docSnap.data());
+        const data = { uid: user.uid, ...docSnap.data() };
+        setOwnerData(data);
+        
+        // After owner data is loaded, check if truck location exists and initialize if needed
+        const truckDocRef = doc(db, "truckLocations", user.uid);
+        const truckDocSnap = await getDoc(truckDocRef);
+        
+        if (!truckDocSnap.exists()) {
+          console.log("📋 No truck location document exists, creating initial document");
+          // Create initial document with basic structure
+          await setDoc(truckDocRef, {
+            ownerUid: user.uid,
+            kitchenType: data.kitchenType || "truck",
+            isLive: false,
+            visible: false,
+            lastActive: Date.now(),
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+          console.log("📋 Initial truck location document created");
+        } else {
+          // Update existing document with current owner data
+          await updateDoc(truckDocRef, {
+            ownerUid: user.uid,
+            kitchenType: data.kitchenType || "truck",
+            lastActive: Date.now(),
+          });
+          console.log("📋 Existing truck location document updated with owner data");
+        }
       } else {
-        //console.warn("Owner document not found for UID:", user.uid);
+        console.warn("📋 Owner document not found for UID:", user.uid);
       }
     };
 
@@ -264,11 +332,17 @@ console.log("Dashboard component rendering for OWNER");
   useEffect(() => {
     const fetchVisibility = async () => {
       if (user) {
+        console.log('👁️ Fetching initial visibility state for user:', user.uid);
         const docRef = doc(db, "truckLocations", user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setIsVisible(data.visible !== false);
+          const visibility = data.visible !== false; // Default to true if undefined
+          console.log('👁️ Initial visibility state:', visibility, 'from data:', data.visible);
+          setIsVisible(visibility);
+        } else {
+          console.log('👁️ No truck location document exists, defaulting visibility to false');
+          setIsVisible(false);
         }
       }
     };
@@ -277,34 +351,52 @@ console.log("Dashboard component rendering for OWNER");
 
 const handleToggle = async () => {
   const newVisibility = !isVisible;
+  console.log('🔄 Toggling visibility from', isVisible, 'to', newVisibility);
+  
   setIsVisible(newVisibility);
   setVisibilityUpdateInProgress(true); // prevent re-sync flicker
 
+  // Immediately update the marker display for instant feedback
+  if (truckMarkerRef.current && mapRef) {
+    truckMarkerRef.current.setMap(newVisibility ? mapRef : null);
+    console.log('🔄 Marker immediately updated on map:', newVisibility);
+  }
+
   if (user) {
     const truckDocRef = doc(db, "truckLocations", user.uid);
-    await updateDoc(truckDocRef, {
-      visible: newVisibility,
-      isLive: newVisibility,
-      lastActive: Date.now(),
-    });
-
-    // --- Update liveSessions in users collection ---
-    const userDocRef = doc(db, "users", user.uid);
-    if (newVisibility) {
-      // Truck is going live: add a new session with start timestamp
-      await updateDoc(userDocRef, {
-        liveSessions: arrayUnion({ start: Timestamp.now() })
+    try {
+      await updateDoc(truckDocRef, {
+        visible: newVisibility,
+        isLive: newVisibility,
+        lastActive: Date.now(),
       });
-    } else {
-      // Truck is going offline: set end timestamp for the last session
-      const userDoc = await getDoc(userDocRef);
-      const sessions = userDoc.data().liveSessions || [];
-      if (sessions.length > 0 && !sessions[sessions.length - 1].end) {
-        sessions[sessions.length - 1].end = Timestamp.now();
-        await updateDoc(userDocRef, { liveSessions: sessions });
+      console.log('🔄 Visibility updated in Firestore:', newVisibility);
+
+      // --- Update liveSessions in users collection ---
+      const userDocRef = doc(db, "users", user.uid);
+      if (newVisibility) {
+        // Truck is going live: add a new session with start timestamp
+        await updateDoc(userDocRef, {
+          liveSessions: arrayUnion({ start: Timestamp.now() })
+        });
+      } else {
+        // Truck is going offline: set end timestamp for the last session
+        const userDoc = await getDoc(userDocRef);
+        const sessions = userDoc.data().liveSessions || [];
+        if (sessions.length > 0 && !sessions[sessions.length - 1].end) {
+          sessions[sessions.length - 1].end = Timestamp.now();
+          await updateDoc(userDocRef, { liveSessions: sessions });
+        }
+      }
+      // --- End liveSessions update ---
+    } catch (error) {
+      console.error('🔄 Error updating visibility:', error);
+      // Revert the immediate change if database update fails
+      setIsVisible(!newVisibility);
+      if (truckMarkerRef.current && mapRef) {
+        truckMarkerRef.current.setMap(!newVisibility ? mapRef : null);
       }
     }
-    // --- End liveSessions update ---
 
     setTimeout(() => {
       setVisibilityUpdateInProgress(false); // let snapshot updates resume
@@ -360,44 +452,61 @@ useEffect(() => {
   const docRef = doc(db, "truckLocations", user.uid);
 
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
-    if (!docSnap.exists()) return;
+    console.log("🗺️ Dashboard marker snapshot received");
+    
+    if (!docSnap.exists()) {
+      console.log("🗺️ No truck location document exists yet");
+      return;
+    }
 
     const data = docSnap.data();
-
-    //console.log("Fetched truckLocations data:", data);
+    console.log("🗺️ Dashboard fetched truckLocations data:", data);
 
     const { lat, lng, isLive, visible } = data;
 
-    // Prevent marker logic from running prematurely
-    if (!lat || !lng || !isLive || typeof visible !== "boolean") return;
-    //console.warn("Skipping marker creation due to missing data", { lat, lng, isLive, visible });
-    //console.log("Owner dashboard marker kitchenType:", data.kitchenType);
-    //console.log("Icon URL:", getOwnerTruckIcon(data.kitchenType));
+    // More lenient check - allow marker creation even if some fields are missing/false
+    if (!lat || !lng) {
+      console.log("🗺️ Missing lat/lng, skipping marker creation");
+      return;
+    }
+    
+    console.log("🗺️ Creating/updating marker with data:", { lat, lng, isLive, visible });
+    console.log("🗺️ Owner dashboard marker kitchenType:", data.kitchenType);
+    console.log("🗺️ Icon URL:", getOwnerTruckIcon(data.kitchenType));
     
     const position = { lat, lng };
 
     if (!truckMarkerRef.current) {
+      console.log("🗺️ Creating new marker for owner");
       truckMarkerRef.current = new window.google.maps.Marker({
         position,
-        map: visible ? mapRef : null,
-      icon: {
-  url: getOwnerTruckIcon(data.kitchenType),
-  scaledSize: new window.google.maps.Size(40, 40),
-},
+        map: mapRef, // Always add to map initially
+        icon: {
+          url: getOwnerTruckIcon(data.kitchenType),
+          scaledSize: new window.google.maps.Size(40, 40),
+        },
         title: "Your Food Truck",
       });
     } else {
+      console.log("🗺️ Updating existing marker position");
       truckMarkerRef.current.setPosition(position);
-      truckMarkerRef.current.setMap(visible ? mapRef : null);
     }
 
-    setIsVisible(visible);
+    // Handle visibility separately after marker exists
+    if (truckMarkerRef.current) {
+      const shouldShow = visible !== false && isLive !== false; // Default to true if undefined
+      truckMarkerRef.current.setMap(shouldShow ? mapRef : null);
+      console.log("🗺️ Marker visibility set to:", shouldShow);
+    }
+
+    // Update state to reflect actual visibility
+    setIsVisible(visible !== false); // Default to true if undefined
   }, (error) => {
-    console.error("onSnapshot error:", error); // capture permission-denied explicitly
+    console.error("🗺️ onSnapshot error:", error); // capture permission-denied explicitly
   });
 
   return () => {
-    //console.log("Cleaning up marker for user", user?.uid);
+    console.log("🗺️ Cleaning up marker for user", user?.uid);
     if (truckMarkerRef.current) {
       truckMarkerRef.current.setMap(null);
       truckMarkerRef.current = null;

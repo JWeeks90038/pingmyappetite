@@ -23,7 +23,7 @@ const Home = () => {
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
     <section className="image-section">
         <img 
-          src="/bdexpress.png" 
+          src="/arayaki-trailer.png" 
           alt="Delicious food trucks"
         />
       </section>
@@ -79,7 +79,7 @@ const Home = () => {
 
 <section className="image-section">
         <img 
-          src="/weenie.png" 
+          src="/bdexpress.png" 
           alt="Delicious food trucks"
         />
       </section>
@@ -111,7 +111,7 @@ const Home = () => {
 
 <section className="image-section">
         <img 
-          src="/aerostat.png" 
+          src="/weenie.png" 
           alt="Delicious food trucks"
         />
       </section>
