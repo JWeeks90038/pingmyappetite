@@ -698,6 +698,8 @@ useEffect(() => {
     </button>
   </div>
 )}
+
+<p>Add/Update Truck/Trailer/Menu Photos in Settings</p>
       
      
       {userPlan ? (
