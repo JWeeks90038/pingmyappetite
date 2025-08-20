@@ -869,7 +869,7 @@ useEffect(() => {
       </div>
       {/* --- QR CODE SECTION END --- */}
 
-<h3 style={{ textAlign: 'center' }}>Your Social Media Links (discoverable by customers in your menu modal)</h3>
+<h3 style={{ textAlign: 'center' }}>Your Social Media Links (discoverable by customers in the menu display on their map)</h3>
 
 <div
   style={{

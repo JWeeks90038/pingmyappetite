@@ -1347,6 +1347,32 @@ return (
           {activeTruck.truckName || 'Food Truck'}
         </h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
+          {/* Current Location */}
+          {(activeTruck.lat && activeTruck.lng) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
+              <span style={{ fontSize: '16px' }}>📍</span>
+              <strong>Current Location:</strong> 
+              <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                {activeTruck.manualLocation || `${activeTruck.lat.toFixed(4)}, ${activeTruck.lng.toFixed(4)}`}
+              </span>
+              <a 
+                href={`https://www.google.com/maps?q=${activeTruck.lat},${activeTruck.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#1976d2', 
+                  textDecoration: 'none', 
+                  fontSize: '12px',
+                  marginLeft: '8px',
+                  padding: '2px 6px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '4px'
+                }}
+              >
+                View on Maps
+              </a>
+            </div>
+          )}
           {activeTruck.hours && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ fontSize: '16px' }}>🕒</span>
