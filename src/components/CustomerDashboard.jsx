@@ -1341,6 +1341,51 @@ return (
             </button>
           </div>
 
+          {/* Truck Information Header - Always shown */}
+          {activeTruck && (
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '15px',
+              marginBottom: '15px',
+              borderRadius: '8px',
+              borderLeft: '4px solid #2c6f57'
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#2c6f57' }}>
+                {activeTruck.truckName || 'Food Truck'}
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
+                {/* Current Location */}
+                {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
+                    <span style={{ fontSize: '16px' }}>📍</span>
+                    <strong>Current Location:</strong> 
+                    <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                      {activeTruck.manualLocation || 'Address not available'}
+                    </span>
+                  </div>
+                )}
+                {activeTruck.hours && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🕒</span>
+                    <strong>Hours:</strong> {activeTruck.hours}
+                  </div>
+                )}
+                {activeTruck.cuisine && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🍽️</span>
+                    <strong>Cuisine:</strong> {activeTruck.cuisine}
+                  </div>
+                )}
+                {activeTruck.kitchenType && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🚚</span>
+                    <strong>Type:</strong> {activeTruck.kitchenType}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Menu Content */}
 {(() => {
   console.log("Modal rendering - menuUrl:", menuUrl);
@@ -1352,50 +1397,6 @@ return (
   
   return displayMenuUrl ? (
   <div>
-    {/* Truck Information Header */}
-    {activeTruck && (
-      <div style={{
-        backgroundColor: '#f8f9fa',
-        padding: '15px',
-        marginBottom: '15px',
-        borderRadius: '8px',
-        borderLeft: '4px solid #2c6f57'
-      }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#2c6f57' }}>
-          {activeTruck.truckName || 'Food Truck'}
-        </h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
-          {/* Current Location */}
-          {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
-              <span style={{ fontSize: '16px' }}>📍</span>
-              <strong>Current Location:</strong> 
-              <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
-                {activeTruck.manualLocation || 'Address not available'}
-              </span>
-            </div>
-          )}
-          {activeTruck.hours && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '16px' }}>🕒</span>
-              <strong>Hours:</strong> {activeTruck.hours}
-            </div>
-          )}
-          {activeTruck.cuisine && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '16px' }}>🍽️</span>
-              <strong>Cuisine:</strong> {activeTruck.cuisine}
-            </div>
-          )}
-          {activeTruck.kitchenType && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '16px' }}>🚚</span>
-              <strong>Type:</strong> {activeTruck.kitchenType}
-            </div>
-          )}
-        </div>
-      </div>
-    )}
     
     {/* Truck Cover Photo */}
     {activeTruck && activeTruck.coverUrl && (
@@ -1435,7 +1436,7 @@ return (
     display: 'flex', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    height: '100%',
+    height: '300px',
     flexDirection: 'column',
     color: '#666'
   }}>
@@ -1459,18 +1460,6 @@ return (
     
     <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
     <p>No menu available for this truck</p>
-    {activeTruck && activeTruck.hours && (
-      <div style={{ 
-        marginTop: '20px', 
-        padding: '15px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '8px',
-        textAlign: 'center'
-      }}>
-        <p><strong>🕒 Hours:</strong> {activeTruck.hours}</p>
-        {activeTruck.cuisine && <p><strong>🍽️ Cuisine:</strong> {activeTruck.cuisine}</p>}
-      </div>
-    )}
   </div>
 );
 })()}

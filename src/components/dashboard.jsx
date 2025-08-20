@@ -68,6 +68,9 @@ const Dashboard = ({ isLoaded }) => {
     tiktok: "",
     twitter: "",
   });
+  // Menu modal state
+  const [menuModalVisible, setMenuModalVisible] = useState(false);
+  const [activeTruck, setActiveTruck] = useState(null);
 
   console.log("user:", user);
 console.log("userRole:", userRole);
@@ -502,6 +505,57 @@ useEffect(() => {
     link.click();
   };
 
+  // Function to handle opening the menu modal
+  const handleViewMyMenu = async () => {
+    if (!user?.uid || !ownerData) return;
+    
+    try {
+      // Get truck location data
+      const truckDoc = await getDoc(doc(db, "truckLocations", user.uid));
+      let truckData = {};
+      if (truckDoc.exists()) {
+        truckData = truckDoc.data();
+      }
+
+      // Reverse geocode GPS coordinates to get address if manualLocation is not available
+      let currentAddress = truckData.manualLocation;
+      if (!currentAddress && truckData.lat && truckData.lng && window.google) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          const geocodeResults = await new Promise((resolve, reject) => {
+            geocoder.geocode({ location: { lat: truckData.lat, lng: truckData.lng } }, (results, status) => {
+              status === 'OK' ? resolve(results) : reject(status);
+            });
+          });
+          currentAddress = geocodeResults[0]?.formatted_address || 'Address not available';
+        } catch (error) {
+          console.error("Error reverse geocoding:", error);
+          currentAddress = 'Address not available';
+        }
+      }
+
+      // Combine truck data with owner data
+      const truckInfo = {
+        id: user.uid,
+        ...truckData,
+        truckName: ownerData.truckName || ownerData.ownerName || 'Food Truck',
+        hours: ownerData.hours || '',
+        cuisine: ownerData.cuisine || '',
+        kitchenType: ownerData.kitchenType || 'truck',
+        ownerName: ownerData.ownerName || '',
+        description: ownerData.description || '',
+        coverUrl: ownerData.coverUrl || '',
+        menuUrl: ownerData.menuUrl || '',
+        manualLocation: currentAddress,
+      };
+
+      setActiveTruck(truckInfo);
+      setMenuModalVisible(true);
+    } catch (error) {
+      console.error("Error fetching truck data for modal:", error);
+    }
+  };
+
   return (
     <div className="dashboard">
 
@@ -578,6 +632,27 @@ useEffect(() => {
     </button>
   </div>
 )}
+
+      {/* View Menu Modal Button */}
+      {ownerData && (ownerData.coverUrl || ownerData.menuUrl) && (
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <button
+            style={{
+              padding: "10px 20px",
+              background: "#2c6f57",
+              color: "#fff",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "1rem",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+            onClick={handleViewMyMenu}
+          >
+            📱 Preview My Menu Modal (Customer View)
+          </button>
+        </div>
+      )}
       
      
       {userPlan ? (
@@ -981,6 +1056,238 @@ useEffect(() => {
           </button>
         </div>
       )}
+
+    {/* Menu Modal for Owner */}
+    {menuModalVisible && activeTruck && (
+      <div
+        className="menu-modal"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          zIndex: 1000,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '90%',
+            height: '90%',
+            backgroundColor: '#fff',
+            padding: '10px',
+            borderRadius: '8px',
+            overflow: 'auto',
+          }}
+        >
+          {/* Close Button Banner */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              color: '#fff',
+              padding: '5px 15px',
+              borderBottomLeftRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <button
+              onClick={() => {
+                setMenuModalVisible(false);
+                setActiveTruck(null);
+              }}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#fff',
+                border: 'none',
+                fontSize: '16px',
+                cursor: 'pointer',
+              }}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Truck Information Header - Always shown */}
+          {activeTruck && (
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '15px',
+              marginBottom: '15px',
+              borderRadius: '8px',
+              borderLeft: '4px solid #2c6f57'
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#2c6f57' }}>
+                {activeTruck.truckName || 'Food Truck'}
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
+                {/* Current Location */}
+                {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
+                    <span style={{ fontSize: '16px' }}>📍</span>
+                    <strong>Current Location:</strong> 
+                    <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                      {activeTruck.manualLocation || 'Address not available'}
+                    </span>
+                  </div>
+                )}
+                {activeTruck.hours && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🕒</span>
+                    <strong>Hours:</strong> {activeTruck.hours}
+                  </div>
+                )}
+                {activeTruck.cuisine && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🍽️</span>
+                    <strong>Cuisine:</strong> {activeTruck.cuisine}
+                  </div>
+                )}
+                {activeTruck.kitchenType && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '16px' }}>🚚</span>
+                    <strong>Type:</strong> {activeTruck.kitchenType}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Menu Content */}
+          {activeTruck.menuUrl ? (
+            <div>
+              {/* Truck Cover Photo */}
+              {activeTruck.coverUrl && (
+                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                  <img
+                    src={activeTruck.coverUrl}
+                    alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
+                    style={{
+                      width: '100%',
+                      maxWidth: '600px',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+              )}
+              
+              {/* Menu Display */}
+              {activeTruck.menuUrl.endsWith('.pdf') ? (
+                <iframe
+                  src={activeTruck.menuUrl}
+                  style={{ width: '100%', height: 'calc(100% - 120px)' }}
+                  title="Menu PDF"
+                />
+              ) : (
+                <img
+                  src={activeTruck.menuUrl}
+                  alt="Menu"
+                  style={{ maxWidth: '100%', maxHeight: 'calc(100% - 120px)', objectFit: 'contain' }}
+                />
+              )}
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '300px',
+              flexDirection: 'column',
+              color: '#666'
+            }}>
+              {/* Truck Cover Photo - shown even when no menu */}
+              {activeTruck.coverUrl && (
+                <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                  <img
+                    src={activeTruck.coverUrl}
+                    alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
+                    style={{
+                      width: '100%',
+                      maxWidth: '500px',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+              )}
+              
+              <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
+              <p>No menu available for this truck</p>
+            </div>
+          )}
+
+          {/* Social Media Links */}
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <h3>Follow This Truck</h3>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '15px',
+                fontSize: '24px',
+              }}
+            >
+              {socialLinks.instagram && (
+                <a
+                  href={socialLinks.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#E4405F' }}
+                >
+                  <FaInstagram />
+                </a>
+              )}
+              {socialLinks.facebook && (
+                <a
+                  href={socialLinks.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#3b5998' }}
+                >
+                  <FaFacebook />
+                </a>
+              )}
+              {socialLinks.tiktok && (
+                <a
+                  href={socialLinks.tiktok}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#000000' }}
+                >
+                  <FaTiktok />
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a
+                  href={socialLinks.twitter}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#000000' }}
+                  aria-label="X"
+                >
+                  <FaXTwitter />
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };
