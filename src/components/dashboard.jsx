@@ -57,6 +57,7 @@ const Dashboard = ({ isLoaded }) => {
   const [truckName, setTruckName] = useState("");
   const [cuisine, setCuisine] = useState("");
   const [ownerData, setOwnerData] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
   const [visibilityUpdateInProgress, setVisibilityUpdateInProgress] = useState(false);
   const [truckLat, setTruckLat] = useState(null);
   const [truckLng, setTruckLng] = useState(null);
@@ -97,6 +98,16 @@ console.log("Dashboard component rendering for OWNER");
   }, [userPlan]);
   const previousPlan = prevPlanRef.current;
 
+  // Generate session ID when user first logs in
+  useEffect(() => {
+    if (user && !sessionId) {
+      const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      setSessionId(newSessionId);
+    } else if (!user) {
+      setSessionId(null);
+    }
+  }, [user, sessionId]);
+
   // --- Place this useEffect after the above ---
   useEffect(() => {
     console.log('🚀 LATEST CODE: Dashboard useEffect running - Version e1da37bc');
@@ -118,6 +129,8 @@ console.log("Dashboard component rendering for OWNER");
               visible: true,
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
+              sessionId: sessionId,
+              loginTime: Date.now(),
               ownerUid: user.uid, // Ensure ownerUid is set
             }, { merge: true });
             //console.log("Truck location updated after plan upgrade.");
@@ -192,6 +205,8 @@ console.log("Dashboard component rendering for OWNER");
             isLive: true,
             visible: true,
             lastActive: Date.now(),
+            sessionId: sessionId,
+            loginTime: Date.now(),
             ownerUid: user.uid,
             kitchenType: ownerData?.kitchenType || "truck",
           });
