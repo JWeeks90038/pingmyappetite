@@ -517,6 +517,19 @@ useEffect(() => {
         ownerData = ownerDoc.data();
       }
 
+      // Fetch drops for this truck
+      let truckDrops = [];
+      try {
+        const dropsQuery = query(
+          collection(db, "drops"),
+          where("truckId", "==", truck.id)
+        );
+        const querySnapshot = await getDocs(dropsQuery);
+        truckDrops = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (error) {
+        console.error("Error fetching drops for clicked truck:", error);
+      }
+
       // Reverse geocode GPS coordinates to get address if manualLocation is not available
       let currentAddress = truck.manualLocation;
       if (!currentAddress && truck.lat && truck.lng && window.google) {
@@ -547,6 +560,7 @@ useEffect(() => {
         coverUrl: ownerData.coverUrl || '',
         menuUrl: ownerData.menuUrl || '',
         manualLocation: currentAddress,
+        drops: truckDrops, // Add the drops data
       };
 
       setActiveTruck(truckInfo);
@@ -598,6 +612,7 @@ useEffect(() => {
         coverUrl: ownerData.coverUrl || '',
         menuUrl: ownerData.menuUrl || '',
         manualLocation: currentAddress,
+        drops: drops, // Include the owner's drops
       };
 
       setActiveTruck(truckInfo);
@@ -1287,6 +1302,55 @@ useEffect(() => {
               
               <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
               <p>No menu available for this truck</p>
+            </div>
+          )}
+
+          {/* Owner's Drops Section */}
+          {activeTruck.drops && activeTruck.drops.length > 0 && (
+            <div style={{
+              backgroundColor: '#f0f8f0',
+              padding: '15px',
+              marginBottom: '15px',
+              borderRadius: '8px',
+              borderLeft: '4px solid #28a745'
+            }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#28a745', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🎁 {activeTruck.id === user?.uid ? 'Your Active Drops' : `${activeTruck.truckName || 'This Truck'}'s Active Drops`}
+              </h3>
+              {activeTruck.drops.map((drop) => (
+                <div key={drop.id} style={{ 
+                  marginBottom: '15px', 
+                  padding: '12px',
+                  backgroundColor: '#fff',
+                  borderRadius: '6px',
+                  border: '1px solid #e0e0e0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                  <h4 style={{ margin: '0 0 8px 0', color: '#333' }}>{drop.title}</h4>
+                  <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.4' }}>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Description:</strong> {drop.description || 'No description'}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Total Quantity:</strong> {drop.quantity ?? 'N/A'}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Claims:</strong> {drop.claimedBy?.length ?? 0} / {drop.quantity ?? 0}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}
+                    </p>
+                    <p style={{ margin: '4px 0' }}>
+                      <strong>Expires:</strong> {drop.expiresAt?.toDate ? drop.expiresAt.toDate().toLocaleString() : 'N/A'}
+                    </p>
+                    {drop.claimedBy && drop.claimedBy.length > 0 && (
+                      <p style={{ margin: '8px 0 4px 0', fontSize: '13px', fontStyle: 'italic', color: '#28a745' }}>
+                        ✅ {drop.claimedBy.length} customer{drop.claimedBy.length > 1 ? 's have' : ' has'} claimed this drop
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
