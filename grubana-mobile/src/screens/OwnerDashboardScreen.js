@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  AppState,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useAuth } from '../components/AuthContext';
@@ -42,6 +43,51 @@ const OwnerDashboardScreen = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Keep truck alive with periodic lastActive updates (same as web version)
+  useEffect(() => {
+    if (!user?.uid || !isLive) return;
+    
+    const truckLocationRef = doc(db, 'truckLocations', user.uid);
+
+    // Update lastActive every 30 seconds to prevent stale markers
+    const interval = setInterval(() => {
+      updateDoc(truckLocationRef, {
+        lastActive: Date.now(),
+      }).catch(error => {
+        console.error("Error updating lastActive:", error);
+      });
+    }, 30 * 1000); // 30 seconds interval
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user, isLive]);
+
+  // Handle app backgrounding/foregrounding to maintain truck presence
+  useEffect(() => {
+    if (!user?.uid || !isLive) return;
+
+    const truckLocationRef = doc(db, 'truckLocations', user.uid);
+
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground, immediately update lastActive
+        updateDoc(truckLocationRef, {
+          lastActive: Date.now(),
+        }).catch(error => {
+          console.error("Error updating lastActive on app foreground:", error);
+        });
+      }
+      // Note: We don't set isLive to false when backgrounded to keep truck visible
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [user, isLive]);
 
   const startLocationTracking = async () => {
     try {

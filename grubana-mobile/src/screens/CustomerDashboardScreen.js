@@ -148,7 +148,7 @@ const CustomerDashboardScreen = () => {
     const unsubscribe = onSnapshot(collection(db, 'truckLocations'), (snapshot) => {
       const trucks = [];
       const nowMs = Date.now();
-      const FIVE_MIN = 5 * 60 * 1000;
+      const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8 hours in milliseconds (consistent with web)
       const MAX_DISTANCE_MILES = 30; // 30 mile radius for dashboard
 
       snapshot.docs.forEach(doc => {
@@ -156,7 +156,7 @@ const CustomerDashboardScreen = () => {
         const isLive = data.isLive === true;
         const visible = data.visible === true;
         const lastActive = data.lastActive || 0;
-        const isStale = nowMs - lastActive > FIVE_MIN;
+        const isStale = nowMs - lastActive > EIGHT_HOURS;
 
         if (isLive && visible && !isStale) {
           // Apply distance filter if user location is available
