@@ -1332,8 +1332,9 @@ return (
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
-                fontSize: '16px',
+                fontSize: '12px', /* Reduced size */
                 cursor: 'pointer',
+                padding: '5px', /* Added padding for better alignment */
               }}
               aria-label="Close"
             >

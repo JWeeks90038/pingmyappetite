@@ -505,6 +505,57 @@ useEffect(() => {
     link.click();
   };
 
+  // Function to handle truck marker clicks from HeatMap
+  const handleTruckMarkerClick = async (truck) => {
+    if (!truck || !truck.id) return;
+    
+    try {
+      // Get owner data for the clicked truck
+      const ownerDoc = await getDoc(doc(db, "users", truck.id));
+      let ownerData = {};
+      if (ownerDoc.exists()) {
+        ownerData = ownerDoc.data();
+      }
+
+      // Reverse geocode GPS coordinates to get address if manualLocation is not available
+      let currentAddress = truck.manualLocation;
+      if (!currentAddress && truck.lat && truck.lng && window.google) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          const geocodeResults = await new Promise((resolve, reject) => {
+            geocoder.geocode({ location: { lat: truck.lat, lng: truck.lng } }, (results, status) => {
+              status === 'OK' ? resolve(results) : reject(status);
+            });
+          });
+          currentAddress = geocodeResults[0]?.formatted_address || 'Address not available';
+        } catch (error) {
+          console.error("Error reverse geocoding:", error);
+          currentAddress = 'Address not available';
+        }
+      }
+
+      // Combine truck data with owner data
+      const truckInfo = {
+        id: truck.id,
+        ...truck,
+        truckName: ownerData.truckName || ownerData.ownerName || 'Food Truck',
+        hours: ownerData.hours || '',
+        cuisine: ownerData.cuisine || '',
+        kitchenType: ownerData.kitchenType || 'truck',
+        ownerName: ownerData.ownerName || '',
+        description: ownerData.description || '',
+        coverUrl: ownerData.coverUrl || '',
+        menuUrl: ownerData.menuUrl || '',
+        manualLocation: currentAddress,
+      };
+
+      setActiveTruck(truckInfo);
+      setMenuModalVisible(true);
+    } catch (error) {
+      console.error("Error fetching truck data for modal:", error);
+    }
+  };
+
   // Function to handle opening the menu modal
   const handleViewMyMenu = async () => {
     if (!user?.uid || !ownerData) return;
@@ -849,7 +900,7 @@ useEffect(() => {
           The heat map below shows where customers are requesting mobile vendors in real time:
         </p>
       )}
-      <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} userPlan={userPlan} />
+      <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} userPlan={userPlan} onTruckMarkerClick={handleTruckMarkerClick} />
 
       {/* Analytics Section - Plan-based Access */}
       {ownerData && userPlan === "all-access" && (
@@ -1093,11 +1144,13 @@ useEffect(() => {
               right: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: '#fff',
-              padding: '5px 15px',
+              padding: '3px 8px',
               borderBottomLeftRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              width: '30px',
+              height: '30px',
             }}
           >
             <button
@@ -1109,8 +1162,14 @@ useEffect(() => {
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
-                fontSize: '16px',
+                fontSize: '14px',
                 cursor: 'pointer',
+                padding: '0',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               aria-label="Close"
             >

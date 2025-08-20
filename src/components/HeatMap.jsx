@@ -41,7 +41,7 @@ const FilterButton = React.memo(({ label, active, onClick }) => (
   </button>
 ));
 
-const HeatMap = ({isLoaded, onMapLoad, userPlan}) => {
+const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const db = getFirestore();
   const auth = getAuth();
 
@@ -199,7 +199,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan}) => {
     marker.setPosition(newPosition);
   }, []);
 
-  const ONLINE_THRESHOLD = 2 * 60 * 1000; // 2 minutes in milliseconds
+  const ONLINE_THRESHOLD = 8 * 60 * 60 * 1000; // 8 hours in milliseconds (consistent with mobile)
 
 const updateTruckMarkers = useCallback(() => {
   if (!window.google || !mapRef.current) return;
@@ -233,6 +233,14 @@ const updateTruckMarkers = useCallback(() => {
         title: truckName,
         icon: getTruckIcon(truck.kitchenType),
       });
+      
+      // Add click listener for truck markers
+      marker.addListener('click', () => {
+        if (onTruckMarkerClick) {
+          onTruckMarkerClick(truck);
+        }
+      });
+      
       markerRefs.current[truck.id] = marker;
     } else {
       animateMarkerTo(markerRefs.current[truck.id], position);
