@@ -405,18 +405,23 @@ const handleToggle = async () => {
 };
 
 const handleLogout = async () => {
+  console.log('🚪 Dashboard: handleLogout called');
   try {
     if (user?.uid) {
-      await updateDoc(doc(db, "truckLocations", user.uid), {
+      console.log('🚪 Dashboard: Updating truck location for user:', user.uid);
+      const truckDocRef = doc(db, "truckLocations", user.uid);
+      await updateDoc(truckDocRef, {
         isLive: false,
         visible: false,
         lastActive: Date.now(),
       });
+      console.log('🚪 Dashboard: Truck location updated successfully');
     }
     await logoutUser();
+    console.log('🚪 Dashboard: User logged out successfully');
     navigate("/login");
   } catch (error) {
-    console.error("Logout failed:", error.message);
+    console.error("🚪 Dashboard: Logout failed:", error.message);
   }
 };
 
@@ -578,28 +583,82 @@ useEffect(() => {
     // Note: We don't set isLive to false when hidden to keep truck visible
   };
 
-  // Handle browser/tab close to hide truck when user navigates away
-  const handleBeforeUnload = () => {
-    // For immediate navigation away, we'll rely on the server-side cleanup
-    // or implement a more robust solution with a backend endpoint
+  // Enhanced page unload handler to ensure truck is hidden
+  const handleBeforeUnload = async () => {
+    console.log('🚪 Page unload detected - hiding truck from map');
     try {
-      updateDoc(truckDocRef, {
+      // Use sendBeacon for more reliable delivery during page unload
+      const data = JSON.stringify({
         isLive: false,
         visible: false,
         lastActive: Date.now(),
       });
+      
+      // Try to use sendBeacon first (more reliable for page unload)
+      if (navigator.sendBeacon) {
+        const blob = new Blob([data], { type: 'application/json' });
+        // Note: sendBeacon can't directly update Firestore, so we'll use the regular method
+      }
+      
+      // Immediate synchronous update
+      await updateDoc(truckDocRef, {
+        isLive: false,
+        visible: false,
+        lastActive: Date.now(),
+      });
+      console.log('🚪 Truck hidden from map on page unload');
     } catch (error) {
-      console.error("Error updating truck status on unload:", error);
+      console.error("🚪 Error hiding truck on page unload:", error);
+    }
+  };
+
+  // Enhanced page hide handler (for mobile browsers)
+  const handlePageHide = async () => {
+    console.log('🚪 Page hide detected - hiding truck from map');
+    try {
+      await updateDoc(truckDocRef, {
+        isLive: false,
+        visible: false,
+        lastActive: Date.now(),
+      });
+      console.log('🚪 Truck hidden from map on page hide');
+    } catch (error) {
+      console.error("🚪 Error hiding truck on page hide:", error);
     }
   };
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('pagehide', handlePageHide);
+
+  // Also handle navigation away from the page (React Router)
+  const handleNavigation = async () => {
+    console.log('🚪 Navigation away detected - hiding truck from map');
+    try {
+      await updateDoc(truckDocRef, {
+        isLive: false,
+        visible: false,
+        lastActive: Date.now(),
+      });
+      console.log('🚪 Truck hidden from map on navigation');
+    } catch (error) {
+      console.error("🚪 Error hiding truck on navigation:", error);
+    }
+  };
+
+  // Store cleanup function for component unmount
+  const cleanup = handleNavigation;
 
   return () => {
     clearInterval(interval);
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.removeEventListener('pagehide', handlePageHide);
+    
+    // Call cleanup when component unmounts (navigation away)
+    cleanup().catch(error => {
+      console.error("🚪 Error during component cleanup:", error);
+    });
   };
 }, [user]);
 

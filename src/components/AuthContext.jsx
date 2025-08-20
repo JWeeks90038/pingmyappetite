@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 const AuthContext = createContext();
@@ -11,12 +11,31 @@ export const AuthContextProvider = ({ children }) => {
   const [userPlan, setUserPlan] = useState(null);
   const [userSubscriptionStatus, setUserSubscriptionStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [previousUser, setPreviousUser] = useState(null);
   const auth = getAuth();
 
   useEffect(() => {
     let unsubUserDoc = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // Handle user logout - hide truck from map when user changes from logged in to logged out
+      if (previousUser && !currentUser) {
+        console.log('🚪 AuthContext: User logged out, hiding truck from map for:', previousUser.uid);
+        try {
+          const truckDocRef = doc(db, "truckLocations", previousUser.uid);
+          await updateDoc(truckDocRef, {
+            isLive: false,
+            visible: false,
+            lastActive: Date.now(),
+          });
+          console.log('🚪 AuthContext: Truck successfully hidden on logout');
+        } catch (error) {
+          console.error('🚪 AuthContext: Error hiding truck on logout:', error);
+        }
+      }
+
+      setPreviousUser(currentUser);
+
       if (!currentUser) {
         setUser(null);
         setUserRole(null);
@@ -76,7 +95,7 @@ export const AuthContextProvider = ({ children }) => {
       unsubscribe();
       if (unsubUserDoc) unsubUserDoc();
     };
-  }, [auth]);
+  }, [auth, previousUser]);
 
   return (
     <AuthContext.Provider value={{ user, userRole, userPlan, userSubscriptionStatus, loading }}>

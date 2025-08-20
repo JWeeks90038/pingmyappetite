@@ -8,11 +8,15 @@ const LogoutLink = () => {
 
   const handleLogout = async (e) => {
     e.preventDefault();
+    console.log('🚪 LogoutLink: Logout initiated');
+    
     try {
+      // Use the updated logoutUser function that handles truck cleanup
       await logoutUser();
+      console.log('🚪 LogoutLink: Logout completed successfully');
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error.message);
+      console.error('🚪 LogoutLink: Logout failed:', error.message);
     }
   };
 
