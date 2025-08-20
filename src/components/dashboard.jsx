@@ -429,13 +429,51 @@ useEffect(() => {
   if (!user?.uid) return;
   const truckDocRef = doc(db, "truckLocations", user.uid);
 
+  // Update lastActive every 30 seconds instead of 60 for more frequent updates
   const interval = setInterval(() => {
     updateDoc(truckDocRef, {
       lastActive: Date.now(),
+    }).catch(error => {
+      console.error("Error updating lastActive:", error);
     });
-  }, 60 * 1000);
+  }, 30 * 1000); // Reduced from 60 to 30 seconds
 
-  return () => clearInterval(interval);
+  // Handle page visibility changes to maintain presence even when screen is dark
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      // When page becomes visible again, immediately update lastActive
+      updateDoc(truckDocRef, {
+        lastActive: Date.now(),
+      }).catch(error => {
+        console.error("Error updating lastActive on visibility change:", error);
+      });
+    }
+    // Note: We don't set isLive to false when hidden to keep truck visible
+  };
+
+  // Handle browser/tab close to hide truck when user navigates away
+  const handleBeforeUnload = () => {
+    // For immediate navigation away, we'll rely on the server-side cleanup
+    // or implement a more robust solution with a backend endpoint
+    try {
+      updateDoc(truckDocRef, {
+        isLive: false,
+        visible: false,
+        lastActive: Date.now(),
+      });
+    } catch (error) {
+      console.error("Error updating truck status on unload:", error);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  };
 }, [user]);
 
 // Download QR code handler

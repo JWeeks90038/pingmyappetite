@@ -601,12 +601,10 @@ useEffect(() => {
       const lng = data.lng || 0;
       const isLive = data.isLive === true;
       const visible = data.visible === true;
-      const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in milliseconds
-      const lastActive = data.lastActive || 0;
-      const isStale = nowMs - lastActive > FIVE_MIN;
-
-      // Check if truck should be removed
-      if (change.type === 'removed' || !isLive || !visible || isStale || !showTrucks) {
+      
+      // Only check if explicitly removed, not live, or not visible
+      // Remove the stale check so trucks stay visible when screens go dark
+      if (change.type === 'removed' || !isLive || !visible || !showTrucks) {
         if (foodTruckMarkers.current[id]) {
           foodTruckMarkers.current[id].setMap(null);
           delete foodTruckMarkers.current[id];
