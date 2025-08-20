@@ -698,27 +698,6 @@ useEffect(() => {
     </button>
   </div>
 )}
-
-      {/* View Menu Modal Button */}
-      {ownerData && (ownerData.coverUrl || ownerData.menuUrl) && (
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <button
-            style={{
-              padding: "10px 20px",
-              background: "#2c6f57",
-              color: "#fff",
-              border: "none",
-              borderRadius: "6px",
-              fontSize: "1rem",
-              cursor: "pointer",
-              fontWeight: "bold"
-            }}
-            onClick={handleViewMyMenu}
-          >
-            📱 Preview My Menu Modal (Customer View)
-          </button>
-        </div>
-      )}
       
      
       {userPlan ? (
