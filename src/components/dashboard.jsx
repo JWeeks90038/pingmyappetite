@@ -179,7 +179,7 @@ console.log("Dashboard component rendering for OWNER");
               };
               
               await setDoc(truckDocRef, locationData, { merge: true });
-              console.log('🌍 Location immediately saved to Firestore:', locationData);
+              console.log('🌍 Location immediately saved to Firestore with both visible and isLive set to true:', locationData);
             } catch (error) {
               console.error('🌍 Error saving initial location:', error);
             }
@@ -277,13 +277,13 @@ console.log("Dashboard component rendering for OWNER");
         const data = { uid: user.uid, ...docSnap.data() };
         setOwnerData(data);
         
-        // After owner data is loaded, check if truck location exists and initialize if needed
+          // After owner data is loaded, check if truck location exists and initialize if needed
         const truckDocRef = doc(db, "truckLocations", user.uid);
         const truckDocSnap = await getDoc(truckDocRef);
         
         if (!truckDocSnap.exists()) {
           console.log("📋 No truck location document exists, creating initial document");
-          // Create initial document with basic structure
+          // Create initial document with basic structure - start as hidden
           await setDoc(truckDocRef, {
             ownerUid: user.uid,
             kitchenType: data.kitchenType || "truck",
@@ -292,7 +292,7 @@ console.log("Dashboard component rendering for OWNER");
             lastActive: Date.now(),
             createdAt: serverTimestamp(),
           }, { merge: true });
-          console.log("📋 Initial truck location document created");
+          console.log("📋 Initial truck location document created (hidden by default)");
         } else {
           // Update existing document with current owner data
           await updateDoc(truckDocRef, {
@@ -337,8 +337,9 @@ console.log("Dashboard component rendering for OWNER");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          const visibility = data.visible !== false; // Default to true if undefined
-          console.log('👁️ Initial visibility state:', visibility, 'from data:', data.visible);
+          // Use strict comparison - only true if both visible and isLive are explicitly true
+          const visibility = data.visible === true && data.isLive === true;
+          console.log('👁️ Initial visibility state:', visibility, 'from data:', { visible: data.visible, isLive: data.isLive });
           setIsVisible(visibility);
         } else {
           console.log('👁️ No truck location document exists, defaulting visibility to false');
@@ -365,12 +366,14 @@ const handleToggle = async () => {
   if (user) {
     const truckDocRef = doc(db, "truckLocations", user.uid);
     try {
+      // When making visible, set both visible and isLive to true
+      // When hiding, set both to false
       await updateDoc(truckDocRef, {
         visible: newVisibility,
         isLive: newVisibility,
         lastActive: Date.now(),
       });
-      console.log('🔄 Visibility updated in Firestore:', newVisibility);
+      console.log('🔄 Visibility updated in Firestore:', { visible: newVisibility, isLive: newVisibility });
 
       // --- Update liveSessions in users collection ---
       const userDocRef = doc(db, "users", user.uid);
@@ -469,7 +472,7 @@ useEffect(() => {
 
     const { lat, lng, isLive, visible } = data;
 
-    // More lenient check - allow marker creation even if some fields are missing/false
+    // Create marker if we have coordinates
     if (!lat || !lng) {
       console.log("🗺️ Missing lat/lng, skipping marker creation");
       return;
@@ -497,15 +500,15 @@ useEffect(() => {
       truckMarkerRef.current.setPosition(position);
     }
 
-    // Handle visibility separately after marker exists
+    // Handle visibility with stricter logic - only show if explicitly true
     if (truckMarkerRef.current) {
-      const shouldShow = visible !== false && isLive !== false; // Default to true if undefined
+      const shouldShow = visible === true && isLive === true;
       truckMarkerRef.current.setMap(shouldShow ? mapRef : null);
-      console.log("🗺️ Marker visibility set to:", shouldShow);
+      console.log("🗺️ Marker visibility set to:", shouldShow, { visible, isLive });
     }
 
-    // Update state to reflect actual visibility
-    setIsVisible(visible !== false); // Default to true if undefined
+    // Update state to reflect actual visibility (use strict true comparison)
+    setIsVisible(visible === true && isLive === true);
   }, (error) => {
     console.error("🗺️ onSnapshot error:", error); // capture permission-denied explicitly
   });
@@ -1045,6 +1048,32 @@ useEffect(() => {
     </span>
   </label>
 </div>
+
+      {/* Debug section - remove in production */}
+      <div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px", fontSize: "12px" }}>
+        <strong>Debug Info:</strong>
+        <br />
+        isVisible state: {String(isVisible)}
+        <br />
+        <button 
+          onClick={async () => {
+            if (user?.uid) {
+              const docRef = doc(db, "truckLocations", user.uid);
+              const docSnap = await getDoc(docRef);
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                console.log("🔍 Current Firestore data:", data);
+                alert(`Firestore data:\nvisible: ${data.visible}\nisLive: ${data.isLive}\nlastActive: ${new Date(data.lastActive).toLocaleString()}`);
+              } else {
+                alert("No truck location document found");
+              }
+            }
+          }}
+          style={{ marginTop: "5px", padding: "5px 10px", fontSize: "11px" }}
+        >
+          Check Firestore Data
+        </button>
+      </div>
 
       <h2>Live Demand Map</h2>
       {userPlan === "basic" ? (

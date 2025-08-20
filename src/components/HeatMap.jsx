@@ -217,11 +217,22 @@ const updateTruckMarkers = useCallback(() => {
       timeSinceActive: truck.lastActive ? now - truck.lastActive : 'N/A'
     });
 
-    // More lenient check for truck visibility - allow showing trucks even if some fields are missing
-    const shouldShow = truck.lat && truck.lng && truck.visible !== false && truck.isLive !== false;
+    // Stricter check for truck visibility - require explicit true values for isLive and visible
+    const hasCoordinates = truck.lat && truck.lng;
+    const isExplicitlyVisible = truck.visible === true;
+    const isExplicitlyLive = truck.isLive === true;
+    const shouldShow = hasCoordinates && isExplicitlyVisible && isExplicitlyLive;
     
-    // Only hide if explicitly set to false or if truck is very stale
+    // Also hide if truck is very stale (regardless of other flags)
     const isStale = truck.lastActive && (now - truck.lastActive > ONLINE_THRESHOLD);
+    
+    console.log('🗺️ HeatMap: Visibility check for truck', truck.id, {
+      hasCoordinates,
+      isExplicitlyVisible,
+      isExplicitlyLive,
+      shouldShow,
+      isStale
+    });
     
     if (!shouldShow || isStale) {
       console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
