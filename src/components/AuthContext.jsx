@@ -21,22 +21,7 @@ export const AuthContextProvider = ({ children }) => {
     let unsubUserDoc = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      // Handle user logout - hide truck from map when user changes from logged in to logged out
-      if (previousUser && !currentUser) {
-        console.log('🚪 AuthContext: User logged out, hiding truck from map for:', previousUser.uid);
-        try {
-          const truckDocRef = doc(db, "truckLocations", previousUser.uid);
-          await updateDoc(truckDocRef, {
-            isLive: false,
-            visible: false,
-            lastActive: Date.now(),
-          });
-          console.log('🚪 AuthContext: Truck successfully hidden on logout');
-        } catch (error) {
-          console.error('🚪 AuthContext: Error hiding truck on logout:', error);
-        }
-      }
-
+      // Store previous user state for comparison
       setPreviousUser(currentUser);
 
       if (!currentUser) {
@@ -54,73 +39,109 @@ export const AuthContextProvider = ({ children }) => {
       const userDocRef = doc(db, "users", currentUser.uid);
 
       unsubUserDoc = onSnapshot(userDocRef, async (userSnap) => {
-        if (!userSnap.exists()) {
-          // CRITICAL: Don't create default user document immediately
-          // This prevents overriding the user document created during signup
-          console.log('🚀 AuthContext: User document does not exist yet, waiting for signup to complete...');
-          
-          // Wait a moment to see if signup is creating the document
-          setTimeout(async () => {
-            const retrySnap = await getDoc(userDocRef);
-            if (!retrySnap.exists()) {
-              console.log('🚀 AuthContext: Creating default user document after timeout');
-              const newUser = {
-                uid: currentUser.uid,
-                username: currentUser.displayName || "",
-                email: currentUser.email || "",
-                role: "customer", // Default to customer only if no signup document was created
-                plan: "basic",
-                subscriptionStatus: "active", // Basic is always active
-                menuUrl: "",
-                instagram: "",
-                facebook: "",
-                tiktok: "",
-                twitter: "",
-              };
-              await setDoc(userDocRef, newUser);
-              setUserRole(newUser.role);
-              setUserPlan(newUser.plan);
-              setUserSubscriptionStatus(newUser.subscriptionStatus);
-            }
-          }, 2000); // Wait 2 seconds for signup to complete
-          
-          // Set loading state while waiting
-          setUserRole(null);
-          setUserPlan(null);
-          setUserSubscriptionStatus(null);
-        } else {
-          console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
-          const data = userSnap.data();
-          setUserRole(data.role || "customer");
-          setUserPlan(data.plan || "basic");
-          
-          // CRITICAL: Clean up truck location documents for non-owners
-          if (data.role && data.role !== "owner") {
-            console.log('🧹 AuthContext: Cleaning up truck location for non-owner user:', currentUser.uid, 'role:', data.role);
-            const truckDocRef = doc(db, "truckLocations", currentUser.uid);
+        try {
+          if (!userSnap.exists()) {
+            // CRITICAL: Don't create default user document immediately
+            // This prevents overriding the user document created during signup
+            console.log('🚀 AuthContext: User document does not exist yet, waiting for signup to complete...');
             
-            try {
-              const truckDocSnap = await getDoc(truckDocRef);
-              if (truckDocSnap.exists()) {
-                await deleteDoc(truckDocRef);
-                console.log('🧹 AuthContext: Truck location document deleted for non-owner');
+            // Wait a moment to see if signup is creating the document
+            setTimeout(async () => {
+              try {
+                const retrySnap = await getDoc(userDocRef);
+                if (!retrySnap.exists()) {
+                  console.log('🚀 AuthContext: Creating default user document after timeout');
+                  const newUser = {
+                    uid: currentUser.uid,
+                    username: currentUser.displayName || "",
+                    email: currentUser.email || "",
+                    role: "customer", // Default to customer only if no signup document was created
+                    plan: "basic",
+                    subscriptionStatus: "active", // Basic is always active
+                    menuUrl: "",
+                    instagram: "",
+                    facebook: "",
+                    tiktok: "",
+                    twitter: "",
+                  };
+                  await setDoc(userDocRef, newUser);
+                  setUserRole(newUser.role);
+                  setUserPlan(newUser.plan);
+                  setUserSubscriptionStatus(newUser.subscriptionStatus);
+                }
+              } catch (timeoutError) {
+                console.error('🚀 AuthContext: Error creating default user document:', timeoutError);
+                // Set defaults even if creation fails
+                setUserRole("customer");
+                setUserPlan("basic");
+                setUserSubscriptionStatus("active");
               }
-            } catch (error) {
-              console.error('🧹 AuthContext: Error deleting truck location document:', error);
+            }, 2000); // Wait 2 seconds for signup to complete
+            
+            // Set loading state while waiting
+            setUserRole(null);
+            setUserPlan(null);
+            setUserSubscriptionStatus(null);
+          } else {
+            console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
+            const data = userSnap.data();
+            setUserRole(data.role || "customer");
+            setUserPlan(data.plan || "basic");
+            
+            // CRITICAL: Clean up truck location documents for non-owners
+            if (data.role && data.role !== "owner") {
+              console.log('🧹 AuthContext: Cleaning up truck location for non-owner user:', currentUser.uid, 'role:', data.role);
+              const truckDocRef = doc(db, "truckLocations", currentUser.uid);
+              
+              try {
+                const truckDocSnap = await getDoc(truckDocRef);
+                if (truckDocSnap.exists()) {
+                  await deleteDoc(truckDocRef);
+                  console.log('🧹 AuthContext: Truck location document deleted for non-owner');
+                }
+              } catch (error) {
+                console.error('🧹 AuthContext: Error deleting truck location document:', error);
+              }
             }
+            
+            // More defensive subscription status handling
+            let subscriptionStatus = data.subscriptionStatus;
+            
+            // If plan is basic and no subscription status, default to active
+            if (data.plan === "basic" && !subscriptionStatus) {
+              subscriptionStatus = "active";
+            }
+            // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
+            
+            setUserSubscriptionStatus(subscriptionStatus);
           }
-          
-          // More defensive subscription status handling
-          let subscriptionStatus = data.subscriptionStatus;
-          
-          // If plan is basic and no subscription status, default to active
-          if (data.plan === "basic" && !subscriptionStatus) {
-            subscriptionStatus = "active";
+          setLoading(false);
+        } catch (error) {
+          console.error('🚀 AuthContext: Error in user document listener:', error);
+          // Don't crash the app on Firestore errors, set safe defaults
+          if (error.code === 'permission-denied') {
+            console.log('🚀 AuthContext: Permission denied, user may have logged out');
+            setUserRole(null);
+            setUserPlan(null);
+            setUserSubscriptionStatus(null);
+          } else {
+            // For other errors, set safe defaults
+            setUserRole("customer");
+            setUserPlan("basic");
+            setUserSubscriptionStatus("active");
           }
-          // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
-          
-          setUserSubscriptionStatus(subscriptionStatus);
+          setLoading(false);
         }
+      }, (error) => {
+        // Handle listener errors (like permission denied)
+        console.error('🚀 AuthContext: Firestore listener error:', error);
+        if (error.code === 'permission-denied') {
+          console.log('🚀 AuthContext: Permission denied on listener, user likely logged out');
+        }
+        // Set safe defaults
+        setUserRole(null);
+        setUserPlan(null);
+        setUserSubscriptionStatus(null);
         setLoading(false);
       });
     });
@@ -167,6 +188,12 @@ export const AuthContextProvider = ({ children }) => {
 
             if (uid) {
               try {
+                // Check if user is still authenticated before writing to Firestore
+                if (!auth.currentUser) {
+                  console.log("🌍 AuthContext: User not authenticated, skipping location update");
+                  return;
+                }
+
                 const docRef = doc(db, "truckLocations", uid);
                 const snapshot = await getDoc(docRef);
                 const existingData = snapshot.exists() ? snapshot.data() : {};
@@ -196,6 +223,14 @@ export const AuthContextProvider = ({ children }) => {
                 console.log("🌍 AuthContext: Live GPS position saved:", { latitude, longitude });
               } catch (error) {
                 console.error("🌍 AuthContext: Error saving location:", error);
+                // Check if it's a permission error (user logged out)
+                if (error.code === 'permission-denied') {
+                  console.log("🌍 AuthContext: Permission denied - user likely logged out, stopping location tracking");
+                  if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                  }
+                }
               }
             }
           },
