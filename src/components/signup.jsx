@@ -128,6 +128,9 @@ const userData = {
         try {
           console.log('Logging referral attempt for user:', formData.email);
           
+          // Add a small delay to ensure user document is fully created
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           // Log referral in Firebase for tracking
           await setDoc(doc(db, 'referrals', user.uid), {
             referralCode: formData.referralCode,
@@ -141,10 +144,30 @@ const userData = {
             emailSent: false, // Will be updated after email is sent
           });
           
-          console.log('Referral attempt logged. Email will be sent after payment confirmation.');
+          console.log('Referral attempt logged successfully. Email will be sent after payment confirmation.');
         } catch (logErr) {
           console.error('Error logging referral attempt:', logErr);
-          // Don't fail signup if logging fails
+          
+          // Try one more time with a different approach
+          try {
+            console.log('Retrying referral logging with merge option...');
+            await setDoc(doc(db, 'referrals', user.uid), {
+              referralCode: formData.referralCode,
+              userId: user.uid,
+              userEmail: formData.email,
+              userName: formData.username || formData.ownerName,
+              truckName: formData.truckName,
+              selectedPlan: formData.plan,
+              signupAt: serverTimestamp(),
+              paymentCompleted: false,
+              emailSent: false,
+            }, { merge: true });
+            
+            console.log('Referral attempt logged successfully on retry.');
+          } catch (retryErr) {
+            console.error('Failed to log referral attempt on retry:', retryErr);
+            // Don't fail signup if logging fails - continue with the process
+          }
         }
       }
 
