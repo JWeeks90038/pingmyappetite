@@ -383,8 +383,9 @@ const handleToggle = async () => {
   const newVisibility = !isVisible;
   console.log('🔄 Toggling visibility from', isVisible, 'to', newVisibility);
   
+  // Immediately update UI state for instant feedback
   setIsVisible(newVisibility);
-  setVisibilityUpdateInProgress(true); // prevent re-sync flicker
+  setVisibilityUpdateInProgress(true);
 
   // Immediately update the marker display for instant feedback
   if (truckMarkerRef.current && mapRef) {
@@ -397,29 +398,38 @@ const handleToggle = async () => {
     try {
       // When making visible, set both visible and isLive to true
       // When hiding, set both to false
-      await updateDoc(truckDocRef, {
+      const updatePromise = updateDoc(truckDocRef, {
         visible: newVisibility,
         isLive: newVisibility,
         lastActive: Date.now(),
       });
-      console.log('🔄 Visibility updated in Firestore:', { visible: newVisibility, isLive: newVisibility });
+      
+      console.log('🔄 Starting Firestore update for visibility:', { visible: newVisibility, isLive: newVisibility });
 
-      // --- Update liveSessions in users collection ---
+      // --- Update liveSessions in users collection concurrently ---
       const userDocRef = doc(db, "users", user.uid);
+      let sessionPromise;
+      
       if (newVisibility) {
         // Truck is going live: add a new session with start timestamp
-        await updateDoc(userDocRef, {
+        sessionPromise = updateDoc(userDocRef, {
           liveSessions: arrayUnion({ start: Timestamp.now() })
         });
       } else {
         // Truck is going offline: set end timestamp for the last session
-        const userDoc = await getDoc(userDocRef);
-        const sessions = userDoc.data().liveSessions || [];
-        if (sessions.length > 0 && !sessions[sessions.length - 1].end) {
-          sessions[sessions.length - 1].end = Timestamp.now();
-          await updateDoc(userDocRef, { liveSessions: sessions });
-        }
+        sessionPromise = getDoc(userDocRef).then(userDoc => {
+          const sessions = userDoc.data().liveSessions || [];
+          if (sessions.length > 0 && !sessions[sessions.length - 1].end) {
+            sessions[sessions.length - 1].end = Timestamp.now();
+            return updateDoc(userDocRef, { liveSessions: sessions });
+          }
+        });
       }
+      
+      // Wait for both operations to complete
+      await Promise.all([updatePromise, sessionPromise]);
+      console.log('🔄 All Firestore updates completed successfully');
+      
       // --- End liveSessions update ---
     } catch (error) {
       console.error('🔄 Error updating visibility:', error);
@@ -432,7 +442,7 @@ const handleToggle = async () => {
 
     setTimeout(() => {
       setVisibilityUpdateInProgress(false); // let snapshot updates resume
-    }, 1000); // allow Firestore time to propagate
+    }, 500); // Reduced from 1000ms to 500ms for faster responsiveness
   }
 };
 
@@ -543,7 +553,12 @@ useEffect(() => {
     }
 
     // Update state to reflect actual visibility (use strict true comparison)
-    setIsVisible(visible === true && isLive === true);
+    // Only update if we're not in the middle of a toggle operation
+    if (!visibilityUpdateInProgress) {
+      setIsVisible(visible === true && isLive === true);
+    } else {
+      console.log("🗺️ Skipping state update - visibility toggle in progress");
+    }
   }, (error) => {
     console.error("🗺️ onSnapshot error:", error); // capture permission-denied explicitly
   });
@@ -1052,17 +1067,45 @@ useEffect(() => {
   )
 ) : null}
 
-      <div style={{ marginTop: "20px" }}>
-  <label style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: "20px" }}>
+  <label
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      opacity: visibilityUpdateInProgress ? 0.7 : 1,
+      transition: "opacity 0.2s ease",
+    }}
+  >
     <input
       type="checkbox"
       checked={isVisible === true}
-      disabled={isVisible === null}
+      disabled={isVisible === null || visibilityUpdateInProgress}
       onChange={handleToggle}
-      style={{ marginBottom: "5px" }} // space between checkbox and text
+      style={{
+        marginBottom: "5px",
+        cursor: visibilityUpdateInProgress ? "wait" : "pointer",
+        transform: isVisible === true ? "scale(1.1)" : "scale(1)",
+        transition: "transform 0.1s ease",
+      }}
     />
-    <span>
-      {isVisible ? "Visible on Map" : "Hidden from Map"}
+    <span
+      style={{
+        color: visibilityUpdateInProgress
+          ? "#666"
+          : isVisible === true
+          ? "#28a745"
+          : "#dc3545",
+        fontWeight: isVisible === true ? "bold" : "normal",
+        transition: "color 0.2s ease",
+      }}
+    >
+      {visibilityUpdateInProgress
+        ? "Updating..."
+        : isVisible
+        ? "✅ Visible on Map"
+        : "❌ Hidden from Map"}
     </span>
   </label>
 </div>

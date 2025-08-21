@@ -37,6 +37,8 @@ import { auth } from "./firebase";
 import ScrollToTop from "./components/ScrollToTop";
 import Contact from "./components/contact";
 import About from "./components/about";
+import NetworkStatus from "./components/NetworkStatus";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { clearAppCache, checkAppVersion } from "./utils/cacheUtils";
 
 // Define outside of component
@@ -52,10 +54,32 @@ console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` 
 const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 console.log('🗺️ Google Maps API key loaded:', googleMapsKey ? `${googleMapsKey.substring(0, 7)}...` : 'NOT FOUND');
 
-// Robust Stripe initialization with validation
+// Robust Stripe initialization with validation and error handling
 const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefined' 
-  ? loadStripe(stripeKey) 
+  ? loadStripe(stripeKey).catch((error) => {
+      console.error('💳 Stripe loading failed:', error);
+      // Return null on error to prevent app crash
+      return null;
+    })
   : Promise.resolve(null);
+
+// Add network connectivity check
+const checkNetworkConnectivity = () => {
+  if (!navigator.onLine) {
+    console.warn('🌐 Network: Device appears to be offline');
+    return false;
+  }
+  return true;
+};
+
+// Listen for network changes
+window.addEventListener('online', () => {
+  console.log('🌐 Network: Connection restored');
+});
+
+window.addEventListener('offline', () => {
+  console.warn('🌐 Network: Connection lost');
+});
 
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
@@ -142,6 +166,7 @@ function App() {
     console.error('Stripe failed to initialize - check environment variables');
     // For now, render without Stripe to prevent app crash
     return (
+      <ErrorBoundary>
       <LoadScript
         googleMapsApiKey={googleMapsKey}
         libraries={LIBRARIES}
@@ -150,6 +175,7 @@ function App() {
         loadingElement={<div>Loading Maps...</div>}
       >
         <BrowserRouter>
+          <NetworkStatus />
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
             ⚠️ Payment system temporarily unavailable. Please try again later.
           </div>
@@ -246,21 +272,24 @@ function App() {
           </Routes>
         </BrowserRouter>
       </LoadScript>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <Elements stripe={stripePromise}>
-    <LoadScript
-      googleMapsApiKey={googleMapsKey}
-      libraries={LIBRARIES}
-      onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
-      onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
-      loadingElement={<div>Loading Maps...</div>}
-    >
-      <BrowserRouter>
-        <Navbar /> {/* Always render Navbar */}
-        <ScrollToTop /> {/* Scroll to top on route change */}
+    <ErrorBoundary>
+      <Elements stripe={stripePromise}>
+      <LoadScript
+        googleMapsApiKey={googleMapsKey}
+        libraries={LIBRARIES}
+        onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
+        onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
+        loadingElement={<div>Loading Maps...</div>}
+      >
+        <BrowserRouter>
+          <NetworkStatus />
+          <Navbar /> {/* Always render Navbar */}
+          <ScrollToTop /> {/* Scroll to top on route change */}
         <Routes>
           {/* Public Pages */}
           <Route element={<PublicLayout />}>
@@ -355,6 +384,7 @@ function App() {
       </BrowserRouter>
     </LoadScript>
     </Elements>
+    </ErrorBoundary>
   );
 }
 
