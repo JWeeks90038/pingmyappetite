@@ -53,8 +53,6 @@ const Dashboard = ({ isLoaded }) => {
   if (userRole && userRole !== "owner") {
     return <div>Redirecting...</div>;
   }
-
-  useLiveLocationTracking(userPlan);
   
   // Add debugging
   console.log('Dashboard component mounted');

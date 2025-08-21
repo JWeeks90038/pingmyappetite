@@ -147,7 +147,19 @@ export const AuthContextProvider = ({ children }) => {
     console.log('🌍 AuthContext: Starting global live location tracking for owner');
 
     const startLiveTracking = () => {
-      if ("geolocation" in navigator) {
+      // Check if geolocation is available and if we're in a secure context (HTTPS or localhost)
+      if (!("geolocation" in navigator)) {
+        console.warn("🌍 AuthContext: Geolocation not supported on this device");
+        return;
+      }
+
+      // Check if we're in a secure context (required for geolocation on mobile)
+      if (!window.isSecureContext && window.location.protocol !== 'http:') {
+        console.warn("🌍 AuthContext: Geolocation requires HTTPS on mobile devices");
+        return;
+      }
+
+      try {
         watchId = navigator.geolocation.watchPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
@@ -187,11 +199,25 @@ export const AuthContextProvider = ({ children }) => {
               }
             }
           },
-          (err) => console.error("🌍 AuthContext: Error getting location:", err),
-          { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+          (err) => {
+            console.error("🌍 AuthContext: Geolocation error:", err);
+            // Don't crash the app on geolocation errors
+            if (err.code === err.PERMISSION_DENIED) {
+              console.warn("🌍 AuthContext: Location permission denied by user");
+            } else if (err.code === err.POSITION_UNAVAILABLE) {
+              console.warn("🌍 AuthContext: Location information unavailable");
+            } else if (err.code === err.TIMEOUT) {
+              console.warn("🌍 AuthContext: Location request timeout");
+            }
+          },
+          { 
+            enableHighAccuracy: true, 
+            maximumAge: 30000, 
+            timeout: 15000 // Increased timeout for mobile
+          }
         );
-      } else {
-        console.warn("🌍 AuthContext: Geolocation not supported");
+      } catch (error) {
+        console.error("🌍 AuthContext: Error setting up geolocation:", error);
       }
     };
 

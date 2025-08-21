@@ -49,6 +49,9 @@ const APP_VERSION = '1.0.8'; // Increment this when layout changes are made
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` : 'NOT FOUND');
 
+const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+console.log('🗺️ Google Maps API key loaded:', googleMapsKey ? `${googleMapsKey.substring(0, 7)}...` : 'NOT FOUND');
+
 // Robust Stripe initialization with validation
 const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefined' 
   ? loadStripe(stripeKey) 
@@ -140,8 +143,11 @@ function App() {
     // For now, render without Stripe to prevent app crash
     return (
       <LoadScript
-        googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-        libraries={LIBRARIES} 
+        googleMapsApiKey={googleMapsKey}
+        libraries={LIBRARIES}
+        onLoad={() => console.log('🗺️ Google Maps API loaded successfully')}
+        onError={(error) => console.error('🗺️ Google Maps API failed to load:', error)}
+        loadingElement={<div>Loading Maps...</div>}
       >
         <BrowserRouter>
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
@@ -246,8 +252,11 @@ function App() {
   return (
     <Elements stripe={stripePromise}>
     <LoadScript
-      googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-      libraries={LIBRARIES} 
+      googleMapsApiKey={googleMapsKey}
+      libraries={LIBRARIES}
+      onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
+      onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
+      loadingElement={<div>Loading Maps...</div>}
     >
       <BrowserRouter>
         <Navbar /> {/* Always render Navbar */}
