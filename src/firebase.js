@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
@@ -28,16 +28,9 @@ try {
     auth = getAuth(app);
     console.log('🔥 Firebase: Auth initialized successfully');
     
-    // Initialize Firestore with optimized settings for better connectivity
-    db = initializeFirestore(app, {
-        cache: {
-            size: 1048576, // 1MB cache
-            tabManager: 'default'
-        },
-        // Enable long polling for better mobile connectivity
-        experimentalForceLongPolling: true,
-    });
-    console.log('🔥 Firebase: Firestore initialized successfully with optimized settings');
+    // Use standard getFirestore() to avoid initialization conflicts
+    db = getFirestore(app);
+    console.log('🔥 Firebase: Firestore initialized successfully');
     
     storage = getStorage(app);
     console.log('🔥 Firebase: Storage initialized successfully');
