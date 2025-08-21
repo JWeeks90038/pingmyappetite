@@ -584,18 +584,26 @@ useEffect(() => {
 // Fetch drops (top-level useEffect)
 useEffect(() => {
   if (!user?.uid) return;
-  const dropsQuery = query(
-    collection(db, "drops"),
-    where("truckId", "==", user.uid)
-  );
-
+  
   const fetchDrops = async () => {
     try {
+      const dropsQuery = query(
+        collection(db, "drops"),
+        where("truckId", "==", user.uid)
+      );
       const querySnapshot = await getDocs(dropsQuery);
       const dropsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setDrops(dropsData);
     } catch (error) {
       console.error("Error fetching drops:", error);
+      if (error.code === 'permission-denied') {
+        console.log("🗺️ Permission denied fetching drops - user may not have access to drops collection");
+        // Set empty array to prevent further attempts
+        setDrops([]);
+      } else {
+        console.error("🗺️ Unexpected error fetching drops:", error);
+        setDrops([]);
+      }
     }
   };
 
@@ -764,6 +772,11 @@ useEffect(() => {
         truckDrops = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       } catch (error) {
         console.error("Error fetching drops for clicked truck:", error);
+        if (error.code === 'permission-denied') {
+          console.log("🗺️ Permission denied fetching drops for clicked truck - user may not have access to drops collection");
+        }
+        // Continue with empty drops array
+        truckDrops = [];
       }
 
       // Reverse geocode GPS coordinates to get address if manualLocation is not available

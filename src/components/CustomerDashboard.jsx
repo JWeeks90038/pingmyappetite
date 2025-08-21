@@ -558,21 +558,33 @@ const handleViewMenu = () => {
 
   useEffect(() => {
     if (!user) return;
-  const now = Timestamp.now();
-  const dropsRef = collection(db, "drops");
-  const q = query(dropsRef, where("expiresAt", ">", now));
+    
+    try {
+      const now = Timestamp.now();
+      const dropsRef = collection(db, "drops");
+      const q = query(dropsRef, where("expiresAt", ">", now));
 
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    //console.log("Drops snapshot size:", snapshot.size, snapshot.docs.map(doc => doc.data()));
-    const fetchedDrops = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    setActiveDrops(fetchedDrops);
-  });
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        //console.log("Drops snapshot size:", snapshot.size, snapshot.docs.map(doc => doc.data()));
+        const fetchedDrops = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setActiveDrops(fetchedDrops);
+      }, (error) => {
+        console.error("Error fetching active drops:", error);
+        if (error.code === 'permission-denied') {
+          console.log("🗺️ Permission denied fetching active drops - user may not have access to drops collection");
+          setActiveDrops([]);
+        }
+      });
 
-  return () => unsubscribe();
-}, [user]);
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error setting up drops listener:", error);
+      setActiveDrops([]);
+    }
+  }, [user]);
 
 
 useEffect(() => {

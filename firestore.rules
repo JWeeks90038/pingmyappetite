@@ -42,5 +42,26 @@ service cloud.firestore {
       // Allow read access for all authenticated users (for map display)
       allow read: if request.auth != null;
     }
+    
+    // Drops collection - allow owners to manage their drops and customers to read active drops
+    match /drops/{dropId} {
+      // Allow truck owners to create drops for their own truck
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.truckId;
+      
+      // Allow truck owners to read and update their own drops
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.truckId;
+      
+      // Allow all authenticated users to read active drops for discovery
+      allow read: if request.auth != null;
+    }
+    
+    // Pings collection - allow customers to create pings and owners to read them
+    match /pings/{pingId} {
+      // Allow any authenticated user to create pings
+      allow create: if request.auth != null;
+      
+      // Allow any authenticated user to read pings (for heatmap)
+      allow read: if request.auth != null;
+    }
   }
 }
