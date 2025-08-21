@@ -4,8 +4,6 @@ import {
   getFirestore,
   collection,
   onSnapshot,
-  doc,
-  getDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
@@ -165,33 +163,15 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
 
   useEffect(() => {
     if (!currentUser || truckLocations.length === 0) return;
-    const fetchAllTruckNames = async () => {
-      const updatedNames = {};
-      for (const truck of truckLocations) {
-        const userId = truck.uid || truck.id;
-        
-        try {
-          const userRef = doc(db, "users", userId);
-          const userDoc = await getDoc(userRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            // Since truck locations can only be created by owners, we can trust this data
-            updatedNames[truck.id] = userData.truckName || "Food Truck";
-          } else {
-            console.log('🚛 HeatMap: User document not found for truck:', userId);
-            // Use fallback name if user document is missing
-            updatedNames[truck.id] = truck.truckName || "Food Truck";
-          }
-        } catch (error) {
-          console.log('🚛 HeatMap: Cannot read user document for truck:', userId, '- using fallback name');
-          // Use fallback name from truck data if permission denied
-          updatedNames[truck.id] = truck.truckName || "Food Truck";
-        }
-      }
-      console.log("🚛 HeatMap: Resolved truck names:", updatedNames);
-      setTruckNames(updatedNames);
-    };
-    fetchAllTruckNames();
+    
+    // Get truck names directly from truckLocation data (no user document access needed)
+    const updatedNames = {};
+    for (const truck of truckLocations) {
+      // Use the truckName stored in the truck location document, with fallback
+      updatedNames[truck.id] = truck.truckName || truck.name || "Food Truck";
+    }
+    console.log("🚛 HeatMap: Using truck names from location data:", updatedNames);
+    setTruckNames(updatedNames);
   }, [truckLocations, currentUser]);
 
  const getTruckIcon = (kitchenType) => {
