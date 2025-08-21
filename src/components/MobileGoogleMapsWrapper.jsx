@@ -27,23 +27,44 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
     
     if (isMobileDevice) {
       console.log('📱 Mobile device detected:', { isIOSSafari, userAgent: userAgent.slice(0, 50) });
-    }
+      // On mobile, especially iOS Safari, manually load Google Maps to avoid LoadScript issues
+      if (googleMapsApiKey) {
+        loadGoogleMapsManually();
+      } else {
+        console.error('❌ No Google Maps API key provided');
+        setMapsError(new Error('No Google Maps API key'));
+        setIsLoading(false);
+      }
+    } else {
+      console.log('🖥️ Desktop device detected, will use LoadScript');
+      // For desktop, let LoadScript handle the loading, but set a timeout
+      const desktopTimeout = setTimeout(() => {
+        if (!mapsLoaded) {
+          console.log('🗺️ LoadScript is taking time, continuing...');
+          setIsLoading(false);
+        }
+      }, 5000); // 5 second timeout for desktop
 
-    // On mobile, especially iOS Safari, manually load Google Maps to avoid LoadScript issues
-    if (isMobileDevice && googleMapsApiKey) {
-      loadGoogleMapsManually();
+      return () => clearTimeout(desktopTimeout);
     }
-  }, [googleMapsApiKey]);
+  }, [googleMapsApiKey, mapsLoaded]);
 
   const loadGoogleMapsManually = async () => {
     try {
-      console.log('� Manually loading Google Maps for mobile device...');
+      console.log('🔄 Manually loading Google Maps for mobile device...');
       
       // Check if Google Maps is already loaded
       if (window.google && window.google.maps) {
         console.log('✅ Google Maps already loaded');
         setMapsLoaded(true);
         setIsLoading(false);
+        return;
+      }
+
+      // Check if script is already being loaded
+      const existingCallback = window.initGoogleMaps;
+      if (existingCallback) {
+        console.log('⏳ Google Maps script already loading, waiting...');
         return;
       }
 
@@ -77,14 +98,16 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
         console.error('❌ Manual Google Maps loading failed:', error);
         setMapsError(error);
         setIsLoading(false);
+        delete window.initGoogleMaps;
       };
 
       // Add a timeout in case the callback never fires
       const timeout = setTimeout(() => {
         if (!mapsLoaded) {
-          console.error('⏱️ Google Maps loading timeout');
+          console.error('⏱️ Google Maps loading timeout (15s)');
           setMapsError(new Error('Google Maps loading timeout'));
           setIsLoading(false);
+          delete window.initGoogleMaps;
         }
       }, 15000); // 15 second timeout
 
@@ -106,13 +129,28 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
     setMapsLoaded(true);
     setMapsError(null);
     setIsLoading(false);
+    props.onLoad && props.onLoad();
   };
 
   const handleMapsError = (error) => {
     console.error('🗺️ LoadScript error:', error);
     setMapsError(error);
     setIsLoading(false);
+    props.onError && props.onError(error);
   };
+
+  // Emergency fallback - if still loading after 10 seconds, force continue without maps
+  useEffect(() => {
+    const emergencyTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('🚨 Emergency fallback: Forcing app to continue without maps after 10s timeout');
+        setIsLoading(false);
+        setMapsError(new Error('Maps loading timeout - continuing without maps'));
+      }
+    }, 10000); // 10 second emergency timeout
+
+    return () => clearTimeout(emergencyTimeout);
+  }, [isLoading]);
 
   // Loading state
   if (isLoading) {
@@ -230,6 +268,7 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
       libraries={libraries}
       onLoad={handleMapsLoad}
       onError={handleMapsError}
+      loadingElement={<div>Loading Google Maps...</div>}
       {...props}
     >
       <GoogleMapsContext.Provider value={contextValue}>
