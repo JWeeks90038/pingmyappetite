@@ -104,6 +104,16 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
   
+  // Handle FirebaseError objects with permission denied
+  if (event.reason && event.reason.constructor && 
+      event.reason.constructor.name === 'FirebaseError' &&
+      event.reason.message && event.reason.message.includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: FirebaseError permission denied caught during authentication state change');
+    // Prevent the error from bubbling up and showing to user
+    event.preventDefault();
+    return;
+  }
+  
   // Handle Firestore connectivity errors (400 Bad Request)
   if (event.reason && (
       event.reason.message?.includes('Failed to fetch') ||

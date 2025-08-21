@@ -36,102 +36,120 @@ export const AuthContextProvider = ({ children }) => {
 
       setUser(currentUser);
 
-      const userDocRef = doc(db, "users", currentUser.uid);
+      try {
+        const userDocRef = doc(db, "users", currentUser.uid);
 
-      unsubUserDoc = onSnapshot(userDocRef, async (userSnap) => {
-        try {
-          if (!userSnap.exists()) {
-            // CRITICAL: Don't create default user document immediately
-            // This prevents overriding the user document created during signup
-            console.log('🚀 AuthContext: User document does not exist yet, waiting for signup to complete...');
-            
-            // Wait a moment to see if signup is creating the document
-            setTimeout(async () => {
-              try {
-                const retrySnap = await getDoc(userDocRef);
-                if (!retrySnap.exists()) {
-                  console.log('🚀 AuthContext: Creating default user document after timeout');
-                  const newUser = {
-                    uid: currentUser.uid,
-                    username: currentUser.displayName || "",
-                    email: currentUser.email || "",
-                    role: "customer", // Default to customer only if no signup document was created
-                    plan: "basic",
-                    subscriptionStatus: "active", // Basic is always active
-                    menuUrl: "",
-                    instagram: "",
-                    facebook: "",
-                    tiktok: "",
-                    twitter: "",
-                  };
-                  await setDoc(userDocRef, newUser);
-                  setUserRole(newUser.role);
-                  setUserPlan(newUser.plan);
-                  setUserSubscriptionStatus(newUser.subscriptionStatus);
+        unsubUserDoc = onSnapshot(
+          userDocRef, 
+          async (userSnap) => {
+            try {
+              if (!userSnap.exists()) {
+                // CRITICAL: Don't create default user document immediately
+                // This prevents overriding the user document created during signup
+                console.log('🚀 AuthContext: User document does not exist yet, waiting for signup to complete...');
+                
+                // Wait a moment to see if signup is creating the document
+                setTimeout(async () => {
+                  try {
+                    const retrySnap = await getDoc(userDocRef);
+                    if (!retrySnap.exists()) {
+                      console.log('🚀 AuthContext: Creating default user document after timeout');
+                      const newUser = {
+                        uid: currentUser.uid,
+                        username: currentUser.displayName || "",
+                        email: currentUser.email || "",
+                        role: "customer", // Default to customer only if no signup document was created
+                        plan: "basic",
+                        subscriptionStatus: "active", // Basic is always active
+                        menuUrl: "",
+                        instagram: "",
+                        facebook: "",
+                        tiktok: "",
+                        twitter: "",
+                      };
+                      await setDoc(userDocRef, newUser);
+                      setUserRole(newUser.role);
+                      setUserPlan(newUser.plan);
+                      setUserSubscriptionStatus(newUser.subscriptionStatus);
+                    }
+                  } catch (timeoutError) {
+                    console.error('🚀 AuthContext: Error creating default user document:', timeoutError);
+                    // Set defaults even if creation fails
+                    setUserRole("customer");
+                    setUserPlan("basic");
+                    setUserSubscriptionStatus("active");
+                  }
+                }, 2000); // Wait 2 seconds for signup to complete
+                
+                // Set loading state while waiting
+                setUserRole(null);
+                setUserPlan(null);
+                setUserSubscriptionStatus(null);
+              } else {
+                console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
+                const data = userSnap.data();
+                setUserRole(data.role || "customer");
+                setUserPlan(data.plan || "basic");
+                
+                // Note: Truck location cleanup is handled by the backend/admin functions
+                // No need to clean up here as it causes permission errors for customers
+                console.log('🚀 AuthContext: User role set to:', data.role || "customer");
+                
+                // More defensive subscription status handling
+                let subscriptionStatus = data.subscriptionStatus;
+                
+                // If plan is basic and no subscription status, default to active
+                if (data.plan === "basic" && !subscriptionStatus) {
+                  subscriptionStatus = "active";
                 }
-              } catch (timeoutError) {
-                console.error('🚀 AuthContext: Error creating default user document:', timeoutError);
-                // Set defaults even if creation fails
+                // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
+                
+                setUserSubscriptionStatus(subscriptionStatus);
+              }
+              setLoading(false);
+            } catch (error) {
+              console.error('🚀 AuthContext: Error in user document listener:', error);
+              // Don't crash the app on Firestore errors, set safe defaults
+              if (error.code === 'permission-denied') {
+                console.log('🚀 AuthContext: Permission denied, user may have logged out');
+                setUserRole(null);
+                setUserPlan(null);
+                setUserSubscriptionStatus(null);
+              } else {
+                // For other errors, set safe defaults
                 setUserRole("customer");
                 setUserPlan("basic");
                 setUserSubscriptionStatus("active");
               }
-            }, 2000); // Wait 2 seconds for signup to complete
-            
-            // Set loading state while waiting
-            setUserRole(null);
-            setUserPlan(null);
-            setUserSubscriptionStatus(null);
-          } else {
-            console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
-            const data = userSnap.data();
-            setUserRole(data.role || "customer");
-            setUserPlan(data.plan || "basic");
-            
-            // Note: Truck location cleanup is handled by the backend/admin functions
-            // No need to clean up here as it causes permission errors for customers
-            console.log('🚀 AuthContext: User role set to:', data.role || "customer");
-            
-            // More defensive subscription status handling
-            let subscriptionStatus = data.subscriptionStatus;
-            
-            // If plan is basic and no subscription status, default to active
-            if (data.plan === "basic" && !subscriptionStatus) {
-              subscriptionStatus = "active";
+              setLoading(false);
             }
-            // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
-            
-            setUserSubscriptionStatus(subscriptionStatus);
-          }
-          setLoading(false);
-        } catch (error) {
-          console.error('🚀 AuthContext: Error in user document listener:', error);
-          // Don't crash the app on Firestore errors, set safe defaults
-          if (error.code === 'permission-denied') {
-            console.log('🚀 AuthContext: Permission denied, user may have logged out');
+          }, 
+          (error) => {
+            // Handle listener errors (like permission denied)
+            console.error('🚀 AuthContext: Firestore listener error:', error);
+            if (error.code === 'permission-denied') {
+              console.log('🚀 AuthContext: Permission denied on listener, user likely logged out');
+              // Clean up the listener
+              if (unsubUserDoc) {
+                unsubUserDoc();
+                unsubUserDoc = null;
+              }
+            }
+            // Set safe defaults
             setUserRole(null);
             setUserPlan(null);
             setUserSubscriptionStatus(null);
-          } else {
-            // For other errors, set safe defaults
-            setUserRole("customer");
-            setUserPlan("basic");
-            setUserSubscriptionStatus("active");
+            setLoading(false);
           }
-          setLoading(false);
-        }
-      }, (error) => {
-        // Handle listener errors (like permission denied)
-        console.error('🚀 AuthContext: Firestore listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('🚀 AuthContext: Permission denied on listener, user likely logged out');
-        }
-        // Set safe defaults
-        setUserRole(null);
-        setUserPlan(null);
-        setUserSubscriptionStatus(null);
+        );
+      } catch (error) {
+        console.error('🚀 AuthContext: Error setting up user document listener:', error);
+        // Set safe defaults if listener setup fails
+        setUserRole("customer");
+        setUserPlan("basic");
+        setUserSubscriptionStatus("active");
         setLoading(false);
-      });
+      }
     });
 
     // Cleanup both listeners on unmount
