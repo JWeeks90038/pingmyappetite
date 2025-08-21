@@ -1,5 +1,5 @@
 import { getAuth, signOut } from 'firebase/auth';
-import { getFirestore, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 
 export const logoutUser = async () => {
   const auth = getAuth();
@@ -40,4 +40,23 @@ export const logoutUser = async () => {
   
   await signOut(auth);
   console.log('🚪 FirebaseUtils: User successfully logged out');
+};
+
+// Function to clean up truck location documents for non-owners
+export const cleanupNonOwnerTruckLocations = async (userId, userRole) => {
+  if (userRole !== "owner") {
+    const db = getFirestore();
+    const truckDocRef = doc(db, "truckLocations", userId);
+    
+    try {
+      const docSnap = await getDoc(truckDocRef);
+      if (docSnap.exists()) {
+        console.log('🧹 Deleting truck location document for non-owner user:', userId, 'role:', userRole);
+        await deleteDoc(truckDocRef);
+        console.log('🧹 Truck location document deleted successfully');
+      }
+    } catch (error) {
+      console.error('🧹 Error deleting truck location document:', error);
+    }
+  }
 };

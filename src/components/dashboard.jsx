@@ -19,7 +19,7 @@ import {
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import "../assets/index.css";
-import { logoutUser } from "../utils/firebaseUtils";
+import { logoutUser, cleanupNonOwnerTruckLocations } from "../utils/firebaseUtils";
 import HeatMap from "../components/HeatMap";
 import Navbar from "../components/navbar";
 import "../assets/navbar.css";
@@ -223,7 +223,8 @@ console.log("Dashboard component rendering for OWNER");
  const handleSubmit = async (e) => {
   e.preventDefault();
   console.log("🎯 Submitting manual location: ", manualLocation);
-  if (userPlan === "basic" && user?.uid) {
+  // CRITICAL: Only allow owners to submit truck locations
+  if (userPlan === "basic" && user?.uid && userRole === "owner") {
     try {
       const geocoder = new window.google.maps.Geocoder();
       geocoder.geocode({ address: manualLocation }, async (results, status) => {
@@ -263,6 +264,9 @@ console.log("Dashboard component rendering for OWNER");
       console.error("🎯 Error saving manual location: ", error);
       alert("Error saving location. Please try again.");
     }
+  } else if (userRole !== "owner") {
+    console.log("🎯 Non-owner user attempted to submit truck location (role:", userRole, ")");
+    alert("Only truck/trailer owners can set locations.");
   }
 };
 
@@ -277,30 +281,38 @@ console.log("Dashboard component rendering for OWNER");
         const data = { uid: user.uid, ...docSnap.data() };
         setOwnerData(data);
         
+        // CRITICAL: Only create/manage truck location documents for owners
+        if (data.role === "owner") {
+          console.log("📋 User is confirmed owner, managing truck location document");
           // After owner data is loaded, check if truck location exists and initialize if needed
-        const truckDocRef = doc(db, "truckLocations", user.uid);
-        const truckDocSnap = await getDoc(truckDocRef);
-        
-        if (!truckDocSnap.exists()) {
-          console.log("📋 No truck location document exists, creating initial document");
-          // Create initial document with basic structure - start as hidden
-          await setDoc(truckDocRef, {
-            ownerUid: user.uid,
-            kitchenType: data.kitchenType || "truck",
-            isLive: false,
-            visible: false,
-            lastActive: Date.now(),
-            createdAt: serverTimestamp(),
-          }, { merge: true });
-          console.log("📋 Initial truck location document created (hidden by default)");
+          const truckDocRef = doc(db, "truckLocations", user.uid);
+          const truckDocSnap = await getDoc(truckDocRef);
+          
+          if (!truckDocSnap.exists()) {
+            console.log("📋 No truck location document exists, creating initial document");
+            // Create initial document with basic structure - start as hidden
+            await setDoc(truckDocRef, {
+              ownerUid: user.uid,
+              kitchenType: data.kitchenType || "truck",
+              isLive: false,
+              visible: false,
+              lastActive: Date.now(),
+              createdAt: serverTimestamp(),
+            }, { merge: true });
+            console.log("📋 Initial truck location document created (hidden by default)");
+          } else {
+            // Update existing document with current owner data
+            await updateDoc(truckDocRef, {
+              ownerUid: user.uid,
+              kitchenType: data.kitchenType || "truck",
+              lastActive: Date.now(),
+            });
+            console.log("📋 Existing truck location document updated with owner data");
+          }
         } else {
-          // Update existing document with current owner data
-          await updateDoc(truckDocRef, {
-            ownerUid: user.uid,
-            kitchenType: data.kitchenType || "truck",
-            lastActive: Date.now(),
-          });
-          console.log("📋 Existing truck location document updated with owner data");
+          console.log("📋 User is not an owner (role:", data.role, "), skipping truck location management");
+          // Clean up any existing truck location documents for non-owners
+          await cleanupNonOwnerTruckLocations(user.uid, data.role);
         }
       } else {
         console.warn("📋 Owner document not found for UID:", user.uid);
@@ -331,8 +343,9 @@ console.log("Dashboard component rendering for OWNER");
 
   useEffect(() => {
     const fetchVisibility = async () => {
-      if (user) {
-        console.log('👁️ Fetching initial visibility state for user:', user.uid);
+      // CRITICAL: Only fetch visibility for owners
+      if (user && userRole === "owner") {
+        console.log('👁️ Fetching initial visibility state for owner:', user.uid);
         const docRef = doc(db, "truckLocations", user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -345,10 +358,13 @@ console.log("Dashboard component rendering for OWNER");
           console.log('👁️ No truck location document exists, defaulting visibility to false');
           setIsVisible(false);
         }
+      } else if (userRole && userRole !== "owner") {
+        console.log('👁️ Not fetching visibility - user is not an owner (role:', userRole, ')');
+        setIsVisible(false);
       }
     };
     fetchVisibility();
-  }, [user]);
+  }, [user, userRole]);
 
 const handleToggle = async () => {
   const newVisibility = !isVisible;
@@ -453,14 +469,20 @@ const handleLogout = async () => {
     fetchUserData();
   }, [user]);
 
-  // Marker/map useEffect (controls marker visibility and position)
+  // Marker/map useEffect (controls marker visibility and position) - OWNERS ONLY
 useEffect(() => {
-  if (!isLoaded || !mapRef || !user?.uid) return; // stronger check
+  // CRITICAL: Only create markers for owners
+  if (!isLoaded || !mapRef || !user?.uid || userRole !== "owner") {
+    if (userRole && userRole !== "owner") {
+      console.log("🗺️ Skipping marker creation - user is not an owner (role:", userRole, ")");
+    }
+    return;
+  }
 
   const docRef = doc(db, "truckLocations", user.uid);
 
   const unsubscribe = onSnapshot(docRef, (docSnap) => {
-    console.log("🗺️ Dashboard marker snapshot received");
+    console.log("🗺️ Dashboard marker snapshot received for owner");
     
     if (!docSnap.exists()) {
       console.log("🗺️ No truck location document exists yet");
@@ -514,14 +536,14 @@ useEffect(() => {
   });
 
   return () => {
-    console.log("🗺️ Cleaning up marker for user", user?.uid);
+    console.log("🗺️ Cleaning up marker for owner user", user?.uid);
     if (truckMarkerRef.current) {
       truckMarkerRef.current.setMap(null);
       truckMarkerRef.current = null;
     }
     unsubscribe();
   };
-}, [isLoaded, mapRef, user]);
+}, [isLoaded, mapRef, user, userRole]);
 
 // Fetch drops (top-level useEffect)
 useEffect(() => {
