@@ -114,6 +114,15 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
   
+  // Handle snapshot listener permission errors specifically
+  if (event.reason && event.reason.toString && 
+      event.reason.toString().includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: Snapshot listener permission error caught - preventing error display');
+    // Prevent the error from bubbling up and showing to user
+    event.preventDefault();
+    return;
+  }
+  
   // Handle Firestore connectivity errors (400 Bad Request)
   if (event.reason && (
       event.reason.message?.includes('Failed to fetch') ||

@@ -6,6 +6,12 @@
     border: 1px solid #ccc;
   }
   
+  .analytics-stats {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+  }
+  
   .analytics-item {
     margin-bottom: 1rem;
   }
@@ -21,6 +27,13 @@
   height: 300px;
   margin: 20px auto;
   position: relative;
+}
+
+.chart-block h3 {
+  margin-bottom: 20px;
+  margin-top: 10px;
+  text-align: center;
+  color: #333;
 }
 
 .chart-block.doughnut-chart {

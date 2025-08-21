@@ -256,29 +256,32 @@ useEffect(() => {
         <Bar data={barChartData} />
       </div>
 
-      <div className="chart-block doughnut-chart"><br></br>
+      <div className="chart-block doughnut-chart">
         <h3>Top Cuisines</h3>
         <Doughnut data={doughnutData} />
-      </div><br></br><br></br><br></br><br></br><br></br><br></br>
-
-      <div className="analytics-item"><strong>Total Pings (Last 7 Days within 3 Miles):</strong> {pingStats.last7Days}</div>
-      <div className="analytics-item"><strong>Total Pings (Last 30 Days within 50 Miles):</strong> {pingStats.last30Days}</div>
-      <div className="analytics-item"><strong>Current Cuisine Match Requests:</strong> {pingStats.cuisineMatchCount}</div>
-      <div className="analytics-item"><strong>Recent Ping Locations:</strong>
-
-        <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
-  {pingStats.recentPings.map((ping, i) => (
-    <li key={i}>{ping.address || `Lat: ${ping.location?.lat}, Lng: ${ping.location?.lng}`}</li>
-  ))}
-</ul>
       </div>
-      <div className="analytics-item"><strong>Top Ping Locations:</strong>
-  <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
-  {pingStats.topLocations.map((loc, i) => (
-    <li key={i}>{loc.address} - {loc.count} pings</li>
-  ))}
-</ul>
-</div>
+
+      <div className="analytics-stats">
+        <div className="analytics-item"><strong>Total Pings (Last 7 Days within 3 Miles):</strong> {pingStats.last7Days}</div>
+        <div className="analytics-item"><strong>Total Pings (Last 30 Days within 50 Miles):</strong> {pingStats.last30Days}</div>
+        <div className="analytics-item"><strong>Current Cuisine Match Requests:</strong> {pingStats.cuisineMatchCount}</div>
+          <div className="analytics-item">
+          <strong>Recent Ping Locations:</strong>
+          <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
+            {pingStats.recentPings.map((ping, i) => (
+              <li key={i}>{ping.address || `Lat: ${ping.location?.lat}, Lng: ${ping.location?.lng}`}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="analytics-item">
+          <strong>Top Ping Locations:</strong>
+          <ul style={{ listStyleType: 'none', paddingLeft: 0, marginLeft: 0 }}>
+            {pingStats.topLocations.map((loc, i) => (
+              <li key={i}>{loc.address} - {loc.count} pings</li>
+            ))}
+          </ul>
+        </div>
       <div className="analytics-item"><strong>Daily Avg:</strong> {pingStats.dailyAvg}</div>
       <div className="analytics-item"><strong>Interest Change vs Last Week:</strong> {pingStats.trendDiff >= 0 ? '+' : ''}{pingStats.trendDiff} pings</div>
       <div className="analytics-item"><strong>Customer Favorites:</strong> {favoritesCount}</div>
@@ -309,8 +312,8 @@ useEffect(() => {
           </ul>
         </div>
       )}
+      </div>
     </div>
-    
   );
 };
 
