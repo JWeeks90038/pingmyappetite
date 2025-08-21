@@ -17,7 +17,6 @@ import CustomerDashboard from './components/CustomerDashboard';
 import Home from './components/home';
 import ForgotPassword from './components/ForgotPassword';
 import Pricing from './components/pricing';
-import Checkout from './components/checkout';
 import Success from './components/Success';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
@@ -262,7 +261,6 @@ function App() {
               <Route path="/signup-customer" element={<SignupCustomer />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/logout" element={<Logout />} />
-              <Route path="/checkout" element={<div>Payment system temporarily unavailable</div>} />
               <Route path="/success" element={<Success />} />
             </Route>
 
@@ -371,7 +369,6 @@ function App() {
             <Route path="/signup-customer" element={<SignupCustomer />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/logout" element={<Logout />} />
-            <Route path="/checkout" element={<Checkout />} />
             <Route path="/success" element={<Success />} />
           </Route>
 
