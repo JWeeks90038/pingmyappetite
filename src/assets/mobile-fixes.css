@@ -102,11 +102,57 @@ html, body, #root {
 }
 
 /* Mobile-specific navbar fixes */
+@media (max-width: 1200px) {
+  .navbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+    width: 100% !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  /* Add padding to body to account for fixed navbar */
+  body {
+    padding-top: 80px !important;
+  }
+  
+  /* Ensure main content starts below fixed navbar */
+  .dashboard, 
+  .customer-dashboard, 
+  .main-content,
+  .analytics-container,
+  .payment-form,
+  .auth-container {
+    margin-top: 10px !important;
+  }
+}
+
 @media (max-width: 768px) {
   .navbar {
-    position: sticky !important;
+    position: fixed !important;
     top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     z-index: 1000 !important;
+    width: 100% !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  /* Add padding to body to account for fixed navbar */
+  body {
+    padding-top: 70px !important;
+  }
+  
+  /* Ensure main content starts below fixed navbar */
+  .dashboard, 
+  .customer-dashboard, 
+  .main-content,
+  .analytics-container,
+  .payment-form,
+  .auth-container {
+    margin-top: 10px !important;
   }
 }
 

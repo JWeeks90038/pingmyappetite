@@ -1,18 +1,30 @@
 .analytics-container {
     margin-top: 2rem;
-    padding: 1rem;
+    padding: 2rem;
     background: #fdfdfd;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid #ccc;
-  }
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.analytics-container h2 {
+  text-align: center;
+  color: #2c6f57;
+  margin-bottom: 40px;
+  font-size: 2rem;
+  border-bottom: 3px solid #2c6f57;
+  padding-bottom: 15px;
+}
   
-  .analytics-stats {
-    margin-top: 40px;
-    padding-top: 20px;
-    border-top: 1px solid #e0e0e0;
-  }
-  
-  .analytics-item {
+.analytics-stats {
+  margin-top: 60px;
+  padding: 30px 20px 20px 20px;
+  border-top: 2px solid #2c6f57;
+  background: #f9f9f9;
+  border-radius: 8px;
+}  .analytics-item {
     margin-bottom: 1rem;
   }
   
@@ -24,16 +36,23 @@
   .chart-block {
   width: 100%;
   max-width: 700px;
-  height: 300px;
-  margin: 20px auto;
+  height: 400px;
+  margin: 40px auto;
+  padding: 20px;
   position: relative;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 
 .chart-block h3 {
-  margin-bottom: 20px;
-  margin-top: 10px;
+  margin-bottom: 30px;
+  margin-top: 0;
   text-align: center;
   color: #333;
+  font-size: 1.4rem;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #2c6f57;
 }
 
 .chart-block.doughnut-chart {
@@ -45,5 +64,34 @@
 .chart-block.doughnut-chart canvas {
   max-width: 300px;
   width: 100% !important;
+}
+
+/* Mobile responsive styles for analytics */
+@media (max-width: 768px) {
+  .analytics-container {
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+  
+  .analytics-container h2 {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+  }
+  
+  .chart-block {
+    height: 350px;
+    margin: 30px auto;
+    padding: 15px;
+  }
+  
+  .chart-block h3 {
+    font-size: 1.2rem;
+    margin-bottom: 25px;
+  }
+  
+  .analytics-stats {
+    margin-top: 40px;
+    padding: 20px 15px;
+  }
 }
   
