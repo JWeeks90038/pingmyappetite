@@ -106,6 +106,28 @@ const userData = {
       await setDoc(doc(db, 'users', user.uid), userData);
       console.log('✅ User document saved to Firestore with role:', userData.role);
 
+      // If valid referral code used, create referral document
+      if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi') {
+        console.log('🎯 Creating referral document for arayaki_hibachi code');
+        try {
+          await setDoc(doc(db, 'referrals', user.uid), {
+            userId: user.uid,
+            userEmail: formData.email,
+            userName: formData.username || formData.ownerName || '',
+            truckName: formData.truckName || '',
+            referralCode: formData.referralCode,
+            selectedPlan: formData.plan,
+            signupAt: serverTimestamp(),
+            paymentCompleted: false,
+            emailSent: false
+          });
+          console.log('✅ Referral document created successfully');
+        } catch (referralError) {
+          console.error('❌ Error creating referral document:', referralError);
+          // Don't fail signup if referral document creation fails
+        }
+      }
+
       // For paid plans (pro/all-access), redirect directly to Stripe checkout
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
         console.log('🔄 Creating Stripe checkout session for paid plan:', formData.plan);
