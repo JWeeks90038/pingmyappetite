@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
-import { doc, setDoc, onSnapshot, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, updateDoc, deleteDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
+
+// Import live location tracking logic
+let watchId = null;
 
 const AuthContext = createContext();
 
@@ -128,6 +131,80 @@ export const AuthContextProvider = ({ children }) => {
       if (unsubUserDoc) unsubUserDoc();
     };
   }, [auth, previousUser]);
+
+  // Global live location tracking for owners
+  useEffect(() => {
+    // Only enable live tracking for owners with Pro and All Access plans
+    if (userRole !== "owner" || (userPlan !== "pro" && userPlan !== "all-access")) {
+      // Clear any existing tracking
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      return;
+    }
+
+    console.log('🌍 AuthContext: Starting global live location tracking for owner');
+
+    const startLiveTracking = () => {
+      if ("geolocation" in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            const uid = user?.uid;
+
+            if (uid) {
+              try {
+                const docRef = doc(db, "truckLocations", uid);
+                const snapshot = await getDoc(docRef);
+                const existingData = snapshot.exists() ? snapshot.data() : {};
+
+                const userDocRef = doc(db, "users", uid);
+                const userSnapshot = await getDoc(userDocRef);
+                const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+
+                await setDoc(
+                  docRef,
+                  {
+                    lat: latitude,
+                    lng: longitude,
+                    updatedAt: serverTimestamp(),
+                    lastActive: Date.now(),
+                    ownerUid: uid,
+                    uid: uid,
+                    cuisine: existingData.cuisine || userData.cuisine || "Not specified",
+                    truckName: existingData.truckName || userData.truckName || "Unnamed Truck",
+                    // Preserve existing visibility settings
+                    isLive: existingData.isLive !== undefined ? existingData.isLive : false,
+                    visible: existingData.visible !== undefined ? existingData.visible : false,
+                  },
+                  { merge: true }
+                );
+
+                console.log("🌍 AuthContext: Live GPS position saved:", { latitude, longitude });
+              } catch (error) {
+                console.error("🌍 AuthContext: Error saving location:", error);
+              }
+            }
+          },
+          (err) => console.error("🌍 AuthContext: Error getting location:", err),
+          { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+        );
+      } else {
+        console.warn("🌍 AuthContext: Geolocation not supported");
+      }
+    };
+
+    startLiveTracking();
+
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        console.log('🌍 AuthContext: Stopped live location tracking');
+      }
+    };
+  }, [userRole, userPlan, user]);
 
   return (
     <AuthContext.Provider value={{ user, userRole, userPlan, userSubscriptionStatus, loading }}>

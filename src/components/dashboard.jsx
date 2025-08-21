@@ -31,7 +31,6 @@ import grubanaLogoImg from "../assets/grubana-logo.png";
 import Analytics from "./analytics";
 import { FaInstagram, FaFacebook, FaTiktok, FaXTwitter } from "react-icons/fa6";
 import { useAuth } from "./AuthContext";
-import useLiveLocationTracking from "../hooks/useLiveLocationTracking";
 import NewDropForm from "./NewDropForm";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -672,23 +671,8 @@ useEffect(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
   window.addEventListener('pagehide', handlePageHide);
 
-  // Also handle navigation away from the page (React Router)
-  const handleNavigation = async () => {
-    console.log('🚪 Navigation away detected - hiding truck from map');
-    try {
-      await updateDoc(truckDocRef, {
-        isLive: false,
-        visible: false,
-        lastActive: Date.now(),
-      });
-      console.log('🚪 Truck hidden from map on navigation');
-    } catch (error) {
-      console.error("🚪 Error hiding truck on navigation:", error);
-    }
-  };
-
-  // Store cleanup function for component unmount
-  const cleanup = handleNavigation;
+  // NO navigation cleanup - truck should stay visible when navigating between pages
+  // Only hide on actual logout or manual toggle
 
   return () => {
     clearInterval(interval);
@@ -696,10 +680,8 @@ useEffect(() => {
     window.removeEventListener('beforeunload', handleBeforeUnload);
     window.removeEventListener('pagehide', handlePageHide);
     
-    // Call cleanup when component unmounts (navigation away)
-    cleanup().catch(error => {
-      console.error("🚪 Error during component cleanup:", error);
-    });
+    // NO cleanup when component unmounts - let truck stay visible
+    console.log("�️ Dashboard component unmounting - keeping truck visible for navigation");
   };
 }, [user]);
 
