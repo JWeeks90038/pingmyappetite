@@ -123,10 +123,10 @@ const userData = {
       // Create user document in 'users' collection (always as Basic first)
       await setDoc(doc(db, 'users', user.uid), userData);
 
-      // Send referral notification email if valid referral code was used
+      // Log referral attempt in Firebase for tracking (but don't send email yet)
       if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi' && formData.role === 'owner') {
         try {
-          console.log('Sending referral notification email via Formspree for user:', formData.email);
+          console.log('Logging referral attempt for user:', formData.email);
           
           // Log referral in Firebase for tracking
           await setDoc(doc(db, 'referrals', user.uid), {
@@ -136,52 +136,20 @@ const userData = {
             userName: formData.username || formData.ownerName,
             truckName: formData.truckName,
             selectedPlan: formData.plan,
-            createdAt: serverTimestamp(),
+            signupAt: serverTimestamp(),
+            paymentCompleted: false, // Will be updated after successful payment
+            emailSent: false, // Will be updated after email is sent
           });
           
-          // Send directly to Formspree
-          const response = await fetch('https://formspree.io/f/mpwlvzaj', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: 'grubana.co@gmail.com',
-              subject: `🎯 New Arayaki Hibachi Referral - ${formData.username || formData.ownerName} (${formData.plan} plan)`,
-              message: `🎉 NEW REFERRAL SIGNUP - Arayaki Hibachi
-
-Referral Details:
-• Referral Code Used: ${formData.referralCode}
-• New User Name: ${formData.username || formData.ownerName}
-• New User Email: ${formData.email}
-• Food Truck Name: ${formData.truckName || 'Not specified'}
-• Selected Plan: ${formData.plan}
-• User ID: ${user.uid}
-
-30-Day Free Trial: This user will receive a 30-day free trial for their ${formData.plan} plan subscription.
-
-This notification was automatically sent when someone used the Arayaki Hibachi referral code during signup.
-
-Best regards,
-Grubana System`,
-              referralCode: formData.referralCode,
-              newUserEmail: formData.email,
-              newUserName: formData.username || formData.ownerName,
-              truckName: formData.truckName,
-              selectedPlan: formData.plan,
-              userId: user.uid,
-              _subject: `🎯 New Arayaki Hibachi Referral - ${formData.username || formData.ownerName} (${formData.plan} plan)`,
-            }),
-          });
-          
-          if (response.ok) {
-            console.log('Referral notification sent successfully via Formspree');
-          } else {
-            console.error('Formspree referral notification failed:', response.status);
-          }
-        } catch (emailErr) {
-          console.error('Error sending referral notification via Formspree:', emailErr);
-          // Don't fail signup if email fails
+          console.log('Referral attempt logged. Email will be sent after payment confirmation.');
+        } catch (logErr) {
+          console.error('Error logging referral attempt:', logErr);
+          // Don't fail signup if logging fails
         }
       }
+
+      // Note: Referral notification email will be sent after successful Stripe payment
+      console.log('User created successfully. Referral email will be sent after payment confirmation.');
 
       // Send welcome email for Basic plan users
       if (formData.plan === 'basic' || !formData.plan) {

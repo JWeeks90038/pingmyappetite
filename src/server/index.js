@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import bodyParser from 'body-parser';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
+import fetch from 'node-fetch'; // Add fetch for Node.js
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -498,6 +499,83 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
             stripeCustomerId: session.customer // Add stripeCustomerId to Firestore
           }, { merge: true });
           console.log(`✅ Updated user ${uid} plan to ${planType} and stripeCustomerId to ${session.customer} from checkout.session.completed`);
+          
+          // Check if this user has a pending referral and send notification email
+          if (session.metadata?.hasValidReferral === 'true' && session.metadata?.referralCode === 'arayaki_hibachi') {
+            try {
+              console.log('🎯 Processing referral notification for successful payment:', uid);
+              
+              // Update referral record in Firebase
+              const referralRef = admin.firestore().collection('referrals').doc(uid);
+              await referralRef.update({
+                paymentCompleted: true,
+                paymentCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+                subscriptionId: session.subscription,
+                stripeCustomerId: session.customer
+              });
+              
+              // Get user details for email
+              const userDoc = await userRef.get();
+              const userData = userDoc.data();
+              
+              // Send referral notification via Formspree
+              const emailData = {
+                to: 'grubana.co@gmail.com',
+                subject: `🎯 PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
+                message: `🎉 CONFIRMED REFERRAL PAYMENT - Arayaki Hibachi
+
+Payment Completed Successfully!
+
+Referral Details:
+• Referral Code Used: arayaki_hibachi
+• New User Name: ${userData.username || userData.ownerName}
+• New User Email: ${userData.email}
+• Food Truck Name: ${userData.truckName || 'Not specified'}
+• Selected Plan: ${planType}
+• User ID: ${uid}
+• Stripe Customer ID: ${session.customer}
+• Subscription ID: ${session.subscription}
+
+30-Day Free Trial: This user has successfully started their ${planType} plan with a 30-day free trial.
+
+This notification was sent after successful Stripe payment completion.
+
+Best regards,
+Grubana System`,
+                referralCode: 'arayaki_hibachi',
+                newUserEmail: userData.email,
+                newUserName: userData.username || userData.ownerName,
+                truckName: userData.truckName,
+                selectedPlan: planType,
+                userId: uid,
+                subscriptionId: session.subscription,
+                customerId: session.customer,
+                _subject: `🎯 PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
+              };
+              
+              const formspreeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(emailData),
+              });
+              
+              if (formspreeResponse.ok) {
+                console.log('✅ Referral notification email sent successfully via Formspree');
+                // Update referral record to mark email as sent
+                await referralRef.update({
+                  emailSent: true,
+                  emailSentAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+              } else {
+                console.error('❌ Failed to send referral notification via Formspree:', formspreeResponse.status);
+              }
+              
+            } catch (referralErr) {
+              console.error('❌ Error processing referral notification:', referralErr);
+              // Don't fail the webhook if referral email fails
+            }
+          }
+          
         } catch (err) {
           console.error(`❌ Failed to update user plan and stripeCustomerId from checkout.session.completed:`, err);
         }
