@@ -42,6 +42,7 @@ import Contact from "./components/contact";
 import About from "./components/about";
 import NetworkStatus from "./components/NetworkStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
+import MobileGoogleMapsWrapper from "./components/MobileGoogleMapsWrapper";
 import { clearAppCache, checkAppVersion } from "./utils/cacheUtils";
 
 // Define outside of component
@@ -183,13 +184,7 @@ function App() {
     // For now, render without Stripe to prevent app crash
     return (
       <ErrorBoundary>
-      <LoadScript
-        googleMapsApiKey={googleMapsKey}
-        libraries={LIBRARIES}
-        onLoad={() => console.log('🗺️ Google Maps API loaded successfully')}
-        onError={(error) => console.error('🗺️ Google Maps API failed to load:', error)}
-        loadingElement={<div>Loading Maps...</div>}
-      >
+      <MobileGoogleMapsWrapper googleMapsKey={googleMapsKey}>
         <BrowserRouter>
           <NetworkStatus />
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
@@ -287,7 +282,7 @@ function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </LoadScript>
+      </MobileGoogleMapsWrapper>
       </ErrorBoundary>
     );
   }
@@ -295,7 +290,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Elements stripe={stripePromise}>
-      <LoadScript
+      <MobileGoogleMapsWrapper
         googleMapsApiKey={googleMapsKey}
         libraries={LIBRARIES}
         onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
@@ -398,7 +393,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
-    </LoadScript>
+    </MobileGoogleMapsWrapper>
     </Elements>
     </ErrorBoundary>
   );
