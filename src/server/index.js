@@ -978,6 +978,84 @@ app.post('/api/send-welcome-email', async (req, res) => {
   }
 });
 
+// Send referral notification email endpoint
+app.post('/api/send-referral-notification', async (req, res) => {
+  console.log('Referral notification endpoint called with:', req.body);
+  
+  const { referralCode, newUserEmail, newUserName, truckName, selectedPlan, userId } = req.body;
+  
+  if (!referralCode || !newUserEmail || !newUserName) {
+    console.log('Missing required fields in referral notification request');
+    return res.status(400).json({ error: 'Referral code, user email, and user name are required' });
+  }
+
+  // Only send notification for the specific referral code
+  if (referralCode.toLowerCase() !== 'arayaki_hibachi') {
+    console.log('Invalid referral code for notification:', referralCode);
+    return res.status(400).json({ error: 'Invalid referral code' });
+  }
+
+  console.log('SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
+  console.log('Attempting to send referral notification for:', newUserEmail);
+
+  const referralEmailHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h1 style="color: #2c6f57;">🎉 New Referral Signup - Arayaki Hibachi</h1>
+      
+      <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #c3e6cb;">
+        <h2 style="color: #155724; margin-top: 0;">Referral Details:</h2>
+        <p><strong>Referral Code Used:</strong> ${referralCode}</p>
+        <p><strong>New User Name:</strong> ${newUserName}</p>
+        <p><strong>New User Email:</strong> ${newUserEmail}</p>
+        <p><strong>Food Truck Name:</strong> ${truckName || 'Not specified'}</p>
+        <p><strong>Selected Plan:</strong> ${selectedPlan}</p>
+        <p><strong>User ID:</strong> ${userId}</p>
+      </div>
+      
+      <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ffeaa7;">
+        <p style="margin: 0; color: #856404;">
+          <strong>30-Day Free Trial:</strong> This user will receive a 30-day free trial for their ${selectedPlan} plan subscription.
+        </p>
+      </div>
+      
+      <p style="color: #666; font-size: 14px;">
+        This notification was automatically sent when someone used the Arayaki Hibachi referral code during signup.
+      </p>
+      
+      <p>Best regards,<br/>Grubana System</p>
+    </div>
+  `;
+
+  try {
+    // TODO: Add the second email address here
+    const notificationEmails = [
+      'grubana.co@gmail.com',
+      // 'second-email@example.com' // Replace with actual second email
+    ];
+    
+    const mailOptions = {
+      to: notificationEmails,
+      from: 'grubana.co@gmail.com',
+      subject: `🎯 New Arayaki Hibachi Referral - ${newUserName} (${selectedPlan} plan)`,
+      html: referralEmailHtml,
+    };
+    
+    console.log('Sending referral notification email...');
+    await sgMail.send(mailOptions);
+    
+    console.log(`Referral notification sent successfully for ${newUserEmail}`);
+    res.status(200).json({ success: true, message: 'Referral notification sent successfully' });
+  } catch (err) {
+    console.error('Error sending referral notification:', err);
+    console.error('Error details:', err.response?.body || err.message);
+    res.status(500).json({ 
+      error: 'Failed to send referral notification', 
+      details: err.message,
+      sendgridConfigured: !!process.env.SENDGRID_API_KEY
+    });
+  }
+});
+
 app.post('/api/send-beta-code', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
@@ -1024,9 +1102,9 @@ app.post('/create-customer-portal-session', async (req, res) => {
 // Create a checkout session endpoint
 app.post('/create-checkout-session', async (req, res) => {
   try {
-    const { priceId, planType, uid } = req.body;
+    const { priceId, planType, uid, hasValidReferral, referralCode } = req.body;
     
-    console.log('Creating checkout session for plan:', planType, 'priceId:', priceId, 'uid:', uid);
+    console.log('Creating checkout session for plan:', planType, 'priceId:', priceId, 'uid:', uid, 'hasValidReferral:', hasValidReferral);
 
     // If we have a uid, get user email from Firebase and create/find Stripe customer
     let customer = null;
@@ -1074,15 +1152,20 @@ app.post('/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       subscription_data: {
-        trial_period_days: 30,
+        // Referral users get 30-day trial, non-referral users pay immediately
+        trial_period_days: hasValidReferral ? 30 : 0,
         metadata: {
           planType: planType,
           uid: uid || '',
+          hasValidReferral: hasValidReferral ? 'true' : 'false',
+          referralCode: referralCode || '',
         }
       },
       metadata: {
         planType: planType,
         uid: uid || '',
+        hasValidReferral: hasValidReferral ? 'true' : 'false',
+        referralCode: referralCode || '',
       },
       success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,

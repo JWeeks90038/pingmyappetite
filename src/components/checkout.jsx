@@ -5,6 +5,9 @@ import PaymentForm from './PaymentForm';
 const Checkout = () => {
   const location = useLocation();
   const selectedPlan = location.state?.selectedPlan || 'all-access';
+  const hasValidReferral = location.state?.hasValidReferral || false;
+  const referralCode = location.state?.referralCode || '';
+  const userId = location.state?.userId;
 
   const planDetails = {
     pro: {
@@ -36,7 +39,25 @@ const Checkout = () => {
       <section className="checkout-container">
         <h1>Secure Checkout</h1>
         <p>Subscribe to the {currentPlan.name} for {currentPlan.price}.</p>
-        <p><strong>30-day free trial included!</strong></p>
+        {hasValidReferral ? (
+          <div style={{ 
+            backgroundColor: '#d4edda', 
+            border: '1px solid #c3e6cb', 
+            borderRadius: '8px', 
+            padding: '15px', 
+            margin: '20px 0',
+            textAlign: 'center' 
+          }}>
+            <p style={{ margin: '0', color: '#155724', fontWeight: 'bold' }}>
+              🎉 Referral Code Applied: {referralCode}
+            </p>
+            <p style={{ margin: '5px 0 0 0', color: '#155724' }}>
+              <strong>30-day free trial included!</strong> No charges during trial period.
+            </p>
+          </div>
+        ) : (
+          <p><strong>30-day free trial included!</strong></p>
+        )}
 
         {/* Selected Plan Features */}
         <div className="selected-plan-features" style={{ margin: "24px 0" }}>
@@ -50,7 +71,12 @@ const Checkout = () => {
 
         <h2>Payment Details</h2>
         <div id="payment-form">
-          <PaymentForm planType={selectedPlan} />
+          <PaymentForm 
+            planType={selectedPlan} 
+            hasValidReferral={hasValidReferral}
+            referralCode={referralCode}
+            userId={userId}
+          />
         </div>
 
         <p className="secure-info">🔒 Secure Payment via Stripe</p>

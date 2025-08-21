@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from "../firebase";
 import { getPriceId } from "../utils/stripe";
 
-const PaymentForm = ({ planType = 'all-access' }) => {
+const PaymentForm = ({ planType = 'all-access', hasValidReferral = false, referralCode = '', userId = null }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -33,7 +33,9 @@ const PaymentForm = ({ planType = 'all-access' }) => {
         body: JSON.stringify({
           priceId: priceId,
           planType: planType,
-          uid: user?.uid || null,
+          uid: user?.uid || userId,
+          hasValidReferral: hasValidReferral,
+          referralCode: referralCode,
         }),
       });
 
@@ -64,9 +66,20 @@ const PaymentForm = ({ planType = 'all-access' }) => {
       )}
       
       <div className="checkout-info" style={{ marginBottom: '20px', textAlign: 'center' }}>
-        <p><strong>✅ 30-day free trial included</strong></p>
-        <p>You won't be charged until your trial ends</p>
-        <p>Cancel anytime during your trial period</p>
+        {hasValidReferral ? (
+          <>
+            <p><strong>🎉 Referral Applied: {referralCode}</strong></p>
+            <p><strong>✅ 30-day free trial included</strong></p>
+            <p>You won't be charged until your trial ends</p>
+            <p>Cancel anytime during your trial period</p>
+          </>
+        ) : (
+          <>
+            <p><strong>⚡ Start immediately - No trial period</strong></p>
+            <p>Your subscription starts today with full access</p>
+            <p>Cancel anytime from your dashboard</p>
+          </>
+        )}
       </div>
 
       <button
@@ -86,7 +99,7 @@ const PaymentForm = ({ planType = 'all-access' }) => {
           opacity: loading ? 0.7 : 1,
         }}
       >
-        {loading ? 'Processing...' : `Start Your 30-Day Free Trial`}
+        {loading ? 'Processing...' : hasValidReferral ? `Start Your 30-Day Free Trial` : `Subscribe to ${planType.charAt(0).toUpperCase() + planType.slice(1)} Plan`}
       </button>
       
       <div className="powered-by-stripe" style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px', color: '#666' }}>

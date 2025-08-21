@@ -105,6 +105,19 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
   
+  // Handle Firestore connectivity errors (400 Bad Request)
+  if (event.reason && (
+      event.reason.message?.includes('Failed to fetch') ||
+      event.reason.message?.includes('400') ||
+      event.reason.message?.includes('Bad Request') ||
+      event.reason.code === 'unavailable'
+    )) {
+    console.log('🚨 Global handler: Firestore connectivity error caught:', event.reason.message);
+    // Prevent the error from bubbling up and showing to user
+    event.preventDefault();
+    return;
+  }
+  
   // Let other errors bubble up normally
 });
 

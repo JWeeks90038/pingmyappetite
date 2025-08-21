@@ -2,8 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { enableIndexedDbPersistence } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
 import { setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
@@ -18,7 +17,7 @@ const firebaseConfig = {
 
 console.log('🔥 Firebase: Initializing Firebase...');
 
-// Initialize Firebase with error handling
+// Initialize Firebase with enhanced error handling
 let app, auth, db, storage;
 
 try {
@@ -29,8 +28,16 @@ try {
     auth = getAuth(app);
     console.log('🔥 Firebase: Auth initialized successfully');
     
-    db = getFirestore(app);
-    console.log('🔥 Firebase: Firestore initialized successfully');
+    // Initialize Firestore with optimized settings for better connectivity
+    db = initializeFirestore(app, {
+        cache: {
+            size: 1048576, // 1MB cache
+            tabManager: 'default'
+        },
+        // Enable long polling for better mobile connectivity
+        experimentalForceLongPolling: true,
+    });
+    console.log('🔥 Firebase: Firestore initialized successfully with optimized settings');
     
     storage = getStorage(app);
     console.log('🔥 Firebase: Storage initialized successfully');
@@ -43,28 +50,15 @@ try {
     storage = null;
 }
 
-// Enable offline persistence with mobile-specific handling
-if (db) {
-    // Enable Firestore offline persistence with better error handling
-    enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') {
-            console.warn('🔥 Firebase: Multiple tabs open, persistence can only be enabled in one tab at a time.');
-        } else if (err.code == 'unimplemented') {
-            console.warn('🔥 Firebase: The current browser does not support offline persistence.');
-        } else {
-            console.warn('🔥 Firebase: Offline persistence setup failed:', err);
-        }
+// Enhanced Firebase persistence and auth setup
+if (db && auth) {
+    // Enable longer auth persistence with better error handling
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+        console.error("🔥 Firebase: Auth persistence error:", error);
     });
 
-    // Enable longer auth persistence with better error handling
-    if (auth) {
-        setPersistence(auth, browserLocalPersistence).catch((error) => {
-            console.error("🔥 Firebase: Auth persistence error:", error);
-        });
-    }
-
     // Add connection state monitoring
-    db._delegate && db._delegate._databaseId && console.log('🔥 Firebase: Connected to project:', db._delegate._databaseId.projectId);
+    console.log('🔥 Firebase: Services ready for use');
 }
 
 // Add global error handler for Firebase

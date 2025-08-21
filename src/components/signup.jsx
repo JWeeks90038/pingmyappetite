@@ -24,9 +24,12 @@ const SignUp = () => {
     description: '',
     kitchenType: '',
     plan: '',
+    referralCode: '', // Add referral code field
   });
 
   const [error, setError] = useState(null);
+  const [isValidReferral, setIsValidReferral] = useState(false);
+  const [referralMessage, setReferralMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,6 +37,27 @@ const SignUp = () => {
       ...prevState,
       [name]: value,
     }));
+
+    // Validate referral code in real-time
+    if (name === 'referralCode') {
+      validateReferralCode(value);
+    }
+  };
+
+  const validateReferralCode = (code) => {
+    if (!code.trim()) {
+      setIsValidReferral(false);
+      setReferralMessage('');
+      return;
+    }
+
+    if (code.toLowerCase() === 'arayaki_hibachi') {
+      setIsValidReferral(true);
+      setReferralMessage('✅ Valid referral code! You qualify for a 30-day free trial on Pro and All Access plans.');
+    } else {
+      setIsValidReferral(false);
+      setReferralMessage('❌ Invalid referral code. This code is not recognized.');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -63,6 +87,8 @@ const userData = {
   plan: 'basic',
   subscriptionStatus: 'active', // Basic is always active
   subscriptionId: null, // Placeholder for Stripe subscription ID
+  referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
+  hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
 };
 
       // For Pro/All Access plans, create basic account first, then redirect to checkout
@@ -96,6 +122,37 @@ const userData = {
 
       // Create user document in 'users' collection (always as Basic first)
       await setDoc(doc(db, 'users', user.uid), userData);
+
+      // Send referral notification email if valid referral code was used
+      if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi' && formData.role === 'owner') {
+        try {
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          console.log('Sending referral notification email for user:', formData.email);
+          
+          const response = await fetch(`${API_URL}/api/send-referral-notification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              referralCode: formData.referralCode,
+              newUserEmail: formData.email,
+              newUserName: formData.username || formData.ownerName,
+              truckName: formData.truckName,
+              selectedPlan: formData.plan,
+              userId: user.uid
+            }),
+          });
+
+          const result = await response.json();
+          console.log('Referral notification email response:', result);
+          
+          if (!response.ok) {
+            console.error('Referral notification failed:', result);
+          }
+        } catch (emailErr) {
+          console.error('Error sending referral notification:', emailErr);
+          // Don't fail signup if email fails
+        }
+      }
 
       // Send welcome email for Basic plan users
       if (formData.plan === 'basic' || !formData.plan) {
@@ -132,8 +189,15 @@ const userData = {
       
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
         console.log('🔄 Redirecting to checkout for paid plan:', formData.plan);
-        // For paid plans, redirect to checkout
-        navigate('/checkout', { state: { selectedPlan: formData.plan, userId: user.uid } });
+        // For paid plans, redirect to checkout with referral info
+        navigate('/checkout', { 
+          state: { 
+            selectedPlan: formData.plan, 
+            userId: user.uid,
+            hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
+            referralCode: formData.referralCode
+          } 
+        });
       } else {
         console.log('🔄 Redirecting to dashboard for basic plan or customer');
         // Basic plan or customer - go directly to dashboard
@@ -357,6 +421,37 @@ const userData = {
       <option value="pro">Pro ($9.99/month) - Basic + Real-time GPS tracking + heat map features showing demand areas</option>
       <option value="all-access">All Access ($19.99/month) - Basic/Pro + Analytics + exclusive deal drops</option>
     </select>
+
+    {(formData.plan === 'pro' || formData.plan === 'all-access') && (
+      <>
+        <label htmlFor="referralCode">Referral Code (Optional)</label>
+        <input
+          type="text"
+          id="referralCode"
+          name="referralCode"
+          value={formData.referralCode}
+          onChange={handleChange}
+          placeholder="Enter referral code for special offers"
+          style={{
+            borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
+                        formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
+          }}
+        />
+        {referralMessage && (
+          <div style={{
+            padding: '8px',
+            borderRadius: '4px',
+            marginTop: '5px',
+            fontSize: '14px',
+            backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
+            border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
+            color: isValidReferral ? '#155724' : '#721c24'
+          }}>
+            {referralMessage}
+          </div>
+        )}
+      </>
+    )}
   </>
 )}
 

@@ -88,21 +88,9 @@ export const AuthContextProvider = ({ children }) => {
             setUserRole(data.role || "customer");
             setUserPlan(data.plan || "basic");
             
-            // CRITICAL: Clean up truck location documents for non-owners
-            if (data.role && data.role !== "owner") {
-              console.log('🧹 AuthContext: Cleaning up truck location for non-owner user:', currentUser.uid, 'role:', data.role);
-              const truckDocRef = doc(db, "truckLocations", currentUser.uid);
-              
-              try {
-                const truckDocSnap = await getDoc(truckDocRef);
-                if (truckDocSnap.exists()) {
-                  await deleteDoc(truckDocRef);
-                  console.log('🧹 AuthContext: Truck location document deleted for non-owner');
-                }
-              } catch (error) {
-                console.error('🧹 AuthContext: Error deleting truck location document:', error);
-              }
-            }
+            // Note: Truck location cleanup is handled by the backend/admin functions
+            // No need to clean up here as it causes permission errors for customers
+            console.log('🚀 AuthContext: User role set to:', data.role || "customer");
             
             // More defensive subscription status handling
             let subscriptionStatus = data.subscriptionStatus;
