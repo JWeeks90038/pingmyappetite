@@ -160,10 +160,23 @@ function ProtectedDashboardRoute({ children }) {
   // SECURITY: Only allow access if user has valid plan and subscription status
   // Basic plan is always allowed
   // Pro/All Access require active or trialing subscription status
+  // ADMIN OVERRIDE: Allow manual plan changes with special handling
   const hasValidAccess = 
     userPlan === "basic" || 
-    (userPlan === "pro" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing")) ||
-    (userPlan === "all-access" && (userSubscriptionStatus === "active" || userSubscriptionStatus === "trialing"));
+    (userPlan === "pro" && (
+      userSubscriptionStatus === "active" || 
+      userSubscriptionStatus === "trialing" ||
+      userSubscriptionStatus === "admin-override" ||
+      // Allow manual admin plan changes - if plan is pro/all-access but no Stripe subscription
+      userSubscriptionStatus === null
+    )) ||
+    (userPlan === "all-access" && (
+      userSubscriptionStatus === "active" || 
+      userSubscriptionStatus === "trialing" ||
+      userSubscriptionStatus === "admin-override" ||
+      // Allow manual admin plan changes - if plan is pro/all-access but no Stripe subscription
+      userSubscriptionStatus === null
+    ));
 
   if (!hasValidAccess) {
     console.log('🚨 BLOCKING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);

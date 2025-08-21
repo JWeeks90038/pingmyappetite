@@ -102,7 +102,13 @@ export const AuthContextProvider = ({ children }) => {
                 if (data.plan === "basic" && !subscriptionStatus) {
                   subscriptionStatus = "active";
                 }
-                // If plan is pro/all-access and no subscription status, keep it as is (might be loading)
+                
+                // If plan is pro/all-access and no subscription status, check if it's an admin override
+                if ((data.plan === "pro" || data.plan === "all-access") && !subscriptionStatus) {
+                  // Allow manual admin overrides - set to admin-override for tracking
+                  console.log('🚀 AuthContext: Detected manual plan override for plan:', data.plan);
+                  subscriptionStatus = "admin-override";
+                }
                 
                 setUserSubscriptionStatus(subscriptionStatus);
               }
