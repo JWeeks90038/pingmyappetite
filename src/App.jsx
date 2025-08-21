@@ -84,6 +84,30 @@ window.addEventListener('offline', () => {
   console.warn('🌐 Network: Connection lost');
 });
 
+// Global error handler for unhandled promise rejections (especially Firebase permission errors)
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('🚨 Unhandled Promise Rejection:', event.reason);
+  
+  // Handle Firebase permission-denied errors gracefully
+  if (event.reason && event.reason.code === 'permission-denied') {
+    console.log('🚨 Global handler: Firebase permission denied error caught during logout');
+    // Prevent the error from bubbling up and showing to user
+    event.preventDefault();
+    return;
+  }
+  
+  // Handle generic Firebase permission errors
+  if (event.reason && typeof event.reason === 'string' && 
+      event.reason.includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: Firebase permission error caught during logout');
+    // Prevent the error from bubbling up and showing to user
+    event.preventDefault();
+    return;
+  }
+  
+  // Let other errors bubble up normally
+});
+
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 

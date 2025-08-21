@@ -560,7 +560,15 @@ useEffect(() => {
       console.log("🗺️ Skipping state update - visibility toggle in progress");
     }
   }, (error) => {
-    console.error("🗺️ onSnapshot error:", error); // capture permission-denied explicitly
+    console.error("🗺️ Dashboard onSnapshot error:", error);
+    // Handle permission-denied errors gracefully (happens during logout)
+    if (error.code === 'permission-denied') {
+      console.log("🗺️ Dashboard: Permission denied - user likely logged out, cleaning up marker");
+      if (truckMarkerRef.current) {
+        truckMarkerRef.current.setMap(null);
+        truckMarkerRef.current = null;
+      }
+    }
   });
 
   return () => {
@@ -598,12 +606,19 @@ useEffect(() => {
 useEffect(() => {
   const fetchTruckLocation = async () => {
     if (!user?.uid) return;
-    const docRef = doc(db, "truckLocations", user.uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      setTruckLat(data.lat);
-      setTruckLng(data.lng);
+    try {
+      const docRef = doc(db, "truckLocations", user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setTruckLat(data.lat);
+        setTruckLng(data.lng);
+      }
+    } catch (error) {
+      console.error("🗺️ Error fetching truck location:", error);
+      if (error.code === 'permission-denied') {
+        console.log("🗺️ Permission denied fetching truck location - user likely logged out");
+      }
     }
   };
 
@@ -616,21 +631,38 @@ useEffect(() => {
 
   // Update lastActive every 30 seconds instead of 60 for more frequent updates
   const interval = setInterval(() => {
+    // Check if user is still authenticated before updating
+    if (!user?.uid) {
+      console.log("🗺️ User not authenticated, clearing lastActive interval");
+      clearInterval(interval);
+      return;
+    }
+    
     updateDoc(truckDocRef, {
       lastActive: Date.now(),
     }).catch(error => {
       console.error("Error updating lastActive:", error);
+      if (error.code === 'permission-denied') {
+        console.log("🗺️ Permission denied updating lastActive - clearing interval");
+        clearInterval(interval);
+      }
     });
   }, 30 * 1000); // Reduced from 60 to 30 seconds
 
   // Handle page visibility changes to maintain presence even when screen is dark
   const handleVisibilityChange = () => {
+    // Check if user is still authenticated
+    if (!user?.uid) return;
+    
     if (document.visibilityState === 'visible') {
       // When page becomes visible again, immediately update lastActive
       updateDoc(truckDocRef, {
         lastActive: Date.now(),
       }).catch(error => {
         console.error("Error updating lastActive on visibility change:", error);
+        if (error.code === 'permission-denied') {
+          console.log("🗺️ Permission denied on visibility change update");
+        }
       });
     }
     // Note: We don't set isLive to false when hidden to keep truck visible
