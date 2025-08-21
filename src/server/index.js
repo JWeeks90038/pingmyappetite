@@ -1245,6 +1245,7 @@ app.post('/create-checkout-session', async (req, res) => {
         hasValidReferral: hasValidReferral ? 'true' : 'false',
         referralCode: referralCode || '',
       },
+      // Redirect to owner dashboard since anyone paying for pro/all-access is an owner
       success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,
       allow_promotion_codes: true,

@@ -81,18 +81,32 @@ const SignUp = () => {
   ...fieldsToSave
 } = formData;
 
+// Determine the correct plan and subscription status based on user selection
+let userPlan = formData.plan || 'basic';
+let subscriptionStatus = 'active'; // Default for basic plan
+
+// For paid plans, set initial status appropriately
+if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
+  userPlan = formData.plan;
+  subscriptionStatus = 'pending'; // Will be updated by webhook after payment
+}
+
 const userData = {
   ...fieldsToSave,
   uid: user.uid,
   createdAt: serverTimestamp(),
-  plan: 'basic',
-  subscriptionStatus: 'active', // Basic is always active
+  plan: userPlan,
+  subscriptionStatus: subscriptionStatus,
   subscriptionId: null, // Placeholder for Stripe subscription ID
   referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
   hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
 };
 
-            // For paid plans (pro/all-access), redirect directly to Stripe checkout
+            // CRITICAL: Save user document to Firestore FIRST before redirecting to payment
+      await setDoc(doc(db, 'users', user.uid), userData);
+      console.log('✅ User document saved to Firestore with role:', userData.role);
+
+      // For paid plans (pro/all-access), redirect directly to Stripe checkout
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
         console.log('🔄 Creating Stripe checkout session for paid plan:', formData.plan);
         
@@ -138,9 +152,12 @@ const userData = {
         }
       }
 
-      // For basic plan or customers, redirect to dashboard
+      // For basic plan or customers, save user data and redirect to dashboard
       if (formData.role === 'customer' || formData.plan === 'basic') {
-        console.log('🔄 Redirecting to appropriate dashboard');
+        console.log('🔄 Saving user data and redirecting to appropriate dashboard');
+        await setDoc(doc(db, 'users', user.uid), userData);
+        console.log('✅ User document saved to Firestore with role:', userData.role);
+        
         if (formData.role === 'customer') {
           navigate('/customer-dashboard');
         } else {
