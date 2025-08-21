@@ -140,8 +140,9 @@
   }
   
   .nav-links.open {
-    max-height: 500px;
-    padding: 10px 0;
+    max-height: 800px;
+    padding: 15px 0;
+    overflow-y: auto;
   }
   
   .hamburger {
@@ -152,23 +153,43 @@
   
   .nav-links li {
     display: block;
-    margin: 6px 0;
+    margin: 8px 0;
     text-align: center;
-    padding: 8px 0;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  
+  .nav-links li:last-child {
+    border-bottom: none;
   }
   
   .nav-links li a, .nav-links li .logout-link {
     color: #2c6f57 !important;
     font-weight: bold !important;
     font-size: 1.1rem;
-    padding: 10px 20px;
+    padding: 15px 20px;
     display: block;
     text-decoration: none;
+    width: 100%;
+    box-sizing: border-box;
   }
   
   .nav-links li a:hover, .nav-links li .logout-link:hover {
     background-color: rgba(44, 111, 87, 0.1);
     border-radius: 5px;
+  }
+  
+  /* Ensure logout link is styled consistently on mobile */
+  .nav-links li .logout-link {
+    color: #2c6f57 !important;
+    font-weight: bold !important;
+    font-size: 1.1rem !important;
+    padding: 15px 20px !important;
+    display: block !important;
+    text-decoration: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
   }
 }
 
@@ -181,7 +202,8 @@
   .nav-links.open {
     display: flex;
     flex-direction: column;
-    max-height: 500px;
+    max-height: 800px;
+    overflow-y: auto;
   }
   
   .hamburger {

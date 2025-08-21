@@ -751,29 +751,41 @@ useEffect(() => {
 
   // Function to handle truck marker clicks from HeatMap
   const handleTruckMarkerClick = async (truck) => {
-    if (!truck || !truck.id) return;
+    console.log('🗺️ Dashboard: handleTruckMarkerClick called with truck:', truck);
+    
+    if (!truck || !truck.id) {
+      console.error('🗺️ Dashboard: Invalid truck data - missing truck or truck.id');
+      return;
+    }
     
     try {
+      console.log('🗺️ Dashboard: Fetching owner data for truck:', truck.id);
+      
       // Get owner data for the clicked truck
       const ownerDoc = await getDoc(doc(db, "users", truck.id));
       let ownerData = {};
       if (ownerDoc.exists()) {
         ownerData = ownerDoc.data();
+        console.log('🗺️ Dashboard: Owner data found:', ownerData.truckName || ownerData.ownerName);
+      } else {
+        console.warn('🗺️ Dashboard: No owner document found for truck:', truck.id);
       }
 
       // Fetch drops for this truck
       let truckDrops = [];
       try {
+        console.log('🗺️ Dashboard: Fetching drops for truck:', truck.id);
         const dropsQuery = query(
           collection(db, "drops"),
           where("truckId", "==", truck.id)
         );
         const querySnapshot = await getDocs(dropsQuery);
         truckDrops = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🗺️ Dashboard: Found drops:', truckDrops.length);
       } catch (error) {
-        console.error("Error fetching drops for clicked truck:", error);
+        console.error("🗺️ Dashboard: Error fetching drops for clicked truck:", error);
         if (error.code === 'permission-denied') {
-          console.log("🗺️ Permission denied fetching drops for clicked truck - user may not have access to drops collection");
+          console.log("🗺️ Dashboard: Permission denied fetching drops for clicked truck - user may not have access to drops collection");
         }
         // Continue with empty drops array
         truckDrops = [];
@@ -812,10 +824,19 @@ useEffect(() => {
         drops: truckDrops, // Add the drops data
       };
 
+      console.log('🗺️ Dashboard: Opening menu modal for truck:', truckInfo.truckName);
       setActiveTruck(truckInfo);
       setMenuModalVisible(true);
     } catch (error) {
-      console.error("Error fetching truck data for modal:", error);
+      console.error("🗺️ Dashboard: Error fetching truck data for modal:", error);
+      
+      // Provide user feedback for the error
+      if (error.code === 'permission-denied') {
+        console.error("🗺️ Dashboard: Permission denied - unable to access truck information");
+        // Could show a toast or alert here
+      } else {
+        console.error("🗺️ Dashboard: Unexpected error:", error.message);
+      }
     }
   };
 
