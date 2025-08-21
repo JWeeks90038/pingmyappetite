@@ -4,6 +4,7 @@ import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
+import { getPriceId } from '../utils/stripe';
 import '../assets/styles.css';
 
 
@@ -91,141 +92,66 @@ const userData = {
   hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
 };
 
-      // For Pro/All Access plans, create basic account first, then redirect to checkout
+            // For paid plans (pro/all-access), redirect directly to Stripe checkout
       if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
-        // Set basic location data for geolocation (will be upgraded after payment)
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              const { latitude, longitude } = position.coords;
-              await setDoc(doc(db, 'truckLocations', user.uid), {
-                ownerUid: user.uid,
-                uid: user.uid,
-                truckName: formData.truckName,
-                kitchenType: formData.kitchenType,
-                cuisine: formData.cuisine,
-                lat: latitude,
-                lng: longitude,
-                isLive: false, // Start as hidden until payment
-                visible: false, // Start as hidden until payment
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                lastActive: Date.now(),
-              }, { merge: true });
-            },
-            (error) => {
-              console.error('Geolocation error:', error);
-            }
-          );
-        }
-      }
-
-      // Create user document in 'users' collection (always as Basic first)
-      await setDoc(doc(db, 'users', user.uid), userData);
-
-      // Log referral attempt in Firebase for tracking (but don't send email yet)
-      if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi' && formData.role === 'owner') {
+        console.log('🔄 Creating Stripe checkout session for paid plan:', formData.plan);
+        
         try {
-          console.log('Logging referral attempt for user:', formData.email);
-          
-          // Add a small delay to ensure user document is fully created
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Log referral in Firebase for tracking
-          await setDoc(doc(db, 'referrals', user.uid), {
-            referralCode: formData.referralCode,
-            userId: user.uid,
-            userEmail: formData.email,
-            userName: formData.username || formData.ownerName,
-            truckName: formData.truckName,
-            selectedPlan: formData.plan,
-            signupAt: serverTimestamp(),
-            paymentCompleted: false, // Will be updated after successful payment
-            emailSent: false, // Will be updated after email is sent
-          });
-          
-          console.log('Referral attempt logged successfully. Email will be sent after payment confirmation.');
-        } catch (logErr) {
-          console.error('Error logging referral attempt:', logErr);
-          
-          // Try one more time with a different approach
-          try {
-            console.log('Retrying referral logging with merge option...');
-            await setDoc(doc(db, 'referrals', user.uid), {
-              referralCode: formData.referralCode,
-              userId: user.uid,
-              userEmail: formData.email,
-              userName: formData.username || formData.ownerName,
-              truckName: formData.truckName,
-              selectedPlan: formData.plan,
-              signupAt: serverTimestamp(),
-              paymentCompleted: false,
-              emailSent: false,
-            }, { merge: true });
-            
-            console.log('Referral attempt logged successfully on retry.');
-          } catch (retryErr) {
-            console.error('Failed to log referral attempt on retry:', retryErr);
-            // Don't fail signup if logging fails - continue with the process
-          }
-        }
-      }
-
-      // Note: Referral notification email will be sent after successful Stripe payment
-      console.log('User created successfully. Referral email will be sent after payment confirmation.');
-
-      // Send welcome email for Basic plan users
-      if (formData.plan === 'basic' || !formData.plan) {
-        try {
+          // Create Stripe checkout session directly
           const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-          console.log('Sending welcome email to:', formData.email, 'via API:', API_URL);
+          const priceId = getPriceId(formData.plan);
           
-          const response = await fetch(`${API_URL}/api/send-welcome-email`, {
+          if (!priceId) {
+            setError('Price configuration error. Please contact support.');
+            return;
+          }
+          
+          const checkoutResponse = await fetch(`${API_URL}/create-checkout-session`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: formData.email,
-              username: formData.username || formData.ownerName,
-              plan: 'basic'
+              priceId: priceId,
+              planType: formData.plan,
+              uid: user.uid,
+              hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
+              referralCode: formData.referralCode,
             }),
           });
 
-          const result = await response.json();
-          console.log('Welcome email response:', result);
+          const { url, error } = await checkoutResponse.json();
           
-          if (!response.ok) {
-            console.error('Welcome email failed:', result);
+          if (error) {
+            console.error('Stripe checkout error:', error);
+            setError(`Payment setup failed: ${error}`);
+            return;
           }
-        } catch (emailErr) {
-          console.error('Error sending welcome email:', emailErr);
-          // Don't fail signup if email fails
+
+          console.log('✅ Redirecting directly to Stripe checkout');
+          // Redirect directly to Stripe Checkout
+          window.location.href = url;
+          return;
+          
+        } catch (checkoutErr) {
+          console.error('Error creating Stripe checkout:', checkoutErr);
+          setError('Failed to setup payment. Please try again.');
+          return;
         }
       }
 
-      // Redirect based on intended plan
-      console.log('🔍 Signup Debug - formData.role:', formData.role);
-      console.log('🔍 Signup Debug - formData.plan:', formData.plan);
-      console.log('🔍 Signup Debug - Checking redirect logic...');
-      
-      if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
-        console.log('🔄 Redirecting to checkout for paid plan:', formData.plan);
-        // For paid plans, redirect to checkout with referral info
-        navigate('/checkout', { 
-          state: { 
-            selectedPlan: formData.plan, 
-            userId: user.uid,
-            hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
-            referralCode: formData.referralCode
-          } 
-        });
-      } else {
-        console.log('🔄 Redirecting to dashboard for basic plan or customer');
-        // Basic plan or customer - go directly to dashboard
-        navigate(formData.role === 'customer' ? '/customer-dashboard' : '/dashboard');
+      // For basic plan or customers, redirect to dashboard
+      if (formData.role === 'customer' || formData.plan === 'basic') {
+        console.log('🔄 Redirecting to appropriate dashboard');
+        if (formData.role === 'customer') {
+          navigate('/customer-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+        return;
       }
-    } catch (err) {
-      setError(err.message);
-      console.error('Error signing up:', err);
+
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setError(error.message || 'An error occurred during signup');
     }
   };
 

@@ -149,7 +149,8 @@ function ProtectedDashboardRoute({ children }) {
 
   if (!hasValidAccess) {
     console.log('🚨 BLOCKING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
-    return <Navigate to="/checkout" />;
+    // Redirect to signup to upgrade plan instead of checkout page
+    return <Navigate to="/signup" />;
   }
 
   console.log('✅ ALLOWING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
