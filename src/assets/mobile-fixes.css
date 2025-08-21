@@ -1,0 +1,126 @@
+/* Mobile-specific fixes and debugging styles */
+
+/* Ensure root element takes full height on mobile */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Fix for mobile viewport issues */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific fixes */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Prevent horizontal scrolling on mobile */
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile debugging styles */
+@media (max-width: 768px) {
+  /* Ensure all content is visible on mobile */
+  .dashboard, .customer-dashboard {
+    min-height: 100vh;
+    padding: 10px;
+  }
+  
+  /* Fix for flex layouts on mobile */
+  .dashboard > *, .customer-dashboard > * {
+    flex-shrink: 0;
+  }
+  
+  /* Ensure maps work on mobile */
+  .google-map {
+    width: 100% !important;
+    height: 400px !important;
+    min-height: 300px !important;
+  }
+  
+  /* Fix modal issues on mobile */
+  .menu-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+  }
+  
+  /* Debug red border for mobile - remove in production */
+  .mobile-debug * {
+    border: 1px solid red !important;
+  }
+}
+
+/* Loading animation for mobile */
+.mobile-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+}
+
+.mobile-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #2c6f57;
+  border-radius: 50%;
+  animation: mobile-spin 1s linear infinite;
+}
+
+@keyframes mobile-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mobile error display */
+.mobile-error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: white;
+  padding: 20px;
+  z-index: 10001;
+  overflow: auto;
+  font-family: Arial, sans-serif;
+}
+
+/* Ensure Firebase operations don't block UI on mobile */
+.firestore-loading {
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Mobile-specific navbar fixes */
+@media (max-width: 768px) {
+  .navbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+  }
+}
+
+/* Fix for iOS Safari bottom bar */
+@supports (padding: max(0px)) {
+  .dashboard, .customer-dashboard {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Progressive Web App fixes */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}

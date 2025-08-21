@@ -9,6 +9,9 @@ import OwnerLayout from './layouts/OwnerLayout';
 import Navbar from './components/navbar';
 import { useAuth } from './components/AuthContext'; // <-- Import AuthContext
 
+// Import mobile fixes CSS
+import './assets/mobile-fixes.css';
+
 import Login from './components/login';
 import Dashboard from './components/dashboard';
 import CustomerDashboard from './components/CustomerDashboard';
@@ -118,6 +121,19 @@ function ProtectedDashboardRoute({ children }) {
 
 function App() {
   const { user, userRole, loading } = useAuth();
+
+  // Check Firebase readiness
+  useEffect(() => {
+    import('./firebase').then(({ auth, db }) => {
+      if (!auth || !db) {
+        console.error('🔥 Firebase services not properly initialized');
+      } else {
+        console.log('🔥 Firebase services ready');
+      }
+    }).catch(error => {
+      console.error('🔥 Failed to import Firebase:', error);
+    });
+  }, []);
 
   // Cache busting mechanism for mobile browsers
   useEffect(() => {
