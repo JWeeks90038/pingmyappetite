@@ -171,11 +171,19 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         const userId = truck.uid || truck.id;
         const userRef = doc(db, "users", userId);
         const userDoc = await getDoc(userRef);
-        updatedNames[truck.id] = userDoc.exists()
-          ? userDoc.data().truckName || "Food Truck"
-          : "Food Truck";
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          // CRITICAL: Only show truck names for actual owners
+          if (userData.role === "owner") {
+            updatedNames[truck.id] = userData.truckName || "Food Truck";
+          } else {
+            console.log('🚛 HeatMap: Skipping truck name for non-owner user:', userId, 'role:', userData.role);
+          }
+        } else {
+          console.log('🚛 HeatMap: User document not found for truck:', userId);
+        }
       }
-      //console.log("Resolved truck names:", updatedNames);
+      console.log("🚛 HeatMap: Resolved truck names for owners only:", updatedNames);
       setTruckNames(updatedNames);
     };
     fetchAllTruckNames();
@@ -201,7 +209,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
 
   const ONLINE_THRESHOLD = 8 * 60 * 60 * 1000; // 8 hours in milliseconds (consistent with mobile)
 
-const updateTruckMarkers = useCallback(() => {
+const updateTruckMarkers = useCallback(async () => {
   if (!window.google || !mapRef.current) return;
 
   const now = Date.now();
@@ -209,13 +217,41 @@ const updateTruckMarkers = useCallback(() => {
 
   console.log('🗺️ HeatMap: Updating truck markers, found trucks:', truckLocations.length);
 
-  truckLocations.forEach((truck) => {
+  for (const truck of truckLocations) {
     console.log('🗺️ HeatMap: Processing truck:', truck.id, {
       isLive: truck.isLive,
       visible: truck.visible,
       lastActive: truck.lastActive,
       timeSinceActive: truck.lastActive ? now - truck.lastActive : 'N/A'
     });
+
+    // CRITICAL: Verify this user is actually an owner before showing truck icon
+    const userId = truck.uid || truck.id;
+    let isOwner = false;
+    
+    try {
+      const userRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        isOwner = userData.role === "owner";
+        console.log('🗺️ HeatMap: User role check for', userId, '- role:', userData.role, 'isOwner:', isOwner);
+      } else {
+        console.log('🗺️ HeatMap: User document not found for truck:', userId);
+      }
+    } catch (error) {
+      console.error('🗺️ HeatMap: Error checking user role for truck:', userId, error);
+    }
+
+    // Don't show truck icons for non-owners
+    if (!isOwner) {
+      console.log('🗺️ HeatMap: Skipping truck marker for non-owner user:', userId);
+      if (markerRefs.current[truck.id]) {
+        markerRefs.current[truck.id].setMap(null);
+        delete markerRefs.current[truck.id];
+      }
+      continue;
+    }
 
     // Stricter check for truck visibility - require explicit true values for isLive and visible
     const hasCoordinates = truck.lat && truck.lng;
@@ -226,7 +262,7 @@ const updateTruckMarkers = useCallback(() => {
     // Also hide if truck is very stale (regardless of other flags)
     const isStale = truck.lastActive && (now - truck.lastActive > ONLINE_THRESHOLD);
     
-    console.log('🗺️ HeatMap: Visibility check for truck', truck.id, {
+    console.log('🗺️ HeatMap: Visibility check for owner truck', truck.id, {
       hasCoordinates,
       isExplicitlyVisible,
       isExplicitlyLive,
@@ -235,12 +271,12 @@ const updateTruckMarkers = useCallback(() => {
     });
     
     if (!shouldShow || isStale) {
-      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
+      console.log('🗺️ HeatMap: Hiding owner truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
       if (markerRefs.current[truck.id]) {
         markerRefs.current[truck.id].setMap(null);
         delete markerRefs.current[truck.id];
       }
-      return;
+      continue;
     }
 
     const position = { lat: truck.lat, lng: truck.lng };
@@ -248,7 +284,7 @@ const updateTruckMarkers = useCallback(() => {
     currentTruckIds.add(truck.id);
 
     if (!markerRefs.current[truck.id]) {
-      console.log('🗺️ HeatMap: Creating new marker for truck', truck.id);
+      console.log('🗺️ HeatMap: Creating new marker for owner truck', truck.id);
       const marker = new window.google.maps.Marker({
         position,
         map: mapRef.current,
@@ -266,11 +302,11 @@ const updateTruckMarkers = useCallback(() => {
       
       markerRefs.current[truck.id] = marker;
     } else {
-      console.log('🗺️ HeatMap: Updating existing marker for truck', truck.id);
+      console.log('🗺️ HeatMap: Updating existing marker for owner truck', truck.id);
       animateMarkerTo(markerRefs.current[truck.id], position);
       markerRefs.current[truck.id].setTitle(truckName);
     }
-  });
+  }
 
   // Clean up markers for trucks that no longer meet criteria
   Object.keys(markerRefs.current).forEach((id) => {

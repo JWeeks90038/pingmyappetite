@@ -14,6 +14,7 @@ import {
   where,
   orderBy,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -293,6 +294,22 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         setUsername(userData.displayName || ''); // Use displayName from Firestore
+        
+        // CRITICAL: Clean up any truck location documents for customers
+        if (userData.role === "customer") {
+          console.log('🧹 CustomerDashboard: Cleaning up truck location for customer:', currentUser.uid);
+          const truckDocRef = doc(db, "truckLocations", currentUser.uid);
+          
+          try {
+            const truckDocSnap = await getDoc(truckDocRef);
+            if (truckDocSnap.exists()) {
+              await deleteDoc(truckDocRef);
+              console.log('🧹 CustomerDashboard: Truck location document deleted for customer');
+            }
+          } catch (error) {
+            console.error('🧹 CustomerDashboard: Error deleting truck location document:', error);
+          }
+        }
       } else {
         console.warn('User document not found in Firestore.');
         setUsername(currentUser.displayName || ''); // Fallback to auth displayName

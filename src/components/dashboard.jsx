@@ -38,6 +38,23 @@ import { QRCodeCanvas } from "qrcode.react";
 
 const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole, userSubscriptionStatus } = useAuth(); // Get subscription status too
+  
+  // CRITICAL: Immediately block non-owners from accessing this component
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (userRole && userRole !== "owner") {
+      console.log("🚨 Dashboard: Non-owner user detected, redirecting immediately (role:", userRole, ")");
+      navigate("/customer-dashboard");
+      return;
+    }
+  }, [userRole, navigate]);
+
+  // Don't render anything for non-owners
+  if (userRole && userRole !== "owner") {
+    return <div>Redirecting...</div>;
+  }
+
   useLiveLocationTracking(userPlan);
   
   // Add debugging
@@ -80,7 +97,6 @@ console.log("Dashboard component rendering for OWNER");
   const truckMarkerRef = useRef(null);
   const qrRef = useRef(null);
   const auth = getAuth();
-  const navigate = useNavigate();
 
  const getOwnerTruckIcon = (kitchenType) => {
   const type = (kitchenType || 'truck').toLowerCase();
@@ -1070,32 +1086,6 @@ useEffect(() => {
     </span>
   </label>
 </div>
-
-      {/* Debug section - remove in production */}
-      <div style={{ marginTop: "20px", padding: "10px", backgroundColor: "#f0f0f0", borderRadius: "5px", fontSize: "12px" }}>
-        <strong>Debug Info:</strong>
-        <br />
-        isVisible state: {String(isVisible)}
-        <br />
-        <button 
-          onClick={async () => {
-            if (user?.uid) {
-              const docRef = doc(db, "truckLocations", user.uid);
-              const docSnap = await getDoc(docRef);
-              if (docSnap.exists()) {
-                const data = docSnap.data();
-                console.log("🔍 Current Firestore data:", data);
-                alert(`Firestore data:\nvisible: ${data.visible}\nisLive: ${data.isLive}\nlastActive: ${new Date(data.lastActive).toLocaleString()}`);
-              } else {
-                alert("No truck location document found");
-              }
-            }
-          }}
-          style={{ marginTop: "5px", padding: "5px 10px", fontSize: "11px" }}
-        >
-          Check Firestore Data
-        </button>
-      </div>
 
       <h2>Live Demand Map</h2>
       {userPlan === "basic" ? (
