@@ -456,7 +456,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       // Immediately retrieve the subscription details
       try {
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
-        console.log('📦 Retrieved subscription details:', {
+        console.log('Retrieved subscription details:', {
           subscriptionId: subscription.id,
           status: subscription.status,
           customerId: subscription.customer,
@@ -503,7 +503,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
           // Check if this user has a pending referral and send notification email
           if (session.metadata?.hasValidReferral === 'true' && session.metadata?.referralCode === 'arayaki_hibachi') {
             try {
-              console.log('🎯 Processing referral notification for successful payment:', uid);
+              console.log('Processing referral notification for successful payment:', uid);
               
               // Update referral record in Firebase
               const referralRef = admin.firestore().collection('referrals').doc(uid);
@@ -521,8 +521,8 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
               // Send referral notification via Formspree
               const emailData = {
                 to: 'grubana.co@gmail.com',
-                subject: `🎯 PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
-                message: `🎉 CONFIRMED REFERRAL PAYMENT - Arayaki Hibachi
+                subject: `PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
+                message: `CONFIRMED REFERRAL PAYMENT - Arayaki Hibachi
 
 Payment Completed Successfully!
 
@@ -550,7 +550,7 @@ Grubana System`,
                 userId: uid,
                 subscriptionId: session.subscription,
                 customerId: session.customer,
-                _subject: `🎯 PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
+                _subject: `PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
               };
               
               const formspreeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
