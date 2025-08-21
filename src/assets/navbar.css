@@ -140,8 +140,8 @@
   }
   
   .nav-links.open {
-    max-height: 400px;
-    padding: 5px 0;
+    max-height: 300px;
+    padding: 2px 0;
     overflow-y: auto;
   }
   
@@ -153,9 +153,9 @@
   
   .nav-links li {
     display: block;
-    margin: 2px 0;
+    margin: 0;
     text-align: center;
-    padding: 2px 0;
+    padding: 0;
   }
   
   .nav-links li:last-child {
@@ -165,8 +165,8 @@
   .nav-links li a, .nav-links li .logout-link {
     color: #2c6f57 !important;
     font-weight: bold !important;
-    font-size: 1rem;
-    padding: 8px 15px;
+    font-size: 0.95rem;
+    padding: 6px 15px;
     display: block;
     text-decoration: none;
     width: 100%;
@@ -182,8 +182,8 @@
   .nav-links li .logout-link {
     color: #2c6f57 !important;
     font-weight: bold !important;
-    font-size: 1rem !important;
-    padding: 8px 15px !important;
+    font-size: 0.95rem !important;
+    padding: 6px 15px !important;
     display: block !important;
     text-decoration: none !important;
     width: 100% !important;
@@ -201,7 +201,7 @@
   .nav-links.open {
     display: flex;
     flex-direction: column;
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
   }
   
