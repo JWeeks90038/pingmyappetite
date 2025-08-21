@@ -1,5 +1,4 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
-import { LoadScript } from '@react-google-maps/api';
 import { useEffect } from 'react';
 
 import PublicLayout from './layouts/PublicLayout';
@@ -184,7 +183,7 @@ function App() {
     // For now, render without Stripe to prevent app crash
     return (
       <ErrorBoundary>
-      <MobileGoogleMapsWrapper googleMapsKey={googleMapsKey}>
+      <MobileGoogleMapsWrapper googleMapsApiKey={googleMapsKey}>
         <BrowserRouter>
           <NetworkStatus />
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
