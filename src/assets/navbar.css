@@ -106,10 +106,7 @@
   .navbar {
     flex-direction: column;
     align-items: stretch;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: static;
     width: 100%;
     z-index: 1000;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -139,15 +136,12 @@
     transition: max-height 0.3s ease;
     border-radius: 0 0 15px 15px;
     padding: 0;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
   
   .nav-links.open {
     max-height: 500px;
+    padding: 10px 0;
   }
   
   .hamburger {
@@ -160,7 +154,21 @@
     display: block;
     margin: 6px 0;
     text-align: center;
-    padding: 0;
+    padding: 8px 0;
+  }
+  
+  .nav-links li a, .nav-links li .logout-link {
+    color: #2c6f57 !important;
+    font-weight: bold !important;
+    font-size: 1.1rem;
+    padding: 10px 20px;
+    display: block;
+    text-decoration: none;
+  }
+  
+  .nav-links li a:hover, .nav-links li .logout-link:hover {
+    background-color: rgba(44, 111, 87, 0.1);
+    border-radius: 5px;
   }
 }
 
