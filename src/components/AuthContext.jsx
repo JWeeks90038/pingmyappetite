@@ -86,8 +86,14 @@ export const AuthContextProvider = ({ children }) => {
                 setUserPlan(null);
                 setUserSubscriptionStatus(null);
               } else {
-                console.log('🚀 LATEST CODE: AuthContext updated - Version e1da37bc');
+                console.log('🚀 LATEST CODE: AuthContext updated - Version 8b0c6718');
                 const data = userSnap.data();
+                console.log('🔍 AuthContext user data:', {
+                  plan: data.plan,
+                  subscriptionStatus: data.subscriptionStatus,
+                  role: data.role
+                });
+                
                 setUserRole(data.role || "customer");
                 setUserPlan(data.plan || "basic");
                 
@@ -101,15 +107,16 @@ export const AuthContextProvider = ({ children }) => {
                 // If plan is basic and no subscription status, default to active
                 if (data.plan === "basic" && !subscriptionStatus) {
                   subscriptionStatus = "active";
+                  console.log('🔍 AuthContext: Set basic plan to active status');
                 }
                 
-                // If plan is pro/all-access and no subscription status, check if it's an admin override
+                // If plan is pro/all-access and no subscription status, keep it null for admin override
                 if ((data.plan === "pro" || data.plan === "all-access") && !subscriptionStatus) {
-                  // Allow manual admin overrides - set to admin-override for tracking
-                  console.log('🚀 AuthContext: Detected manual plan override for plan:', data.plan);
-                  subscriptionStatus = "admin-override";
+                  console.log('🚀 AuthContext: Detected manual plan override for plan:', data.plan, 'keeping status as null');
+                  subscriptionStatus = null; // Explicitly keep as null for admin overrides
                 }
                 
+                console.log('🔍 AuthContext: Final subscription status:', subscriptionStatus);
                 setUserSubscriptionStatus(subscriptionStatus);
               }
               setLoading(false);

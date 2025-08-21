@@ -142,41 +142,69 @@ window.addEventListener('unhandledrejection', (event) => {
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 
-  console.log('🚀 LATEST CODE: ProtectedDashboardRoute - Version e1da37bc');
-  console.log('ProtectedDashboardRoute - userPlan:', userPlan, 'userSubscriptionStatus:', userSubscriptionStatus);
+  console.log('🚀 LATEST CODE: ProtectedDashboardRoute - Version 8b0c6718');
+  console.log('🔍 ProtectedDashboardRoute DEBUG:', {
+    user: !!user,
+    userPlan,
+    userSubscriptionStatus,
+    loading,
+    userSubscriptionStatusType: typeof userSubscriptionStatus
+  });
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
 
   // CRITICAL FIX: For paid plans, wait for subscription status to load
-  // This prevents race condition where userSubscriptionStatus is still null
+  // BUT allow admin overrides (null status) to pass through
   const isPaidPlan = userPlan === "pro" || userPlan === "all-access";
-  const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === null;
+  
+  // Only consider it "loading" if we're still in the initial loading state
+  // Don't block if userSubscriptionStatus is explicitly null (admin override)
+  const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === undefined && loading;
+  
+  console.log('🔍 Subscription loading check:', {
+    isPaidPlan,
+    subscriptionStatusLoading,
+    userSubscriptionStatus,
+    userSubscriptionStatusIsNull: userSubscriptionStatus === null,
+    userSubscriptionStatusIsUndefined: userSubscriptionStatus === undefined
+  });
   
   if (subscriptionStatusLoading) {
+    console.log('⏳ Waiting for subscription status to load...');
     return <div>Loading subscription status...</div>;
   }
 
   // SECURITY: Only allow access if user has valid plan and subscription status
   // Basic plan is always allowed
-  // Pro/All Access require active or trialing subscription status
-  // ADMIN OVERRIDE: Allow manual plan changes with special handling
+  // Pro/All Access require active or trialing subscription status OR admin override
   const hasValidAccess = 
     userPlan === "basic" || 
     (userPlan === "pro" && (
       userSubscriptionStatus === "active" || 
       userSubscriptionStatus === "trialing" ||
       userSubscriptionStatus === "admin-override" ||
-      // Allow manual admin plan changes - if plan is pro/all-access but no Stripe subscription
-      userSubscriptionStatus === null
+      userSubscriptionStatus === null  // Allow manual admin changes (no Stripe subscription)
     )) ||
     (userPlan === "all-access" && (
       userSubscriptionStatus === "active" || 
       userSubscriptionStatus === "trialing" ||
       userSubscriptionStatus === "admin-override" ||
-      // Allow manual admin plan changes - if plan is pro/all-access but no Stripe subscription
-      userSubscriptionStatus === null
+      userSubscriptionStatus === null  // Allow manual admin changes (no Stripe subscription)
     ));
+
+  console.log('🔍 Access validation:', {
+    hasValidAccess,
+    userPlan,
+    userSubscriptionStatus,
+    isBasic: userPlan === "basic",
+    isPro: userPlan === "pro",
+    isAllAccess: userPlan === "all-access",
+    statusIsActive: userSubscriptionStatus === "active",
+    statusIsTrialing: userSubscriptionStatus === "trialing",
+    statusIsAdminOverride: userSubscriptionStatus === "admin-override",
+    statusIsNull: userSubscriptionStatus === null
+  });
 
   if (!hasValidAccess) {
     console.log('🚨 BLOCKING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
