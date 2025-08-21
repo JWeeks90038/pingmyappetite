@@ -53,8 +53,8 @@ const SignUp = () => {
     }
 
     if (code.toLowerCase() === 'arayaki_hibachi') {
-      setIsValidReferral(true);
-      setReferralMessage('✅ Valid referral code! You qualify for a 30-day free trial on Pro and All Access plans.');
+      setValidReferral(true);
+      setReferralMessage('✅ Valid referral code applied!');
     } else {
       setIsValidReferral(false);
       setReferralMessage('❌ Invalid referral code. This code is not recognized.');
@@ -108,7 +108,7 @@ const userData = {
 
       // If valid referral code used, create referral document
       if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi') {
-        console.log('🎯 Creating referral document for arayaki_hibachi code');
+        console.log('🎯 Creating referral document for Arayaki_Hibachi code');
         try {
           await setDoc(doc(db, 'referrals', user.uid), {
             userId: user.uid,

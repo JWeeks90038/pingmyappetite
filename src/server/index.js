@@ -501,7 +501,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
           console.log(`✅ Updated user ${uid} plan to ${planType} and stripeCustomerId to ${session.customer} from checkout.session.completed`);
           
           // Check if this user has a pending referral and send notification email
-          if (session.metadata?.hasValidReferral === 'true' && session.metadata?.referralCode === 'arayaki_hibachi') {
+          if (session.metadata?.hasValidReferral === 'true' && session.metadata?.referralCode === 'Arayaki_Hibachi') {
             try {
               console.log('Processing referral notification for successful payment:', uid);
               
@@ -527,7 +527,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 Payment Completed Successfully!
 
 Referral Details:
-• Referral Code Used: arayaki_hibachi
+New customer: ${session.customer_details?.email}
+• Plan: ${planType}
+• Referral Code Used: Arayaki_Hibachi
 • New User Name: ${userData.username || userData.ownerName}
 • New User Email: ${userData.email}
 • Food Truck Name: ${userData.truckName || 'Not specified'}
@@ -542,7 +544,7 @@ This notification was sent after successful Stripe payment completion.
 
 Best regards,
 Grubana System`,
-                referralCode: 'arayaki_hibachi',
+                referralCode: 'Arayaki_Hibachi',
                 newUserEmail: userData.email,
                 newUserName: userData.username || userData.ownerName,
                 truckName: userData.truckName,
