@@ -95,7 +95,76 @@ console.log("Dashboard component rendering for OWNER");
   const qrRef = useRef(null);
   const auth = getAuth();
 
- const getOwnerTruckIcon = (kitchenType) => {
+// Create a circular icon using canvas to mimic borderRadius: "50%"
+const createCircularIcon = (imageUrl, size = 40) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = size;
+      canvas.height = size;
+
+      // Save the context
+      ctx.save();
+      
+      // Create circular clipping path
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI); // Leave space for border
+      ctx.clip();
+
+      // Draw the image to fill the circle (like objectFit: "cover")
+      const aspectRatio = img.width / img.height;
+      let drawWidth = size;
+      let drawHeight = size;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (aspectRatio > 1) {
+        // Image is wider - scale by height
+        drawHeight = size;
+        drawWidth = size * aspectRatio;
+        offsetX = (size - drawWidth) / 2;
+      } else {
+        // Image is taller - scale by width
+        drawWidth = size;
+        drawHeight = size / aspectRatio;
+        offsetY = (size - drawHeight) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      
+      // Restore context to remove clipping
+      ctx.restore();
+      
+      // Draw black border around the circle
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 1, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      resolve(canvas.toDataURL());
+    };
+    
+    img.onerror = () => {
+      console.log('Failed to load image for circular icon:', imageUrl);
+      resolve(null);
+    };
+    
+    img.src = imageUrl;
+  });
+};
+
+ const getOwnerTruckIcon = (kitchenType, coverUrl = null) => {
+  // Use cover photo if available, otherwise use default icons
+  if (coverUrl) {
+    // Test: Just use the cover photo directly first
+    return coverUrl;
+  }
+  
   const type = (kitchenType || 'truck').toLowerCase();
   switch (type) {
     case 'trailer':
@@ -525,7 +594,7 @@ useEffect(() => {
     
     console.log("🗺️ Creating/updating marker with data:", { lat, lng, isLive, visible });
     console.log("🗺️ Owner dashboard marker kitchenType:", data.kitchenType);
-    console.log("🗺️ Icon URL:", getOwnerTruckIcon(data.kitchenType));
+    console.log("🗺️ Icon URL:", getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl));
     
     const position = { lat, lng };
 
@@ -535,14 +604,43 @@ useEffect(() => {
         position,
         map: mapRef, // Always add to map initially
         icon: {
-          url: getOwnerTruckIcon(data.kitchenType),
+          url: getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl),
           scaledSize: new window.google.maps.Size(40, 40),
         },
         title: "Your Food Truck",
       });
+      
+      // If there's a cover photo, create circular version and update marker
+      if (ownerData?.coverUrl) {
+        createCircularIcon(ownerData.coverUrl, 40).then(circularUrl => {
+          if (circularUrl) {
+            truckMarkerRef.current.setIcon({
+              url: circularUrl,
+              scaledSize: new window.google.maps.Size(40, 40),
+            });
+          }
+        });
+      }
     } else {
       console.log("🗺️ Updating existing marker position");
       truckMarkerRef.current.setPosition(position);
+      // Update icon in case cover photo changed
+      truckMarkerRef.current.setIcon({
+        url: getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl),
+        scaledSize: new window.google.maps.Size(40, 40),
+      });
+      
+      // If there's a cover photo, create circular version and update marker
+      if (ownerData?.coverUrl) {
+        createCircularIcon(ownerData.coverUrl, 40).then(circularUrl => {
+          if (circularUrl) {
+            truckMarkerRef.current.setIcon({
+              url: circularUrl,
+              scaledSize: new window.google.maps.Size(40, 40),
+            });
+          }
+        });
+      }
     }
 
     // Handle visibility with stricter logic - only show if explicitly true
@@ -579,7 +677,7 @@ useEffect(() => {
     }
     unsubscribe();
   };
-}, [isLoaded, mapRef, user, userRole]);
+}, [isLoaded, mapRef, user, userRole, ownerData]);
 
 // Fetch drops (top-level useEffect)
 useEffect(() => {

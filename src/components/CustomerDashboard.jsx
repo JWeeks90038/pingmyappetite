@@ -369,19 +369,105 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
   };
 
   // Helper to pick the correct icon
-const getTruckIcon = (kitchenType, hasActiveDrop) => {
-  //console.log('kitchenType:', kitchenType, 'hasActiveDrop:', hasActiveDrop);
+// Create a circular icon using canvas to mimic borderRadius: "50%"
+const createCircularIcon = (imageUrl, size = 60) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = size;
+      canvas.height = size;
+
+      // Save the context
+      ctx.save();
+      
+      // Create circular clipping path
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI); // Leave space for border
+      ctx.clip();
+
+      // Draw the image to fill the circle (like objectFit: "cover")
+      const aspectRatio = img.width / img.height;
+      let drawWidth = size;
+      let drawHeight = size;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (aspectRatio > 1) {
+        // Image is wider - scale by height
+        drawHeight = size;
+        drawWidth = size * aspectRatio;
+        offsetX = (size - drawWidth) / 2;
+      } else {
+        // Image is taller - scale by width
+        drawWidth = size;
+        drawHeight = size / aspectRatio;
+        offsetY = (size - drawHeight) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      
+      // Restore context to remove clipping
+      ctx.restore();
+      
+      // Draw black border around the circle
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 1, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      resolve(canvas.toDataURL());
+    };
+    
+    img.onerror = () => {
+      console.log('Failed to load image for circular icon:', imageUrl);
+      resolve(null);
+    };
+    
+    img.src = imageUrl;
+  });
+};
+
+const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
+  console.log('getTruckIcon called with coverUrl:', coverUrl); // Debug log
   let iconUrl;
-  switch (kitchenType) {
-    case 'trailer':
-      iconUrl = hasActiveDrop ? '/trailer-icon-glow.png' : '/trailer-icon.png';
-      break;
-    case 'cart':
-      iconUrl = hasActiveDrop ? '/cart-icon-glow.png' : '/cart-icon.png';
-      break;
-    default:
-      iconUrl = hasActiveDrop ? '/truck-icon-glow.png' : '/truck-icon.png';
+  
+  // If truck has an active drop, always use glow icons
+  if (hasActiveDrop) {
+    switch (kitchenType) {
+      case 'trailer':
+        iconUrl = '/trailer-icon-glow.png';
+        break;
+      case 'cart':
+        iconUrl = '/cart-icon-glow.png';
+        break;
+      default:
+        iconUrl = '/truck-icon-glow.png';
+    }
+  } else {
+    // No active drop - use cover photo if available, otherwise default icons
+    if (coverUrl) {
+      // Use original cover photo, circular version will be applied later
+      console.log('Using cover photo as icon:', coverUrl); // Debug log
+      iconUrl = coverUrl;
+    } else {
+      switch (kitchenType) {
+        case 'trailer':
+          iconUrl = '/trailer-icon.png';
+          break;
+        case 'cart':
+          iconUrl = '/cart-icon.png';
+          break;
+        default:
+          iconUrl = '/truck-icon.png';
+      }
+    }
   }
+  
   return window.google
     ? {
         url: iconUrl,
@@ -662,14 +748,17 @@ useEffect(() => {
         continue;
       }
 
-      // Fetch owner data to get cuisine type for filtering
+      // Fetch owner data to get cuisine type for filtering and cover photo
       let shouldShowTruck = true;
+      let ownerCoverUrl = null;
       try {
         const ownerUid = data.ownerUid || id;
         const ownerDoc = await getDoc(doc(db, "users", ownerUid));
         if (ownerDoc.exists()) {
           const ownerData = ownerDoc.data();
           const truckCuisine = ownerData.cuisine?.toLowerCase().replace(/\s+/g, '-') || '';
+          ownerCoverUrl = ownerData.coverUrl || null; // Get cover photo for custom icon
+          console.log('CustomerDashboard: Found owner cover URL:', ownerCoverUrl); // Debug log
           
           // If truck has a cuisine type, check if it's enabled in filters
           if (truckCuisine && cuisineFilters.hasOwnProperty(truckCuisine)) {
@@ -693,7 +782,7 @@ useEffect(() => {
 
       const position = { lat, lng };
       const hasActiveDrop = activeDrops.some(drop => drop.truckId === id);
-      const icon = getTruckIcon(data.kitchenType, hasActiveDrop);
+      const icon = getTruckIcon(data.kitchenType, hasActiveDrop, ownerCoverUrl);
 
       if (!foodTruckMarkers.current[id]) {
         const isFavorite = favorites.some(fav => fav.truckId === id);
@@ -714,6 +803,18 @@ useEffect(() => {
           animation: null,
         });
 
+        // If there's a cover photo, create circular version and update marker
+        if (ownerCoverUrl && !hasActiveDrop) {
+          createCircularIcon(ownerCoverUrl, 60).then(circularUrl => {
+            if (circularUrl) {
+              marker.setIcon({
+                url: circularUrl,
+                scaledSize: new window.google.maps.Size(60, 60),
+              });
+            }
+          });
+        }
+
         // Only click handler: open menu modal with drop info
         marker.addListener('click', () => {
           handleTruckIconClick(id);
@@ -726,6 +827,18 @@ useEffect(() => {
         animateMarkerMove(marker, position);
         marker.setIcon(icon);
         marker.setTitle(data.truckName || 'Food Truck');
+        
+        // If there's a cover photo, create circular version and update marker
+        if (ownerCoverUrl && !hasActiveDrop) {
+          createCircularIcon(ownerCoverUrl, 60).then(circularUrl => {
+            if (circularUrl) {
+              marker.setIcon({
+                url: circularUrl,
+                scaledSize: new window.google.maps.Size(60, 60),
+              });
+            }
+          });
+        }
       }
     }
 

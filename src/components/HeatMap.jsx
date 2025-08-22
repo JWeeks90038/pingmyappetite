@@ -4,6 +4,8 @@ import {
   getFirestore,
   collection,
   onSnapshot,
+  doc,
+  getDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
@@ -174,12 +176,83 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     setTruckNames(updatedNames);
   }, [truckLocations, currentUser]);
 
- const getTruckIcon = (kitchenType) => {
+// Create a circular icon using canvas to mimic borderRadius: "50%"
+const createCircularIcon = (imageUrl, size = 40) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = size;
+      canvas.height = size;
+
+      // Save the context
+      ctx.save();
+      
+      // Create circular clipping path
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI); // Leave space for border
+      ctx.clip();
+
+      // Draw the image to fill the circle (like objectFit: "cover")
+      const aspectRatio = img.width / img.height;
+      let drawWidth = size;
+      let drawHeight = size;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (aspectRatio > 1) {
+        // Image is wider - scale by height
+        drawHeight = size;
+        drawWidth = size * aspectRatio;
+        offsetX = (size - drawWidth) / 2;
+      } else {
+        // Image is taller - scale by width
+        drawWidth = size;
+        drawHeight = size / aspectRatio;
+        offsetY = (size - drawHeight) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      
+      // Restore context to remove clipping
+      ctx.restore();
+      
+      // Draw black border around the circle
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2 - 1, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      resolve(canvas.toDataURL());
+    };
+    
+    img.onerror = () => {
+      console.log('Failed to load image for circular icon:', imageUrl);
+      resolve(null);
+    };
+    
+    img.src = imageUrl;
+  });
+};
+
+ const getTruckIcon = (kitchenType, coverUrl = null) => {
   if (window.google) {
     const type = (kitchenType || 'truck').toLowerCase();
     let url = "/truck-icon.png";
-    if (type === "trailer") url = "/trailer-icon.png";
-    if (type === "cart") url = "/cart-icon.png";
+    
+    // Use cover photo if available, otherwise use default icons
+    if (coverUrl) {
+      // Test: Just use the cover photo directly first
+      url = coverUrl;
+    } else {
+      if (type === "trailer") url = "/trailer-icon.png";
+      if (type === "cart") url = "/cart-icon.png";
+    }
+    
     return {
       url,
       scaledSize: new window.google.maps.Size(40, 40),
@@ -243,14 +316,40 @@ const updateTruckMarkers = useCallback(async () => {
     const truckName = truckNames[truck.id] || "Food Truck";
     currentTruckIds.add(truck.id);
 
+    // Fetch owner data to get cover photo for custom icon
+    let ownerCoverUrl = null;
+    try {
+      const ownerUid = truck.ownerUid || truck.id;
+      const ownerDoc = await getDoc(doc(db, "users", ownerUid));
+      if (ownerDoc.exists()) {
+        const ownerData = ownerDoc.data();
+        ownerCoverUrl = ownerData.coverUrl || null;
+      }
+    } catch (error) {
+      console.error('🗺️ HeatMap: Error fetching owner data for cover photo:', error);
+      // Continue with default icon if owner data fetch fails
+    }
+
     if (!markerRefs.current[truck.id]) {
       console.log('🗺️ HeatMap: Creating new marker for truck', truck.id);
       const marker = new window.google.maps.Marker({
         position,
         map: mapRef.current,
         title: truckName,
-        icon: getTruckIcon(truck.kitchenType),
+        icon: getTruckIcon(truck.kitchenType, ownerCoverUrl),
       });
+      
+      // If there's a cover photo, create circular version and update marker
+      if (ownerCoverUrl) {
+        createCircularIcon(ownerCoverUrl, 40).then(circularUrl => {
+          if (circularUrl) {
+            marker.setIcon({
+              url: circularUrl,
+              scaledSize: new window.google.maps.Size(40, 40),
+            });
+          }
+        });
+      }
       
       // Add click listener for truck markers
       marker.addListener('click', () => {
@@ -265,6 +364,19 @@ const updateTruckMarkers = useCallback(async () => {
       console.log('🗺️ HeatMap: Updating existing marker for truck', truck.id);
       animateMarkerTo(markerRefs.current[truck.id], position);
       markerRefs.current[truck.id].setTitle(truckName);
+      markerRefs.current[truck.id].setIcon(getTruckIcon(truck.kitchenType, ownerCoverUrl));
+      
+      // If there's a cover photo, create circular version and update marker
+      if (ownerCoverUrl) {
+        createCircularIcon(ownerCoverUrl, 40).then(circularUrl => {
+          if (circularUrl) {
+            markerRefs.current[truck.id].setIcon({
+              url: circularUrl,
+              scaledSize: new window.google.maps.Size(40, 40),
+            });
+          }
+        });
+      }
     }
   }
 

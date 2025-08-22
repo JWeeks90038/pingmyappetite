@@ -306,7 +306,7 @@ const OwnerSettings = ({
       <section style={{ marginTop: '40px' }}>
         <h2>Media Uploader</h2>
         <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-          Upload your truck and menu photos. These will be displayed on your dashboard and map icon.
+          Upload your truck/logo and menu photos. These will be displayed on your dashboard and map icon.
         </p>
         <MediaUploader showCover={true} showProfile={false} showMenu={true} />
       </section>
