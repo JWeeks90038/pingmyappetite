@@ -374,25 +374,21 @@ const updateTruckMarkers = useCallback(async () => {
     const hasCoordinates = truck.lat && truck.lng;
     const isExplicitlyVisible = truck.visible === true;
     const isExplicitlyLive = truck.isLive === true;
-    const isOwnerViewingOwnTruck = currentUser && truck.id === currentUser.uid;
-    const shouldShow = hasCoordinates && (isExplicitlyVisible && isExplicitlyLive || isOwnerViewingOwnTruck);
+    const shouldShow = hasCoordinates && isExplicitlyVisible && isExplicitlyLive;
     
-    // Also hide if truck is very stale (regardless of other flags), but not for owner viewing own truck
+    // Also hide if truck is very stale (regardless of other flags)
     const isStale = truck.lastActive && (now - truck.lastActive > ONLINE_THRESHOLD);
-    const shouldHideStale = isStale && !isOwnerViewingOwnTruck;
     
     console.log('🗺️ HeatMap: Visibility check for truck', truck.id, {
       hasCoordinates,
       isExplicitlyVisible,
       isExplicitlyLive,
-      isOwnerViewingOwnTruck,
       shouldShow,
-      isStale: isStale,
-      shouldHideStale
+      isStale
     });
     
-    if (!shouldShow || shouldHideStale) {
-      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'shouldHideStale:', shouldHideStale);
+    if (!shouldShow || isStale) {
+      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
       if (markerRefs.current[truck.id]) {
         markerRefs.current[truck.id].setMap(null);
         delete markerRefs.current[truck.id];
