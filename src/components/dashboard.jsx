@@ -98,61 +98,85 @@ console.log("Dashboard component rendering for OWNER");
 // Create a circular icon using canvas to mimic borderRadius: "50%"
 const createCircularIcon = (imageUrl, size = 40) => {
   return new Promise((resolve) => {
+    // Validate imageUrl
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      console.log('Invalid image URL provided to createCircularIcon');
+      resolve(null);
+      return;
+    }
+
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    
+    // Only set crossOrigin for external URLs
+    if (imageUrl.startsWith('http') && !imageUrl.includes(window.location.hostname)) {
+      img.crossOrigin = 'anonymous';
+    }
     
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = size;
-      canvas.height = size;
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = size;
+        canvas.height = size;
 
-      // Save the context
-      ctx.save();
-      
-      // Create circular clipping path
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI); // Leave space for border
-      ctx.clip();
+        // Save the context
+        ctx.save();
+        
+        // Create circular clipping path
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI); // Leave space for border
+        ctx.clip();
 
-      // Draw the image to fill the circle (like objectFit: "cover")
-      const aspectRatio = img.width / img.height;
-      let drawWidth = size;
-      let drawHeight = size;
-      let offsetX = 0;
-      let offsetY = 0;
+        // Draw the image to fill the circle (like objectFit: "cover")
+        const aspectRatio = img.width / img.height;
+        let drawWidth = size;
+        let drawHeight = size;
+        let offsetX = 0;
+        let offsetY = 0;
 
-      if (aspectRatio > 1) {
-        // Image is wider - scale by height
-        drawHeight = size;
-        drawWidth = size * aspectRatio;
-        offsetX = (size - drawWidth) / 2;
-      } else {
-        // Image is taller - scale by width
-        drawWidth = size;
-        drawHeight = size / aspectRatio;
-        offsetY = (size - drawHeight) / 2;
+        if (aspectRatio > 1) {
+          // Image is wider - scale by height
+          drawHeight = size;
+          drawWidth = size * aspectRatio;
+          offsetX = (size - drawWidth) / 2;
+        } else {
+          // Image is taller - scale by width
+          drawWidth = size;
+          drawHeight = size / aspectRatio;
+          offsetY = (size - drawHeight) / 2;
+        }
+
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        
+        // Restore context to remove clipping
+        ctx.restore();
+        
+        // Draw black border around the circle
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 1, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        resolve(canvas.toDataURL());
+      } catch (error) {
+        console.log('Canvas error in createCircularIcon:', error.message);
+        resolve(null);
       }
-
-      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-      
-      // Restore context to remove clipping
-      ctx.restore();
-      
-      // Draw black border around the circle
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2 - 1, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      resolve(canvas.toDataURL());
     };
     
-    img.onerror = () => {
-      console.log('Failed to load image for circular icon:', imageUrl);
+    img.onerror = (error) => {
+      console.log('Failed to load image for circular icon:', imageUrl, error);
       resolve(null);
     };
+    
+    // Add timeout to prevent hanging
+    setTimeout(() => {
+      if (!img.complete) {
+        console.log('Image loading timeout for:', imageUrl);
+        resolve(null);
+      }
+    }, 5000);
     
     img.src = imageUrl;
   });
