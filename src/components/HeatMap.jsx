@@ -440,13 +440,6 @@ const updateTruckMarkers = useCallback(async () => {
         `;
         
         marker = createCustomMarker(position, customMarkerContent, mapRef.current);
-        
-        // Add click event to custom marker
-        marker.addClickListener = function(callback) {
-          if (this.div) {
-            this.div.addEventListener('click', callback);
-          }
-        };
       } else {
         // Create standard Google Maps marker
         marker = new window.google.maps.Marker({
