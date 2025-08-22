@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
-import { MarkerClusterer } from "@googlemaps/markerclusterer";
+//import Supercluster from "supercluster";
 import { throttle } from "lodash";
 
 
@@ -86,7 +86,6 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
 
   const mapRef = useRef(null);
   const markerRefs = useRef({});
-  const markerClustererRef = useRef(null);
   const infoWindowRef = useRef(null);
   const heatmapRef = useRef(null);
 
@@ -357,14 +356,8 @@ const updateTruckMarkers = useCallback(async () => {
 
   const now = Date.now();
   const currentTruckIds = new Set();
-  const allMarkers = [];
 
   console.log('🗺️ HeatMap: Updating truck markers, found trucks:', truckLocations.length);
-
-  // Clear existing clusterer
-  if (markerClustererRef.current) {
-    markerClustererRef.current.clearMarkers();
-  }
 
   for (const truck of truckLocations) {
     console.log('🗺️ HeatMap: Processing truck:', truck.id, {
@@ -421,64 +414,101 @@ const updateTruckMarkers = useCallback(async () => {
       // Continue with default icon if owner data fetch fails
     }
 
-    let marker = markerRefs.current[truck.id];
-    
-    if (!marker) {
+    if (!markerRefs.current[truck.id]) {
       console.log('🗺️ HeatMap: Creating new marker for truck', truck.id);
       const icon = getTruckIcon(truck.kitchenType, ownerCoverUrl);
+      let marker;
       
-      // For clustering, we only use standard Google Maps markers
-      // Custom HTML markers don't work well with MarkerClusterer
+      // Check if we need to create a custom HTML marker for cover photos
       if (icon && icon.type === 'custom') {
-        // Create a standard marker with a circular icon URL instead
-        marker = new window.google.maps.Marker({
-          position,
-          title: truckName,
-          icon: {
-            url: icon.coverUrl,
-            scaledSize: new window.google.maps.Size(40, 40),
-            anchor: new window.google.maps.Point(20, 20),
-          },
-        });
+        const customMarkerContent = `
+          <div style="
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            border: 2px solid #000000; 
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            background: white;
+          ">
+            <img src="${icon.coverUrl}" style="
+              width: 100%; 
+              height: 100%; 
+              object-fit: cover;
+            " />
+          </div>
+        `;
+        
+        marker = createCustomMarker(position, customMarkerContent, mapRef.current);
       } else {
         // Create standard Google Maps marker
         marker = new window.google.maps.Marker({
           position,
+          map: mapRef.current,
           title: truckName,
           icon: icon,
         });
       }
       
-      // Add click event listener
-      marker.addListener('click', () => {
-        console.log('🗺️ HeatMap: Truck marker clicked:', truck.id);
-        if (onTruckMarkerClick) {
-          onTruckMarkerClick(truck);
-        }
-      });
+      // Handle click events (unified for both marker types)
+      if (marker.addClickListener) {
+        // Custom marker
+        marker.addClickListener(() => {
+          console.log('🗺️ HeatMap: Truck marker clicked:', truck.id);
+          if (onTruckMarkerClick) {
+            onTruckMarkerClick(truck);
+          }
+        });
+      } else {
+        // Standard marker
+        marker.addListener('click', () => {
+          console.log('🗺️ HeatMap: Truck marker clicked:', truck.id);
+          if (onTruckMarkerClick) {
+            onTruckMarkerClick(truck);
+          }
+        });
+      }
       
       markerRefs.current[truck.id] = marker;
     } else {
       console.log('🗺️ HeatMap: Updating existing marker for truck', truck.id);
+      const marker = markerRefs.current[truck.id];
       const icon = getTruckIcon(truck.kitchenType, ownerCoverUrl);
       
-      // Update marker position and properties
-      marker.setPosition(position);
-      marker.setTitle(truckName);
-      
-      if (icon && icon.type === 'custom') {
-        marker.setIcon({
-          url: icon.coverUrl,
-          scaledSize: new window.google.maps.Size(40, 40),
-          anchor: new window.google.maps.Point(20, 20),
-        });
+      // For custom markers, we need to handle updates differently
+      if (marker.div) {
+        // Custom marker - update position
+        marker.position = position;
+        marker.draw(); // Redraw at new position
+        
+        // Update custom marker content if needed
+        if (icon && icon.type === 'custom') {
+          const customMarkerContent = `
+            <div style="
+              width: 40px; 
+              height: 40px; 
+              border-radius: 50%; 
+              border: 2px solid #000000; 
+              overflow: hidden;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              background: white;
+            ">
+              <img src="${icon.coverUrl}" style="
+                width: 100%; 
+                height: 100%; 
+                object-fit: cover;
+              " />
+            </div>
+          `;
+          marker.div.innerHTML = customMarkerContent;
+        }
       } else {
+        // Standard marker
+        animateMarkerTo(marker, position);
+        marker.setTitle(truckName);
         marker.setIcon(icon);
       }
     }
-    
-    // Add marker to the list for clustering
-    allMarkers.push(marker);
   }
 
   // Clean up markers for trucks that no longer meet criteria
@@ -489,44 +519,6 @@ const updateTruckMarkers = useCallback(async () => {
       delete markerRefs.current[id];
     }
   });
-
-  // Initialize or update MarkerClusterer
-  if (!markerClustererRef.current && allMarkers.length > 0) {
-    markerClustererRef.current = new MarkerClusterer({
-      map: mapRef.current,
-      markers: allMarkers,
-      renderer: {
-        render: ({ count, position }) => {
-          // Custom cluster styling
-          const color = count > 10 ? "#ff0000" : count > 5 ? "#ff8800" : "#00ff00";
-          return new window.google.maps.Marker({
-            position,
-            icon: {
-              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
-                  <circle cx="25" cy="25" r="20" fill="${color}" stroke="#fff" stroke-width="3"/>
-                  <text x="25" y="30" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#fff">${count}</text>
-                </svg>
-              `)}`,
-              scaledSize: new window.google.maps.Size(50, 50),
-              anchor: new window.google.maps.Point(25, 25),
-            },
-            label: {
-              text: count.toString(),
-              color: "#ffffff",
-              fontSize: "12px",
-              fontWeight: "bold",
-            },
-            zIndex: 1000,
-          });
-        },
-      },
-    });
-  } else if (markerClustererRef.current) {
-    // Update existing clusterer with new markers
-    markerClustererRef.current.clearMarkers();
-    markerClustererRef.current.addMarkers(allMarkers);
-  }
 }, [truckLocations, truckNames, animateMarkerTo, onTruckMarkerClick]);
   
   // Function to toggle visibility of a truck marker
@@ -646,21 +638,6 @@ useEffect(() => {
     }
   };
 }, [combinedHeatmapData, userPlan]);
-
-// Cleanup effect for MarkerClusterer
-useEffect(() => {
-  return () => {
-    if (markerClustererRef.current) {
-      markerClustererRef.current.clearMarkers();
-      markerClustererRef.current = null;
-    }
-    // Clean up individual markers
-    Object.values(markerRefs.current).forEach(marker => {
-      marker.setMap(null);
-    });
-    markerRefs.current = {};
-  };
-}, []);
 
 return (
   <div>
