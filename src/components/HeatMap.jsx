@@ -277,12 +277,18 @@ const createCircularIcon = (imageUrl, size = 40) => {
 // Create HTML marker for custom styling
 const createCustomMarker = (position, content, map) => {
   const marker = new google.maps.OverlayView();
+  marker.clickListeners = []; // Store click listeners
   
   marker.onAdd = function() {
     const div = document.createElement('div');
     div.innerHTML = content;
     div.style.position = 'absolute';
     div.style.cursor = 'pointer';
+    
+    // Add click event listener to the div
+    div.addEventListener('click', () => {
+      this.clickListeners.forEach(callback => callback());
+    });
     
     const panes = this.getPanes();
     panes.overlayMouseTarget.appendChild(div);
@@ -302,6 +308,11 @@ const createCustomMarker = (position, content, map) => {
       this.div.parentNode.removeChild(this.div);
       this.div = null;
     }
+  };
+  
+  // Add method to attach click listeners
+  marker.addClickListener = function(callback) {
+    this.clickListeners.push(callback);
   };
   
   marker.setMap(map);
