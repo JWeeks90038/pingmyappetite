@@ -381,8 +381,12 @@ const createCircularIcon = (imageUrl, size = 60) => {
 
     const img = new Image();
     
-    // Only set crossOrigin for external URLs
-    if (imageUrl.startsWith('http') && !imageUrl.includes(window.location.hostname)) {
+    // Don't set crossOrigin for Firebase Storage URLs or same-domain URLs
+    const isFirebaseStorage = imageUrl.includes('firebasestorage.googleapis.com');
+    const isSameDomain = imageUrl.includes(window.location.hostname);
+    const isRelativeUrl = !imageUrl.startsWith('http');
+    
+    if (!isFirebaseStorage && !isSameDomain && !isRelativeUrl) {
       img.crossOrigin = 'anonymous';
     }
     
