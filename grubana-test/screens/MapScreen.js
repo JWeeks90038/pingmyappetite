@@ -101,7 +101,7 @@ export default function MapScreen() {
 
   const getTruckIcon = (kitchenType) => {
     switch (kitchenType) {
-      case 'trailer': return '🚚';
+      case 'trailer': return '�';
       case 'cart': return '🛒';
       default: return '🍕';
     }
