@@ -105,14 +105,21 @@ const createCircularIcon = (imageUrl, size = 40) => {
       return;
     }
 
+    // Skip Firebase Storage URLs due to CORS restrictions
+    const isFirebaseStorage = imageUrl.includes('firebasestorage.googleapis.com');
+    if (isFirebaseStorage) {
+      console.log('Skipping Firebase Storage URL due to CORS restrictions:', imageUrl);
+      resolve(null);
+      return;
+    }
+
     const img = new Image();
     
-    // Don't set crossOrigin for Firebase Storage URLs or same-domain URLs
-    const isFirebaseStorage = imageUrl.includes('firebasestorage.googleapis.com');
+    // Don't set crossOrigin for same-domain URLs or relative URLs
     const isSameDomain = imageUrl.includes(window.location.hostname);
     const isRelativeUrl = !imageUrl.startsWith('http');
     
-    if (!isFirebaseStorage && !isSameDomain && !isRelativeUrl) {
+    if (!isSameDomain && !isRelativeUrl) {
       img.crossOrigin = 'anonymous';
     }
     
@@ -186,11 +193,49 @@ const createCircularIcon = (imageUrl, size = 40) => {
   });
 };
 
+// Create HTML marker for custom styling
+const createCustomMarker = (position, content, map) => {
+  const marker = new google.maps.OverlayView();
+  
+  marker.onAdd = function() {
+    const div = document.createElement('div');
+    div.innerHTML = content;
+    div.style.position = 'absolute';
+    div.style.cursor = 'pointer';
+    
+    const panes = this.getPanes();
+    panes.overlayMouseTarget.appendChild(div);
+    this.div = div;
+  };
+  
+  marker.draw = function() {
+    const overlayProjection = this.getProjection();
+    const sw = overlayProjection.fromLatLngToDivPixel(position);
+    const div = this.div;
+    div.style.left = (sw.x - 20) + 'px'; // Center the 40px icon
+    div.style.top = (sw.y - 20) + 'px';
+  };
+  
+  marker.onRemove = function() {
+    if (this.div) {
+      this.div.parentNode.removeChild(this.div);
+      this.div = null;
+    }
+  };
+  
+  marker.setMap(map);
+  return marker;
+};
+
  const getOwnerTruckIcon = (kitchenType, coverUrl = null) => {
   // Use cover photo if available, otherwise use default icons
   if (coverUrl) {
-    // Test: Just use the cover photo directly first
-    return coverUrl;
+    // For cover photos, we'll create a custom HTML marker
+    return { 
+      type: 'custom',
+      coverUrl: coverUrl,
+      size: 40
+    };
   }
   
   const type = (kitchenType || 'truck').toLowerCase();
@@ -628,45 +673,80 @@ useEffect(() => {
 
     if (!truckMarkerRef.current) {
       console.log("🗺️ Creating new marker for owner");
-      truckMarkerRef.current = new window.google.maps.Marker({
-        position,
-        map: mapRef, // Always add to map initially
-        icon: {
-          url: getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl),
-          scaledSize: new window.google.maps.Size(40, 40),
-        },
-        title: "Your Food Truck",
-      });
+      const icon = getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl);
       
-      // If there's a cover photo, create circular version and update marker
-      if (ownerData?.coverUrl) {
-        createCircularIcon(ownerData.coverUrl, 40).then(circularUrl => {
-          if (circularUrl) {
-            truckMarkerRef.current.setIcon({
-              url: circularUrl,
-              scaledSize: new window.google.maps.Size(40, 40),
-            });
-          }
+      // Check if we need to create a custom HTML marker for cover photos
+      if (icon && typeof icon === 'object' && icon.type === 'custom') {
+        const customMarkerContent = `
+          <div style="
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            border: 2px solid #000000; 
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            background: white;
+          ">
+            <img src="${icon.coverUrl}" style="
+              width: 100%; 
+              height: 100%; 
+              object-fit: cover;
+            " />
+          </div>
+        `;
+        
+        truckMarkerRef.current = createCustomMarker(position, customMarkerContent, mapRef);
+      } else {
+        // Create standard Google Maps marker
+        truckMarkerRef.current = new window.google.maps.Marker({
+          position,
+          map: mapRef, // Always add to map initially
+          icon: {
+            url: icon,
+            scaledSize: new window.google.maps.Size(40, 40),
+          },
+          title: "Your Food Truck",
         });
       }
     } else {
       console.log("🗺️ Updating existing marker position");
-      truckMarkerRef.current.setPosition(position);
-      // Update icon in case cover photo changed
-      truckMarkerRef.current.setIcon({
-        url: getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl),
-        scaledSize: new window.google.maps.Size(40, 40),
-      });
+      const icon = getOwnerTruckIcon(data.kitchenType, ownerData?.coverUrl);
+      const marker = truckMarkerRef.current;
       
-      // If there's a cover photo, create circular version and update marker
-      if (ownerData?.coverUrl) {
-        createCircularIcon(ownerData.coverUrl, 40).then(circularUrl => {
-          if (circularUrl) {
-            truckMarkerRef.current.setIcon({
-              url: circularUrl,
-              scaledSize: new window.google.maps.Size(40, 40),
-            });
-          }
+      // For custom markers, we need to handle updates differently
+      if (marker.div) {
+        // Custom marker - update position
+        marker.position = position;
+        marker.draw(); // Redraw at new position
+        
+        // Update custom marker content if needed
+        if (icon && typeof icon === 'object' && icon.type === 'custom') {
+          const customMarkerContent = `
+            <div style="
+              width: 40px; 
+              height: 40px; 
+              border-radius: 50%; 
+              border: 2px solid #000000; 
+              overflow: hidden;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              background: white;
+            ">
+              <img src="${icon.coverUrl}" style="
+                width: 100%; 
+                height: 100%; 
+                object-fit: cover;
+              " />
+            </div>
+          `;
+          marker.div.innerHTML = customMarkerContent;
+        }
+      } else {
+        // Standard marker
+        marker.setPosition(position);
+        // Update icon in case cover photo changed
+        marker.setIcon({
+          url: icon,
+          scaledSize: new window.google.maps.Size(40, 40),
         });
       }
     }
