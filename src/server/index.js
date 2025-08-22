@@ -1232,8 +1232,6 @@ app.post('/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       subscription_data: {
-        // Referral users get 30-day trial, non-referral users pay immediately
-        trial_period_days: hasValidReferral ? 30 : 0,
         metadata: {
           planType: planType,
           uid: uid || '',
@@ -1252,6 +1250,11 @@ app.post('/create-checkout-session', async (req, res) => {
       cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,
       allow_promotion_codes: true,
     };
+
+    // Only add trial period if user has valid referral (Stripe requires minimum 1 day, so we skip it entirely for non-referral users)
+    if (hasValidReferral) {
+      sessionConfig.subscription_data.trial_period_days = 30;
+    }
 
     // If we have a customer, add it to the session
     if (customer) {
