@@ -1577,11 +1577,13 @@ return (
               right: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: '#fff',
-              padding: '5px 15px',
+              padding: '2px 6px',
               borderBottomLeftRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              width: '20px',
+              height: '20px',
             }}
           >
             <button
@@ -1598,9 +1600,14 @@ return (
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
-                fontSize: '12px', /* Reduced size */
+                fontSize: '12px',
                 cursor: 'pointer',
-                padding: '5px', /* Added padding for better alignment */
+                padding: '0',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               aria-label="Close"
             >
