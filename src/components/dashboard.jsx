@@ -1655,13 +1655,13 @@ useEffect(() => {
               right: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: '#fff',
-              padding: '2px 6px',
-              borderBottomLeftRadius: '8px',
+              padding: '1px 3px',
+              borderBottomLeftRadius: '6px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '20px',
-              height: '20px',
+              width: '16px',
+              height: '16px',
             }}
           >
             <button
@@ -1673,7 +1673,7 @@ useEffect(() => {
                 backgroundColor: 'transparent',
                 color: '#fff',
                 border: 'none',
-                fontSize: '12px',
+                fontSize: '10px',
                 cursor: 'pointer',
                 padding: '0',
                 width: '100%',
