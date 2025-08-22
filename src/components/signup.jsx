@@ -53,7 +53,7 @@ const SignUp = () => {
     }
 
     if (code.toLowerCase() === 'arayaki_hibachi') {
-      setValidReferral(true);
+      setIsValidReferral(true);
       setReferralMessage('✅ Valid referral code applied!');
     } else {
       setIsValidReferral(false);
