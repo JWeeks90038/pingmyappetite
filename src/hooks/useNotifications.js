@@ -26,6 +26,8 @@ export function useNotifications() {
   }, [user]);
 
   const initializeNotifications = async () => {
+    if (!user?.uid) return;
+    
     try {
       setLoading(true);
 
@@ -33,22 +35,28 @@ export function useNotifications() {
       const permission = await Notification.permission;
       setPermissionState(permission);
 
-      // Load user preferences from Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const userPrefs = userData.notificationPreferences || {};
+      // Load user preferences from Firestore with error handling
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
         
-        setPreferences(prev => ({
-          ...prev,
-          ...userPrefs
-        }));
-        
-        // Check if notifications are enabled (has permission + has preferences set)
-        const hasValidToken = await notificationService.hasValidToken(user?.uid);
-        setIsEnabled(permission === 'granted' && hasValidToken);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const userPrefs = userData.notificationPreferences || {};
+          
+          setPreferences(prev => ({
+            ...prev,
+            ...userPrefs
+          }));
+          
+          // Check if notifications are enabled (has permission + has preferences set)
+          const hasValidToken = await notificationService.hasValidToken(user?.uid);
+          setIsEnabled(permission === 'granted' && hasValidToken);
+        }
+      } catch (firestoreError) {
+        console.warn('🔔 Could not load notification preferences from Firestore:', firestoreError);
+        // Continue with default preferences if Firestore access fails
+        setIsEnabled(permission === 'granted');
       }
     } catch (error) {
       console.error('Error initializing notifications:', error);

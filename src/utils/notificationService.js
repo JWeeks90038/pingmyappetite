@@ -222,6 +222,11 @@ export const refreshToken = async (userId) => {
 // Check if user has valid token
 export const hasValidToken = async (userId) => {
   try {
+    if (!userId) {
+      console.warn('🔔 hasValidToken called without userId');
+      return false;
+    }
+    
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     
