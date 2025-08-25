@@ -13,6 +13,7 @@ import {
 import { db } from '../firebase';
 import Navbar from './navbar';
 import Footer from './footer';
+import CreateEventForm from './CreateEventForm';
 import '../assets/styles.css';
 import '../assets/EventDashboard.css';
 
@@ -333,19 +334,7 @@ const EventDashboard = () => {
           {activeTab === 'create' && (
             <div className="create-event-section">
               <h3>Create New Event</h3>
-              <p>Event creation form will be implemented in the next phase.</p>
-              <div className="coming-soon">
-                <h4>🚧 Coming Soon!</h4>
-                <p>The event creation form is being built and will include:</p>
-                <ul>
-                  <li>Event details and description</li>
-                  <li>Date and time management</li>
-                  <li>Location and venue information</li>
-                  <li>Vendor requirements and limits</li>
-                  <li>Contact information</li>
-                  <li>Social media links</li>
-                </ul>
-              </div>
+              <CreateEventForm organizerId={user?.uid} onEventCreated={fetchEvents} />
             </div>
           )}
         </div>
