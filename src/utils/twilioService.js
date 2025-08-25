@@ -17,18 +17,18 @@ const initializeTwilio = () => {
     }
     
     try {
-      // Use API Key authentication if available (more secure)
-      if (apiSid && apiSecretKey) {
+      // Try basic authentication first (more reliable)
+      if (authToken) {
+        twilioClient = twilio(accountSid, authToken);
+        console.log('📱 Twilio client initialized with Basic authentication');
+      }
+      // Fall back to API Key authentication if basic auth not available
+      else if (apiSid && apiSecretKey) {
         twilioClient = twilio(apiSid, apiSecretKey, { accountSid });
         console.log('📱 Twilio client initialized with API Key authentication');
       } 
-      // Fall back to basic authentication
-      else if (authToken) {
-        twilioClient = twilio(accountSid, authToken);
-        console.log('📱 Twilio client initialized with basic authentication');
-      } 
       else {
-        console.warn('⚠️ Neither API Key nor Auth Token found for Twilio authentication');
+        console.warn('⚠️ No valid Twilio authentication credentials found');
         return null;
       }
     } catch (error) {

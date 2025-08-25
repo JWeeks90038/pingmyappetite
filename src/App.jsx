@@ -16,6 +16,7 @@ import './assets/mobile-fixes.css';
 import Login from './components/login';
 import Dashboard from './components/dashboard';
 import CustomerDashboard from './components/CustomerDashboard';
+import EventDashboard from './components/EventDashboard';
 import Home from './components/home';
 import ForgotPassword from './components/ForgotPassword';
 import Pricing from './components/pricing';
@@ -330,6 +331,8 @@ function App() {
                       <Navigate to="/customer-dashboard" />
                     ) : userRole === 'owner' ? (
                       <Navigate to="/dashboard" />
+                    ) : userRole === 'event-organizer' ? (
+                      <Navigate to="/event-dashboard" />
                     ) : (
                       <div>Loading...</div>
                     )
@@ -413,6 +416,20 @@ function App() {
               <Route
                 path="/upgrade-analytics"
                 element={<UpgradeAnalyticsDashboard />}
+              />
+            </Route>
+
+            {/* Event Organizer Routes */}
+            <Route element={<PublicLayout />}>
+              <Route
+                path="/event-dashboard"
+                element={
+                  userRole === 'event-organizer' ? (
+                    <EventDashboard />
+                  ) : (
+                    <Navigate to="/login" />
+                  )
+                }
               />
             </Route>
           </Routes>

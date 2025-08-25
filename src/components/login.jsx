@@ -31,6 +31,8 @@ const Login = () => {
 
             if (role === 'owner') {
               navigate('/dashboard');
+            } else if (role === 'event-organizer') {
+              navigate('/event-dashboard');
             } else {
               navigate('/customer-dashboard');
             }

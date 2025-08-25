@@ -26,6 +26,14 @@ const SignUp = () => {
     kitchenType: '',
     plan: '',
     referralCode: '', // Add referral code field
+    // Event organizer fields
+    organizationName: '',
+    organizationType: '',
+    contactPerson: '',
+    address: '',
+    website: '',
+    experienceYears: '',
+    eventDescription: '',
   });
 
   const [error, setError] = useState(null);
@@ -89,6 +97,12 @@ let subscriptionStatus = 'active'; // Default for basic plan
 if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access')) {
   userPlan = formData.plan;
   subscriptionStatus = 'pending'; // Will be updated by webhook after payment
+}
+
+// Event organizers always get basic plan
+if (formData.role === 'event-organizer') {
+  userPlan = 'basic';
+  subscriptionStatus = 'active';
 }
 
 const userData = {
@@ -174,14 +188,16 @@ const userData = {
         }
       }
 
-      // For basic plan or customers, save user data and redirect to dashboard
-      if (formData.role === 'customer' || formData.plan === 'basic') {
+      // For basic plan, customers, or event organizers, save user data and redirect to dashboard
+      if (formData.role === 'customer' || formData.plan === 'basic' || formData.role === 'event-organizer') {
         console.log('🔄 Saving user data and redirecting to appropriate dashboard');
         await setDoc(doc(db, 'users', user.uid), userData);
         console.log('✅ User document saved to Firestore with role:', userData.role);
         
         if (formData.role === 'customer') {
           navigate('/customer-dashboard');
+        } else if (formData.role === 'event-organizer') {
+          navigate('/event-dashboard');
         } else {
           navigate('/dashboard');
         }
@@ -213,6 +229,7 @@ const userData = {
     <option value="">Select Role</option>
     <option value="customer">Foodie Fan</option>
     <option value="owner">Mobile Kitchen Owner</option>
+    <option value="event-organizer">Event Organizer</option>
   </select>
 
   <label htmlFor="username">Username</label>
@@ -354,6 +371,105 @@ const userData = {
         value={formData.description}
         onChange={handleChange}
         placeholder="Tell us more about your food truck and menu"
+      />
+    </>
+  )}
+
+  {formData.role === 'event-organizer' && (
+    <>
+      <label htmlFor="organization-name">Organization Name</label>
+      <input
+        type="text"
+        id="organization-name"
+        name="organizationName"
+        value={formData.organizationName}
+        onChange={handleChange}
+        required
+        placeholder="Enter your organization name"
+      />
+
+      <label htmlFor="organization-type">Organization Type</label>
+      <select
+        id="organization-type"
+        name="organizationType"
+        value={formData.organizationType}
+        onChange={handleChange}
+        required
+      >
+        <option value="">Select Organization Type</option>
+        <option value="non-profit">Non-Profit</option>
+        <option value="city">City/Municipality</option>
+        <option value="private">Private Company</option>
+        <option value="corporate">Corporate</option>
+      </select>
+
+      <label htmlFor="contact-person">Contact Person</label>
+      <input
+        type="text"
+        id="contact-person"
+        name="contactPerson"
+        value={formData.contactPerson}
+        onChange={handleChange}
+        required
+        placeholder="Enter primary contact person"
+      />
+
+      <label htmlFor="phone">Phone Number</label>
+      <input
+        type="tel"
+        id="phone"
+        name="phone"
+        value={formData.phone}
+        onChange={handleChange}
+        required
+        placeholder="Enter your phone number"
+      />
+
+      <label htmlFor="organization-address">Organization Address</label>
+      <input
+        type="text"
+        id="organization-address"
+        name="address"
+        value={formData.address}
+        onChange={handleChange}
+        required
+        placeholder="Enter your organization address"
+      />
+
+      <label htmlFor="website">Website (Optional)</label>
+      <input
+        type="url"
+        id="website"
+        name="website"
+        value={formData.website}
+        onChange={handleChange}
+        placeholder="Enter your website URL"
+      />
+
+      <label htmlFor="experience-years">Years of Event Experience</label>
+      <select
+        id="experience-years"
+        name="experienceYears"
+        value={formData.experienceYears}
+        onChange={handleChange}
+        required
+      >
+        <option value="">Select Experience Level</option>
+        <option value="0">New to event organizing</option>
+        <option value="1">1-2 years</option>
+        <option value="3">3-5 years</option>
+        <option value="6">6-10 years</option>
+        <option value="11">10+ years</option>
+      </select>
+
+      <label htmlFor="event-description">Tell us about your events</label>
+      <textarea
+        id="event-description"
+        name="eventDescription"
+        rows="4"
+        value={formData.eventDescription}
+        onChange={handleChange}
+        placeholder="Describe the types of events you organize (festivals, markets, corporate events, etc.)"
       />
     </>
   )}

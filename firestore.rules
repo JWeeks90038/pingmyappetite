@@ -77,5 +77,44 @@ service cloud.firestore {
       // Allow Cloud Functions to write notification records
       allow write: if request.auth.token.firebase.sign_in_provider == 'custom';
     }
+    
+    // Events collection - allow event organizers to manage their events
+    match /events/{eventId} {
+      // Allow event organizers to create, read, update, and delete their own events
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.organizerId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'event-organizer';
+      
+      allow read, update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.organizerId;
+      
+      // Allow all authenticated users to read published events for discovery
+      allow read: if request.auth != null && 
+        resource.data.status == 'published';
+      
+      // Allow truck owners to read events for application purposes
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+    }
+    
+    // Event applications collection - manage truck applications to events
+    match /eventApplications/{applicationId} {
+      // Allow truck owners to create applications for their own trucks
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.truckId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      
+      // Allow truck owners to read and update their own applications
+      allow read, update: if request.auth != null && 
+        request.auth.uid == resource.data.truckId;
+      
+      // Allow event organizers to read and update applications for their events
+      allow read, update: if request.auth != null && 
+        request.auth.uid == resource.data.organizerId;
+      
+      // Allow event organizers to delete applications (reject permanently)
+      allow delete: if request.auth != null && 
+        request.auth.uid == resource.data.organizerId;
+    }
   }
 }

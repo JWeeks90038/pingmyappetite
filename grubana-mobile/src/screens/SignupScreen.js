@@ -169,6 +169,7 @@ const SignupScreen = ({ navigation }) => {
               >
                 <Picker.Item label="Customer - Find Food Trucks" value="customer" />
                 <Picker.Item label="Food Truck Owner" value="owner" />
+                <Picker.Item label="Event Organizer" value="event-organizer" />
               </Picker>
             </View>
           </View>
