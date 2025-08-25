@@ -18,6 +18,9 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { useUpgradeNudges } from './UpgradeNudges';
+import ManualLocationIndicator from './ManualLocationIndicator';
+import { GPSTrackingCallout, HeatMapCallout, AnalyticsCallout } from './ProFeatureCallout';
 import "../assets/index.css";
 import { logoutUser, cleanupNonOwnerTruckLocations } from "../utils/firebaseUtils";
 import HeatMap from "../components/HeatMap";
@@ -37,6 +40,7 @@ import { QRCodeCanvas } from "qrcode.react";
 
 const Dashboard = ({ isLoaded }) => {
   const { user, userPlan, userRole, userSubscriptionStatus } = useAuth(); // Get subscription status too
+  const { triggerManualLocationUpdate } = useUpgradeNudges();
   
   // CRITICAL: Immediately block non-owners from accessing this component
   const navigate = useNavigate();
@@ -415,6 +419,9 @@ const createCustomMarker = (position, content, map) => {
           
           await setDoc(truckDocRef, locationData);
           console.log("🎯 Manual location submitted successfully:", locationData);
+          
+          // Trigger upgrade nudge for frequent manual updates
+          triggerManualLocationUpdate();
           
           // Clear the input after successful submission
           setManualLocation("");
@@ -1290,6 +1297,12 @@ useEffect(() => {
           <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
             Basic plan allows manual location updates. Upgrade for real-time GPS tracking!
           </p>
+          
+          <ManualLocationIndicator 
+            lastUpdate={ownerData?.lastLocationUpdate}
+            onUpgradeClick={() => window.location.href = '/pricing'}
+          />
+          
           <form onSubmit={handleSubmit}>
             <label>Enter your truck's location:</label>
             <input
@@ -1412,6 +1425,17 @@ useEffect(() => {
         </p>
       )}
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} userPlan={userPlan} onTruckMarkerClick={handleTruckMarkerClick} />
+
+      {/* Pro Feature Callouts for Basic Plan Users */}
+      {userPlan === "basic" && (
+        <div style={{ margin: "20px 0" }}>
+          <GPSTrackingCallout />
+          <div style={{ margin: "15px 0" }}>
+            <HeatMapCallout />
+          </div>
+          <AnalyticsCallout />
+        </div>
+      )}
 
       {/* Analytics Section - Plan-based Access */}
       {ownerData && userPlan === "all-access" && (

@@ -1,0 +1,349 @@
+/* Notification Preferences Styling */
+.notification-preferences {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.notification-preferences.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.notification-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.notification-header h3 {
+  font-size: 1.5rem;
+  color: #2c6f57;
+  margin-bottom: 8px;
+}
+
+.notification-header p {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Toggle Section */
+.notification-toggle {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  border: 1px solid #dee2e6;
+}
+
+.enable-section {
+  text-align: center;
+}
+
+.enable-info h4 {
+  color: #2c6f57;
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.enable-info p {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 24px 0;
+  text-align: left;
+  display: inline-block;
+}
+
+.benefits-list li {
+  padding: 8px 0;
+  color: #495057;
+  font-weight: 500;
+}
+
+.enable-btn {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.enable-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.enable-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.enabled-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #28a745;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #28a745;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.disable-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.disable-btn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+/* Preference Settings */
+.preference-settings {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+}
+
+.preference-settings h4 {
+  color: #2c6f57;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+
+.preference-group {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.preference-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.preference-group h5 {
+  color: #495057;
+  margin-bottom: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.preference-item {
+  margin-bottom: 16px;
+}
+
+.preference-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.preference-label:hover {
+  background: #f8f9fa;
+}
+
+.preference-label input[type="checkbox"] {
+  margin: 0;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.preference-text {
+  flex: 1;
+}
+
+.preference-text strong {
+  color: #2c6f57;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.preference-text p {
+  color: #6c757d;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Custom Checkbox Styling */
+.preference-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #dee2e6;
+  border-radius: 4px;
+  background: white;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preference-label input[type="checkbox"]:checked {
+  background: #2c6f57;
+  border-color: #2c6f57;
+}
+
+.preference-label input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.preference-label input[type="checkbox"]:hover {
+  border-color: #2c6f57;
+  box-shadow: 0 0 0 3px rgba(44, 111, 87, 0.1);
+}
+
+/* Information Section */
+.notification-info {
+  background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid #2196f3;
+}
+
+.notification-info h4 {
+  color: #1565c0;
+  margin-bottom: 12px;
+  font-size: 1rem;
+}
+
+.notification-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-info li {
+  padding: 6px 0;
+  color: #0d47a1;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .notification-preferences {
+    padding: 16px;
+  }
+  
+  .notification-toggle {
+    padding: 20px;
+  }
+  
+  .preference-settings {
+    padding: 20px;
+  }
+  
+  .enabled-section {
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+  
+  .benefits-list {
+    text-align: center;
+  }
+  
+  .preference-label {
+    padding: 16px 8px;
+  }
+}
+
+/* Animation for new notifications */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification-message {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* Success states */
+.preference-item.success {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border-left: 4px solid #28a745;
+}
+
+.preference-item.success .preference-text strong {
+  color: #155724;
+}
+
+/* Loading states */
+.preference-item.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.preference-item.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #dee2e6;
+  border-top: 2px solid #2c6f57;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

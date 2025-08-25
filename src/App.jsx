@@ -7,6 +7,8 @@ import OwnerLayout from './layouts/OwnerLayout';
 
 import Navbar from './components/navbar';
 import { useAuth } from './components/AuthContext'; // <-- Import AuthContext
+import UpgradeNudgeManager from './components/UpgradeNudges';
+import { notificationService } from './utils/notificationService';
 
 // Import mobile fixes CSS
 import './assets/mobile-fixes.css';
@@ -26,9 +28,11 @@ import Signup from './components/signup';
 import SignupCustomer from './components/SignupCustomer';
 import Logout from './components/logout';
 import Analytics from './components/analytics';
+import UpgradeAnalyticsDashboard from './components/UpgradeAnalyticsDashboard';
 import Messages from './components/messages';
 import PingRequests from './components/PingRequests';
 import FAQ from './components/FAQ'; 
+import NotificationPreferences from './components/NotificationPreferences'; 
 import { getAuth } from 'firebase/auth';
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -232,6 +236,29 @@ function App() {
     });
   }, []);
 
+  // Initialize notification service when user is authenticated
+  useEffect(() => {
+    if (user && userRole === 'customer') {
+      console.log('🔔 Initializing notification service for customer');
+      
+      // Initialize the notification service
+      notificationService.setupMessageListener((payload) => {
+        console.log('🔔 Received foreground notification:', payload);
+        
+        // Show browser notification for foreground messages
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(payload.notification?.title || 'Grubana', {
+            body: payload.notification?.body || 'New notification',
+            icon: '/grubana-logo.png',
+            badge: '/grubana-logo.png',
+            tag: payload.data?.type || 'general',
+            data: payload.data
+          });
+        }
+      });
+    }
+  }, [user, userRole]);
+
   // Cache busting mechanism for mobile browsers
   useEffect(() => {
     const checkVersion = () => {
@@ -353,6 +380,12 @@ function App() {
                   userRole === 'customer' ? <Settings /> : <Navigate to="/login" />
                 }
               />
+              <Route
+                path="/notifications"
+                element={
+                  userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" />
+                }
+              />
             </Route>
 
             <Route element={<OwnerLayout />}>
@@ -373,6 +406,10 @@ function App() {
                 element={
                   userRole === 'owner' ? <Analytics /> : <Navigate to="/login" />
                 }
+              />
+              <Route
+                path="/upgrade-analytics"
+                element={<UpgradeAnalyticsDashboard />}
               />
             </Route>
           </Routes>
@@ -396,6 +433,7 @@ function App() {
           <NetworkStatus />
           <Navbar /> {/* Always render Navbar */}
           <ScrollToTop /> {/* Scroll to top on route change */}
+          <UpgradeNudgeManager /> {/* Upgrade nudges for monetization */}
         <Routes>
           {/* Public Pages */}
           <Route element={<PublicLayout />}>
