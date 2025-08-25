@@ -6,6 +6,7 @@ import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
 import { getPriceId } from '../utils/stripe';
 import EventOrganizerPlanSelector from './EventOrganizerPlanSelector';
+import MobileKitchenPlanSelector from './MobileKitchenPlanSelector';
 import '../assets/styles.css';
 
 
@@ -51,6 +52,16 @@ const SignUp = () => {
       setFormData(prevState => ({
         ...prevState,
         role: 'event-organizer'
+      }));
+    } else if (roleParam === 'owner') {
+      setFormData(prevState => ({
+        ...prevState,
+        role: 'owner'
+      }));
+    } else if (roleParam === 'customer') {
+      setFormData(prevState => ({
+        ...prevState,
+        role: 'customer'
       }));
     }
   }, [location.search]);
@@ -101,6 +112,12 @@ const SignUp = () => {
     // Validate event organizer plan selection
     if (formData.role === 'event-organizer' && !formData.plan) {
       setError('Please select a subscription plan to continue');
+      return;
+    }
+
+    // Validate mobile kitchen owner plan selection
+    if (formData.role === 'owner' && !formData.plan) {
+      setError('Please select a plan to continue');
       return;
     }
 
@@ -323,6 +340,21 @@ const userData = {
     placeholder="Choose a username"
   />
 
+  {formData.role === 'customer' && (
+    <>
+      <label htmlFor="phone">Phone Number</label>
+      <input
+        type="tel"
+        id="phone"
+        name="phone"
+        value={formData.phone}
+        onChange={handleChange}
+        required
+        placeholder="Enter your phone number"
+      />
+    </>
+  )}
+
   {formData.role === 'owner' && (
     <>
       <label>Type of Mobile Kitchen:</label>
@@ -451,6 +483,11 @@ const userData = {
         value={formData.description}
         onChange={handleChange}
         placeholder="Tell us more about your food truck and menu"
+      />
+
+      <MobileKitchenPlanSelector
+        selectedPlan={formData.plan}
+        onPlanSelect={handlePlanSelect}
       />
     </>
   )}
@@ -592,54 +629,37 @@ const userData = {
     placeholder="Confirm your password"
   />
 
-{formData.role === 'owner' && (
-  <>
-    <label htmlFor="plan">Choose Your Plan:</label>
-    <select
-      id="plan"
-      name="plan"
-      value={formData.plan}
-      onChange={handleChange}
-      required
-    >
-      <option value="">Select Plan</option>
-      <option value="basic">Basic (Free) - Discovery map, truck/trailer & menu photo uploads, manual location updates</option>
-      <option value="pro">Pro ($9.99/month) - Basic + Real-time GPS tracking + heat map features showing demand areas</option>
-      <option value="all-access">All Access ($19.99/month) - Basic/Pro + Analytics + exclusive deal drops</option>
-    </select>
-
-    {(formData.plan === 'pro' || formData.plan === 'all-access') && (
-      <>
-        <label htmlFor="referralCode">Referral Code (Optional)</label>
-        <input
-          type="text"
-          id="referralCode"
-          name="referralCode"
-          value={formData.referralCode}
-          onChange={handleChange}
-          placeholder="Enter referral code for special offers"
-          style={{
-            borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
-                        formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
-          }}
-        />
-        {referralMessage && (
-          <div style={{
-            padding: '8px',
-            borderRadius: '4px',
-            marginTop: '5px',
-            fontSize: '14px',
-            backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
-            border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
-            color: isValidReferral ? '#155724' : '#721c24'
-          }}>
-            {referralMessage}
-          </div>
-        )}
-      </>
-    )}
-  </>
-)}
+  {/* Referral code section for mobile kitchen owners with paid plans */}
+  {formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access') && (
+    <>
+      <label htmlFor="referralCode">Referral Code (Optional)</label>
+      <input
+        type="text"
+        id="referralCode"
+        name="referralCode"
+        value={formData.referralCode}
+        onChange={handleChange}
+        placeholder="Enter referral code for special offers"
+        style={{
+          borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
+                      formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
+        }}
+      />
+      {referralMessage && (
+        <div style={{
+          padding: '8px',
+          borderRadius: '4px',
+          marginTop: '5px',
+          fontSize: '14px',
+          backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
+          border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
+          color: isValidReferral ? '#155724' : '#721c24'
+        }}>
+          {referralMessage}
+        </div>
+      )}
+    </>
+  )}
 
   <button type="submit" className="btn">Sign Up</button>
   <p>Already have an account? <Link to="/login">Login</Link></p>

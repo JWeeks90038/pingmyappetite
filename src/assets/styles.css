@@ -929,33 +929,163 @@ p a:hover {
     margin-bottom: 30px;
 }
 
+/* Pricing Header */
+.pricing-header {
+    text-align: center;
+    padding: 3rem 2rem 2rem 2rem;
+    background: linear-gradient(135deg, #2c6f57 0%, #1a4c3a 100%);
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.pricing-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.pricing-header p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
 /* Pricing Plans */
 .pricing-section {
-    padding: 20px;
-    max-width: 700px;
-    margin: 40px auto;
+    padding: 3rem 2rem;
+    max-width: 1200px;
+    margin: 2rem auto;
     background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.pricing-section h2 {
+    text-align: center;
+    font-size: 2rem;
+    color: #2c6f57;
+    margin-bottom: 1rem;
+}
+
+.pricing-section h3 {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.trial-offer {
+    text-align: center;
+    font-size: 1rem;
+    color: #28a745;
+    font-weight: 600;
+    margin-bottom: 2rem;
+}
+
+.event-organizer-section {
+    margin-top: 3rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
 }
 
 .pricing-container {
-    display: flex;
-    gap: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
     justify-content: center;
-    flex-wrap: wrap;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .pricing-plan {
-    background: #f9f9f9;
-    border-radius: 8px;
-    padding: 24px;
-    min-width: 260px;
-    max-width: 350px;
-    flex: 1 1 300px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    margin-bottom: 16px;
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
     position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: 2px solid #e9ecef;
+}
+
+.pricing-plan:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-color: #2c6f57;
+}
+
+.pricing-plan.popular {
+    position: relative;
+    border-color: #ffc107;
+    transform: scale(1.05);
+}
+
+.pricing-plan.popular::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, #ffc107, #ffb300);
+    border-radius: 15px;
+    z-index: -1;
+}
+
+.popular-badge {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ffc107, #ffb300);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.pricing-plan h3 {
+    font-size: 1.5rem;
+    color: #2c6f57;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.pricing-plan .price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2c6f57;
+    text-align: center;
+    margin: 0;
+    line-height: 1;
+}
+
+.pricing-plan .price-period {
+    text-align: center;
+    color: #6c757d;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+}
+
+.features-list {
+    margin: 2rem 0;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+    color: #495057;
+    line-height: 1.4;
+}
+
+.feature:before {
+    margin-right: 0.75rem;
+    font-weight: bold;
+    flex-shrink: 0;
 }
 
 /* Featured plan styling */
@@ -995,28 +1125,116 @@ p a:hover {
     background: #2c6f57;
     color: white;
     border: none;
-    padding: 12px 24px;
-    border-radius: 6px;
+    padding: 1rem 2rem;
+    border-radius: 10px;
     font-size: 1rem;
-    font-weight: bold;
+    font-weight: 600;
     cursor: pointer;
     width: 100%;
-    margin-top: 20px;
-    transition: background-color 0.3s ease;
+    margin-top: 1.5rem;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .subscribe-btn:hover {
     background: #1e4d3f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(44, 111, 87, 0.3);
 }
 
 .subscribe-btn.disabled {
     background: #cccccc;
     cursor: not-allowed;
+    transform: none;
 }
 
 .pricing-plan.featured .subscribe-btn {
     background: white;
     color: #2c6f57;
+}
+
+.pricing-plan.featured .subscribe-btn:hover {
+    background: #f8f9fa;
+    color: #2c6f57;
+}
+
+/* Testimonial Grid */
+.testimonial-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+.testimonial {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-left: 4px solid #2c6f57;
+    transition: transform 0.3s ease;
+}
+
+.testimonial:hover {
+    transform: translateY(-5px);
+}
+
+.testimonial p {
+    font-style: italic;
+    margin-bottom: 1rem;
+    color: #495057;
+    line-height: 1.6;
+}
+
+.testimonial h4 {
+    color: #2c6f57;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.user-type {
+    display: block;
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .pricing-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .pricing-header {
+        padding: 2rem 1rem;
+    }
+    
+    .pricing-header h1 {
+        font-size: 2rem;
+    }
+    
+    .pricing-section {
+        padding: 2rem 1rem;
+        margin: 1rem;
+    }
+    
+    .pricing-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .pricing-plan.popular {
+        transform: none;
+    }
+    
+    .testimonial-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
 }
 
 .pricing-plan.featured .subscribe-btn:hover {

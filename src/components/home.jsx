@@ -28,8 +28,8 @@ const Home = () => {
 <h2>The Ultimate Food Truck & Food Trailer Locator in Real-Time — Now Serving Your Area!</h2>
   <meta name="description" content="Discover the best food trucks and food trailers near you in real time. Explore trending locations, exclusive deals, and live maps with Grubana—the ultimate street food finder." />
   <div className="hero-buttons">
-    <Link to="/signup" className="btn btn-foodie">Foodie Fans — Let's Go!</Link>
-    <Link to="/signup" className="btn btn-vendor">Mobile Vendors - Let's Roll!</Link>
+    <Link to="/signup?role=customer" className="btn btn-foodie">Foodie Fans — Let's Go!</Link>
+    <Link to="/signup?role=owner" className="btn btn-vendor">Mobile Vendors - Let's Roll!</Link>
     <Link to="/signup?role=event-organizer" className="btn btn-event-organizer">Event Organizers — Join Now!</Link>
     <section className="image-section">
         <img 
