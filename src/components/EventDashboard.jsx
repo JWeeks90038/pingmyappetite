@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAuth } from 'firebase/auth';
+import { useAuth } from './AuthContext';
 import { 
   doc, 
   getDoc, 
@@ -20,8 +20,7 @@ import '../assets/EventDashboard.css';
 
 const EventDashboard = () => {
   const navigate = useNavigate();
-  const auth = getAuth();
-  const user = auth.currentUser;
+  const { user, userRole, loading: authLoading } = useAuth();
 
   const [organizerData, setOrganizerData] = useState(null);
   const [events, setEvents] = useState([]);
@@ -31,10 +30,31 @@ const EventDashboard = () => {
   const [organizerDataLoaded, setOrganizerDataLoaded] = useState(false);
   const [eventsLoaded, setEventsLoaded] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🎯 EventDashboard: Auth state changed', {
+      authLoading,
+      user: user?.email,
+      userRole,
+      loading,
+      organizerDataLoaded,
+      eventsLoaded
+    });
+  }, [authLoading, user, userRole, loading, organizerDataLoaded, eventsLoaded]);
+
   // Fetch organizer data
   useEffect(() => {
+    // Wait for auth to load
+    if (authLoading) return;
+    
     if (!user) {
       navigate('/login');
+      return;
+    }
+
+    // If we already have the role from AuthContext, check it first
+    if (userRole && userRole !== 'event-organizer') {
+      navigate('/customer-dashboard');
       return;
     }
 
@@ -61,7 +81,7 @@ const EventDashboard = () => {
     };
 
     fetchOrganizerData();
-  }, [user, navigate]);
+  }, [user, userRole, authLoading, navigate]);
 
   // Fetch events
   useEffect(() => {
@@ -168,13 +188,18 @@ const EventDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading your event dashboard...</p>
       </div>
     );
+  }
+
+  // If no user after auth is loaded, redirect will happen in useEffect
+  if (!user) {
+    return null;
   }
 
   return (
@@ -184,6 +209,9 @@ const EventDashboard = () => {
       <div className="event-dashboard-container">
         <div className="dashboard-header">
           <h1>Event Organizer Dashboard</h1>
+          <div style={{ background: '#e7f3ff', padding: '10px', margin: '10px 0', borderRadius: '5px' }}>
+            📊 Debug Info: User: {user?.email}, Role: {userRole}, Auth Loading: {authLoading ? 'Yes' : 'No'}, Loading: {loading ? 'Yes' : 'No'}
+          </div>
           {organizerData && (
             <div className="organizer-info">
               <h2>Welcome, {organizerData.contactPerson || organizerData.username}!</h2>
