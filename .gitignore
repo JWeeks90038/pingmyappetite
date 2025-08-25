@@ -110,3 +110,7 @@ local.env
 
 bfg-*.jar
 serviceAccountKey.json
+
+# macOS resource fork files (AppleDouble files)
+._*
+**/*._*
