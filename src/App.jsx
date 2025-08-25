@@ -250,14 +250,14 @@ function App() {
           // Show browser notification for foreground messages
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(payload.notification?.title || 'Grubana', {
-            body: payload.notification?.body || 'New notification',
-            icon: '/grubana-logo.png',
-            badge: '/grubana-logo.png',
-            tag: payload.data?.type || 'general',
-            data: payload.data
-          });
-        }
-      });
+              body: payload.notification?.body || 'New notification',
+              icon: '/grubana-logo.png',
+              badge: '/grubana-logo.png',
+              tag: payload.data?.type || 'general',
+              data: payload.data
+            });
+          }
+        });
       }, 1000); // 1 second delay to ensure auth is established
     }
   }, [user, userRole]);
