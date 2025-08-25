@@ -28,6 +28,8 @@ const EventDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [organizerDataLoaded, setOrganizerDataLoaded] = useState(false);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
 
   // Fetch organizer data
   useEffect(() => {
@@ -53,6 +55,8 @@ const EventDashboard = () => {
         }
       } catch (error) {
         console.error('Error fetching organizer data:', error);
+      } finally {
+        setOrganizerDataLoaded(true);
       }
     };
 
@@ -75,11 +79,45 @@ const EventDashboard = () => {
         ...doc.data()
       }));
       setEvents(eventsData);
-      setLoading(false);
+      setEventsLoaded(true);
+    }, (error) => {
+      console.error('Error fetching events:', error);
+      // If the index is still building, try a simpler query
+      if (error.code === 'failed-precondition') {
+        console.log('🔄 Index still building, using simpler query...');
+        const simpleQuery = query(
+          collection(db, 'events'),
+          where('organizerId', '==', user.uid)
+        );
+        
+        const fallbackUnsubscribe = onSnapshot(simpleQuery, (snapshot) => {
+          const eventsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })).sort((a, b) => {
+            // Sort manually if no index
+            const aTime = a.createdAt?.toDate() || new Date(0);
+            const bTime = b.createdAt?.toDate() || new Date(0);
+            return bTime - aTime;
+          });
+          setEvents(eventsData);
+          setEventsLoaded(true);
+        });
+        
+        return () => fallbackUnsubscribe();
+      }
+      setEventsLoaded(true); // Still set loaded to true to stop loading state
     });
 
     return () => unsubscribe();
   }, [user]);
+
+  // Update loading state when both organizer data and events are loaded
+  useEffect(() => {
+    if (organizerDataLoaded && eventsLoaded) {
+      setLoading(false);
+    }
+  }, [organizerDataLoaded, eventsLoaded]);
 
   // Function to refresh events (for CreateEventForm callback)
   const fetchEvents = () => {
