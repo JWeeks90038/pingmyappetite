@@ -180,6 +180,81 @@ async function recordNotificationSent(userId, type, identifier, payload) {
 }
 
 /**
+ * Send email/SMS notifications via Formspree based on user preferences
+ */
+async function sendNotificationViaFormspree(userIds, payload) {
+  try {
+    for (const userId of userIds) {
+      const userDoc = await db.collection('users').doc(userId).get();
+      
+      if (!userDoc.exists) continue;
+      
+      const userData = userDoc.data();
+      const notifPrefs = userData.notificationPreferences || {};
+      
+      // Send email if enabled and email available
+      if (notifPrefs.emailNotifications && userData.email) {
+        try {
+          const emailResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: userData.email,
+              subject: payload.title,
+              message: payload.body,
+              notification_type: 'grubana_notification',
+              truck_id: payload.truckId || '',
+              drop_id: payload.dropId || '',
+              user_id: userId,
+              _subject: payload.title,
+              _replyto: 'noreply@grubana.com'
+            }),
+          });
+          
+          if (emailResponse.ok) {
+            logger.info(`Email notification sent to ${userData.email} via Formspree`);
+          } else {
+            logger.warn(`Failed to send email to ${userData.email}: ${emailResponse.status}`);
+          }
+        } catch (emailError) {
+          logger.error('Formspree email error:', emailError);
+        }
+      }
+      
+      // Send SMS if enabled and phone available
+      if (notifPrefs.smsNotifications && userData.phone) {
+        try {
+          const smsResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: userData.phone,
+              message: `${payload.title}: ${payload.body}`,
+              notification_type: 'grubana_sms',
+              truck_id: payload.truckId || '',
+              drop_id: payload.dropId || '',
+              user_id: userId,
+              _subject: `SMS Notification - ${payload.title}`,
+              _webhook: 'https://your-automation-service.com/send-sms' // Configure your SMS webhook
+            }),
+          });
+          
+          if (smsResponse.ok) {
+            logger.info(`SMS notification queued for ${userData.phone} via Formspree`);
+          } else {
+            logger.warn(`Failed to queue SMS for ${userData.phone}: ${smsResponse.status}`);
+          }
+        } catch (smsError) {
+          logger.error('Formspree SMS error:', smsError);
+        }
+      }
+    }
+  } catch (error) {
+    logger.error('Error sending notifications via Formspree:', error);
+  }
+}
+
+/**
  * Trigger when truck location is updated
  * Notify users when their favorite trucks are nearby
  */
@@ -279,6 +354,9 @@ export const onTruckLocationUpdate = onDocumentWritten({
     
     // Send notifications
     await sendNotificationToTokens(tokens, payload);
+    
+    // Send email/SMS notifications via Formspree
+    await sendNotificationViaFormspree(userIds, payload);
     
     // Record notifications sent
     for (const user of nearbyUsers) {
@@ -383,6 +461,10 @@ export const onDropCreated = onDocumentCreated({
     
     // Send notifications
     await sendNotificationToTokens(tokens, payload);
+    
+    // Send email/SMS notifications via Formspree
+    const notifyUserIds = usersToNotify.map(user => user.id);
+    await sendNotificationViaFormspree(notifyUserIds, payload);
     
     // Record notifications sent
     for (const user of usersToNotify) {
@@ -517,6 +599,9 @@ export const sendWeeklyDigest = onSchedule('every sunday 18:00', async (context)
         
         // Send notification
         await sendNotificationToTokens(tokens, payload);
+        
+        // Send email/SMS notifications via Formspree
+        await sendNotificationViaFormspree([user.id], payload);
         
         // Record notification sent
         await recordNotificationSent(

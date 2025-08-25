@@ -343,6 +343,67 @@ export const getUserNotificationPreferences = async (userId) => {
   }
 };
 
+// Send email notification via Formspree
+const sendEmailViaFormspree = async (userEmail, title, message, data = {}) => {
+  try {
+    // Use your existing Formspree form ID for notifications
+    // Replace with your actual form ID or create a new one for notifications
+    const response = await fetch('https://formspree.io/f/mpwlvzaj', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: userEmail,
+        subject: title,
+        message: message,
+        notification_data: JSON.stringify(data),
+        _subject: title,
+        notification_type: 'grubana_notification',
+        _replyto: 'noreply@grubana.com'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Formspree email request failed: ${response.status}`);
+    }
+
+    console.log('📧 Email notification sent via Formspree to:', userEmail);
+    return { success: true, method: 'email' };
+  } catch (error) {
+    console.error('📧 Error sending email via Formspree:', error);
+    return { success: false, error: error.message, method: 'email' };
+  }
+};
+
+// Send SMS notification via Formspree (with webhook to SMS service)
+const sendSMSViaFormspree = async (userPhone, title, message, data = {}) => {
+  try {
+    // Use Formspree with webhook to trigger SMS service (Zapier, Make.com, etc.)
+    // You'll need to set up a separate form for SMS or use webhook automation
+    const response = await fetch('https://formspree.io/f/mpwlvzaj', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phone: userPhone,
+        message: `${title}: ${message}`,
+        notification_data: JSON.stringify(data),
+        _subject: `SMS Notification - ${title}`,
+        notification_type: 'grubana_sms',
+        _webhook: 'https://your-automation-service.com/send-sms', // Configure your SMS webhook
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Formspree SMS request failed: ${response.status}`);
+    }
+
+    console.log('📱 SMS notification sent via Formspree to:', userPhone);
+    return { success: true, method: 'sms' };
+  } catch (error) {
+    console.error('📱 Error sending SMS via Formspree:', error);
+    return { success: false, error: error.message, method: 'sms' };
+  }
+};
+
 // Send notification via preferred method (email, SMS, or push)
 export const sendNotificationViaPreferredMethod = async (userId, notificationData) => {
   try {
@@ -352,35 +413,33 @@ export const sendNotificationViaPreferredMethod = async (userId, notificationDat
       console.error('🔔 No user preferences found for notification delivery');
       return false;
     }
+
+    const { title, message, data = {} } = notificationData;
+    const results = [];
     
-    const methods = [];
+    // Send email if enabled and user has valid email
+    if (preferences.emailNotifications && preferences.hasValidEmail && preferences.email) {
+      const emailResult = await sendEmailViaFormspree(preferences.email, title, message, data);
+      results.push(emailResult);
+    }
     
-    // Always try push notification first (if permission granted)
+    // Send SMS if enabled and user has valid phone
+    if (preferences.smsNotifications && preferences.hasValidPhone && preferences.phone) {
+      const smsResult = await sendSMSViaFormspree(preferences.phone, title, message, data);
+      results.push(smsResult);
+    }
+    
+    // Always try push notification if any notification is enabled
     if (preferences.emailNotifications || preferences.smsNotifications) {
-      methods.push('push');
-    }
-    
-    // Add email if enabled and user has valid email
-    if (preferences.emailNotifications && preferences.hasValidEmail) {
-      methods.push('email');
-    }
-    
-    // Add SMS if enabled and user has valid phone
-    if (preferences.smsNotifications && preferences.hasValidPhone) {
-      methods.push('sms');
-    }
-    
-    console.log('🔔 Notification delivery methods for user:', methods);
-    
-    // For now, we'll focus on push notifications
-    // Email and SMS integration would require additional services (SendGrid, Twilio, etc.)
-    if (methods.includes('push')) {
       // This would be handled by Firebase Cloud Functions
       console.log('📱 Push notification will be sent via Firebase Functions');
-      return true;
+      results.push({ success: true, method: 'push', note: 'Handled by Firebase Functions' });
     }
     
-    return false;
+    console.log('🔔 Notification delivery results for user:', userId, results);
+    
+    // Return true if at least one method succeeded
+    return results.some(result => result.success);
   } catch (error) {
     console.error('🔔 Error sending notification via preferred method:', error);
     return false;
