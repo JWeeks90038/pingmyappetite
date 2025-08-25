@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc, getDoc } from 'firebase/firestore';
 import { db, app, auth } from '../firebase';
+import { sendNotificationSMS, validatePhoneNumber, checkTwilioConfig } from './twilioService.js';
 
 // Initialize Firebase Messaging
 let messaging = null;
@@ -374,32 +375,34 @@ const sendEmailViaFormspree = async (userEmail, title, message, data = {}) => {
   }
 };
 
-// Send SMS notification via Formspree (with webhook to SMS service)
-const sendSMSViaFormspree = async (userPhone, title, message, data = {}) => {
+// Send SMS notification via Twilio
+const sendSMSViaTwilio = async (userPhone, title, message, data = {}) => {
   try {
-    // Use Formspree with webhook to trigger SMS service (Zapier, Make.com, etc.)
-    // You'll need to set up a separate form for SMS or use webhook automation
-    const response = await fetch('https://formspree.io/f/mpwlvzaj', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: userPhone,
-        message: `${title}: ${message}`,
-        notification_data: JSON.stringify(data),
-        _subject: `SMS Notification - ${title}`,
-        notification_type: 'grubana_sms',
-        _webhook: 'https://your-automation-service.com/send-sms', // Configure your SMS webhook
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Formspree SMS request failed: ${response.status}`);
+    // Check if Twilio is configured
+    const twilioConfig = checkTwilioConfig();
+    if (!twilioConfig.configured) {
+      console.warn('📱 Twilio not configured, skipping SMS');
+      return { success: false, error: 'Twilio not configured', method: 'sms' };
     }
-
-    console.log('📱 SMS notification sent via Formspree to:', userPhone);
-    return { success: true, method: 'sms' };
+    
+    // Validate phone number
+    if (!validatePhoneNumber(userPhone)) {
+      throw new Error('Invalid phone number format');
+    }
+    
+    // Send SMS using Twilio service
+    const result = await sendNotificationSMS(userPhone, title, message, data);
+    
+    if (result.success) {
+      console.log('📱 SMS notification sent via Twilio to:', userPhone);
+    } else {
+      console.error('📱 Failed to send SMS via Twilio:', result.error);
+    }
+    
+    return result;
+    
   } catch (error) {
-    console.error('📱 Error sending SMS via Formspree:', error);
+    console.error('📱 Error sending SMS via Twilio:', error);
     return { success: false, error: error.message, method: 'sms' };
   }
 };
@@ -425,7 +428,7 @@ export const sendNotificationViaPreferredMethod = async (userId, notificationDat
     
     // Send SMS if enabled and user has valid phone
     if (preferences.smsNotifications && preferences.hasValidPhone && preferences.phone) {
-      const smsResult = await sendSMSViaFormspree(preferences.phone, title, message, data);
+      const smsResult = await sendSMSViaTwilio(preferences.phone, title, message, data);
       results.push(smsResult);
     }
     

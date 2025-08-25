@@ -3,6 +3,7 @@ import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
+import { validatePhoneNumber } from '../utils/twilioService';
 import Footer from '../components/footer';
 import '../assets/styles.css';
 
@@ -31,6 +32,12 @@ const CustomerSignUp = () => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    // Validate phone number if provided
+    if (formData.phoneNumber && !validatePhoneNumber(formData.phoneNumber)) {
+      setError('Please enter a valid US phone number (10 digits)');
       return;
     }
 

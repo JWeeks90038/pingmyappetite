@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import { onDocumentWritten, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
+import twilio from 'twilio';
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -10,6 +11,62 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const messaging = admin.messaging();
+
+// Initialize Twilio client
+let twilioClient = null;
+
+const initializeTwilio = () => {
+  if (!twilioClient) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    
+    if (accountSid && authToken) {
+      try {
+        twilioClient = twilio(accountSid, authToken);
+        logger.info('📱 Twilio client initialized in Cloud Functions');
+      } catch (error) {
+        logger.error('❌ Failed to initialize Twilio client:', error);
+      }
+    } else {
+      logger.warn('⚠️ Twilio credentials not found in environment variables');
+    }
+  }
+  
+  return twilioClient;
+};
+
+// Send SMS via Twilio in Cloud Functions
+const sendSMSViaTwilio = async (phoneNumber, message) => {
+  try {
+    const client = initializeTwilio();
+    
+    if (!client) {
+      return { success: false, error: 'Twilio not configured' };
+    }
+    
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+    
+    if (!fromNumber) {
+      return { success: false, error: 'TWILIO_PHONE_NUMBER not configured' };
+    }
+    
+    // Format phone number
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`;
+    
+    const smsMessage = await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to: formattedPhone
+    });
+    
+    logger.info('📱 SMS sent via Twilio:', { sid: smsMessage.sid, to: formattedPhone });
+    return { success: true, messageSid: smsMessage.sid };
+    
+  } catch (error) {
+    logger.error('📱 Error sending SMS via Twilio:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 /**
  * Calculate distance between two coordinates using Haversine formula
@@ -180,7 +237,7 @@ async function recordNotificationSent(userId, type, identifier, payload) {
 }
 
 /**
- * Send email/SMS notifications via Formspree based on user preferences
+ * Send email/SMS notifications via Formspree and Twilio based on user preferences
  */
 async function sendNotificationViaFormspree(userIds, payload) {
   try {
@@ -192,7 +249,7 @@ async function sendNotificationViaFormspree(userIds, payload) {
       const userData = userDoc.data();
       const notifPrefs = userData.notificationPreferences || {};
       
-      // Send email if enabled and email available
+      // Send email via Formspree if enabled and email available
       if (notifPrefs.emailNotifications && userData.email) {
         try {
           const emailResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
@@ -212,7 +269,7 @@ async function sendNotificationViaFormspree(userIds, payload) {
           });
           
           if (emailResponse.ok) {
-            logger.info(`Email notification sent to ${userData.email} via Formspree`);
+            logger.info(`📧 Email notification sent to ${userData.email} via Formspree`);
           } else {
             logger.warn(`Failed to send email to ${userData.email}: ${emailResponse.status}`);
           }
@@ -221,36 +278,36 @@ async function sendNotificationViaFormspree(userIds, payload) {
         }
       }
       
-      // Send SMS if enabled and phone available
+      // Send SMS via Twilio if enabled and phone available
       if (notifPrefs.smsNotifications && userData.phone) {
         try {
-          const smsResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: userData.phone,
-              message: `${payload.title}: ${payload.body}`,
-              notification_type: 'grubana_sms',
-              truck_id: payload.truckId || '',
-              drop_id: payload.dropId || '',
-              user_id: userId,
-              _subject: `SMS Notification - ${payload.title}`,
-              _webhook: 'https://your-automation-service.com/send-sms' // Configure your SMS webhook
-            }),
-          });
+          // Create formatted SMS message
+          let smsMessage = `🍴 ${payload.title}\n\n${payload.body}`;
           
-          if (smsResponse.ok) {
-            logger.info(`SMS notification queued for ${userData.phone} via Formspree`);
+          // Add URL if provided
+          if (payload.url) {
+            smsMessage += `\n\nView: https://grubana.com${payload.url}`;
+          }
+          
+          // Keep message under SMS limit
+          if (smsMessage.length > 150) {
+            smsMessage = smsMessage.substring(0, 147) + '...';
+          }
+          
+          const smsResult = await sendSMSViaTwilio(userData.phone, smsMessage);
+          
+          if (smsResult.success) {
+            logger.info(`📱 SMS notification sent to ${userData.phone} via Twilio`);
           } else {
-            logger.warn(`Failed to queue SMS for ${userData.phone}: ${smsResponse.status}`);
+            logger.warn(`Failed to send SMS to ${userData.phone}: ${smsResult.error}`);
           }
         } catch (smsError) {
-          logger.error('Formspree SMS error:', smsError);
+          logger.error('Twilio SMS error:', smsError);
         }
       }
     }
   } catch (error) {
-    logger.error('Error sending notifications via Formspree:', error);
+    logger.error('Error sending notifications via Formspree/Twilio:', error);
   }
 }
 

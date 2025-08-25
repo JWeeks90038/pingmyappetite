@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { validatePhoneNumber } from '../utils/twilioService';
 import "../assets/styles.css";
 
 <div id="top"></div>
@@ -49,12 +50,19 @@ const CustomerSettings = () => {
   const editPhone = async () => {
     const newPhone = prompt("Edit Phone Number:", userProfile.phone);
     if (newPhone) {
+      // Validate phone number
+      if (!validatePhoneNumber(newPhone)) {
+        alert("Please enter a valid US phone number (10 digits)");
+        return;
+      }
+      
       try {
         await updateDoc(doc(db, "users", userId), { phone: newPhone });
         setUserProfile(prev => ({ ...prev, phone: newPhone }));
         alert("Phone number updated!");
       } catch (error) {
         console.error("Error updating phone:", error);
+        alert("Error updating phone number. Please try again.");
       }
     }
   };
