@@ -14,6 +14,7 @@ import { db } from '../firebase';
 import Navbar from './navbar';
 import Footer from './footer';
 import CreateEventForm from './CreateEventForm';
+import EventSubscriptionPlans from './EventSubscriptionPlans';
 import '../assets/styles.css';
 import '../assets/EventDashboard.css';
 
@@ -177,6 +178,12 @@ const EventDashboard = () => {
             onClick={() => setActiveTab('create')}
           >
             Create Event
+          </button>
+          <button 
+            className={`tab ${activeTab === 'subscription' ? 'active' : ''}`}
+            onClick={() => setActiveTab('subscription')}
+          >
+            💳 Subscription
           </button>
         </div>
 
@@ -342,6 +349,27 @@ const EventDashboard = () => {
             <div className="create-event-section">
               <h3>Create New Event</h3>
               <CreateEventForm organizerId={user?.uid} onEventCreated={fetchEvents} />
+            </div>
+          )}
+
+          {activeTab === 'subscription' && (
+            <div className="subscription-section">
+              <div className="subscription-header">
+                <h3>💳 Subscription Management</h3>
+                <p>Choose the perfect plan to showcase your events and maximize vendor participation</p>
+                {organizerData?.subscriptionPlan && (
+                  <div className="current-plan-badge">
+                    Current Plan: <strong>{organizerData.subscriptionPlan}</strong>
+                  </div>
+                )}
+              </div>
+              <EventSubscriptionPlans 
+                currentPlan={organizerData?.subscriptionPlan}
+                onPlanSelect={(plan) => {
+                  console.log('Selected plan:', plan);
+                  // Handle plan selection - integrate with Stripe
+                }}
+              />
             </div>
           )}
         </div>

@@ -44,15 +44,34 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Event Organizer Button Styles */
-.btn-event-organizer {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-  border: 2px solid #10b981 !important;
-  color: white !important;
-  position: relative;
-  overflow: hidden;
+/* Hero Button Icons */
+.btn-foodie::before {
+  content: '🍽️';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
 }
 
+.btn-foodie {
+  padding-left: 45px !important;
+}
+
+.btn-vendor::before {
+  content: '🚚';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+}
+
+.btn-vendor {
+  padding-left: 45px !important;
+}
+
+/* Event Organizer Button Icon - Keep the circus tent icon */
 .btn-event-organizer::before {
   content: '🎪';
   position: absolute;
@@ -64,13 +83,6 @@
 
 .btn-event-organizer {
   padding-left: 45px !important;
-}
-
-.btn-event-organizer:hover {
-  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
-  border-color: #059669 !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3) !important;
 }
 
 /* Animations */
@@ -102,13 +114,24 @@
   .hero-buttons {
     flex-direction: column;
     gap: 10px;
+    padding: 0 15px;
   }
   
+  .hero-buttons .btn {
+    min-width: 280px;
+    font-size: 1rem;
+    padding: 14px 25px;
+  }
+  
+  .btn-foodie::before,
+  .btn-vendor::before,
   .btn-event-organizer::before {
     left: 12px;
     font-size: 1rem;
   }
   
+  .btn-foodie,
+  .btn-vendor,
   .btn-event-organizer {
     padding-left: 35px !important;
   }
@@ -125,5 +148,11 @@
   
   .banner-subtext {
     font-size: 0.75rem;
+  }
+  
+  .hero-buttons .btn {
+    min-width: 250px;
+    font-size: 0.95rem;
+    padding: 12px 20px;
   }
 }

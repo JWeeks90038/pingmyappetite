@@ -465,3 +465,53 @@
     flex-direction: column;
   }
 }
+
+/* Subscription Section */
+.subscription-section {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.subscription-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.subscription-header h3 {
+  color: #2c6f57;
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.subscription-header p {
+  color: #666;
+  font-size: 1.1rem;
+  max-width: 600px;
+  margin: 0 auto 20px auto;
+}
+
+.current-plan-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .subscription-section {
+    padding: 20px;
+  }
+  
+  .subscription-header h3 {
+    font-size: 1.6rem;
+  }
+  
+  .subscription-header p {
+    font-size: 1rem;
+  }
+}
