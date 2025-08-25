@@ -39,6 +39,12 @@ export const initializeFirebaseMessaging = async () => {
 // Request notification permission and get FCM token
 export const requestNotificationPermission = async (userId) => {
   try {
+    // Validate userId
+    if (!userId) {
+      console.error('🔔 Cannot request notification permission: userId is required');
+      return null;
+    }
+    
     const permission = await Notification.requestPermission();
     
     if (permission === 'granted') {
@@ -85,6 +91,12 @@ export const requestNotificationPermission = async (userId) => {
 // Save FCM token to Firestore
 export const saveNotificationToken = async (userId, token) => {
   try {
+    // Check if user is authenticated
+    if (!userId) {
+      console.error('🔔 Cannot save token: userId is required');
+      return false;
+    }
+    
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
       fcmToken: token,
@@ -93,8 +105,30 @@ export const saveNotificationToken = async (userId, token) => {
     });
     
     console.log('🔔 FCM token saved to Firestore');
+    return true;
   } catch (error) {
     console.error('🔔 Error saving FCM token:', error);
+    
+    // If it's a permission error, try creating the user document
+    if (error.code === 'permission-denied' || error.code === 'not-found') {
+      try {
+        console.log('🔔 Attempting to create user document for token storage');
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, {
+          fcmToken: token,
+          fcmTokenUpdatedAt: serverTimestamp(),
+          notificationPermission: 'granted'
+        }, { merge: true });
+        
+        console.log('🔔 FCM token saved after creating user document');
+        return true;
+      } catch (retryError) {
+        console.error('🔔 Failed to save token after retry:', retryError);
+        return false;
+      }
+    }
+    
+    return false;
   }
 };
 

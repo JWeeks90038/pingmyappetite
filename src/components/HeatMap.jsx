@@ -350,13 +350,17 @@ const createCustomMarker = (position, content, map) => {
 
   const animateMarkerTo = useCallback((marker, newPosition) => {
     // Check if it's a custom marker (has div property) or standard marker
-    if (marker.div) {
+    if (marker && marker.div) {
       // Custom marker - update position and redraw
+      console.log('🗺️ HeatMap: Updating custom marker position');
       marker.position = newPosition;
       marker.draw();
-    } else {
+    } else if (marker && marker.setPosition) {
       // Standard Google Maps marker
+      console.log('🗺️ HeatMap: Updating standard marker position');
       marker.setPosition(newPosition);
+    } else {
+      console.error('🗺️ HeatMap: Unknown marker type or missing setPosition method', marker);
     }
   }, []);
 
