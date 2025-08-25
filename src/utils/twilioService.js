@@ -8,15 +8,29 @@ const initializeTwilio = () => {
   if (!twilioClient) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const apiSid = process.env.TWILIO_API_SID;
+    const apiSecretKey = process.env.TWILIO_API_SECRET_KEY;
     
-    if (!accountSid || !authToken) {
-      console.warn('⚠️ Twilio credentials not found in environment variables');
+    if (!accountSid) {
+      console.warn('⚠️ TWILIO_ACCOUNT_SID not found in environment variables');
       return null;
     }
     
     try {
-      twilioClient = twilio(accountSid, authToken);
-      console.log('📱 Twilio client initialized successfully');
+      // Use API Key authentication if available (more secure)
+      if (apiSid && apiSecretKey) {
+        twilioClient = twilio(apiSid, apiSecretKey, { accountSid });
+        console.log('📱 Twilio client initialized with API Key authentication');
+      } 
+      // Fall back to basic authentication
+      else if (authToken) {
+        twilioClient = twilio(accountSid, authToken);
+        console.log('📱 Twilio client initialized with basic authentication');
+      } 
+      else {
+        console.warn('⚠️ Neither API Key nor Auth Token found for Twilio authentication');
+        return null;
+      }
     } catch (error) {
       console.error('❌ Failed to initialize Twilio client:', error);
       return null;
@@ -148,13 +162,22 @@ export const sendNotificationSMS = async (phoneNumber, title, body, data = {}) =
 export const checkTwilioConfig = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const apiSid = process.env.TWILIO_API_SID;
+  const apiSecretKey = process.env.TWILIO_API_SECRET_KEY;
   const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
   
+  const hasApiKeyAuth = !!(apiSid && apiSecretKey);
+  const hasBasicAuth = !!(authToken);
+  const hasAuth = hasApiKeyAuth || hasBasicAuth;
+  
   return {
-    configured: !!(accountSid && authToken && phoneNumber),
+    configured: !!(accountSid && hasAuth && phoneNumber),
     accountSid: !!accountSid,
     authToken: !!authToken,
-    phoneNumber: !!phoneNumber
+    apiSid: !!apiSid,
+    apiSecretKey: !!apiSecretKey,
+    phoneNumber: !!phoneNumber,
+    authMethod: hasApiKeyAuth ? 'API Key' : hasBasicAuth ? 'Basic' : 'None'
   };
 };
 

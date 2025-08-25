@@ -19,16 +19,32 @@ const initializeTwilio = () => {
   if (!twilioClient) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const apiSid = process.env.TWILIO_API_SID;
+    const apiSecretKey = process.env.TWILIO_API_SECRET_KEY;
     
-    if (accountSid && authToken) {
-      try {
+    if (!accountSid) {
+      logger.warn('⚠️ TWILIO_ACCOUNT_SID not found in environment variables');
+      return null;
+    }
+    
+    try {
+      // Use API Key authentication if available (more secure)
+      if (apiSid && apiSecretKey) {
+        twilioClient = twilio(apiSid, apiSecretKey, { accountSid });
+        logger.info('📱 Twilio client initialized with API Key authentication in Cloud Functions');
+      } 
+      // Fall back to basic authentication
+      else if (authToken) {
         twilioClient = twilio(accountSid, authToken);
-        logger.info('📱 Twilio client initialized in Cloud Functions');
-      } catch (error) {
-        logger.error('❌ Failed to initialize Twilio client:', error);
+        logger.info('📱 Twilio client initialized with basic authentication in Cloud Functions');
+      } 
+      else {
+        logger.warn('⚠️ Neither API Key nor Auth Token found for Twilio authentication');
+        return null;
       }
-    } else {
-      logger.warn('⚠️ Twilio credentials not found in environment variables');
+    } catch (error) {
+      logger.error('❌ Failed to initialize Twilio client:', error);
+      return null;
     }
   }
   
