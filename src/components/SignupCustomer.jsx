@@ -3,7 +3,7 @@ import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-import { validatePhoneNumber } from '../utils/twilioService';
+import { validatePhoneNumber } from '../utils/phoneValidation';
 import Footer from '../components/footer';
 import '../assets/styles.css';
 

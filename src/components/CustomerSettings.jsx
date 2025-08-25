@@ -3,7 +3,7 @@ import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { validatePhoneNumber } from '../utils/twilioService';
+import { validatePhoneNumber } from '../utils/phoneValidation';
 import "../assets/styles.css";
 
 <div id="top"></div>

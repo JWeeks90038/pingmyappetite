@@ -1,0 +1,68 @@
+// Phone validation utilities for client-side use
+// No server dependencies - safe for browser
+
+/**
+ * Validate if a phone number is in a valid US format
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} - True if valid US phone number
+ */
+export const validatePhoneNumber = (phone) => {
+  if (!phone) return false;
+  
+  // Remove all non-numeric characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // Check if it's a valid US phone number (10 or 11 digits)
+  if (cleanPhone.length === 10) {
+    // 10 digits - assume US number
+    return /^[2-9]\d{2}[2-9]\d{2}\d{4}$/.test(cleanPhone);
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
+    // 11 digits starting with 1 - US with country code
+    return /^1[2-9]\d{2}[2-9]\d{2}\d{4}$/.test(cleanPhone);
+  }
+  
+  return false;
+};
+
+/**
+ * Format a phone number to E.164 format for US numbers
+ * @param {string} phone - Phone number to format
+ * @returns {string} - Formatted phone number or original if invalid
+ */
+export const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  
+  // Remove all non-numeric characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  if (cleanPhone.length === 10) {
+    // Add US country code
+    return `+1${cleanPhone}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
+    // Already has country code
+    return `+${cleanPhone}`;
+  }
+  
+  // Return original if can't format
+  return phone;
+};
+
+/**
+ * Format phone number for display (xxx) xxx-xxxx
+ * @param {string} phone - Phone number to format
+ * @returns {string} - Formatted phone number for display
+ */
+export const formatPhoneDisplay = (phone) => {
+  if (!phone) return '';
+  
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  if (cleanPhone.length === 10) {
+    return `(${cleanPhone.slice(0, 3)}) ${cleanPhone.slice(3, 6)}-${cleanPhone.slice(6)}`;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
+    const withoutCountry = cleanPhone.slice(1);
+    return `(${withoutCountry.slice(0, 3)}) ${withoutCountry.slice(3, 6)}-${withoutCountry.slice(6)}`;
+  }
+  
+  return phone;
+};
