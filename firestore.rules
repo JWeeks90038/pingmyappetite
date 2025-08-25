@@ -68,5 +68,14 @@ service cloud.firestore {
       // Allow any authenticated user to read pings (for heatmap)
       allow read: if request.auth != null;
     }
+    
+    // Notification records collection - allow users to manage their notification history
+    match /notificationRecords/{userId} {
+      // Allow users to read and write their own notification records
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow Cloud Functions to write notification records
+      allow write: if request.auth.token.firebase.sign_in_provider == 'custom';
+    }
   }
 }

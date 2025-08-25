@@ -495,6 +495,12 @@ function App() {
               }
             />
             <Route
+              path="/notifications"
+              element={
+                userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" />
+              }
+            />
+            <Route
               path="/settings"
               element={
                 userRole === 'customer' ? <Settings /> : <Navigate to="/login" />

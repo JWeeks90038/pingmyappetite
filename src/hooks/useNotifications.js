@@ -47,7 +47,7 @@ export function useNotifications() {
         }));
         
         // Check if notifications are enabled (has permission + has preferences set)
-        const hasValidToken = await notificationService.hasValidToken();
+        const hasValidToken = await notificationService.hasValidToken(user?.uid);
         setIsEnabled(permission === 'granted' && hasValidToken);
       }
     } catch (error) {
@@ -176,7 +176,7 @@ export function useNotifications() {
     try {
       const success = await notificationService.refreshToken();
       if (success) {
-        const hasValidToken = await notificationService.hasValidToken();
+        const hasValidToken = await notificationService.hasValidToken(user?.uid);
         setIsEnabled(permissionState === 'granted' && hasValidToken);
       }
       return success;
