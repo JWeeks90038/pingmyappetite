@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Initialize Firebase Messaging
@@ -179,6 +179,63 @@ export const updateNotificationPreferences = async (userId, preferences) => {
   }
 };
 
+// Remove notification token for user (when logging out or disabling)
+export const removeNotificationToken = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      fcmToken: null,
+      fcmTokenUpdatedAt: serverTimestamp(),
+      notificationPermission: 'default'
+    });
+    
+    console.log('🔔 FCM token removed for user');
+  } catch (error) {
+    console.error('🔔 Error removing FCM token:', error);
+  }
+};
+
+// Refresh token (when needed)
+export const refreshToken = async (userId) => {
+  try {
+    if (!messaging) {
+      messaging = await initializeFirebaseMessaging();
+    }
+    
+    if (messaging) {
+      const token = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+      });
+      
+      if (token) {
+        await saveNotificationToken(userId, token);
+        return token;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('🔔 Error refreshing token:', error);
+    return null;
+  }
+};
+
+// Check if user has valid token
+export const hasValidToken = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return !!(userData.fcmToken && userData.notificationPermission === 'granted');
+    }
+    return false;
+  } catch (error) {
+    console.error('🔔 Error checking token validity:', error);
+    return false;
+  }
+};
+
 // Default notification preferences
 export const DEFAULT_NOTIFICATION_PREFERENCES = {
   favoriteNearby: true,        // Favorite trucks come nearby
@@ -212,4 +269,20 @@ export const disableNotifications = async (userId) => {
   } catch (error) {
     console.error('🔔 Error disabling notifications:', error);
   }
+};
+
+// Export a service object with all functions
+export const notificationService = {
+  initializeFirebaseMessaging,
+  requestNotificationPermission,
+  saveNotificationToken,
+  setupMessageListener,
+  showBrowserNotification,
+  removeNotificationToken,
+  refreshToken,
+  hasValidToken,
+  trackNotificationEvent,
+  updateNotificationPreferences,
+  disableNotifications,
+  DEFAULT_NOTIFICATION_PREFERENCES
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
@@ -11,7 +11,7 @@ import {
 import './NotificationPreferences.css';
 
 const NotificationPreferences = () => {
-  const { user, userRole } = useAuthContext();
+  const { user, userRole } = useAuth();
   const [preferences, setPreferences] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
   const [notificationPermission, setNotificationPermission] = useState('default');
   const [fcmToken, setFcmToken] = useState(null);

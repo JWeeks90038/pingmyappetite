@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNotifications } from '../hooks/useNotifications';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from './AuthContext';
 import { Link } from 'react-router-dom';
 import './NotificationBanner.css';
 

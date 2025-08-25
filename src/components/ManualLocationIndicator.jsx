@@ -1,9 +1,9 @@
 import React from 'react';
-import { useAuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 import './UpgradeNudges.css';
 
 const ManualLocationIndicator = ({ lastUpdate, onUpgradeClick }) => {
-  const { userPlan, userRole } = useAuthContext();
+  const { userPlan, userRole } = useAuth();
 
   // Only show for Basic plan owners
   if (userRole !== 'owner' || userPlan !== 'basic') {

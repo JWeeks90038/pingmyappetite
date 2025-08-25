@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 import { trackFeatureCalloutClick } from '../utils/upgradeAnalytics';
 import './UpgradeNudges.css';
 
@@ -11,7 +11,7 @@ const ProFeatureCallout = ({
   className = "",
   style = {} 
 }) => {
-  const { userPlan, userRole, user } = useAuthContext();
+  const { userPlan, userRole, user } = useAuth();
 
   // Only show for Basic plan users
   if (userRole !== 'owner' || userPlan !== 'basic') {

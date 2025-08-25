@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useAuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 import { useNotificationStats } from '../hooks/useNotifications';
 
 const UpgradeAnalyticsDashboard = () => {
-  const { user, userRole } = useAuthContext();
+  const { user, userRole } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const { stats: notificationStats, loading: notificationLoading } = useNotificationStats();

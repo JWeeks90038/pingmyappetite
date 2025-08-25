@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthContext } from './AuthContext';
+import { useAuth } from './AuthContext';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
@@ -111,7 +111,7 @@ const UpgradeNudge = ({ nudgeType, onDismiss, onUpgrade }) => {
 };
 
 const UpgradeNudgeManager = () => {
-  const { user, userPlan, userRole } = useAuthContext();
+  const { user, userPlan, userRole } = useAuth();
   const [currentNudge, setCurrentNudge] = useState(null);
   const [nudgeHistory, setNudgeHistory] = useState({});
 
@@ -290,7 +290,7 @@ export default UpgradeNudgeManager;
 
 // Hook to trigger nudges from other components
 export const useUpgradeNudges = () => {
-  const { userPlan, userRole } = useAuthContext();
+  const { userPlan, userRole } = useAuth();
   
   const triggerManualLocationUpdate = () => {
     if (userRole === 'owner' && userPlan === 'basic' && window.trackManualLocationUpdate) {
