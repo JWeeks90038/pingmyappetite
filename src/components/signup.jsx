@@ -5,6 +5,7 @@ import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
 import { getPriceId } from '../utils/stripe';
+import EventOrganizerPlanSelector from './EventOrganizerPlanSelector';
 import '../assets/styles.css';
 
 
@@ -67,6 +68,13 @@ const SignUp = () => {
     }
   };
 
+  const handlePlanSelect = (planId) => {
+    setFormData((prevState) => ({
+      ...prevState,
+      plan: planId,
+    }));
+  };
+
   const validateReferralCode = (code) => {
     if (!code.trim()) {
       setIsValidReferral(false);
@@ -87,6 +95,12 @@ const SignUp = () => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    // Validate event organizer plan selection
+    if (formData.role === 'event-organizer' && !formData.plan) {
+      setError('Please select a subscription plan to continue');
       return;
     }
 
@@ -113,10 +127,15 @@ if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === '
   subscriptionStatus = 'pending'; // Will be updated by webhook after payment
 }
 
-// Event organizers always get basic plan
+// Event organizers with paid plans
 if (formData.role === 'event-organizer') {
-  userPlan = 'basic';
-  subscriptionStatus = 'active';
+  if (formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan)) {
+    userPlan = formData.plan;
+    subscriptionStatus = 'pending'; // Will be updated by webhook after payment
+  } else {
+    userPlan = 'basic';
+    subscriptionStatus = 'active';
+  }
 }
 
 const userData = {
@@ -202,8 +221,55 @@ const userData = {
         }
       }
 
-      // For basic plan, customers, or event organizers, save user data and redirect to dashboard
-      if (formData.role === 'customer' || formData.plan === 'basic' || formData.role === 'event-organizer') {
+      // For event organizer paid plans, redirect to Stripe checkout
+      if (formData.role === 'event-organizer' && formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan)) {
+        console.log('🔄 Creating Stripe checkout session for event organizer plan:', formData.plan);
+        
+        try {
+          // Create Stripe checkout session directly
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          const priceId = getPriceId(formData.plan);
+          
+          if (!priceId) {
+            setError('Price configuration error. Please contact support.');
+            return;
+          }
+          
+          const checkoutResponse = await fetch(`${API_URL}/create-checkout-session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              priceId: priceId,
+              planType: formData.plan,
+              uid: user.uid,
+              userType: 'event-organizer',
+              hasValidReferral: false, // No referral codes for event organizers yet
+              referralCode: null,
+            }),
+          });
+
+          const { url, error } = await checkoutResponse.json();
+          
+          if (error) {
+            console.error('Stripe checkout error:', error);
+            setError(`Payment setup failed: ${error}`);
+            return;
+          }
+
+          console.log('✅ Redirecting directly to Stripe checkout');
+          // Redirect directly to Stripe Checkout
+          window.location.href = url;
+          return;
+          
+        } catch (checkoutErr) {
+          console.error('Error creating Stripe checkout:', checkoutErr);
+          setError('Failed to setup payment. Please try again.');
+          return;
+        }
+      }
+
+      // For basic plan, customers, or free event organizers, save user data and redirect to dashboard
+      if (formData.role === 'customer' || formData.plan === 'basic' || (formData.role === 'event-organizer' && !formData.plan)) {
         console.log('🔄 Saving user data and redirecting to appropriate dashboard');
         await setDoc(doc(db, 'users', user.uid), userData);
         console.log('✅ User document saved to Firestore with role:', userData.role);
@@ -484,6 +550,11 @@ const userData = {
         value={formData.eventDescription}
         onChange={handleChange}
         placeholder="Describe the types of events you organize (festivals, markets, corporate events, etc.)"
+      />
+
+      <EventOrganizerPlanSelector
+        selectedPlan={formData.plan}
+        onPlanSelect={handlePlanSelect}
       />
     </>
   )}
