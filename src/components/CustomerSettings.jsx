@@ -17,6 +17,7 @@ const CustomerSettings = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [resetMsg, setResetMsg] = useState('');
+  const [notificationUpdateMsg, setNotificationUpdateMsg] = useState('');
   const navigate = useNavigate();
   const userId = auth.currentUser?.uid;
 
@@ -31,9 +32,14 @@ const CustomerSettings = () => {
   const loadUserProfile = async () => {
     try {
       const docSnap = await getDoc(doc(db, "users", userId));
-      //console.log("Document data:", docSnap.data());
       if (docSnap.exists()) {
-        setUserProfile(docSnap.data());
+        const userData = docSnap.data();
+        setUserProfile(userData);
+        
+        // Load notification preferences
+        const notifPrefs = userData.notificationPreferences || {};
+        setEmailNotifications(notifPrefs.emailNotifications !== false);
+        setSmsNotifications(notifPrefs.smsNotifications !== false);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -81,6 +87,34 @@ const handleChangeEmail = async () => {
       console.error("Error sending reset email:", error);
       setResetMsg("There was an error sending the password reset email. Please try again.");
     }
+  };
+
+  const updateNotificationPreferences = async (emailEnabled, smsEnabled) => {
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        "notificationPreferences.emailNotifications": emailEnabled,
+        "notificationPreferences.smsNotifications": smsEnabled
+      });
+      
+      setNotificationUpdateMsg("✅ Notification preferences updated!");
+      setTimeout(() => setNotificationUpdateMsg(''), 3000);
+      
+      console.log('📧 Notification preferences updated:', { emailEnabled, smsEnabled });
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      setNotificationUpdateMsg("❌ Error updating preferences. Please try again.");
+      setTimeout(() => setNotificationUpdateMsg(''), 3000);
+    }
+  };
+
+  const handleEmailNotificationChange = (checked) => {
+    setEmailNotifications(checked);
+    updateNotificationPreferences(checked, smsNotifications);
+  };
+
+  const handleSmsNotificationChange = (checked) => {
+    setSmsNotifications(checked);
+    updateNotificationPreferences(emailNotifications, checked);
   };
 
   const handleDeleteAccount = async () => {
@@ -135,23 +169,36 @@ const handleChangeEmail = async () => {
 
       <section style={{ marginTop: '40px' }}>
         <h2>Notifications</h2>
-        <label>
+        {notificationUpdateMsg && (
+          <p style={{ 
+            color: notificationUpdateMsg.includes('✅') ? 'green' : 'red', 
+            marginBottom: '10px', 
+            fontWeight: 'bold' 
+          }}>
+            {notificationUpdateMsg}
+          </p>
+        )}
+        <label style={{ display: 'block', marginBottom: '10px' }}>
           <input
             type="checkbox"
             checked={emailNotifications}
-            onChange={() => setEmailNotifications(!emailNotifications)}
+            onChange={(e) => handleEmailNotificationChange(e.target.checked)}
+            style={{ marginRight: '8px' }}
           />
-          Email Notifications
+          📧 Email Notifications
         </label>
-        <br />
-        <label>
+        <label style={{ display: 'block', marginBottom: '10px' }}>
           <input
             type="checkbox"
             checked={smsNotifications}
-            onChange={() => setSmsNotifications(!smsNotifications)}
+            onChange={(e) => handleSmsNotificationChange(e.target.checked)}
+            style={{ marginRight: '8px' }}
           />
-          SMS Notifications
+          📱 SMS Notifications {!userProfile.phone && <span style={{ color: 'orange' }}>(Add phone number to enable)</span>}
         </label>
+        <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+          Choose how you'd like to receive notifications about your favorite food trucks, deals, and updates.
+        </p>
       </section>
 
       <section style={{ marginTop: '40px', backgroundColor: '#ffe6e6', padding: '20px', borderRadius: '8px' }}>

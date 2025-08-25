@@ -316,6 +316,77 @@ export const hasValidToken = async (userId) => {
   }
 };
 
+// Check user notification preferences for delivery method
+export const getUserNotificationPreferences = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const prefs = userData.notificationPreferences || {};
+      
+      return {
+        emailNotifications: prefs.emailNotifications !== false,
+        smsNotifications: prefs.smsNotifications !== false,
+        email: userData.email,
+        phone: userData.phone,
+        hasValidPhone: !!(userData.phone && userData.phone.length > 0),
+        hasValidEmail: !!(userData.email && userData.email.length > 0)
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('🔔 Error getting user notification preferences:', error);
+    return null;
+  }
+};
+
+// Send notification via preferred method (email, SMS, or push)
+export const sendNotificationViaPreferredMethod = async (userId, notificationData) => {
+  try {
+    const preferences = await getUserNotificationPreferences(userId);
+    
+    if (!preferences) {
+      console.error('🔔 No user preferences found for notification delivery');
+      return false;
+    }
+    
+    const methods = [];
+    
+    // Always try push notification first (if permission granted)
+    if (preferences.emailNotifications || preferences.smsNotifications) {
+      methods.push('push');
+    }
+    
+    // Add email if enabled and user has valid email
+    if (preferences.emailNotifications && preferences.hasValidEmail) {
+      methods.push('email');
+    }
+    
+    // Add SMS if enabled and user has valid phone
+    if (preferences.smsNotifications && preferences.hasValidPhone) {
+      methods.push('sms');
+    }
+    
+    console.log('🔔 Notification delivery methods for user:', methods);
+    
+    // For now, we'll focus on push notifications
+    // Email and SMS integration would require additional services (SendGrid, Twilio, etc.)
+    if (methods.includes('push')) {
+      // This would be handled by Firebase Cloud Functions
+      console.log('📱 Push notification will be sent via Firebase Functions');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('🔔 Error sending notification via preferred method:', error);
+    return false;
+  }
+};
+
 // Default notification preferences
 export const DEFAULT_NOTIFICATION_PREFERENCES = {
   favoriteNearby: true,        // Favorite trucks come nearby

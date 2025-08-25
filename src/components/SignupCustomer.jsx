@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/footer';
 import '../assets/styles.css';
@@ -35,11 +37,46 @@ const CustomerSignUp = () => {
     const auth = getAuth();
     
     try {
-      await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      // Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const user = userCredential.user;
       
-      // Redirect to a customer dashboard or login page
-      navigate('/login-customer'); // Redirect to login page
+      // Create user document in Firestore with phone number and notification preferences
+      const userDocRef = doc(db, 'users', user.uid);
+      const userData = {
+        uid: user.uid,
+        username: formData.fullName,
+        email: formData.email,
+        phone: formData.phoneNumber,
+        address: formData.address || '',
+        role: 'customer',
+        plan: 'basic',
+        subscriptionStatus: 'active',
+        
+        // Default notification preferences
+        notificationPreferences: {
+          emailNotifications: true,
+          smsNotifications: true,
+          favoriteTrucks: true,
+          dealAlerts: true,
+          weeklyDigest: true
+        },
+        
+        createdAt: serverTimestamp(),
+        menuUrl: '',
+        instagram: '',
+        facebook: '',
+        tiktok: '',
+        twitter: ''
+      };
+      
+      await setDoc(userDocRef, userData);
+      console.log('✅ User document created successfully with phone number');
+      
+      // Redirect to customer dashboard
+      navigate('/customer-dashboard');
     } catch (err) {
+      console.error('Signup error:', err);
       setError(err.message);
     }
   };
