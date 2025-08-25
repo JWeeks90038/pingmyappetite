@@ -1,6 +1,5 @@
 import { useState } from "react";
 import "../assets/styles.css";
-import "../assets/NewFeatureBanner.css";
 import { Link } from "react-router-dom";
 import HeatMap from "../components/HeatMap"; // Assuming HeatMap component is correctly implemented
 import "../assets/BlurEffect.css"; // Assuming you have a blur effect for the map
@@ -14,23 +13,14 @@ const Home = () => {
 
   return (
     <>
-      {/* New Feature Banner */}
-      <div className="new-feature-banner">
-        <div className="banner-content">
-          <span className="banner-text">🎉 NEW: Event Organizers Welcome!</span>
-          <span className="banner-subtext">Boost your event visibility</span>
-        </div>
-      </div>
-      
       <header className="hero">
         <div id="top"></div>
         <h1>Grubana: Find Food Trucks & Food Trailers Near You</h1>
 <h2>The Ultimate Food Truck & Food Trailer Locator in Real-Time — Now Serving Your Area!</h2>
   <meta name="description" content="Discover the best food trucks and food trailers near you in real time. Explore trending locations, exclusive deals, and live maps with Grubana—the ultimate street food finder." />
   <div className="hero-buttons">
-    <Link to="/signup" className="btn">Foodie Fans — Let's Go!</Link>
+    <Link to="/signup" className="btn">Foodie Fans — Let’s Go!</Link>
     <Link to="/signup" className="btn">Mobile Vendors - Let's Roll!</Link>
-    <Link to="/signup?role=event-organizer" className="btn btn-event-organizer">Event Organizers — Join Now!</Link>
     <section className="image-section">
         <img 
           src="/arayaki-trailer.png" 
@@ -52,7 +42,7 @@ const Home = () => {
     />
   </div>
   <div className="heatmap-content">
-    <h3>Where's the Flavor Trending?</h3>
+    <h3>Where’s the Flavor Trending?</h3>
     <p>Drop a pin and show food trucks & food trailers where the next big craving is. They're ready to roll where the demand is hot!</p>
     <div className="heatmap-wrapper">
       <HeatMap />
@@ -80,16 +70,9 @@ const Home = () => {
     <div>
       <h3>Food Trucks & Food Trailers</h3>
       <p><strong>1. Get Discovered</strong> – View real-time pin drops from hungry fans and ride the demand wave using your heatmap.</p>
-      <p><strong>2. Drop a Deal</strong> – Paid subscribers can create 'drops' — special offers, flash deals, or secret menu items — to attract nearby foodies.</p>
+      <p><strong>2. Drop a Deal</strong> – Paid subscribers can create ‘drops’ — special offers, flash deals, or secret menu items — to attract nearby foodies.</p>
       <p><strong>3. Drive with Insight</strong> – Access powerful dashboard analytics, customer behavior trends, and real-time location tracking to optimize your route and revenue.</p>
       <p><strong>4. Build Loyalty</strong> – Allows foodie fans to click on your icon to view your menu ahead of time to speed up lines, get favorited by fans, grow your following, and keep them coming back with smart engagement tools.</p>
-    </div>
-    <div>
-      <h3>Event Organizers</h3>
-      <p><strong>1. Create Your Event</strong> – List festivals, markets, fairs, and special events with detailed venue and vendor information.</p>
-      <p><strong>2. Attract Vendors</strong> – Food trucks and trailers can discover and apply to participate in your events through our platform.</p>
-      <p><strong>3. Manage Applications</strong> – Review vendor applications, approve participants, and communicate requirements seamlessly.</p>
-      <p><strong>4. Boost Visibility</strong> – Reach hungry customers and quality vendors while building your event's reputation in the community.</p>
     </div>
   </div>
 </section>
@@ -106,14 +89,14 @@ const Home = () => {
 
   <div className="testimonial">
     <p>
-      "I dropped a pin and favorited my go-to taco truck — 30 minutes later, it rolled up with a 'Taco Tuesday' deal just for us. Unreal!" 
+      "I dropped a pin and favorited my go-to taco truck — 30 minutes later, it rolled up with a ‘Taco Tuesday’ deal just for us. Unreal!" 
       – <strong>Ashley, Foodie Fan</strong>
     </p>
   </div>
 
   <div className="testimonial">
     <p>
-      "Grubana completely changed the game. Instead of guessing where to go, I follow the heatmap and drop deals on the fly. My sales have doubled and I'm finally working smarter." 
+      "Grubana completely changed the game. Instead of guessing where to go, I follow the heatmap and drop deals on the fly. My sales have doubled and I’m finally working smarter." 
       – <strong>Mike, Rolling BBQ</strong>
     </p>
   </div>
@@ -122,13 +105,6 @@ const Home = () => {
     <p>
       "Since joining the all-access plan, I can see exactly where the action is and track real-time results. The drops bring in customers fast, and the analytics help me plan every move." 
       – <strong>Tonya, Vegan Nomad</strong>
-    </p>
-  </div>
-
-  <div className="testimonial">
-    <p>
-      "Grubana's event organizer features helped me attract the perfect food vendors for our summer festival. The application process was smooth and we had great participation!" 
-      – <strong>Sarah, Downtown Festival Coordinator</strong>
     </p>
   </div>
 </section>
@@ -145,7 +121,7 @@ const Home = () => {
       <section className="blog-social">
         <h2>Follow us, Fuel your Hustle & Feed the Cravings</h2>
 <div className="blog-preview">
-  <p><strong>Grubana connects foodies with food trucks, helps vendors discover events, and empowers event organizers to create amazing culinary experiences. <br></br><br></br>Follow us below to discover where your next favorite food truck is serving -- in real time.</strong></p>
+  <p><strong>Grubana doesn’t focus on private catering or events — we’re all about helping hungry people find amazing food trucks and food trailers near them, right when they’re serving. <br></br><br></br>Follow us below to discover where your next favorite food truck is serving -- in real time.</strong></p>
 </div>
         <div className="social-media">
           <h3 style={{ textAlign: "center" }}>Follow Grubana</h3>

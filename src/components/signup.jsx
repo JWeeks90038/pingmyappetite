@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Footer from '../components/footer';
@@ -10,6 +10,7 @@ import '../assets/styles.css';
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     role: '',
     username: '',
@@ -39,6 +40,19 @@ const SignUp = () => {
   const [error, setError] = useState(null);
   const [isValidReferral, setIsValidReferral] = useState(false);
   const [referralMessage, setReferralMessage] = useState('');
+
+  // Handle URL parameters for pre-selecting role
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const roleParam = urlParams.get('role');
+    
+    if (roleParam === 'event-organizer') {
+      setFormData(prevState => ({
+        ...prevState,
+        role: 'event-organizer'
+      }));
+    }
+  }, [location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

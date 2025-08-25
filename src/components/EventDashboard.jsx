@@ -80,6 +80,13 @@ const EventDashboard = () => {
     return () => unsubscribe();
   }, [user]);
 
+  // Function to refresh events (for CreateEventForm callback)
+  const fetchEvents = () => {
+    // Events are automatically updated via onSnapshot, 
+    // but we can use this for additional actions if needed
+    console.log('🔄 Events refreshed');
+  };
+
   // Fetch applications for organizer's events
   useEffect(() => {
     if (!user) return;
