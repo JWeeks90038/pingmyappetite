@@ -241,13 +241,15 @@ function App() {
     if (user && userRole === 'customer') {
       console.log('🔔 Initializing notification service for customer');
       
-      // Initialize the notification service
-      notificationService.setupMessageListener((payload) => {
-        console.log('🔔 Received foreground notification:', payload);
-        
-        // Show browser notification for foreground messages
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(payload.notification?.title || 'Grubana', {
+      // Add a small delay to ensure authentication is fully established
+      setTimeout(() => {
+        // Initialize the notification service
+        notificationService.setupMessageListener((payload) => {
+          console.log('🔔 Received foreground notification:', payload);
+          
+          // Show browser notification for foreground messages
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(payload.notification?.title || 'Grubana', {
             body: payload.notification?.body || 'New notification',
             icon: '/grubana-logo.png',
             badge: '/grubana-logo.png',
@@ -256,6 +258,7 @@ function App() {
           });
         }
       });
+      }, 1000); // 1 second delay to ensure auth is established
     }
   }, [user, userRole]);
 

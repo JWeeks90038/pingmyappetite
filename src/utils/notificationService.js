@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, app, auth } from '../firebase';
 
 // Initialize Firebase Messaging
 let messaging = null;
@@ -23,7 +23,7 @@ export const trackNotificationEvent = async (eventType, data = {}) => {
 export const initializeFirebaseMessaging = async () => {
   try {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
-      messaging = getMessaging();
+      messaging = getMessaging(app);
       console.log('🔔 Firebase Messaging initialized');
       return messaging;
     } else {
@@ -58,6 +58,12 @@ export const requestNotificationPermission = async (userId) => {
       }
       
       if (messaging) {
+        // Check if user is authenticated before getting token
+        if (!auth.currentUser) {
+          console.error('🔔 User not authenticated, cannot get FCM token');
+          return null;
+        }
+        
         const token = await getToken(messaging, {
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
         });

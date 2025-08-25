@@ -435,7 +435,8 @@ const updateTruckMarkers = useCallback(async () => {
       let marker;
       
       // Check if we need to create a custom HTML marker for cover photos
-      if (icon && icon.type === 'custom') {
+      // Temporarily disable custom markers to fix setPosition errors
+      if (false && icon && icon.type === 'custom') {
         const customMarkerContent = `
           <div style="
             width: 40px; 

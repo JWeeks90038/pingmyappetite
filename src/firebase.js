@@ -64,4 +64,4 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 // Export for use in the app
-export { auth, db, storage };
+export { auth, db, storage, app };
