@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 const Success = () => {
   const [searchParams] = useSearchParams();
@@ -15,6 +15,8 @@ const Success = () => {
     if (sessionId) {
       // Retrieve session details and update user's subscription status
       const updateUserSubscription = async () => {
+        let userRole = 'customer'; // Default fallback
+        
         try {
           const user = auth.currentUser;
           if (user) {
@@ -68,12 +70,25 @@ const Success = () => {
             await updateDoc(doc(db, 'users', user.uid), updateData);
             
             console.log('User subscription updated:', updateData);
+            
+            // Get user role to determine correct dashboard redirect
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userData = userDoc.data();
+            userRole = userData?.role || 'customer';
+            
+            console.log('User role for redirect:', userRole);
           }
           setLoading(false);
           
-          // Redirect to dashboard after 3 seconds
+          // Redirect to appropriate dashboard based on user role after 3 seconds
           setTimeout(() => {
-            navigate('/dashboard');
+            if (userRole === 'event-organizer') {
+              navigate('/event-dashboard');
+            } else if (userRole === 'owner') {
+              navigate('/dashboard');
+            } else {
+              navigate('/customer-dashboard');
+            }
           }, 3000);
         } catch (err) {
           console.error('Error updating subscription:', err);
