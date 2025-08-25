@@ -278,6 +278,7 @@ const createCircularIcon = (imageUrl, size = 40) => {
 const createCustomMarker = (position, content, map) => {
   const marker = new google.maps.OverlayView();
   marker.clickListeners = []; // Store click listeners
+  marker.position = position; // Store the position
   
   marker.onAdd = function() {
     const div = document.createElement('div');
@@ -297,10 +298,12 @@ const createCustomMarker = (position, content, map) => {
   
   marker.draw = function() {
     const overlayProjection = this.getProjection();
-    const sw = overlayProjection.fromLatLngToDivPixel(position);
+    const sw = overlayProjection.fromLatLngToDivPixel(this.position);
     const div = this.div;
-    div.style.left = (sw.x - 20) + 'px'; // Center the 40px icon
-    div.style.top = (sw.y - 20) + 'px';
+    if (div) {
+      div.style.left = (sw.x - 20) + 'px'; // Center the 40px icon
+      div.style.top = (sw.y - 20) + 'px';
+    }
   };
   
   marker.onRemove = function() {
@@ -346,7 +349,15 @@ const createCustomMarker = (position, content, map) => {
 };
 
   const animateMarkerTo = useCallback((marker, newPosition) => {
-    marker.setPosition(newPosition);
+    // Check if it's a custom marker (has div property) or standard marker
+    if (marker.div) {
+      // Custom marker - update position and redraw
+      marker.position = newPosition;
+      marker.draw();
+    } else {
+      // Standard Google Maps marker
+      marker.setPosition(newPosition);
+    }
   }, []);
 
   const ONLINE_THRESHOLD = 8 * 60 * 60 * 1000; // 8 hours in milliseconds (consistent with mobile)
