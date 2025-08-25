@@ -49,6 +49,47 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
+.trial-notice {
+  display: block;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.trial-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transform: rotate(15deg);
+}
+
+.trial-note {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.trial-note p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
 .plan-card.selected {
   border-color: #059669;
   box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1);

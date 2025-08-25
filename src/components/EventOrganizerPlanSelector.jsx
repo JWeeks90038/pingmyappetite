@@ -18,7 +18,8 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'Email notifications',
         'Basic analytics'
       ],
-      buttonText: 'Start with Starter'
+      buttonText: 'Get Started',
+      trialText: 'Free Trial Available*'
     },
     {
       id: 'event-pro',
@@ -36,8 +37,9 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'Custom branding options',
         'Social media integration'
       ],
-      buttonText: 'Choose Pro',
-      popular: true
+      buttonText: 'Get Started',
+      popular: true,
+      trialText: 'Free Trial Available*'
     },
     {
       id: 'event-premium',
@@ -56,7 +58,8 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'Multi-user team access',
         'Priority vendor recommendations'
       ],
-      buttonText: 'Go Premium'
+      buttonText: 'Get Started',
+      trialText: 'Free Trial Available*'
     }
   ];
 
@@ -82,6 +85,9 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
             
             <div className="plan-header">
               <h4>{plan.name}</h4>
+              {plan.trialText && (
+                <div className="trial-badge">🎉 {plan.trialText}</div>
+              )}
               <div className="plan-price">
                 <span className="price">{plan.price}</span>
                 <span className="period">{plan.period}</span>
@@ -113,10 +119,22 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
       </div>
 
       <div className="plan-selector-footer">
+        <div className="trial-info">
+          <h4>🎯 Your 30-Day Free Trial Includes:</h4>
+          <div className="trial-benefits">
+            <span>✅ Full access to all plan features</span>
+            <span>✅ No setup fees or hidden charges</span>
+            <span>✅ Cancel anytime during trial</span>
+            <span>✅ Billing starts after 30 days</span>
+          </div>
+        </div>
         <p>
           <span className="guarantee-icon">🛡️</span>
           30-day money-back guarantee • Cancel anytime • No setup fees
         </p>
+        <div className="trial-note">
+          <p><small><strong>*30-Day Free Trial:</strong> Available with valid referral code during signup</small></p>
+        </div>
       </div>
     </div>
   );

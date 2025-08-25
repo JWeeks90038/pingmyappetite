@@ -15,6 +15,7 @@ const CustomerSignUp = () => {
     password: '',
     confirmPassword: '',
     address: '',
+    smsConsent: false,
   });
 
   const [error, setError] = useState(null);
@@ -60,14 +61,18 @@ const CustomerSignUp = () => {
         plan: 'basic',
         subscriptionStatus: 'active',
         
-        // Default notification preferences
+        // Notification preferences based on SMS consent
         notificationPreferences: {
           emailNotifications: true,
-          smsNotifications: true,
+          smsNotifications: formData.smsConsent || false, // Based on explicit consent
           favoriteTrucks: true,
           dealAlerts: true,
           weeklyDigest: true
         },
+        
+        // Store explicit SMS consent for compliance
+        smsConsent: formData.smsConsent || false,
+        smsConsentTimestamp: formData.smsConsent ? serverTimestamp() : null,
         
         createdAt: serverTimestamp(),
         menuUrl: '',
@@ -135,6 +140,24 @@ const CustomerSignUp = () => {
             onChange={handleChange}
             required
           />
+          
+          {formData.phoneNumber && (
+            <div className="sms-consent-section">
+              <label className="consent-checkbox">
+                <input
+                  type="checkbox"
+                  name="smsConsent"
+                  checked={formData.smsConsent}
+                  onChange={handleChange}
+                />
+                <span className="consent-text">
+                  I agree to receive SMS notifications from Grubana about food truck locations, deals, and account updates. 
+                  Message and data rates may apply. Text STOP to opt out at any time. 
+                  <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+                </span>
+              </label>
+            </div>
+          )}
 
           <label htmlFor="password">Password</label>
           <input

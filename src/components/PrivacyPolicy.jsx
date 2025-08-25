@@ -39,6 +39,9 @@ const PrivacyPolicy = () => {
       <div>To provide, operate, and improve our Platform and services.</div><br></br>
       <div>To personalize your experience and deliver relevant content and recommendations.</div><br></br>
       <div>To communicate with you about your account, updates, promotions, and customer support.</div><br></br>
+      <div>To send welcome emails and SMS notifications (with your consent).</div><br></br>
+      <div>To deliver transactional messages including account confirmations, payment receipts, and service updates.</div><br></br>
+      <div>To send promotional emails and SMS messages (only with your explicit consent).</div><br></br>
       <div>To monitor and analyze usage and trends to improve user experience.</div><br></br>
       <div>To enforce our Terms of Service and protect the security and integrity of our Platform.</div><br></br>
       <div>To comply with legal obligations and resolve disputes.</div><br></br>
@@ -84,35 +87,115 @@ const PrivacyPolicy = () => {
   </section>
 
   <section className="section">
-    <h2>7. Cookies and Tracking Technologies</h2>
+    <h2>7. Email and SMS Communications</h2>
+    <div>
+      <div>
+        <strong>Email Communications:</strong> We may send you various types of emails including:
+      </div><br></br>
+      <div style={{marginLeft: '20px'}}>
+        <div>• Welcome emails when you create an account</div>
+        <div>• Transactional emails (payment confirmations, password resets, account updates)</div>
+        <div>• Service announcements and important platform updates</div>
+        <div>• Marketing emails (only with your consent, you can unsubscribe anytime)</div>
+      </div><br></br>
+      
+      <div>
+        <strong>SMS/Text Messaging:</strong> If you provide your phone number and consent to receive SMS messages, we may send:
+      </div><br></br>
+      <div style={{marginLeft: '20px'}}>
+        <div>• Welcome text messages when you create an account</div>
+        <div>• Account notifications and security alerts</div>
+        <div>• Event reminders and important updates</div>
+        <div>• Promotional messages (only with explicit consent)</div>
+      </div><br></br>
+      
+      <div>
+        <strong>Consent and Opt-Out:</strong>
+      </div><br></br>
+      <div style={{marginLeft: '20px'}}>
+        <div>• SMS consent is collected through an explicit checkbox during signup</div>
+        <div>• You can opt-out of SMS messages by replying "STOP" to any text message</div>
+        <div>• You can unsubscribe from marketing emails using the unsubscribe link</div>
+        <div>• You can manage your communication preferences in your account settings</div>
+        <div>• Transactional messages (like password resets) cannot be disabled as they are essential for service operation</div>
+      </div><br></br>
+      
+      <div>
+        <strong>Message Frequency and Charges:</strong>
+      </div><br></br>
+      <div style={{marginLeft: '20px'}}>
+        <div>• SMS frequency varies based on your activity and preferences</div>
+        <div>• Standard message and data rates may apply from your mobile carrier</div>
+        <div>• We do not charge for SMS messages, but your carrier's rates apply</div>
+      </div><br></br>
+      
+      <div>
+        <strong>Third-Party Services:</strong> We use trusted third-party services (Formspree for emails, Twilio for SMS) to deliver communications. These services are bound by strict privacy and security agreements.</div><br></br>
+    </div>
+  </section>
+
+  <section className="section">
+    <h2>8. Cookies and Tracking Technologies</h2>
     <p>
       We use cookies and similar technologies to enhance your experience, analyze usage, and deliver personalized content. You can control cookies through your browser settings, but disabling cookies may affect your ability to use certain features of our Platform.
     </p>
   </section>
 
   <section className="section">
-    <h2>8. International Data Transfers</h2>
+    <h2>9. International Data Transfers</h2>
     <p>
       Your information may be transferred to and maintained on servers located outside your state, province, country, or other governmental jurisdiction where data protection laws may differ. By using our Platform, you consent to such transfers.
     </p>
   </section>
 
   <section className="section">
-    <h2>9. Data Retention</h2>
+    <h2>10. Data Retention</h2>
     <p>
       We retain your personal data only as long as necessary to fulfill the purposes described in this Privacy Policy, comply with legal obligations, resolve disputes, and enforce our agreements. When no longer needed, your data will be securely deleted or anonymized.
     </p>
   </section>
 
-  <section className="section">
-    <h2>10. Your Rights and Choices</h2>
+    <section className="section">
+    <h2>11. Your Rights and Choices</h2>
     <div>
       <div></div>You have the right to access, update, or delete your personal data.</div><br></br>
       <div>You may withdraw your consent at any time where processing is based on consent.</div><br></br>
       <div>You may object to or restrict certain processing of your data.</div><br></br>
       <div>You may request a copy of your data in a portable format.</div><br></br>
+      <div>You can opt-out of marketing emails and SMS messages at any time.</div><br></br>
       <div>To exercise your rights, please contact us at grubana.co@gmail.com.</div><br></br>
   </section>
+
+  <section className="section">
+    <h2>12. Children's Privacy</h2>
+    <p>
+      Our Platform is not intended for children under 13 (or under 16 in the EEA/UK). We do not knowingly collect personal information from children. If you believe a child has provided us with personal data, please contact us and we will take steps to delete such information.
+    </p>
+  </section>
+
+  <section className="section">
+    <h2>13. Third-Party Links</h2>
+    <p>
+      Our Platform may contain links to third-party websites or services. We are not responsible for the privacy practices or content of those third parties. We encourage you to review their privacy policies before providing any information.
+    </p>
+  </section>
+
+  <section className="section">
+    <h2>14. User Responsibilities</h2>
+    <p>
+      You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. Please notify us immediately of any unauthorized use or security breach.
+    </p>
+  </section>
+
+  <section className="section">
+    <h2>15. Changes to This Privacy Policy</h2>
+    <p>
+      We may update this Privacy Policy from time to time. Any changes will be posted on this page with the updated date. Your continued use of the Platform after changes are posted constitutes your acceptance of those changes.
+    </p>
+  </section>
+
+  <section className="section">
+    <h2>16. Contact Us</h2>
 
   <section className="section">
     <h2>11. Children’s Privacy</h2>
@@ -149,6 +232,7 @@ const PrivacyPolicy = () => {
     </p>
   </section>
 </section>
+  </section>
 
 <a
   href="#"

@@ -29,6 +29,7 @@ const SignUp = () => {
     kitchenType: '',
     plan: '',
     referralCode: '', // Add referral code field
+    smsConsent: false, // Add SMS consent checkbox
     // Event organizer fields
     organizationName: '',
     organizationType: '',
@@ -164,6 +165,19 @@ const userData = {
   subscriptionId: null, // Placeholder for Stripe subscription ID
   referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
   hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
+  
+  // Notification preferences based on SMS consent
+  notificationPreferences: {
+    emailNotifications: true, // Default enabled
+    smsNotifications: formData.smsConsent || false, // Based on explicit consent
+    favoriteTrucks: true,
+    dealAlerts: true,
+    weeklyDigest: true
+  },
+  
+  // Store explicit SMS consent for compliance
+  smsConsent: formData.smsConsent || false,
+  smsConsentTimestamp: formData.smsConsent ? serverTimestamp() : null,
 };
 
             // CRITICAL: Save user document to Firestore FIRST before redirecting to payment
@@ -260,8 +274,8 @@ const userData = {
               planType: formData.plan,
               uid: user.uid,
               userType: 'event-organizer',
-              hasValidReferral: false, // No referral codes for event organizers yet
-              referralCode: null,
+              hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
+              referralCode: formData.referralCode,
             }),
           });
 
@@ -363,6 +377,24 @@ const userData = {
         required
         placeholder="Enter your phone number"
       />
+      
+      {formData.phone && (
+        <div className="sms-consent-section">
+          <label className="consent-checkbox">
+            <input
+              type="checkbox"
+              name="smsConsent"
+              checked={formData.smsConsent}
+              onChange={handleChange}
+            />
+            <span className="consent-text">
+              I agree to receive SMS notifications from Grubana about food truck locations, deals, and account updates. 
+              Message and data rates may apply. Text STOP to opt out at any time. 
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+            </span>
+          </label>
+        </div>
+      )}
     </>
   )}
 
@@ -427,6 +459,24 @@ const userData = {
         required
         placeholder="Enter your phone number"
       />
+      
+      {formData.phone && (
+        <div className="sms-consent-section">
+          <label className="consent-checkbox">
+            <input
+              type="checkbox"
+              name="smsConsent"
+              checked={formData.smsConsent}
+              onChange={handleChange}
+            />
+            <span className="consent-text">
+              I agree to receive SMS notifications from Grubana about customer engagement, deals notifications, and account updates. 
+              Message and data rates may apply. Text STOP to opt out at any time. 
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+            </span>
+          </label>
+        </div>
+      )}
 
       <label htmlFor="location">Location (City)</label>
       <input
@@ -552,6 +602,24 @@ const userData = {
         required
         placeholder="Enter your phone number"
       />
+      
+      {formData.phone && (
+        <div className="sms-consent-section">
+          <label className="consent-checkbox">
+            <input
+              type="checkbox"
+              name="smsConsent"
+              checked={formData.smsConsent}
+              onChange={handleChange}
+            />
+            <span className="consent-text">
+              I agree to receive SMS notifications from Grubana about vendor applications, event updates, and account notifications. 
+              Message and data rates may apply. Text STOP to opt out at any time. 
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+            </span>
+          </label>
+        </div>
+      )}
 
       <label htmlFor="organization-address">Organization Address</label>
       <input
@@ -651,6 +719,38 @@ const userData = {
         value={formData.referralCode}
         onChange={handleChange}
         placeholder="Enter referral code for special offers"
+        style={{
+          borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
+                      formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
+        }}
+      />
+      {referralMessage && (
+        <div style={{
+          padding: '8px',
+          borderRadius: '4px',
+          marginTop: '5px',
+          fontSize: '14px',
+          backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
+          border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
+          color: isValidReferral ? '#155724' : '#721c24'
+        }}>
+          {referralMessage}
+        </div>
+      )}
+    </>
+  )}
+
+  {/* Referral code section for event organizers with paid plans */}
+  {formData.role === 'event-organizer' && formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan) && (
+    <>
+      <label htmlFor="referralCode">Referral Code (Optional)</label>
+      <input
+        type="text"
+        id="referralCode"
+        name="referralCode"
+        value={formData.referralCode}
+        onChange={handleChange}
+        placeholder="Enter referral code for 30-day free trial"
         style={{
           borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
                       formData.referralCode && isValidReferral ? '#28a745' : '#ccc'

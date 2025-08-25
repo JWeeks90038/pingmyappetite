@@ -27,6 +27,8 @@ import RefundPolicy from './components/RefundPolicy';
 import Settings from './components/settings';
 import Signup from './components/signup';
 import SignupCustomer from './components/SignupCustomer';
+import SMSConsent from './components/SMSConsent';
+import SMSTest from './components/SMSTest';
 import Logout from './components/logout';
 import Analytics from './components/analytics';
 import UpgradeAnalyticsDashboard from './components/UpgradeAnalyticsDashboard';
@@ -350,6 +352,8 @@ function App() {
               <Route path="/privacypolicy" element={<PrivacyPolicy />} />
               <Route path="/termsofservice" element={<TermsOfService />} />
               <Route path="/refundpolicy" element={<RefundPolicy />} />
+              <Route path="/sms-consent" element={<SMSConsent />} />
+              <Route path="/sms-test" element={<SMSTest />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/signup-customer" element={<SignupCustomer />} />
               <Route path="/settings" element={<Settings />} />

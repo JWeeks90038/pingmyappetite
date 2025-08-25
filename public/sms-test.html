@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grubana SMS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c6f57;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #2c6f57;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1e4d3d;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Grubana SMS Test</h1>
+        <p>Test the SMS functionality for your Grubana application.</p>
+        
+        <div class="test-section">
+            <h3>📱 Basic SMS Test</h3>
+            <p>Send a test SMS to verify Twilio integration is working.</p>
+            <input type="tel" id="testPhone" placeholder="+1234567890" value="">
+            <button onclick="runBasicTest()" id="basicTestBtn">Send Test SMS</button>
+            <div id="basicResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎉 Welcome SMS Test</h3>
+            <p>Test the welcome message that new users receive.</p>
+            <input type="tel" id="welcomePhone" placeholder="+1234567890" value="">
+            <input type="text" id="welcomeUsername" placeholder="Username" value="Test User">
+            <select id="welcomeRole">
+                <option value="customer">Customer</option>
+                <option value="owner">Food Truck Owner</option>
+                <option value="event-organizer">Event Organizer</option>
+            </select>
+            <input type="text" id="welcomePlan" placeholder="Plan (optional)" value="basic">
+            <button onclick="runWelcomeTest()" id="welcomeTestBtn">Send Welcome SMS</button>
+            <div id="welcomeResult"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li>Enter your phone number in <strong>E.164 format</strong> (e.g., +1234567890)</li>
+                <li>Click the test buttons to send SMS messages</li>
+                <li>Check your phone for the messages</li>
+                <li>Review the results below each test</li>
+            </ol>
+            <p><strong>Note:</strong> You must be connected to the internet and the Firebase Functions must be deployed.</p>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
+        
+        // Firebase configuration (matching your main app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzTNlQMkIiK1_IOphDwE34L2kzpdMQWD8",
+            authDomain: "foodtruckfinder-27eba.firebaseapp.com",
+            projectId: "foodtruckfinder-27eba",
+            storageBucket: "foodtruckfinder-27eba.firebasestorage.app",
+            messagingSenderId: "418485074487",
+            appId: "1:418485074487:web:14b0febd3cca4e724b1db2",
+            measurementId: "G-MHVKR07V99"
+        };
+        
+        console.log('🔥 Initializing Firebase for SMS testing...');
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        console.log('✅ Firebase app initialized');
+        
+        // Initialize Functions with region
+        const functions = getFunctions(app, 'us-central1');
+        console.log('✅ Firebase Functions initialized for region us-central1');
+        
+        // Create callable functions
+        window.testSMS = httpsCallable(functions, 'testSMS');
+        window.sendWelcomeSMS = httpsCallable(functions, 'sendWelcomeSMS');
+        
+        console.log('✅ SMS Functions ready:', ['testSMS', 'sendWelcomeSMS']);
+        
+        // Test function availability
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Functions available:', {
+                testSMS: typeof window.testSMS,
+                sendWelcomeSMS: typeof window.sendWelcomeSMS
+            });
+        });
+    </script>
+
+    <script>
+        function showResult(elementId, success, message, data = null) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${success ? 'success' : 'error'}`;
+            element.innerHTML = `
+                <strong>${success ? '✅ Success!' : '❌ Error!'}</strong><br>
+                ${message}
+                ${data ? `<br><br>Details: ${JSON.stringify(data, null, 2)}` : ''}
+            `;
+        }
+        
+        function showLoading(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.className = 'result info';
+            element.innerHTML = `<strong>⏳ ${message}</strong>`;
+        }
+        
+        async function runBasicTest() {
+            const phoneNumber = document.getElementById('testPhone').value.trim();
+            const btn = document.getElementById('basicTestBtn');
+            
+            if (!phoneNumber) {
+                showResult('basicResult', false, 'Please enter a phone number');
+                return;
+            }
+            
+            if (!phoneNumber.startsWith('+')) {
+                showResult('basicResult', false, 'Phone number must be in E.164 format (start with +)');
+                return;
+            }
+            
+            btn.disabled = true;
+            showLoading('basicResult', 'Sending test SMS...');
+            
+            try {
+                const result = await window.testSMS({ phoneNumber });
+                
+                if (result.data.success) {
+                    showResult('basicResult', true, 
+                        `SMS sent successfully to ${result.data.to}. Check your phone!`, 
+                        { messageSid: result.data.messageSid }
+                    );
+                } else {
+                    showResult('basicResult', false, result.data.error, result.data);
+                }
+            } catch (error) {
+                showResult('basicResult', false, `Function call failed: ${error.message}`, error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        async function runWelcomeTest() {
+            const phoneNumber = document.getElementById('welcomePhone').value.trim();
+            const username = document.getElementById('welcomeUsername').value.trim();
+            const role = document.getElementById('welcomeRole').value;
+            const plan = document.getElementById('welcomePlan').value.trim();
+            const btn = document.getElementById('welcomeTestBtn');
+            
+            if (!phoneNumber || !username) {
+                showResult('welcomeResult', false, 'Please enter phone number and username');
+                return;
+            }
+            
+            if (!phoneNumber.startsWith('+')) {
+                showResult('welcomeResult', false, 'Phone number must be in E.164 format (start with +)');
+                return;
+            }
+            
+            btn.disabled = true;
+            showLoading('welcomeResult', 'Sending welcome SMS...');
+            
+            try {
+                const result = await window.sendWelcomeSMS({ 
+                    phoneNumber, 
+                    username, 
+                    role, 
+                    plan: plan || undefined 
+                });
+                
+                if (result.data.success) {
+                    showResult('welcomeResult', true, 
+                        `Welcome SMS sent successfully to ${result.data.to}. Check your phone!`, 
+                        { messageSid: result.data.messageSid }
+                    );
+                } else {
+                    showResult('welcomeResult', false, result.data.error, result.data);
+                }
+            } catch (error) {
+                showResult('welcomeResult', false, `Function call failed: ${error.message}`, error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        // Pre-fill phone number if provided in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const phoneParam = urlParams.get('phone');
+        if (phoneParam) {
+            document.getElementById('testPhone').value = phoneParam;
+            document.getElementById('welcomePhone').value = phoneParam;
+        }
+    </script>
+</body>
+</html>

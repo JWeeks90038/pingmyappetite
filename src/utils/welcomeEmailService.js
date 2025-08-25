@@ -330,12 +330,18 @@ The Grubana Enterprise Team
  */
 export const sendWelcomeSMS = async (userData) => {
   try {
-    const { phone, username, role, notificationPreferences } = userData;
+    const { phone, username, role, notificationPreferences, smsConsent } = userData;
     
-    // Check if SMS notifications are enabled
-    if (!notificationPreferences?.smsNotifications || !phone) {
-      console.log('📱 SMS welcome skipped - notifications disabled or no phone number');
-      return { success: false, reason: 'SMS not enabled or no phone' };
+    // Check if SMS notifications are enabled and user consented during signup
+    const hasValidSMSPermission = (
+      (notificationPreferences?.smsNotifications || smsConsent) && // Either setting enabled or explicit consent
+      phone && 
+      phone.length > 0
+    );
+    
+    if (!hasValidSMSPermission) {
+      console.log('📱 SMS welcome skipped - no consent, notifications disabled, or no phone number');
+      return { success: false, reason: 'SMS not consented to or no phone' };
     }
 
     // Import Twilio service

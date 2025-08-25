@@ -50,6 +50,7 @@ const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
               <div className="plan-header">
                 <h3>{plan.name}</h3>
                 <div className="plan-price">
+                  <span className="trial-notice">� Free Trial Available*</span>
                   <span className="price">{formatPrice(plan.price)}</span>
                   <span className="period">/month</span>
                 </div>
@@ -74,7 +75,7 @@ const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
                     handlePlanSelect(planType);
                   }}
                 >
-                  {isSelected ? '✓ Selected' : 'Select Plan'}
+                  {isSelected ? '✓ Selected' : 'Get Started'}
                 </button>
               </div>
             </div>
@@ -83,6 +84,16 @@ const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
       </div>
 
       <div className="plans-footer">
+        <div className="trial-info">
+          <h4>🎯 Your 30-Day Free Trial Includes:</h4>
+          <div className="trial-benefits">
+            <div className="trial-benefit">✅ Full access to all plan features</div>
+            <div className="trial-benefit">✅ No setup fees or hidden charges</div>
+            <div className="trial-benefit">✅ Cancel anytime during trial period</div>
+            <div className="trial-benefit">✅ Automatic billing starts after 30 days</div>
+          </div>
+        </div>
+        
         <div className="guarantee">
           <h4>🛡️ 30-Day Money-Back Guarantee</h4>
           <p>Not satisfied? Get a full refund within 30 days, no questions asked.</p>
@@ -116,6 +127,10 @@ const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
               <span>Vendor communication</span>
             </div>
           </div>
+        </div>
+        
+        <div className="trial-note">
+          <p><strong>*30-Day Free Trial:</strong> Available with valid referral code during signup. After trial, your selected plan billing begins.</p>
         </div>
       </div>
     </div>
