@@ -111,7 +111,23 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
             mapRef.current.panTo(coords)
           }
         },
-        (error) => console.error("Geolocation error:", error),
+        (error) => {
+          // Handle geolocation errors more gracefully
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              console.log("🗺️ HeatMap: Geolocation permission denied by user");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              console.log("🗺️ HeatMap: Geolocation position unavailable");
+              break;
+            case error.TIMEOUT:
+              console.log("🗺️ HeatMap: Geolocation request timed out");
+              break;
+            default:
+              console.log("🗺️ HeatMap: Unknown geolocation error:", error.message);
+              break;
+          }
+        },
         { 
           enableHighAccuracy: true, // Requests high accuracy
           maximumAge: 10000, // Cache the location for 10 seconds
@@ -458,12 +474,18 @@ const updateTruckMarkers = useCallback(async () => {
         marker = createCustomMarker(position, customMarkerContent, mapRef.current);
       } else {
         // Create standard Google Maps marker
-        marker = new window.google.maps.Marker({
+        const markerOptions = {
           position,
           map: mapRef.current,
           title: truckName,
-          icon: icon,
-        });
+        };
+        
+        // Only add icon if it's a valid Google Maps icon (not custom)
+        if (icon && icon.type !== 'custom') {
+          markerOptions.icon = icon;
+        }
+        
+        marker = new window.google.maps.Marker(markerOptions);
       }
       
       // Handle click events (unified for both marker types)
@@ -522,7 +544,11 @@ const updateTruckMarkers = useCallback(async () => {
         // Standard marker
         animateMarkerTo(marker, position);
         marker.setTitle(truckName);
-        marker.setIcon(icon);
+        
+        // Only set icon if it's a valid Google Maps icon (not custom)
+        if (icon && icon.type !== 'custom') {
+          marker.setIcon(icon);
+        }
       }
     }
   }
