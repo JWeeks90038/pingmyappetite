@@ -64,19 +64,54 @@ export const requestNotificationPermission = async (userId) => {
           return null;
         }
         
-        const token = await getToken(messaging, {
-          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-        });
+        // Wait for the user's ID token to be available
+        try {
+          const idToken = await auth.currentUser.getIdToken();
+          console.log('🔔 User ID token available, proceeding with FCM token request');
+        } catch (tokenError) {
+          console.error('🔔 Failed to get user ID token:', tokenError);
+          return null;
+        }
+        
+        // Check VAPID key configuration
+        const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+        if (!vapidKey) {
+          console.error('🔔 VAPID key not configured in environment');
+          return null;
+        }
+        console.log('🔔 VAPID key loaded:', vapidKey.substring(0, 10) + '...');
+        
+        // Try to get token (temporarily without VAPID key for testing)
+        let token;
+        try {
+          console.log('🔔 Attempting FCM token request with VAPID key...');
+          token = await getToken(messaging, {
+            vapidKey: vapidKey
+          });
+        } catch (vapidError) {
+          console.warn('🔔 VAPID key failed, trying without VAPID for testing:', vapidError);
+          try {
+            token = await getToken(messaging);
+          } catch (noVapidError) {
+            console.error('🔔 FCM token request failed completely:', noVapidError);
+            throw noVapidError;
+          }
+        }
         
         if (token) {
           console.log('🔔 FCM Token received:', token);
           
           // Save token to Firestore
-          await saveNotificationToken(userId, token);
+          const saveSuccess = await saveNotificationToken(userId, token);
           
-          return token;
+          if (saveSuccess) {
+            return token;
+          } else {
+            console.error('🔔 Failed to save FCM token to Firestore');
+            return null;
+          }
         } else {
-          console.error('🔔 No FCM token received');
+          console.error('🔔 No FCM token received - check VAPID key configuration');
           return null;
         }
       }

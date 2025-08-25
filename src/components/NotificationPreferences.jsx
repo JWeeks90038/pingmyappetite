@@ -64,11 +64,19 @@ const NotificationPreferences = () => {
         // Show success message
         showNotificationMessage('🔔 Notifications enabled! You\'ll now receive alerts about your favorite trucks and deals.', 'success');
       } else {
-        showNotificationMessage('❌ Unable to enable notifications. Please check your browser settings.', 'error');
+        showNotificationMessage('❌ Unable to enable notifications. This may be due to browser settings or Firebase configuration. Please check the console for details.', 'error');
       }
     } catch (error) {
       console.error('Error enabling notifications:', error);
-      showNotificationMessage('❌ Error enabling notifications. Please try again.', 'error');
+      
+      // Provide more specific error messages
+      if (error.code === 'messaging/token-subscribe-failed') {
+        showNotificationMessage('❌ FCM token registration failed. Please check Firebase configuration.', 'error');
+      } else if (error.code === 'messaging/permission-blocked') {
+        showNotificationMessage('❌ Notification permission blocked. Please enable notifications in your browser settings.', 'error');
+      } else {
+        showNotificationMessage('❌ Error enabling notifications. Please try again or check browser console for details.', 'error');
+      }
     } finally {
       setSaving(false);
     }
