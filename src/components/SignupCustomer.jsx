@@ -80,6 +80,17 @@ const CustomerSignUp = () => {
       await setDoc(userDocRef, userData);
       console.log('✅ User document created successfully with phone number');
       
+      // Send welcome email and SMS for customer
+      try {
+        console.log('📧 Sending welcome notifications for customer...');
+        const { sendWelcomeNotifications } = await import('../utils/welcomeEmailService.js');
+        const welcomeResults = await sendWelcomeNotifications(userData, false);
+        console.log('📧 Welcome notifications results:', welcomeResults);
+      } catch (emailError) {
+        console.error('📧 Failed to send welcome notifications (non-blocking):', emailError);
+        // Don't fail signup if welcome email fails
+      }
+      
       // Redirect to customer dashboard
       navigate('/customer-dashboard');
     } catch (err) {

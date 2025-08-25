@@ -291,6 +291,17 @@ const userData = {
         await setDoc(doc(db, 'users', user.uid), userData);
         console.log('✅ User document saved to Firestore with role:', userData.role);
         
+        // Send welcome email for free users
+        try {
+          console.log('📧 Sending welcome email for free user...');
+          const { sendWelcomeNotifications } = await import('../utils/welcomeEmailService.js');
+          const welcomeResults = await sendWelcomeNotifications(userData, false);
+          console.log('📧 Welcome email results:', welcomeResults);
+        } catch (emailError) {
+          console.error('📧 Failed to send welcome email (non-blocking):', emailError);
+          // Don't fail signup if welcome email fails
+        }
+        
         if (formData.role === 'customer') {
           navigate('/customer-dashboard');
         } else if (formData.role === 'event-organizer') {

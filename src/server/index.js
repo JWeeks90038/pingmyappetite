@@ -661,84 +661,103 @@ Grubana System`,
         try {
           const customer = await stripe.customers.retrieve(createdSub.customer);
           if (customer.email) {
-            // Get user data from Firestore to get username
+            // Get user data from Firestore to get username and full user details
             const usersRef = admin.firestore().collection('users');
             const snapshot = await usersRef.where('stripeCustomerId', '==', createdSub.customer).get();
-            let username = '';
             
             if (!snapshot.empty) {
               const userData = snapshot.docs[0].data();
-              username = userData.username || userData.ownerName || '';
-            }
+              const subscriptionData = {
+                subscriptionId: createdSub.id,
+                customerId: createdSub.customer,
+                priceId: createdSub.items.data[0].price.id
+              };
 
-            // Send welcome email via internal API call
-            const welcomeEmailData = {
-              email: customer.email,
-              username: username,
-              plan: planType
-            };
+              // Send welcome email via Formspree for paid users
+              console.log('📧 Sending welcome email for paid user via Formspree...');
+              
+              // Use our new welcome email service
+              try {
+                const welcomeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: customer.email,
+                    subject: `🎉 Welcome to Grubana ${planType.charAt(0).toUpperCase() + planType.slice(1)} - Your Premium Access is Active!`,
+                    message: `Congratulations ${userData.username || userData.ownerName || 'there'}! Your Grubana ${planType} subscription is now active!
 
-            // Use the sendgrid mail directly since we're in the same server
-            const planMessages = {
-              pro: {
-                subject: '🎉 Welcome to Grubana Pro!',
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #28a745;">Welcome to Grubana Pro${username ? `, ${username}` : ''}! 🚚💚</h1>
-                    <p>Congratulations! You've unlocked the power of real-time food truck tracking with your Pro plan.</p>
-                    
-                    <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
-                    <ul>
-                      <li>✅ Everything in Basic</li>
-                      <li>✅ Real-time GPS location tracking</li>
-                      <li>✅ Real-time menu display on map icon</li>
-                      <li>✅ Access to citywide heat maps</li>
-                      <li>✅ Basic engagement metrics</li>
-                    </ul>
-                    
-                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-                    
-                    <p>Happy food trucking!<br/>The Grubana Team</p>
-                  </div>
-                `
-              },
-              'all-access': {
-                subject: '🎉 Welcome to Grubana All Access!',
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h1 style="color: #007bff;">Welcome to Grubana All Access${username ? `, ${username}` : ''}! 🚚🚀</h1>
-                    <p>Congratulations! You now have access to ALL of Grubana's premium features!</p>
-                    
-                    <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
-                    <ul>
-                      <li>✅ Everything in Basic & Pro</li>
-                      <li>✅ Advanced 30-day analytics dashboard</li>
-                      <li>✅ Create promotional drops and deals</li>
-                      <li>✅ Featured placement in search results</li>
-                      <li>✅ Priority customer support</li>
-                    </ul>
-                    
-                    <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
-                    
-                    <p>Happy food trucking!<br/>The Grubana Team</p>
-                  </div>
-                `
+Your ${planType} Plan includes:
+${planType === 'pro' ? `
+✅ Real-time GPS location tracking
+✅ Real-time menu display on map icon  
+✅ Access to citywide heat maps
+✅ Basic engagement metrics
+✅ Priority placement in search results
+` : planType === 'all-access' ? `
+✅ Everything in Basic & Pro
+✅ Advanced 30-day analytics dashboard
+✅ Create promotional drops and deals
+✅ Featured placement in search results
+✅ Priority customer support
+✅ Advanced customer targeting
+` : planType === 'event-starter' ? `
+✅ Up to 3 events per month
+✅ Vendor application management
+✅ Basic event promotion
+✅ Email notifications
+✅ Customer support
+` : planType === 'event-pro' ? `
+✅ Unlimited events
+✅ Advanced vendor matching
+✅ Premium event promotion
+✅ Analytics and reporting
+✅ Priority vendor access
+✅ Custom branding options
+` : planType === 'event-premium' ? `
+✅ All Pro features
+✅ White-label event platform
+✅ API access and integrations
+✅ Dedicated account manager
+✅ Custom vendor contracts
+✅ Advanced analytics suite
+` : '✅ Premium features'}
+
+Your 30-day free trial has started!
+
+${userData.role === 'event-organizer' ? 
+  'Visit your Event Dashboard to start creating amazing events: https://grubana.com/event-dashboard' : 
+  'Visit your Dashboard to maximize your features: https://grubana.com/dashboard'}
+
+Questions about your ${planType} features? We're here to help at grubana.co@gmail.com
+
+Welcome to the premium experience!
+The Grubana Team`,
+                    username: userData.username || userData.ownerName || '',
+                    user_role: userData.role,
+                    user_plan: planType,
+                    subscription_id: createdSub.id,
+                    customer_id: createdSub.customer,
+                    email_type: 'welcome_paid_user',
+                    trial_status: 'active',
+                    _subject: `🎉 Welcome to Grubana ${planType.charAt(0).toUpperCase() + planType.slice(1)} - Your Premium Access is Active!`,
+                    _replyto: 'grubana.co@gmail.com'
+                  }),
+                });
+                
+                if (welcomeResponse.ok) {
+                  console.log(`✅ Welcome email sent via Formspree to ${customer.email} for ${planType} plan`);
+                } else {
+                  console.error(`❌ Failed to send welcome email via Formspree: ${welcomeResponse.status}`);
+                }
+              } catch (formspreeError) {
+                console.error('❌ Error sending welcome email via Formspree:', formspreeError);
               }
-            };
-
-            const messageContent = planMessages[planType];
-            if (messageContent) {
-              await sgMail.send({
-                to: customer.email,
-                from: 'grubana.co@gmail.com',
-                subject: messageContent.subject,
-                html: messageContent.html,
-              });
-              console.log(`Welcome email sent to ${customer.email} for ${planType} plan`);
+            } else {
+              console.error('❌ No user found for customer ID:', createdSub.customer);
             }
           }
         } catch (emailErr) {
-          console.error('Error sending welcome email from webhook:', emailErr);
+          console.error('❌ Error sending welcome email from webhook:', emailErr);
           // Don't fail the webhook if email fails
         }
       }
