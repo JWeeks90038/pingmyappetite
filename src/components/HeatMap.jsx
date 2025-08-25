@@ -48,6 +48,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [pingData, setPingData] = useState([]);
   const [truckLocations, setTruckLocations] = useState([]);
+  const [events, setEvents] = useState([]); // Add events state
   const [truckNames, setTruckNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
@@ -175,6 +176,26 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
       }));
       //console.log("Truck locations fetched:", trucks);
       setTruckLocations(trucks);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Fetch active events for display on map
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
+      const eventsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })).filter(event => 
+        event.latitude && 
+        event.longitude && 
+        event.status === 'published' || event.status === 'active'
+      );
+      
+      console.log("🎉 HeatMap: Active events fetched:", eventsData);
+      setEvents(eventsData);
     });
     return () => unsubscribe();
   }, [currentUser]);
@@ -364,6 +385,29 @@ const createCustomMarker = (position, content, map) => {
   return null;
 };
 
+// Custom event marker icon - distinctive star burst design
+const getEventIcon = (eventStatus) => {
+  if (!window.google) return null;
+  
+  const colors = {
+    'draft': '#9E9E9E',
+    'published': '#2196F3', 
+    'active': '#4CAF50',
+    'completed': '#9C27B0',
+    'cancelled': '#F44336'
+  };
+
+  return {
+    path: "M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z", // Star shape
+    fillColor: colors[eventStatus] || '#FF6B35',
+    fillOpacity: 0.9,
+    strokeColor: '#FFFFFF',
+    strokeWeight: 4,
+    scale: 3,
+    anchor: { x: 12, y: 12 }
+  };
+};
+
   const animateMarkerTo = useCallback((marker, newPosition) => {
     // Check if it's a custom marker (has div property) or standard marker
     if (marker && marker.div) {
@@ -429,7 +473,8 @@ const updateTruckMarkers = useCallback(async () => {
 
     const position = { lat: truck.lat, lng: truck.lng };
     const truckName = truckNames[truck.id] || "Food Truck";
-    currentTruckIds.add(truck.id);
+    const truckMarkerId = `truck_${truck.id}`;
+    currentTruckIds.add(truckMarkerId);
 
     // Fetch owner data to get cover photo for custom icon
     let ownerCoverUrl = null;
@@ -445,7 +490,7 @@ const updateTruckMarkers = useCallback(async () => {
       // Continue with default icon if owner data fetch fails
     }
 
-    if (!markerRefs.current[truck.id]) {
+    if (!markerRefs.current[truckMarkerId]) {
       console.log('🗺️ HeatMap: Creating new marker for truck', truck.id);
       const icon = getTruckIcon(truck.kitchenType, ownerCoverUrl);
       let marker;
@@ -507,10 +552,10 @@ const updateTruckMarkers = useCallback(async () => {
         });
       }
       
-      markerRefs.current[truck.id] = marker;
+      markerRefs.current[truckMarkerId] = marker;
     } else {
       console.log('🗺️ HeatMap: Updating existing marker for truck', truck.id);
-      const marker = markerRefs.current[truck.id];
+      const marker = markerRefs.current[truckMarkerId];
       const icon = getTruckIcon(truck.kitchenType, ownerCoverUrl);
       
       // For custom markers, we need to handle updates differently
@@ -555,13 +600,92 @@ const updateTruckMarkers = useCallback(async () => {
 
   // Clean up markers for trucks that no longer meet criteria
   Object.keys(markerRefs.current).forEach((id) => {
-    if (!currentTruckIds.has(id)) {
-      console.log('🗺️ HeatMap: Cleaning up marker for truck', id);
+    if (!currentTruckIds.has(id) && id.startsWith('truck_')) {
+      console.log('🗺️ HeatMap: Cleaning up truck marker for:', id);
       markerRefs.current[id].setMap(null);
       delete markerRefs.current[id];
     }
   });
-}, [truckLocations, truckNames, animateMarkerTo, onTruckMarkerClick]);
+
+  // Create/update event markers
+  if (showEvents) {
+    for (const event of events) {
+      const eventId = `event_${event.id}`;
+      const position = { lat: event.latitude, lng: event.longitude };
+      currentTruckIds.add(eventId);
+
+      if (!markerRefs.current[eventId]) {
+        console.log('🎉 HeatMap: Creating new event marker for:', event.id);
+        const icon = getEventIcon(event.status);
+        
+        const marker = new window.google.maps.Marker({
+          position,
+          map: mapRef.current,
+          icon,
+          title: `Event: ${event.title}`,
+          animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+          zIndex: 1000 // Higher than truck markers to ensure they're visible
+        });
+
+        // Event marker click handler
+        marker.addListener('click', () => {
+          console.log('🎉 HeatMap: Event marker clicked:', event.id);
+          
+          // Create and show info window for event
+          if (infoWindowRef.current) {
+            infoWindowRef.current.close();
+          }
+          
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div style="max-width: 300px; padding: 10px;">
+                <h4 style="margin: 0 0 10px 0; color: #FF6B35;">🌟 ${event.title}</h4>
+                <p><strong>Date:</strong> ${event.date}</p>
+                <p><strong>Status:</strong> <span style="
+                  text-transform: capitalize;
+                  padding: 2px 8px;
+                  border-radius: 4px;
+                  background: ${event.status === 'active' ? '#4CAF50' : '#2196F3'};
+                  color: white;
+                  font-size: 12px;
+                ">${event.status}</span></p>
+                <p><strong>Location:</strong> ${event.location}</p>
+                ${event.description ? `<p><strong>Description:</strong> ${event.description.substring(0, 100)}...</p>` : ''}
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                  📍 Click to learn more about this event
+                </div>
+              </div>
+            `
+          });
+          
+          infoWindow.open(mapRef.current, marker);
+          infoWindowRef.current = infoWindow;
+        });
+        
+        markerRefs.current[eventId] = marker;
+      } else {
+        // Update existing event marker
+        console.log('🎉 HeatMap: Updating event marker for:', event.id);
+        const marker = markerRefs.current[eventId];
+        marker.setPosition(position);
+        marker.setTitle(`Event: ${event.title}`);
+        
+        const icon = getEventIcon(event.status);
+        marker.setIcon(icon);
+        marker.setAnimation(event.status === 'active' ? window.google.maps.Animation.BOUNCE : null);
+      }
+    }
+  }
+
+  // Clean up event markers for events that no longer exist
+  Object.keys(markerRefs.current).forEach((id) => {
+    if (id.startsWith('event_') && !currentTruckIds.has(id)) {
+      console.log('🎉 HeatMap: Cleaning up event marker for:', id);
+      markerRefs.current[id].setMap(null);
+      delete markerRefs.current[id];
+    }
+  });
+}, [truckLocations, truckNames, events, showEvents, animateMarkerTo, onTruckMarkerClick]);
   
   // Function to toggle visibility of a truck marker
   const toggleVisibility = (truckId) => {
@@ -573,6 +697,9 @@ const updateTruckMarkers = useCallback(async () => {
       );
     });
   };
+
+  // State for controlling event marker visibility
+  const [showEvents, setShowEvents] = useState(true);
     
   const throttledUpdateTruckMarkers = useCallback(
     throttle(updateTruckMarkers, 100), // Throttle to run every 100ms
@@ -715,10 +842,26 @@ return (
               borderRadius: "4px",
               cursor: "pointer",
               fontWeight: "bold",
+              marginRight: "10px"
             }}
             onClick={() => setShowCuisineModal(true)}
           >
             Cuisine Filters
+          </button>
+          
+          <button
+            style={{
+              padding: "10px 18px",
+              backgroundColor: showEvents ? "#FF6B35" : "#ccc",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+            onClick={() => setShowEvents(!showEvents)}
+          >
+            {showEvents ? "Hide Events" : "Show Events"} ({events.length})
           </button>
         </div>
       </>

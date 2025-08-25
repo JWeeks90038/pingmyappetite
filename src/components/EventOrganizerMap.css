@@ -1,0 +1,250 @@
+/* Event Organizer Map Styles */
+.event-organizer-map {
+  width: 100%;
+  margin: 20px 0;
+}
+
+/* Animated Event Marker Pulse Effect */
+@keyframes eventPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.event-marker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.event-marker-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 107, 53, 0.3);
+  animation: eventPulse 2s infinite;
+  pointer-events: none;
+}
+
+/* Event Marker Glow Effect */
+.event-marker-glow {
+  position: relative;
+}
+
+.event-marker-glow::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  animation: eventGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes eventGlow {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Status-based event markers */
+.event-marker-active {
+  filter: drop-shadow(0 0 10px #4CAF50);
+  animation: eventBounce 1s ease-in-out infinite alternate;
+}
+
+.event-marker-published {
+  filter: drop-shadow(0 0 8px #2196F3);
+}
+
+.event-marker-draft {
+  filter: grayscale(50%) opacity(0.7);
+}
+
+.event-marker-completed {
+  filter: drop-shadow(0 0 6px #9C27B0);
+}
+
+.event-marker-cancelled {
+  filter: grayscale(100%) drop-shadow(0 0 4px #F44336);
+}
+
+@keyframes eventBounce {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Map Container Enhancements */
+.event-map-container {
+  position: relative;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 5px;
+}
+
+.event-map-inner {
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+}
+
+/* Heatmap Legend */
+.heatmap-legend {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.heatmap-legend h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.heatmap-scale {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0;
+}
+
+.heatmap-color {
+  width: 20px;
+  height: 15px;
+  border-radius: 3px;
+}
+
+.heatmap-low { background: linear-gradient(to right, cyan, blue); }
+.heatmap-medium { background: linear-gradient(to right, blue, purple); }
+.heatmap-high { background: linear-gradient(to right, purple, red); }
+
+/* Map Stats Cards */
+.map-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.map-stat-card {
+  padding: 20px;
+  border-radius: 12px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.map-stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.map-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.map-stat-card:hover::before {
+  transform: translateX(100%);
+}
+
+.map-stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 5px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.map-stat-label {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .event-organizer-map {
+    margin: 15px 0;
+  }
+  
+  .map-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  
+  .map-stat-card {
+    padding: 15px;
+  }
+  
+  .map-stat-number {
+    font-size: 24px;
+  }
+  
+  .heatmap-legend {
+    bottom: 10px;
+    left: 10px;
+    padding: 10px;
+    font-size: 12px;
+  }
+}
+
+/* Custom Info Window Styles */
+.gm-style .gm-style-iw-c {
+  border-radius: 15px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.gm-style .gm-style-iw-t::after {
+  background: white !important;
+}
+
+/* Map Controls Enhancement */
+.gm-style .gm-style-cc {
+  opacity: 0.8 !important;
+}
+
+.gm-style .gmnoprint div {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 8px !important;
+}

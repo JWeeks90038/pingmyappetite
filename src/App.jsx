@@ -48,7 +48,6 @@ import About from "./components/about";
 import NetworkStatus from "./components/NetworkStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import MobileGoogleMapsWrapper from "./components/MobileGoogleMapsWrapper";
-import AuthDebug from "./components/AuthDebug";
 import { clearAppCache, checkAppVersion } from "./utils/cacheUtils";
 
 // Define outside of component
@@ -315,7 +314,6 @@ function App() {
     return (
       <ErrorBoundary>
       <MobileGoogleMapsWrapper googleMapsApiKey={googleMapsKey}>
-        <AuthDebug />
         <BrowserRouter>
           <NetworkStatus />
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
@@ -429,13 +427,7 @@ function App() {
             <Route element={<PublicLayout />}>
               <Route
                 path="/event-dashboard"
-                element={
-                  userRole === 'event-organizer' ? (
-                    <EventDashboard />
-                  ) : (
-                    <Navigate to="/login" />
-                  )
-                }
+                element={<EventDashboard />}
               />
             </Route>
           </Routes>
@@ -455,7 +447,6 @@ function App() {
         onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
         loadingElement={<div>Loading Maps...</div>}
       >
-        <AuthDebug />
         <BrowserRouter>
           <NetworkStatus />
           <Navbar /> {/* Always render Navbar */}
@@ -554,6 +545,14 @@ function App() {
               element={
                 userRole === 'owner' ? <Analytics /> : <Navigate to="/login" />
               }
+            />
+          </Route>
+
+          {/* Event Organizer Routes */}
+          <Route element={<PublicLayout />}>
+            <Route
+              path="/event-dashboard"
+              element={<EventDashboard />}
             />
           </Route>
         </Routes>
