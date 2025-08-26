@@ -518,9 +518,10 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
               const userDoc = await userRef.get();
               const userData = userDoc.data();
               
-              // Send referral notification via Formspree
-              const emailData = {
-                to: 'grubana.co@gmail.com',
+              // Send referral notification via Formspree to both email addresses
+              const emailAddresses = ['grubana.co@gmail.com', 'curiela1974@icloud.com'];
+              
+              const baseEmailData = {
                 subject: `PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
                 message: `CONFIRMED REFERRAL PAYMENT - Arayaki Hibachi
 
@@ -555,21 +556,40 @@ Grubana System`,
                 _subject: `PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
               };
               
-              const formspreeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(emailData),
-              });
+              // Send email to both addresses
+              let emailSentCount = 0;
+              for (const emailAddress of emailAddresses) {
+                try {
+                  const emailData = {
+                    ...baseEmailData,
+                    to: emailAddress
+                  };
+                  
+                  const formspreeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(emailData),
+                  });
+                  
+                  if (formspreeResponse.ok) {
+                    console.log(`✅ Referral notification email sent successfully to ${emailAddress} via Formspree`);
+                    emailSentCount++;
+                  } else {
+                    console.error(`❌ Failed to send referral notification to ${emailAddress} via Formspree:`, formspreeResponse.status);
+                  }
+                } catch (emailError) {
+                  console.error(`❌ Error sending referral notification to ${emailAddress}:`, emailError);
+                }
+              }
               
-              if (formspreeResponse.ok) {
-                console.log('✅ Referral notification email sent successfully via Formspree');
-                // Update referral record to mark email as sent
+              // Update referral record if at least one email was sent
+              if (emailSentCount > 0) {
                 await referralRef.update({
                   emailSent: true,
-                  emailSentAt: admin.firestore.FieldValue.serverTimestamp()
+                  emailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+                  emailsSentTo: emailAddresses.slice(0, emailSentCount)
                 });
-              } else {
-                console.error('❌ Failed to send referral notification via Formspree:', formspreeResponse.status);
+                console.log(`✅ Referral notification sent to ${emailSentCount} out of ${emailAddresses.length} recipients`);
               }
               
             } catch (referralErr) {
@@ -765,6 +785,83 @@ The Grubana Team`,
 
     case 'customer.subscription.updated':
       const updatedSub = event.data.object;
+      
+      // Check if this is a trial ending for an Arayaki_Hibachi referral user
+      if (updatedSub.status === 'active' && updatedSub.trial_end && 
+          new Date(updatedSub.trial_end * 1000) <= new Date()) {
+        
+        // Check if this user has the Arayaki_Hibachi referral
+        try {
+          const userQuery = await admin.firestore()
+            .collection('users')
+            .where('stripeCustomerId', '==', updatedSub.customer)
+            .where('referralCode', '==', 'arayaki_hibachi')
+            .limit(1)
+            .get();
+          
+          if (!userQuery.empty) {
+            const userDoc = userQuery.docs[0];
+            const userData = userDoc.data();
+            
+            console.log(`🎯 Trial ended for Arayaki_Hibachi referral user: ${userData.email}`);
+            
+            // Cancel the subscription to prevent billing
+            await stripe.subscriptions.update(updatedSub.id, {
+              cancel_at_period_end: true
+            });
+            
+            console.log(`✅ Auto-cancelled subscription for Arayaki_Hibachi referral user: ${updatedSub.id}`);
+            
+            // Send notification email about trial ending and auto-cancellation
+            const emailAddresses = ['grubana.co@gmail.com', 'curiela1974@icloud.com'];
+            
+            for (const emailAddress of emailAddresses) {
+              try {
+                const emailData = {
+                  to: emailAddress,
+                  subject: `Arayaki Hibachi Trial Ended - ${userData.username || userData.ownerName}`,
+                  message: `ARAYAKI HIBACHI TRIAL COMPLETED
+
+Trial Period Information:
+• User: ${userData.username || userData.ownerName}
+• Email: ${userData.email}
+• Trial Started: ${userData.createdAt ? new Date(userData.createdAt._seconds * 1000).toLocaleDateString() : 'Unknown'}
+• Trial Ended: ${new Date().toLocaleDateString()}
+• Plan: ${userData.plan || 'Unknown'}
+• Subscription ID: ${updatedSub.id}
+
+ACTION TAKEN:
+✅ Subscription automatically cancelled to prevent billing
+✅ User will revert to basic plan after current period ends
+
+The user enjoyed their free 30-day trial and the subscription has been automatically cancelled as per the Arayaki Hibachi referral agreement.
+
+Best regards,
+Grubana System`,
+                  referralCode: 'arayaki_hibachi',
+                  userEmail: userData.email,
+                  userName: userData.username || userData.ownerName,
+                  subscriptionId: updatedSub.id,
+                  _subject: `Arayaki Hibachi Trial Ended - ${userData.username || userData.ownerName}`
+                };
+                
+                await fetch('https://formspree.io/f/mpwlvzaj', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(emailData),
+                });
+                
+                console.log(`✅ Trial completion notification sent to ${emailAddress}`);
+              } catch (emailError) {
+                console.error(`❌ Error sending trial completion notification to ${emailAddress}:`, emailError);
+              }
+            }
+          }
+        } catch (referralCheckError) {
+          console.error('❌ Error checking for Arayaki_Hibachi referral during trial end:', referralCheckError);
+        }
+      }
+      
       await updateUserSubscription(updatedSub.customer, {
         subscriptionStatus: updatedSub.status,
         plan: updatedSub.cancel_at_period_end ? 'basic' : getPlanFromPriceId(updatedSub.items.data[0].price.id),

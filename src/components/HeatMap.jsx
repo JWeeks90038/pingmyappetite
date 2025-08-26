@@ -185,19 +185,28 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   useEffect(() => {
     if (!currentUser) return;
     
-    const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
-      const eventsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })).filter(event => 
-        event.latitude && 
-        event.longitude && 
-        event.status === 'published' || event.status === 'active'
-      );
-      
-      console.log("🎉 HeatMap: Active events fetched:", eventsData);
-      setEvents(eventsData);
-    });
+    const unsubscribe = onSnapshot(collection(db, "events"), 
+      (snapshot) => {
+        const eventsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })).filter(event => 
+          event.latitude && 
+          event.longitude && 
+          event.status === 'published' || event.status === 'active'
+        );
+        
+        console.log("🎉 HeatMap: Active events fetched:", eventsData);
+        setEvents(eventsData);
+      },
+      (error) => {
+        console.error('❌ HeatMap: Events listener error:', error);
+        if (error.code === 'permission-denied') {
+          console.log('📋 User may not have permission to read events collection');
+          setEvents([]); // Set empty array as fallback
+        }
+      }
+    );
     return () => unsubscribe();
   }, [currentUser]);
 
@@ -386,25 +395,20 @@ const createCustomMarker = (position, content, map) => {
   return null;
 };
 
-// Custom event marker icon - distinctive star burst design
+// Simplified event marker icon with 2 colors and smaller size
 const getEventIcon = (eventStatus) => {
   if (!window.google) return null;
   
-  const colors = {
-    'draft': '#9E9E9E',
-    'published': '#2196F3', 
-    'active': '#4CAF50',
-    'completed': '#9C27B0',
-    'cancelled': '#F44336'
-  };
+  // Simple 2-color system: Yellow for active events, Gray for everything else
+  const fillColor = eventStatus === 'active' ? '#FFD700' : '#9E9E9E';
 
   return {
     path: "M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z", // Star shape
-    fillColor: colors[eventStatus] || '#FF6B35',
+    fillColor: fillColor,
     fillOpacity: 0.9,
     strokeColor: '#FFFFFF',
-    strokeWeight: 4,
-    scale: 3,
+    strokeWeight: 2,
+    scale: 2, // Smaller size (was 3)
     anchor: { x: 12, y: 12 }
   };
 };
@@ -980,6 +984,58 @@ return (
               <button type="submit" style={{padding: "8px 16px", borderRadius: "4px", border: "none", background: "#1976d2", color: "#fff", fontWeight: "bold"}}>Apply</button>
             </div>
           </form>
+        </div>
+      </div>
+    )}
+
+    {/* Event Status Legend - moved below map to avoid obstruction */}
+    {events.length > 0 && showEvents && (
+      <div style={{
+        backgroundColor: 'white',
+        padding: '15px',
+        marginTop: '15px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        border: '1px solid #e0e0e0'
+      }}>
+        <h4 style={{ 
+          margin: '0 0 10px 0', 
+          fontSize: '14px', 
+          color: '#333',
+          borderBottom: '1px solid #eee',
+          paddingBottom: '8px'
+        }}>
+          ⭐ Event Status
+        </h4>
+        
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: '#FFD700',
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
+            }} />
+            <span style={{ fontSize: '12px' }}>
+              <strong>Happening Now</strong> - Event is currently active
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: '#9E9E9E',
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
+            }} />
+            <span style={{ fontSize: '12px' }}>
+              <strong>Not Active</strong> - Draft, published, completed, or cancelled
+            </span>
+          </div>
         </div>
       </div>
     )}
