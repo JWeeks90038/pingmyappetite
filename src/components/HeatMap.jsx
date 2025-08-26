@@ -190,13 +190,20 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         const eventsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        })).filter(event => 
-          event.latitude && 
-          event.longitude && 
-          event.status === 'published' || event.status === 'active'
-        );
+        })).filter(event => {
+          // Check if event has location data
+          const hasLocation = event.latitude && event.longitude;
+          
+          // For event organizers, show their own events regardless of status
+          if (currentUser.role === 'event-organizer') {
+            return hasLocation && event.organizerId === currentUser.uid;
+          }
+          
+          // For other users, only show published/active events
+          return hasLocation && (event.status === 'published' || event.status === 'active');
+        });
         
-        console.log("🎉 HeatMap: Active events fetched:", eventsData);
+        console.log("🎉 HeatMap: Events fetched:", eventsData.length, "events for", currentUser.role || 'unknown role');
         setEvents(eventsData);
       },
       (error) => {
@@ -204,6 +211,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         if (error.code === 'permission-denied') {
           console.log('📋 User may not have permission to read events collection');
           setEvents([]); // Set empty array as fallback
+        } else if (error.code === 'failed-precondition') {
+          console.log('🔍 Database index missing, events may not load properly');
+          setEvents([]); // Set empty array as fallback
+        } else {
+          console.error('❌ HeatMap: Unexpected events error:', error);
+          setEvents([]);
         }
       }
     );
