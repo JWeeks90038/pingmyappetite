@@ -8,7 +8,8 @@ import {
   query, 
   where, 
   onSnapshot,
-  orderBy 
+  orderBy,
+  updateDoc 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import CreateEventForm from './CreateEventForm';
@@ -302,6 +303,43 @@ const EventDashboard = () => {
     }
   };
 
+  // Application Management Functions
+  const updateApplicationStatus = async (applicationId, newStatus) => {
+    try {
+      console.log('🔄 Updating application status:', applicationId, 'to', newStatus);
+      
+      await updateDoc(doc(db, 'eventApplications', applicationId), {
+        status: newStatus,
+        reviewedAt: new Date(),
+        reviewedBy: user.uid
+      });
+      
+      console.log('✅ Application status updated successfully');
+      
+    } catch (error) {
+      console.error('❌ Error updating application status:', error);
+      alert('Error updating application status. Please try again.');
+    }
+  };
+
+  const approveApplication = (applicationId) => {
+    if (confirm('Are you sure you want to approve this application?')) {
+      updateApplicationStatus(applicationId, 'approved');
+    }
+  };
+
+  const rejectApplication = (applicationId) => {
+    if (confirm('Are you sure you want to reject this application?')) {
+      updateApplicationStatus(applicationId, 'rejected');
+    }
+  };
+
+  const waitlistApplication = (applicationId) => {
+    if (confirm('Are you sure you want to add this application to the waitlist?')) {
+      updateApplicationStatus(applicationId, 'waitlisted');
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="dashboard-wrapper">
@@ -499,21 +537,154 @@ const EventDashboard = () => {
               ) : (
                 <div className="applications-list">
                   {applications.map(application => (
-                    <div key={application.id} className="application-card">
-                      <div className="application-header">
-                        <h3>{application.vendorName}</h3>
+                    <div key={application.id} className="application-card" style={{
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      padding: '20px',
+                      marginBottom: '15px',
+                      backgroundColor: 'white',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                      <div className="application-header" style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '15px'
+                      }}>
+                        <h3 style={{ margin: 0, color: '#333' }}>{application.vendorName || application.businessName}</h3>
                         <span 
                           className="status-badge"
-                          style={{ backgroundColor: getApplicationStatusColor(application.status) }}
+                          style={{ 
+                            backgroundColor: getApplicationStatusColor(application.status),
+                            color: 'white',
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase'
+                          }}
                         >
                           {application.status}
                         </span>
                       </div>
-                      <div className="application-details">
-                        <p><strong>Event:</strong> {application.eventTitle}</p>
-                        <p><strong>Applied:</strong> {new Date(application.appliedAt.toDate()).toLocaleDateString()}</p>
-                        <p><strong>Cuisine:</strong> {application.cuisineType}</p>
+                      
+                      <div className="application-details" style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '15px',
+                        marginBottom: '15px'
+                      }}>
+                        <div>
+                          <p style={{ margin: '5px 0' }}><strong>Event:</strong> {application.eventTitle}</p>
+                          <p style={{ margin: '5px 0' }}><strong>Applied:</strong> {new Date(application.appliedAt.toDate()).toLocaleDateString()}</p>
+                          <p style={{ margin: '5px 0' }}><strong>Food Type:</strong> {application.foodType}</p>
+                          <p style={{ margin: '5px 0' }}><strong>Email:</strong> {application.email}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin: '5px 0' }}><strong>Business:</strong> {application.businessName}</p>
+                          <p style={{ margin: '5px 0' }}><strong>Phone:</strong> {application.phone || 'Not provided'}</p>
+                          {application.description && (
+                            <p style={{ margin: '5px 0' }}><strong>Description:</strong> {application.description.substring(0, 100)}...</p>
+                          )}
+                        </div>
                       </div>
+
+                      {application.experience && (
+                        <div style={{ marginBottom: '15px' }}>
+                          <p style={{ margin: '5px 0' }}><strong>Experience:</strong></p>
+                          <p style={{ 
+                            margin: '5px 0', 
+                            padding: '10px', 
+                            backgroundColor: '#f8f9fa', 
+                            borderRadius: '4px',
+                            fontSize: '14px' 
+                          }}>
+                            {application.experience}
+                          </p>
+                        </div>
+                      )}
+
+                      {application.specialRequests && (
+                        <div style={{ marginBottom: '15px' }}>
+                          <p style={{ margin: '5px 0' }}><strong>Special Requests:</strong></p>
+                          <p style={{ 
+                            margin: '5px 0', 
+                            padding: '10px', 
+                            backgroundColor: '#f8f9fa', 
+                            borderRadius: '4px',
+                            fontSize: '14px' 
+                          }}>
+                            {application.specialRequests}
+                          </p>
+                        </div>
+                      )}
+
+                      {application.status === 'pending' && (
+                        <div className="application-actions" style={{
+                          display: 'flex',
+                          gap: '10px',
+                          justifyContent: 'flex-end',
+                          borderTop: '1px solid #e0e0e0',
+                          paddingTop: '15px'
+                        }}>
+                          <button
+                            onClick={() => rejectApplication(application.id)}
+                            style={{
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ❌ Reject
+                          </button>
+                          <button
+                            onClick={() => waitlistApplication(application.id)}
+                            style={{
+                              backgroundColor: '#17a2b8',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ⏳ Waitlist
+                          </button>
+                          <button
+                            onClick={() => approveApplication(application.id)}
+                            style={{
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 16px',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ✅ Approve
+                          </button>
+                        </div>
+                      )}
+
+                      {application.status !== 'pending' && application.reviewedAt && (
+                        <div style={{
+                          borderTop: '1px solid #e0e0e0',
+                          paddingTop: '10px',
+                          fontSize: '12px',
+                          color: '#666'
+                        }}>
+                          <p style={{ margin: 0 }}>
+                            Reviewed on {new Date(application.reviewedAt.toDate()).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -8,9 +8,11 @@ import {
   getDoc,
   query,
   where,
+  addDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
+import EventModal from "./EventModal"; // Import EventModal component
 //import Supercluster from "supercluster";
 import { throttle } from "lodash";
 
@@ -55,6 +57,22 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [truckNames, setTruckNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
+  
+  // EventModal and Application states
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [applicationData, setApplicationData] = useState({
+    vendorName: '',
+    businessName: '',
+    email: '',
+    phone: '',
+    foodType: '',
+    description: '',
+    experience: '',
+    specialRequests: ''
+  });
+  
   const [filters, setFilters] = useState({
     american: true,
     "asian-fusion": true,
@@ -657,37 +675,8 @@ const updateTruckMarkers = useCallback(async () => {
 
         // Event marker click handler
         marker.addListener('click', () => {
-          console.log('🎉 HeatMap: Event marker clicked:', event.id);
-          
-          // Create and show info window for event
-          if (infoWindowRef.current) {
-            infoWindowRef.current.close();
-          }
-          
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
-              <div style="max-width: 300px; padding: 10px;">
-                <h4 style="margin: 0 0 10px 0; color: #FF6B35;">🌟 ${event.title}</h4>
-                <p><strong>Date:</strong> ${event.date}</p>
-                <p><strong>Status:</strong> <span style="
-                  text-transform: capitalize;
-                  padding: 2px 8px;
-                  border-radius: 4px;
-                  background: ${event.status === 'active' ? '#4CAF50' : '#2196F3'};
-                  color: white;
-                  font-size: 12px;
-                ">${event.status}</span></p>
-                <p><strong>Location:</strong> ${event.location}</p>
-                ${event.description ? `<p><strong>Description:</strong> ${event.description.substring(0, 100)}...</p>` : ''}
-                <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                  📍 Click to learn more about this event
-                </div>
-              </div>
-            `
-          });
-          
-          infoWindow.open(mapRef.current, marker);
-          infoWindowRef.current = infoWindow;
+          console.log('🎉 HeatMap: Event marker clicked for modal:', event.id);
+          handleEventClick(event);
         });
         
         markerRefs.current[eventId] = marker;
@@ -832,6 +821,96 @@ useEffect(() => {
     }
   };
 }, [combinedHeatmapData, userPlan]);
+
+  // Event Application Functions
+  const handleEventClick = (event) => {
+    console.log('🎉 HeatMap: Event clicked for application:', event.id);
+    setSelectedEvent(event);
+    setShowEventModal(true);
+  };
+
+  const handleApplyToEvent = () => {
+    setShowEventModal(false);
+    setShowApplicationForm(true);
+    // Pre-fill application data with user info if available
+    if (currentUser) {
+      setApplicationData(prev => ({
+        ...prev,
+        email: currentUser.email || '',
+        vendorName: currentUser.displayName || '',
+        businessName: truckNames[currentUser.uid] || ''
+      }));
+    }
+  };
+
+  const handleApplicationSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedEvent || !currentUser) {
+      alert('Unable to submit application. Please try again.');
+      return;
+    }
+
+    try {
+      console.log('📝 Submitting application for event:', selectedEvent.id);
+      
+      const applicationDoc = {
+        eventId: selectedEvent.id,
+        eventTitle: selectedEvent.title,
+        organizerId: selectedEvent.organizerId,
+        applicantId: currentUser.uid,
+        vendorName: applicationData.vendorName,
+        businessName: applicationData.businessName,
+        email: applicationData.email,
+        phone: applicationData.phone,
+        foodType: applicationData.foodType,
+        description: applicationData.description,
+        experience: applicationData.experience,
+        specialRequests: applicationData.specialRequests,
+        status: 'pending',
+        appliedAt: new Date(),
+        createdAt: new Date()
+      };
+
+      await addDoc(collection(db, 'eventApplications'), applicationDoc);
+      
+      console.log('✅ Application submitted successfully');
+      alert('Application submitted successfully! The event organizer will review your application.');
+      
+      // Reset form and close modals
+      setShowApplicationForm(false);
+      setSelectedEvent(null);
+      setApplicationData({
+        vendorName: '',
+        businessName: '',
+        email: '',
+        phone: '',
+        foodType: '',
+        description: '',
+        experience: '',
+        specialRequests: ''
+      });
+      
+    } catch (error) {
+      console.error('❌ Error submitting application:', error);
+      alert('Error submitting application. Please try again.');
+    }
+  };
+
+  const closeApplicationForm = () => {
+    setShowApplicationForm(false);
+    setSelectedEvent(null);
+    setApplicationData({
+      vendorName: '',
+      businessName: '',
+      email: '',
+      phone: '',
+      foodType: '',
+      description: '',
+      experience: '',
+      specialRequests: ''
+    });
+  };
 
 return (
   <div>
@@ -1059,6 +1138,258 @@ return (
               <strong>Not Active</strong> - Draft, published, completed, or cancelled
             </span>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* Event Modal */}
+    {selectedEvent && (
+      <EventModal 
+        event={selectedEvent}
+        isOpen={showEventModal}
+        onClose={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        onApply={handleApplyToEvent}
+      />
+    )}
+
+    {/* Application Form Modal */}
+    {showApplicationForm && selectedEvent && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '30px',
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, color: '#FF6B35' }}>📝 Apply to: {selectedEvent.title}</h3>
+            <button
+              onClick={closeApplicationForm}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleApplicationSubmit}>
+            <div style={{ display: 'grid', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Vendor Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={applicationData.vendorName}
+                    onChange={(e) => setApplicationData(prev => ({ ...prev, vendorName: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={applicationData.businessName}
+                    onChange={(e) => setApplicationData(prev => ({ ...prev, businessName: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={applicationData.email}
+                    onChange={(e) => setApplicationData(prev => ({ ...prev, email: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={applicationData.phone}
+                    onChange={(e) => setApplicationData(prev => ({ ...prev, phone: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Food Type/Cuisine *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Mexican, BBQ, Asian Fusion, Desserts"
+                  value={applicationData.foodType}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, foodType: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Business Description *
+                </label>
+                <textarea
+                  required
+                  placeholder="Tell us about your food truck/business..."
+                  value={applicationData.description}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Experience & Previous Events
+                </label>
+                <textarea
+                  placeholder="Previous events, years in business, notable achievements..."
+                  value={applicationData.experience}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, experience: e.target.value }))}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Special Requests or Requirements
+                </label>
+                <textarea
+                  placeholder="Power requirements, space needs, special setup..."
+                  value={applicationData.specialRequests}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, specialRequests: e.target.value }))}
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end', marginTop: '30px' }}>
+              <button
+                type="button"
+                onClick={closeApplicationForm}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  backgroundColor: '#FF6B35',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📝 Submit Application
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     )}

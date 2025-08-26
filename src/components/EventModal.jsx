@@ -1,7 +1,7 @@
 import React from 'react';
 import '../assets/EventModal.css';
 
-const EventModal = ({ event, isOpen, onClose }) => {
+const EventModal = ({ event, isOpen, onClose, onApply }) => {
   if (!isOpen || !event) return null;
 
   const formatDate = (dateString) => {
@@ -166,16 +166,36 @@ const EventModal = ({ event, isOpen, onClose }) => {
               </a>
             )}
             
-            <button 
-              className="action-btn apply-btn"
-              onClick={() => {
-                // Handle vendor application
-                console.log('Apply to event:', event.id);
-                // This could open an application form or redirect to application page
-              }}
-            >
-              📝 Apply as Vendor
-            </button>
+            {/* Only show Apply button for events that accept applications */}
+            {event.acceptingApplications && event.eventType === 'full-event' && (
+              <button 
+                className="action-btn apply-btn"
+                onClick={() => {
+                  console.log('Apply to event:', event.id);
+                  if (onApply) {
+                    onApply();
+                  }
+                }}
+              >
+                📝 Apply as Vendor
+              </button>
+            )}
+            
+            {/* Show different message for display-only events */}
+            {event.eventType === 'display-only' && (
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #dee2e6',
+                borderRadius: '8px',
+                padding: '15px',
+                textAlign: 'center',
+                margin: '10px 0'
+              }}>
+                <p style={{ margin: 0, color: '#6c757d' }}>
+                  📍 This is a display marker. For vendor applications, check the "Create Event" section in the Event Dashboard.
+                </p>
+              </div>
+            )}
             
             <button 
               className="action-btn interested-btn"

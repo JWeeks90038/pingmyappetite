@@ -362,6 +362,8 @@ const EventOrganizerMap = ({ organizerData }) => {
         longitude: tempEventMarker.lng,
         organizerId: user.uid,
         status: 'draft',
+        eventType: 'display-only', // Mark as display-only event (no applications)
+        acceptingApplications: false, // No vendor applications for map markers
         createdAt: new Date(),
         updatedAt: new Date(),
         isRecurring: newEventData.isRecurring,
@@ -867,6 +869,21 @@ const EventOrganizerMap = ({ organizerData }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
           <h4 style={{ margin: 0, color: '#333' }}>📍 Event Marker Tools</h4>
           
+          <div style={{ marginBottom: '10px' }}>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '14px', 
+              color: '#666',
+              backgroundColor: '#f8f9fa',
+              padding: '8px',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              📍 <strong>Place Event Marker:</strong> Add basic event information to the map for display purposes only.
+              <br/>
+              🎪 <strong>Create Event (Dashboard):</strong> Post full events where vendors can apply to participate.
+            </p>
+          </div>
           {!isPlacingEvent ? (
             <button
               onClick={startEventPlacement}
@@ -883,7 +900,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 gap: '8px'
               }}
             >
-              🎯 Place New Event Marker
+              📍 Place Event Marker
             </button>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -895,7 +912,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 borderRadius: '6px',
                 border: '2px solid #FF6B35'
               }}>
-                🎯 Click on the map to place your event marker
+                📍 Click on the map to place your event marker
               </span>
               <button
                 onClick={cancelEventPlacement}
@@ -1321,7 +1338,18 @@ const EventOrganizerMap = ({ organizerData }) => {
             maxHeight: '80vh',
             overflowY: 'auto'
           }}>
-            <h3 style={{ marginTop: 0, color: '#FF6B35' }}>🎯 Create New Event</h3>
+            <h3 style={{ marginTop: 0, color: '#FF6B35' }}>📍 Place Event Marker</h3>
+            <p style={{ 
+              margin: '0 0 15px 0', 
+              fontSize: '14px', 
+              color: '#666',
+              backgroundColor: '#e8f4fd',
+              padding: '10px',
+              borderRadius: '6px',
+              border: '1px solid #bee5eb'
+            }}>
+              ℹ️ This creates a simple event marker for map display. For events where vendors can apply, use "Create Event" in the Dashboard.
+            </p>
             <p style={{ color: '#666', marginBottom: '20px' }}>
               Event will be placed at: {tempEventMarker ? `${tempEventMarker.lat.toFixed(6)}, ${tempEventMarker.lng.toFixed(6)}` : ''}
             </p>
@@ -1509,7 +1537,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                   fontWeight: 'bold'
                 }}
               >
-                Create Event
+                Place Event Marker
               </button>
             </div>
           </div>

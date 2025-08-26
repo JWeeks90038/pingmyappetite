@@ -28,6 +28,11 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
     startTime: '',
     endTime: '',
     
+    // Recurring Event Settings
+    isRecurring: false,
+    recurringPattern: 'weekly', // daily, weekly, monthly
+    recurringEndDate: '',
+    
     // Vendor Information
     maxVendors: '',
     vendorCategories: [],
@@ -134,6 +139,15 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
       }
     }
 
+    // Recurring event validation
+    if (formData.isRecurring) {
+      if (!formData.recurringEndDate) {
+        newErrors.recurringEndDate = 'Recurring end date is required for recurring events';
+      } else if (formData.startDate && new Date(formData.recurringEndDate) < new Date(formData.startDate)) {
+        newErrors.recurringEndDate = 'Recurring end date must be after the start date';
+      }
+    }
+
     // Application deadline validation
     if (formData.applicationDeadline && formData.startDate) {
       if (new Date(formData.applicationDeadline) >= new Date(formData.startDate)) {
@@ -174,12 +188,14 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
       // Format phone number
       const formattedPhone = formatPhoneE164(formData.contactPhone);
 
-      // Prepare event data
-      const eventData = {
+      // Prepare base event data
+      const baseEventData = {
         ...formData,
         contactPhone: formattedPhone,
         organizerId,
         status: 'draft', // draft, published, cancelled
+        eventType: 'full-event', // Mark as full event (accepts applications)
+        acceptingApplications: true, // Accept vendor applications
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         
@@ -194,10 +210,62 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
         vendorApplicationCount: 0
       };
 
-      // Create event in Firestore
-      const eventRef = await addDoc(collection(db, 'events'), eventData);
-      
-      console.log('✅ Event created successfully:', eventRef.id);
+      if (formData.isRecurring && formData.recurringEndDate) {
+        // Create multiple recurring events
+        const startDate = new Date(formData.startDate);
+        const endDate = new Date(formData.recurringEndDate);
+        const eventsToCreate = [];
+        
+        let currentDate = new Date(startDate);
+        let eventCount = 0;
+        const maxEvents = 52; // Limit to prevent too many events
+        
+        while (currentDate <= endDate && eventCount < maxEvents) {
+          // Calculate end date for this event instance
+          const eventStartDate = new Date(currentDate);
+          const originalEventDuration = new Date(formData.endDate) - new Date(formData.startDate);
+          const eventEndDate = new Date(currentDate.getTime() + originalEventDuration);
+          
+          const eventDoc = {
+            ...baseEventData,
+            startDate: eventStartDate.toISOString().split('T')[0],
+            endDate: eventEndDate.toISOString().split('T')[0],
+            recurringId: `${organizerId}_${Date.now()}`, // Group recurring events
+            recurringIndex: eventCount,
+            isRecurring: true,
+            recurringPattern: formData.recurringPattern
+          };
+          eventsToCreate.push(eventDoc);
+          
+          // Calculate next date based on pattern
+          switch (formData.recurringPattern) {
+            case 'daily':
+              currentDate.setDate(currentDate.getDate() + 1);
+              break;
+            case 'weekly':
+              currentDate.setDate(currentDate.getDate() + 7);
+              break;
+            case 'monthly':
+              currentDate.setMonth(currentDate.getMonth() + 1);
+              break;
+          }
+          eventCount++;
+        }
+        
+        // Create all recurring events
+        for (const eventDoc of eventsToCreate) {
+          await addDoc(collection(db, 'events'), eventDoc);
+        }
+        
+        console.log(`✅ Created ${eventsToCreate.length} recurring events`);
+        alert(`🎉 Created ${eventsToCreate.length} recurring events successfully!`);
+        
+      } else {
+        // Create single event
+        await addDoc(collection(db, 'events'), baseEventData);
+        console.log('✅ Single event created successfully');
+        alert('🎉 Event created successfully!');
+      }
       
       // Reset form
       setFormData({
@@ -213,6 +281,9 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
         endDate: '',
         startTime: '',
         endTime: '',
+        isRecurring: false,
+        recurringPattern: 'weekly',
+        recurringEndDate: '',
         maxVendors: '',
         vendorCategories: [],
         applicationDeadline: '',
@@ -437,6 +508,73 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
               {errors.endTime && <span className="error-message">{errors.endTime}</span>}
             </div>
           </div>
+        </div>
+
+        {/* Recurring Event Settings */}
+        <div className="form-section">
+          <h4>🔄 Recurring Event Settings</h4>
+          
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                name="isRecurring"
+                checked={formData.isRecurring}
+                onChange={(e) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
+              />
+              <span className="checkmark"></span>
+              Make this a recurring event
+            </label>
+            <small className="help-text">
+              💡 This will create multiple events based on your pattern
+            </small>
+          </div>
+
+          {formData.isRecurring && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="recurringPattern">Repeat Pattern *</label>
+                  <select
+                    id="recurringPattern"
+                    name="recurringPattern"
+                    value={formData.recurringPattern}
+                    onChange={handleInputChange}
+                    className={errors.recurringPattern ? 'error' : ''}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                  {errors.recurringPattern && <span className="error-message">{errors.recurringPattern}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="recurringEndDate">Recurring End Date *</label>
+                  <input
+                    type="date"
+                    id="recurringEndDate"
+                    name="recurringEndDate"
+                    value={formData.recurringEndDate}
+                    onChange={handleInputChange}
+                    className={errors.recurringEndDate ? 'error' : ''}
+                    min={formData.startDate}
+                  />
+                  {errors.recurringEndDate && <span className="error-message">{errors.recurringEndDate}</span>}
+                </div>
+              </div>
+              
+              <div className="info-box">
+                <p><strong>📅 How it works:</strong></p>
+                <ul>
+                  <li><strong>Daily:</strong> Creates an event every day until the end date</li>
+                  <li><strong>Weekly:</strong> Creates an event every week on the same day</li>
+                  <li><strong>Monthly:</strong> Creates an event every month on the same date</li>
+                </ul>
+                <p><em>Each recurring event will have the same time, duration, and details.</em></p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Vendor Information */}
