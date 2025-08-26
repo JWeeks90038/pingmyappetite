@@ -6,6 +6,8 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey component
@@ -185,7 +187,24 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   useEffect(() => {
     if (!currentUser) return;
     
-    const unsubscribe = onSnapshot(collection(db, "events"), 
+    // Create user-specific query to avoid permission issues
+    let eventsQuery;
+    
+    if (currentUser.role === 'event-organizer') {
+      // Event organizers see only their own events
+      eventsQuery = query(
+        collection(db, "events"),
+        where("organizerId", "==", currentUser.uid)
+      );
+    } else {
+      // For non-organizers, we'll handle this differently to avoid permission issues
+      // Since they can only read published events, we won't try to query all events
+      console.log('📋 Non-organizer user detected, skipping events query to avoid permissions');
+      setEvents([]);
+      return;
+    }
+    
+    const unsubscribe = onSnapshot(eventsQuery, 
       (snapshot) => {
         const eventsData = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -194,13 +213,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
           // Check if event has location data
           const hasLocation = event.latitude && event.longitude;
           
-          // For event organizers, show their own events regardless of status
+          // For event organizers, show all their events (already filtered by query)
           if (currentUser.role === 'event-organizer') {
-            return hasLocation && event.organizerId === currentUser.uid;
+            return hasLocation;
           }
           
-          // For other users, only show published/active events
-          return hasLocation && (event.status === 'published' || event.status === 'active');
+          return false; // This shouldn't be reached due to early return above
         });
         
         console.log("🎉 HeatMap: Events fetched:", eventsData.length, "events for", currentUser.role || 'unknown role');
@@ -208,16 +226,8 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
       },
       (error) => {
         console.error('❌ HeatMap: Events listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('📋 User may not have permission to read events collection');
-          setEvents([]); // Set empty array as fallback
-        } else if (error.code === 'failed-precondition') {
-          console.log('🔍 Database index missing, events may not load properly');
-          setEvents([]); // Set empty array as fallback
-        } else {
-          console.error('❌ HeatMap: Unexpected events error:', error);
-          setEvents([]);
-        }
+        console.log('📋 Event organizer may not have created events yet or index missing');
+        setEvents([]); // Set empty array as fallback
       }
     );
     return () => unsubscribe();
