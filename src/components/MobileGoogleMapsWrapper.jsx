@@ -18,6 +18,16 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🗺️ MobileGoogleMapsWrapper initializing with API key:', googleMapsApiKey ? 'PRESENT' : 'MISSING');
+    
+    // If no API key, fail gracefully
+    if (!googleMapsApiKey) {
+      console.error('❌ No Google Maps API key provided');
+      setMapsError(new Error('Google Maps API key is missing'));
+      setIsLoading(false);
+      return;
+    }
+
     // Detect mobile device more accurately
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
@@ -37,6 +47,15 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
       }
     } else {
       console.log('🖥️ Desktop device detected, will use LoadScript');
+      
+      // Check if Google Maps is already loaded before using LoadScript
+      if (window.google && window.google.maps) {
+        console.log('✅ Google Maps already loaded (desktop early detection)');
+        setMapsLoaded(true);
+        setIsLoading(false);
+        return;
+      }
+      
       // For desktop, let LoadScript handle the loading, but set a timeout
       const desktopTimeout = setTimeout(() => {
         if (!mapsLoaded) {

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleMap, LoadScript, HeatmapLayer, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, HeatmapLayer, Marker, InfoWindow } from '@react-google-maps/api';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { useGoogleMaps } from './MobileGoogleMapsWrapper';
 import './EventOrganizerMap.css';
 
 const LIBRARIES = ['visualization', 'places'];
@@ -21,12 +22,24 @@ const defaultCenter = {
 
 const EventOrganizerMap = ({ organizerData }) => {
   const { user } = useAuth();
+  const { isLoaded: mapsLoaded, loadError: mapsError } = useGoogleMaps();
   const [map, setMap] = useState(null);
   const [heatmapData, setHeatmapData] = useState([]);
   const [events, setEvents] = useState([]);
   const [trucks, setTrucks] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedTruck, setSelectedTruck] = useState(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+  console.log('🗺️ EventOrganizerMap: Rendering with:', { 
+    user: user?.uid, 
+    eventsCount: events.length, 
+    trucksCount: trucks.length,
+    isMapLoaded,
+    mapsLoaded,
+    mapsError: mapsError?.message,
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'SET' : 'NOT SET'
+  });
 
   // Custom event marker icon - distinctive star burst design
   const eventMarkerIcon = {
@@ -168,16 +181,59 @@ const EventOrganizerMap = ({ organizerData }) => {
 
       <div className="event-map-container">
         <div className="event-map-inner">
-          <LoadScript
-            googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-            libraries={LIBRARIES}
-          >
+          {mapsError ? (
+            <div style={{
+              height: '500px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #dee2e6',
+              borderRadius: '10px',
+              textAlign: 'center'
+            }}>
+              <div>
+                <h3>🗺️ Map Error</h3>
+                <p>Failed to load Google Maps: {mapsError.message}</p>
+                <p><small>Please check your internet connection and try again.</small></p>
+              </div>
+            </div>
+          ) : !mapsLoaded ? (
+            <div style={{
+              height: '500px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #dee2e6',
+              borderRadius: '10px',
+              textAlign: 'center'
+            }}>
+              <div>
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  border: '4px solid #e0e0e0',
+                  borderTop: '4px solid #FF6B35',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 20px'
+                }}></div>
+                <h3>🗺️ Loading Map...</h3>
+                <p>Initializing Google Maps API</p>
+              </div>
+            </div>
+          ) : (
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={events.length > 0 ? { lat: events[0].latitude, lng: events[0].longitude } : defaultCenter}
               zoom={events.length > 0 ? 12 : 4}
               options={mapOptions}
-              onLoad={setMap}
+              onLoad={(mapInstance) => {
+                console.log('🗺️ EventOrganizerMap: GoogleMap onLoad called');
+                setMap(mapInstance);
+                setIsMapLoaded(true);
+              }}
             >
               {/* Heatmap Layer for truck density */}
               {heatmapData.length > 0 && (
@@ -275,7 +331,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 </InfoWindow>
               )}
             </GoogleMap>
-          </LoadScript>
+          )}
         </div>
 
         {/* Enhanced Heatmap Legend */}

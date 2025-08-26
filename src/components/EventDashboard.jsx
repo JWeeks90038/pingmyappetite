@@ -18,6 +18,7 @@ import '../assets/styles.css';
 import '../assets/EventDashboard.css';
 
 const EventDashboard = () => {
+  console.log('🏁 EventDashboard component is rendering');
   const navigate = useNavigate();
   const { user, userRole, loading: authLoading } = useAuth();
 
@@ -89,12 +90,15 @@ const EventDashboard = () => {
             return;
           }
           setOrganizerData(data);
+          console.log('✅ Organizer data loaded successfully:', data);
         } else {
+          console.log('❌ No organizer document found, redirecting to signup');
           navigate('/signup');
         }
       } catch (error) {
-        console.error('Error fetching organizer data:', error);
+        console.error('❌ Error fetching organizer data:', error);
       } finally {
+        console.log('✅ Setting organizerDataLoaded to true');
         setOrganizerDataLoaded(true);
       }
     };
@@ -105,6 +109,9 @@ const EventDashboard = () => {
   // Fetch events
   useEffect(() => {
     if (!user) return;
+    
+    console.log('🎯 Setting up events query for user:', user.uid);
+    let activeUnsubscribe = null;
 
     const fetchEvents = async () => {
       try {
@@ -115,11 +122,12 @@ const EventDashboard = () => {
           orderBy('createdAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
+        activeUnsubscribe = onSnapshot(eventsQuery, (snapshot) => {
           const eventsData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           }));
+          console.log('✅ Events loaded successfully:', eventsData.length);
           setEvents(eventsData);
           setEventsLoaded(true);
         }, (error) => {
@@ -128,27 +136,32 @@ const EventDashboard = () => {
           // If index is missing, fall back to simpler query
           if (error.code === 'failed-precondition') {
             console.log('🔄 Index not ready, using fallback query...');
-            fallbackEventsQuery();
+            // Clean up the failed subscription
+            if (activeUnsubscribe) {
+              activeUnsubscribe();
+            }
+            // Start fallback subscription
+            activeUnsubscribe = fallbackEventsQuery();
           } else {
             setEventsLoaded(true);
           }
         });
 
-        return () => unsubscribe();
       } catch (error) {
         console.error('Error setting up events query:', error);
-        fallbackEventsQuery();
+        activeUnsubscribe = fallbackEventsQuery();
       }
     };
 
     const fallbackEventsQuery = () => {
+      console.log('🔄 Executing fallback events query...');
       // Simple query without orderBy
       const simpleQuery = query(
         collection(db, 'events'),
         where('organizerId', '==', user.uid)
       );
 
-      const unsubscribe = onSnapshot(simpleQuery, (snapshot) => {
+      return onSnapshot(simpleQuery, (snapshot) => {
         const eventsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -160,26 +173,45 @@ const EventDashboard = () => {
           return bTime - aTime;
         });
         
+        console.log('✅ Events loaded via fallback query:', eventsData.length);
         setEvents(eventsData);
         setEventsLoaded(true);
       }, (error) => {
-        console.error('Error with fallback events query:', error);
+        console.error('❌ Error with fallback events query:', error);
+        // Even if fallback fails, mark as loaded to prevent infinite loading
         setEventsLoaded(true);
       });
-
-      return () => unsubscribe();
     };
 
-    const cleanup = fetchEvents();
-    return cleanup;
+    fetchEvents();
+    
+    return () => {
+      if (activeUnsubscribe) {
+        activeUnsubscribe();
+      }
+    };
   }, [user]);
 
   // Update loading state
   useEffect(() => {
+    console.log('🔄 Loading state check:', { organizerDataLoaded, eventsLoaded });
     if (organizerDataLoaded && eventsLoaded) {
+      console.log('✅ Both data sources loaded, setting loading to false');
       setLoading(false);
     }
   }, [organizerDataLoaded, eventsLoaded]);
+
+  // Timeout fallback to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!eventsLoaded) {
+        console.log('⏰ Timeout: Force setting eventsLoaded to true after 10 seconds');
+        setEventsLoaded(true);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [eventsLoaded]);
 
   // Fetch applications
   useEffect(() => {
@@ -218,6 +250,7 @@ const EventDashboard = () => {
     };
 
     const fallbackApplicationsQuery = () => {
+      console.log('🔄 Executing fallback applications query...');
       // Simple query without orderBy
       const simpleQuery = query(
         collection(db, 'eventApplications'),
@@ -236,16 +269,16 @@ const EventDashboard = () => {
           return bTime - aTime;
         });
         
+        console.log('✅ Applications loaded via fallback query:', applicationsData.length);
         setApplications(applicationsData);
       }, (error) => {
-        console.error('Error with fallback applications query:', error);
+        console.error('❌ Error with fallback applications query:', error);
       });
 
       return () => unsubscribe();
     };
 
-    const cleanup = fetchApplications();
-    return cleanup;
+    fetchApplications();
   }, [user]);
 
   const getEventStatusColor = (status) => {

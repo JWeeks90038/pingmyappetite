@@ -49,6 +49,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [pingData, setPingData] = useState([]);
   const [truckLocations, setTruckLocations] = useState([]);
   const [events, setEvents] = useState([]); // Add events state
+  const [showEvents, setShowEvents] = useState(true); // State for controlling event marker visibility
   const [truckNames, setTruckNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
@@ -697,9 +698,6 @@ const updateTruckMarkers = useCallback(async () => {
       );
     });
   };
-
-  // State for controlling event marker visibility
-  const [showEvents, setShowEvents] = useState(true);
     
   const throttledUpdateTruckMarkers = useCallback(
     throttle(updateTruckMarkers, 100), // Throttle to run every 100ms

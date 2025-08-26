@@ -63,6 +63,9 @@ console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` 
 const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 console.log('🗺️ Google Maps API key loaded:', googleMapsKey ? `${googleMapsKey.substring(0, 7)}...` : 'NOT FOUND');
 
+// For development, if no API key is found, provide a placeholder to prevent app crash
+const safeGoogleMapsKey = googleMapsKey || 'development-placeholder';
+
 // Robust Stripe initialization with validation and error handling
 const stripePromise = stripeKey && stripeKey.length > 0 && stripeKey !== 'undefined' 
   ? loadStripe(stripeKey).catch((error) => {
@@ -225,6 +228,9 @@ function ProtectedDashboardRoute({ children }) {
 
 function App() {
   const { user, userRole, loading } = useAuth();
+  
+  console.log('🏁 App component loading state:', { loading, user: user?.email, userRole });
+  console.log('🗺️ Current URL:', window.location.href);
 
   // Check Firebase readiness
   useEffect(() => {
@@ -313,7 +319,7 @@ function App() {
     // For now, render without Stripe to prevent app crash
     return (
       <ErrorBoundary>
-      <MobileGoogleMapsWrapper googleMapsApiKey={googleMapsKey}>
+      <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
         <BrowserRouter>
           <NetworkStatus />
           <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
@@ -328,19 +334,27 @@ function App() {
               <Route
                 path="/login"
                 element={
-                  user ? (
-                    userRole === 'customer' ? (
-                      <Navigate to="/customer-dashboard" />
-                    ) : userRole === 'owner' ? (
-                      <Navigate to="/dashboard" />
-                    ) : userRole === 'event-organizer' ? (
-                      <Navigate to="/event-dashboard" />
-                    ) : (
-                      <div>Loading...</div>
-                    )
-                  ) : (
-                    <Login />
-                  )
+                  (() => {
+                    console.log('🚦 Login route evaluation:', { user: !!user, userRole, loading });
+                    if (user) {
+                      if (userRole === 'customer') {
+                        console.log('➡️ Redirecting customer to customer-dashboard');
+                        return <Navigate to="/customer-dashboard" />;
+                      } else if (userRole === 'owner') {
+                        console.log('➡️ Redirecting owner to dashboard');
+                        return <Navigate to="/dashboard" />;
+                      } else if (userRole === 'event-organizer') {
+                        console.log('➡️ Redirecting event-organizer to event-dashboard');
+                        return <Navigate to="/event-dashboard" />;
+                      } else {
+                        console.log('⏳ User authenticated but role not yet loaded:', userRole);
+                        return <div>Loading user role...</div>;
+                      }
+                    } else {
+                      console.log('👤 No user, showing login form');
+                      return <Login />;
+                    }
+                  })()
                 }
               />
               <Route path="/signup" element={<Signup />} />
@@ -441,7 +455,7 @@ function App() {
     <ErrorBoundary>
       <Elements stripe={stripePromise}>
       <MobileGoogleMapsWrapper
-        googleMapsApiKey={googleMapsKey}
+        googleMapsApiKey={safeGoogleMapsKey}
         libraries={LIBRARIES}
         onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
         onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}

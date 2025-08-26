@@ -56,7 +56,19 @@ const Navbar = () => {
           <li><span style={{ color: '#2c6f57', padding: '15px 20px', display: 'block' }}>Loading...</span></li>
         ) : user ? (
           <>
-            <li><Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link></li>
+            <li>
+              <Link 
+                to={
+                  userRole === 'customer' ? '/customer-dashboard' :
+                  userRole === 'owner' ? '/dashboard' :
+                  userRole === 'event-organizer' ? '/event-dashboard' :
+                  '/dashboard'
+                } 
+                onClick={() => setMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+            </li>
             <li><Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link></li>
             <li><LogoutLink /></li>
           </>
