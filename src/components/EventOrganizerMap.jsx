@@ -66,6 +66,16 @@ const EventOrganizerMap = ({ organizerData }) => {
     googleMapsAvailable: !!window.google?.maps
   });
 
+  // Force a visible log for production debugging
+  if (typeof window !== 'undefined') {
+    console.warn('🚨 EventOrganizerMap DEBUG:', {
+      mapsLoaded: mapsLoaded,
+      googleMapsAPI: !!window.google?.maps,
+      willShowMap: !!window.google?.maps,
+      mapsError: mapsError?.message
+    });
+  }
+
   // Geolocation functionality to center map on user's location
   useEffect(() => {
     console.log('🌍 EventOrganizerMap: Attempting to get user location...');
@@ -951,7 +961,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 <p><small>Please check your internet connection and try again.</small></p>
               </div>
             </div>
-          ) : !mapsLoaded && !window.google?.maps ? (
+          ) : !window.google?.maps ? (
             <div style={{
               height: '500px',
               display: 'flex',
@@ -974,6 +984,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 }}></div>
                 <h3>🗺️ Loading Map...</h3>
                 <p>Initializing Google Maps API</p>
+                <p><small>Debug: mapsLoaded={String(mapsLoaded)}, googleMaps={String(!!window.google?.maps)}</small></p>
               </div>
             </div>
           ) : (
