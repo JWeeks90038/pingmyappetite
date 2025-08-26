@@ -62,7 +62,8 @@ const EventOrganizerMap = ({ organizerData }) => {
     mapCenter,
     mapZoom,
     mapsError: mapsError?.message,
-    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'SET' : 'NOT SET'
+    apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'SET' : 'NOT SET',
+    googleMapsAvailable: !!window.google?.maps
   });
 
   // Geolocation functionality to center map on user's location
@@ -745,7 +746,7 @@ const EventOrganizerMap = ({ organizerData }) => {
 
   // Update markers when data changes
   useEffect(() => {
-    if (mapsLoaded && mapRef.current) {
+    if ((mapsLoaded || window.google?.maps) && mapRef.current) {
       updateTruckMarkers();
     }
   }, [mapsLoaded, updateTruckMarkers]);
@@ -776,7 +777,7 @@ const EventOrganizerMap = ({ organizerData }) => {
 
   // Update markers when data changes
   useEffect(() => {
-    if (mapsLoaded && mapRef.current) {
+    if ((mapsLoaded || window.google?.maps) && mapRef.current) {
       updateTruckMarkers();
     }
   }, [mapsLoaded, updateTruckMarkers]);
@@ -933,7 +934,7 @@ const EventOrganizerMap = ({ organizerData }) => {
                 <p><small>Please check your internet connection and try again.</small></p>
               </div>
             </div>
-          ) : !mapsLoaded ? (
+          ) : !mapsLoaded && !window.google?.maps ? (
             <div style={{
               height: '500px',
               display: 'flex',
