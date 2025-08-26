@@ -265,7 +265,16 @@
   padding-top: 20px;
 }
 
-.social-links h4 {
+.social-section {
+  margin-bottom: 20px;
+}
+
+.social-section:last-child {
+  margin-bottom: 0;
+}
+
+.social-links h4,
+.social-section h4 {
   color: #1e293b;
   font-size: 1.1rem;
   margin: 0 0 15px 0;
@@ -300,7 +309,12 @@
 }
 
 .social-btn.twitter {
-  background: #1da1f2;
+  background: #000000;
+  color: white;
+}
+
+.social-btn.tiktok {
+  background: linear-gradient(135deg, #ff0050, #000000);
   color: white;
 }
 

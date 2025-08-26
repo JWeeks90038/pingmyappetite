@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { GoogleMap, HeatmapLayer, Marker, InfoWindow } from '@react-google-maps/api';
 import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -29,6 +29,8 @@ const EventOrganizerMap = ({ organizerData }) => {
   const [trucks, setTrucks] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedTruck, setSelectedTruck] = useState(null);
+  const selectedEventRef = useRef(null);
+  const infoWindowRef = useRef(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [pingData, setPingData] = useState([]);
   const [truckNames, setTruckNames] = useState({});
@@ -38,19 +40,139 @@ const EventOrganizerMap = ({ organizerData }) => {
   const [isPlacingEvent, setIsPlacingEvent] = useState(false);
   const [tempEventMarker, setTempEventMarker] = useState(null);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [organizerLogo, setOrganizerLogo] = useState(null);
   const [newEventData, setNewEventData] = useState({
     title: '',
     description: '',
     date: '',
     time: '',
+    endTime: '',
     location: '',
     isRecurring: false,
     recurringPattern: 'weekly', // weekly, monthly, daily
     recurringEndDate: ''
   });
+  const [lastStatusUpdate, setLastStatusUpdate] = useState(0);
   const mapRef = useRef(null);
   const markerRefs = useRef({});
   const heatmapRef = useRef(null);
+
+  // Utility functions for recurring events
+  const calculateCurrentOccurrence = (event) => {
+    if (!event.isRecurring) return event;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    
+    const originalDate = new Date(event.originalDate || event.date);
+    originalDate.setHours(0, 0, 0, 0);
+    
+    // If event hasn't started yet, return original date
+    if (today < originalDate) {
+      return { ...event, date: event.originalDate || event.date };
+    }
+    
+    // Calculate the current or next occurrence
+    let currentOccurrence = new Date(originalDate);
+    const endDate = event.recurringEndDate ? new Date(event.recurringEndDate) : null;
+    
+    // Find the current or next occurrence
+    while (currentOccurrence < today) {
+      switch (event.recurringPattern) {
+        case 'daily':
+          currentOccurrence.setDate(currentOccurrence.getDate() + 1);
+          break;
+        case 'weekly':
+          currentOccurrence.setDate(currentOccurrence.getDate() + 7);
+          break;
+        case 'monthly':
+          currentOccurrence.setMonth(currentOccurrence.getMonth() + 1);
+          break;
+        default:
+          return event; // Unknown pattern, return as-is
+      }
+      
+      // Check if we've exceeded the end date
+      if (endDate && currentOccurrence > endDate) {
+        return null; // Event series has ended
+      }
+    }
+    
+    return {
+      ...event,
+      date: currentOccurrence.toISOString().split('T')[0],
+      isCurrentOccurrence: true
+    };
+  };
+
+  const getRecurringEventStatus = (event) => {
+    if (!event.isRecurring) return event.status;
+    
+    const currentOccurrence = calculateCurrentOccurrence(event);
+    if (!currentOccurrence) return 'completed'; // Series has ended
+    
+    const currentDate = currentOccurrence.date;
+    const currentTime = event.time;
+    const currentEndTime = event.endTime;
+    
+    return getInitialStatus(currentDate, currentTime, currentEndTime);
+  };
+
+  // Determine initial status based on event date/time
+  const getInitialStatus = (eventDate, eventTime, eventEndTime) => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    if (eventDate === today) {
+      if (eventTime && eventEndTime) {
+        if (currentTime >= eventTime && currentTime < eventEndTime) {
+          return 'active';
+        } else if (currentTime >= eventEndTime) {
+          return 'completed';
+        } else {
+          return 'upcoming';
+        }
+      } else {
+        return 'upcoming'; // Default for events without time
+      }
+    } else if (eventDate < today) {
+      return 'completed';
+    } else {
+      return 'upcoming';
+    }
+  };
+
+  // Filter events for display - new simplified approach for recurring events
+  const visibleEvents = useMemo(() => {
+    return events.map(event => {
+      if (event.isRecurring) {
+        // For recurring events, calculate the current occurrence and status
+        const currentOccurrence = calculateCurrentOccurrence(event);
+        if (!currentOccurrence) return null; // Event series has ended
+        
+        const currentStatus = getRecurringEventStatus(event);
+        
+        return {
+          ...currentOccurrence,
+          status: currentStatus,
+          originalEvent: event // Keep reference to original event for editing/deleting
+        };
+      } else {
+        // For non-recurring events, only show if not completed or still active today
+        const eventDate = new Date(event.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Hide completed events from previous days (but keep today's completed events visible)
+        if (event.status === 'completed' && eventDate < today) {
+          return null;
+        }
+        
+        return event;
+      }
+    }).filter(Boolean); // Remove null entries
+  }, [events]); // Only recalculate when events array changes
 
   console.log('🗺️ EventOrganizerMap: Rendering with:', { 
     user: user?.uid, 
@@ -63,18 +185,14 @@ const EventOrganizerMap = ({ organizerData }) => {
     mapZoom,
     mapsError: mapsError?.message,
     apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'SET' : 'NOT SET',
-    googleMapsAvailable: !!window.google?.maps
+    googleMapsAvailable: !!window.google?.maps,
+    visibleEventsCount: visibleEvents.length,
+    // Reduced logging for performance
+    totalRecurringGroups: visibleEvents.filter(e => e.isRecurringRepresentative).length
   });
 
-  // Force a visible log for production debugging
-  if (typeof window !== 'undefined') {
-    console.warn('🚨 EventOrganizerMap DEBUG:', {
-      mapsLoaded: mapsLoaded,
-      googleMapsAPI: !!window.google?.maps,
-      willShowMap: !!window.google?.maps,
-      mapsError: mapsError?.message
-    });
-  }
+  // Minimal logging to prevent excessive re-renders
+  // Debug logging has been temporarily disabled to prevent InfoWindow issues
 
   // Geolocation functionality to center map on user's location
   useEffect(() => {
@@ -173,37 +291,431 @@ const EventOrganizerMap = ({ organizerData }) => {
     return null;
   };
 
-  // Simplified event marker with 2 colors and smaller size
-  const getEventMarkerIcon = (eventStatus) => {
+  // Event marker with 3-color system and organizer logo: Gray for draft, Yellow for active, Green for completed
+  const getEventMarkerIcon = useCallback((eventStatus, logoUrl = null) => {
     if (!window.google) return null;
     
-    // Simple 2-color system: Yellow for active events, Gray for everything else
-    const fillColor = eventStatus === 'active' ? '#FFD700' : '#9E9E9E';
-
-    return {
+    // Log marker creation for debugging
+    console.log('🌟 Creating event marker with status:', eventStatus, 'and logo:', logoUrl ? 'PROVIDED' : 'NONE');
+    
+    // Status-based border colors
+    let borderColor = '#9E9E9E'; // Default gray for draft
+    if (eventStatus === 'active' || eventStatus === 'live') {
+      borderColor = '#FF6B35'; // Orange for currently active/live
+    } else if (eventStatus === 'completed') {
+      borderColor = '#4CAF50'; // Green for completed
+    } else if (eventStatus === 'upcoming') {
+      borderColor = '#2196F3'; // Blue for upcoming
+    }
+    
+    // If we have a logo URL, return custom marker config
+    if (logoUrl) {
+      console.log('🎯 Returning custom marker config with logo');
+      return {
+        type: 'custom',
+        logoUrl: logoUrl,
+        borderColor: borderColor,
+        size: 40 // Smaller size for just logo
+      };
+    }
+    
+    // Fallback to simple star without logo
+    const starIcon = {
       path: "M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z", // Star shape
       fillColor: fillColor,
       fillOpacity: 0.9,
       strokeColor: '#FFFFFF',
       strokeWeight: 2,
-      scale: 2, // Smaller size (was 3)
+      scale: 3, // Made bigger for visibility
       anchor: { x: 12, y: 12 }
     };
+    
+    console.log('🎯 Returning star icon without logo');
+    return starIcon;
+  }, []);
+
+  const [isClickThrottled, setIsClickThrottled] = useState(false);
+  const infoWindowInstanceRef = useRef(null);
+
+  // Cancel/Remove an existing event or recurring series
+  const cancelEvent = async (eventId, eventTitle, isRecurring, recurringId) => {
+    if (!eventId) {
+      alert('Unable to cancel event - missing event information');
+      return;
+    }
+
+    let confirmMessage;
+    if (isRecurring) {
+      confirmMessage = `Are you sure you want to permanently delete the recurring event "${eventTitle}"?\n\nThis will delete the entire recurring series.\n\nThis action cannot be undone.`;
+    } else {
+      confirmMessage = `Are you sure you want to permanently delete "${eventTitle}"?\n\nThis action cannot be undone.`;
+    }
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Cancelling event:', eventId);
+      
+      // Delete the event from Firestore (works for both single and recurring events now)
+      await deleteDoc(doc(db, 'events', eventId));
+      
+      console.log('✅ Event cancelled successfully');
+      alert('Event has been successfully deleted.');
+      
+      // Close the info window
+      setSelectedEvent(null);
+      
+    } catch (error) {
+      console.error('❌ Error cancelling event:', error);
+      alert('Error cancelling event. Please try again.');
+    }
   };
 
-  // Filter events for display - hide completed non-recurring events
-  const getVisibleEvents = (events) => {
-    return events.filter(event => {
-      // Always show non-completed events
-      if (event.status !== 'completed') {
-        return true;
+  // Update event status
+  const updateEventStatus = async (eventId, newStatus, eventTitle) => {
+    if (!eventId) {
+      alert('Unable to update event - missing event ID');
+      return;
+    }
+
+    try {
+      console.log('🔄 Updating event status:', eventId, 'to', newStatus);
+      
+      // Update the event status in Firestore
+      await updateDoc(doc(db, 'events', eventId), {
+        status: newStatus,
+        updatedAt: new Date()
+      });
+      
+      console.log('✅ Event status updated successfully');
+      
+      // Update the selected event state to reflect the change immediately
+      setSelectedEvent(prev => prev ? { ...prev, status: newStatus } : null);
+      
+    } catch (error) {
+      console.error('❌ Error updating event status:', error);
+      alert('Error updating event status. Please try again.');
+    }
+  };
+
+  // Create and manage native Google Maps InfoWindow
+  const createNativeInfoWindow = useCallback((event) => {
+    if (!window.google || !mapRef.current) return;
+    
+    // Close existing InfoWindow
+    if (infoWindowInstanceRef.current) {
+      infoWindowInstanceRef.current.close();
+    }
+    
+    const infoWindow = new window.google.maps.InfoWindow({
+      position: { lat: event.latitude, lng: event.longitude },
+      zIndex: 3000, // Higher z-index to override Google Places InfoWindows
+      content: `
+        <div style="max-width: 320px; padding: 10px; z-index: 3000; position: relative;">
+          <h4 style="margin: 0 0 10px 0; color: #FF6B35;">
+            🌟 ${event.title}
+            ${(event.isRecurring || event.originalEvent?.isRecurring) ? 
+              `<span style="fontSize: 12px; color: #666; fontWeight: normal;">
+                (Recurring ${(event.originalEvent || event).recurringPattern})
+              </span>` : ''
+            }
+          </h4>
+          
+          <div style="margin-bottom: 8px;">
+            <strong>📅 Date:</strong> ${new Date(event.date).toLocaleDateString()}
+            ${(event.isRecurring || event.originalEvent?.isRecurring) ? 
+              `<span style="fontSize: 11px; color: #888; display: block;">
+                🔄 Repeats ${(event.originalEvent || event).recurringPattern}
+                ${(event.originalEvent || event).recurringEndDate ? 
+                  ` until ${new Date((event.originalEvent || event).recurringEndDate).toLocaleDateString()}` : 
+                  ` (ongoing)`
+                }
+              </span>` : ''
+            }
+          </div>
+          
+          ${event.time ? `
+            <div style="margin-bottom: 8px;">
+              <strong>🕐 Time:</strong> ${event.time}${event.endTime ? ` - ${event.endTime}` : ''}
+            </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 8px;">
+            <strong>📍 Location:</strong> ${event.location}
+          </div>
+          
+          ${event.description ? `
+            <div style="margin-bottom: 12px;">
+              <strong>📝 Description:</strong> ${event.description}
+            </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 12px;">
+            <strong>🏷️ Status:</strong> 
+            <select id="event-status-${event.id}" style="margin-left: 8px; padding: 4px;">
+              <option value="draft" ${event.status === 'draft' ? 'selected' : ''}>📝 Draft</option>
+              <option value="upcoming" ${event.status === 'upcoming' ? 'selected' : ''}>🔵 Upcoming</option>
+              <option value="active" ${event.status === 'active' ? 'selected' : ''}>🟠 Active</option>
+              <option value="completed" ${event.status === 'completed' ? 'selected' : ''}>✅ Completed</option>
+            </select>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <button id="delete-event-${event.id}" style="
+              background: #f44336; 
+              color: white; 
+              border: none; 
+              padding: 6px 12px; 
+              border-radius: 4px; 
+              cursor: pointer;
+              font-size: 12px;
+            ">
+              🗑️ Delete Event
+            </button>
+            <button id="close-info-${event.id}" style="
+              background: #666; 
+              color: white; 
+              border: none; 
+              padding: 6px 12px; 
+              border-radius: 4px; 
+              cursor: pointer;
+              font-size: 12px;
+            ">
+              ✖️ Close
+            </button>
+          </div>
+        </div>
+      `
+    });
+    
+    // Add event listeners after InfoWindow opens
+    infoWindow.addListener('domready', () => {
+      // Status change handler
+      const statusSelect = document.getElementById(`event-status-${event.id}`);
+      if (statusSelect) {
+        statusSelect.addEventListener('change', (e) => {
+          updateEventStatus(event.id, e.target.value);
+        });
       }
       
-      // For completed events, only show if they are recurring
-      // Recurring events have a recurringPattern or recurringId
-      return event.recurringPattern || event.recurringId;
+      // Delete button handler
+      const deleteButton = document.getElementById(`delete-event-${event.id}`);
+      if (deleteButton) {
+        deleteButton.addEventListener('click', () => {
+          // For recurring events, check if this is the original event or calculated occurrence
+          const eventToDelete = event.originalEvent || event;
+          cancelEvent(
+            eventToDelete.id, 
+            eventToDelete.title, 
+            eventToDelete.isRecurring || false
+          );
+          // Clean up InfoWindow
+          selectedEventRef.current = null;
+          setSelectedEvent(null);
+          if (infoWindowInstanceRef.current) {
+            infoWindowInstanceRef.current.close();
+            infoWindowInstanceRef.current = null;
+          }
+        });
+      }
+      
+      // Close button handler
+      const closeButton = document.getElementById(`close-info-${event.id}`);
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          // Clean up InfoWindow
+          selectedEventRef.current = null;
+          setSelectedEvent(null);
+          if (infoWindowInstanceRef.current) {
+            infoWindowInstanceRef.current.close();
+            infoWindowInstanceRef.current = null;
+          }
+        });
+      }
     });
-  };
+    
+    // Handle InfoWindow close (when user clicks X on InfoWindow itself)
+    infoWindow.addListener('closeclick', () => {
+      selectedEventRef.current = null;
+      setSelectedEvent(null);
+      if (infoWindowInstanceRef.current) {
+        infoWindowInstanceRef.current.close();
+        infoWindowInstanceRef.current = null;
+      }
+    });
+    
+    infoWindow.open(mapRef.current);
+    infoWindowInstanceRef.current = infoWindow;
+    
+    console.log('📍 Native InfoWindow created and opened for event:', event.id);
+  }, [updateEventStatus, cancelEvent]);
+
+  // Debounced event selection to prevent rapid successive clicks
+  const handleEventSelection = useCallback((event) => {
+    // Throttle rapid clicks
+    if (isClickThrottled) {
+      console.log('🔄 Click throttled, ignoring rapid click');
+      return;
+    }
+    
+    console.log('🎭 EventOrganizerMap: Event marker clicked:', event.id);
+    
+    // Prevent rapid successive clicks on the same event
+    if (selectedEventRef.current?.id === event.id) {
+      console.log('🔄 Same event already selected, ignoring rapid click');
+      return;
+    }
+    
+    // Set throttle
+    setIsClickThrottled(true);
+    setTimeout(() => setIsClickThrottled(false), 300); // 300ms throttle
+    
+    // Use ref to prevent rapid state changes
+    selectedEventRef.current = event;
+    setSelectedEvent(event);
+    
+    // Create native InfoWindow
+    createNativeInfoWindow(event);
+  }, [isClickThrottled, createNativeInfoWindow]);
+
+  // Cleanup InfoWindow on unmount
+  useEffect(() => {
+    return () => {
+      if (infoWindowInstanceRef.current) {
+        infoWindowInstanceRef.current.close();
+        infoWindowInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Stable InfoWindow close handler
+  const handleInfoWindowClose = useCallback(() => {
+    selectedEventRef.current = null;
+    setSelectedEvent(null);
+    if (infoWindowInstanceRef.current) {
+      infoWindowInstanceRef.current.close();
+      infoWindowInstanceRef.current = null;
+    }
+  }, []);
+
+  // Memoized InfoWindow content to prevent re-renders
+  const InfoWindowContent = memo(({ event, onClose, onUpdateStatus, onCancelEvent }) => (
+    <div style={{ maxWidth: '320px' }}>
+      <h4 style={{ margin: '0 0 10px 0', color: '#FF6B35' }}>
+        🌟 {event.title}
+        {event.isRecurringRepresentative && (
+          <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
+            {' '}(Recurring - {event.recurringCount} events)
+          </span>
+        )}
+      </h4>
+      
+      {event.isRecurringRepresentative ? (
+        <>
+          <p><strong>Event Series:</strong> {event.recurringPattern} recurring</p>
+          <p><strong>Next/Current Date:</strong> {event.activeDate || event.date}</p>
+          {event.activeTime && (
+            <p><strong>Time:</strong> {event.activeTime} - {event.activeEndTime}</p>
+          )}
+        </>
+      ) : (
+        <>
+          <p><strong>Date:</strong> {event.date}</p>
+          {event.time && event.endTime && (
+            <p><strong>Time:</strong> {event.time} - {event.endTime}</p>
+          )}
+          {event.time && !event.endTime && (
+            <p><strong>Time:</strong> {event.time}</p>
+          )}
+        </>
+      )}
+
+      {/* Status with dropdown for updates */}
+      <div style={{ marginBottom: '10px' }}>
+        <strong>Status: </strong>
+        {event.isRecurringRepresentative ? (
+          <span style={{
+            padding: '4px 8px',
+            borderRadius: '4px',
+            backgroundColor: event.status === 'active' ? '#4CAF50' : '#9E9E9E',
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}>
+            {event.status === 'active' ? 'Active Now' : 'Scheduled'}
+          </span>
+        ) : (
+          <select
+            value={event.status}
+            onChange={(e) => onUpdateStatus(event.id, e.target.value, event.title)}
+            style={{
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #ddd',
+              backgroundColor: event.status === 'active' ? '#4CAF50' : 
+                             event.status === 'published' ? '#2196F3' :
+                             event.status === 'completed' ? '#9C27B0' :
+                             event.status === 'cancelled' ? '#F44336' : '#9E9E9E',
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="draft" style={{color: '#000'}}>Draft</option>
+            <option value="published" style={{color: '#000'}}>Published</option>
+            <option value="active" style={{color: '#000'}}>Active</option>
+            <option value="completed" style={{color: '#000'}}>Completed</option>
+          </select>
+        )}
+      </div>
+      
+      <p><strong>Location:</strong> {event.location}</p>
+      
+      {event.description && (
+        <p><strong>Description:</strong> {event.description.substring(0, 100)}...</p>
+      )}
+      
+      <div style={{ 
+        marginTop: '15px', 
+        paddingTop: '10px', 
+        borderTop: '1px solid #eee',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ fontSize: '12px', color: '#666' }}>
+          � Your event - click status to update
+        </div>
+        <button
+          onClick={() => onCancelEvent(
+            event.id, 
+            event.title, 
+            event.isRecurringRepresentative,
+            event.recurringId
+          )}
+          style={{
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            padding: '6px 12px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+        >
+          🗑️ {event.isRecurringRepresentative ? 'Delete Series' : 'Delete Event'}
+        </button>
+      </div>
+    </div>
+  ));
 
   // Truck marker icon
   const truckMarkerIcon = {
@@ -227,6 +739,7 @@ const EventOrganizerMap = ({ organizerData }) => {
         this.position = position;
         this.content = content;
         this.div = null;
+        this.clickCallbacks = []; // Store click callbacks until div is ready
         this.setMap(map);
       }
 
@@ -234,18 +747,46 @@ const EventOrganizerMap = ({ organizerData }) => {
         const div = document.createElement('div');
         div.style.position = 'absolute';
         div.style.cursor = 'pointer';
+        div.style.zIndex = '2000'; // Higher z-index to override Google Places
         div.innerHTML = this.content;
         this.div = div;
+        
+        // Add any stored click callbacks with proper event handling
+        this.clickCallbacks.forEach(callback => {
+          div.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent Google Maps from handling the click
+            e.preventDefault(); // Prevent default behavior
+            callback(e);
+          }, { capture: true }); // Use capture phase to intercept before Google Maps
+        });
+        this.clickCallbacks = []; // Clear the stored callbacks
+        
         const panes = this.getPanes();
         panes.overlayMouseTarget.appendChild(div);
+        console.log('🎨 Custom marker div added to DOM:', div);
       }
 
       draw() {
+        if (!this.getProjection() || !this.div) return; // Don't draw if projection isn't ready or div doesn't exist
+        
         const overlayProjection = this.getProjection();
         const sw = overlayProjection.fromLatLngToDivPixel(this.position);
         const div = this.div;
-        div.style.left = sw.x - 20 + 'px';
-        div.style.top = sw.y - 20 + 'px';
+        // Center the 40px marker (plus star overlay) by offsetting by half the size
+        const leftPos = sw.x - 20;
+        const topPos = sw.y - 20;
+        
+        // Only update position if it has actually changed to prevent excessive re-renders
+        const currentLeft = div.style.left;
+        const currentTop = div.style.top;
+        const newLeft = leftPos + 'px';
+        const newTop = topPos + 'px';
+        
+        if (currentLeft !== newLeft || currentTop !== newTop) {
+          div.style.left = newLeft;
+          div.style.top = newTop;
+          // Reduced logging to prevent excessive console output
+        }
       }
 
       onRemove() {
@@ -287,9 +828,21 @@ const EventOrganizerMap = ({ organizerData }) => {
       }
 
       addClickListener(callback) {
+        // Prevent duplicate listeners by checking if this exact callback already exists
         if (this.div) {
-          this.div.addEventListener('click', callback);
+          // Div exists, add listener immediately with proper event handling
+          this.div.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent Google Maps from handling the click
+            e.preventDefault(); // Prevent default behavior
+            callback(e);
+          }, { capture: true }); // Use capture phase to intercept before Google Maps
+        } else {
+          // Div doesn't exist yet, store callback for later (but avoid duplicates)
+          if (!this.clickCallbacks.includes(callback)) {
+            this.clickCallbacks.push(callback);
+          }
         }
+        console.log('🖱️ Click listener added to custom marker');
       }
     }
 
@@ -345,6 +898,7 @@ const EventOrganizerMap = ({ organizerData }) => {
       description: '',
       date: '',
       time: '',
+      endTime: '',
       location: '',
       isRecurring: false,
       recurringPattern: 'weekly',
@@ -359,19 +913,34 @@ const EventOrganizerMap = ({ organizerData }) => {
       return;
     }
 
+    if (!newEventData.date || !newEventData.time || !newEventData.endTime) {
+      alert('Please fill in all required fields: Date, Start Time, and End Time');
+      return;
+    }
+
+    // Validate that end time is after start time
+    if (newEventData.time >= newEventData.endTime) {
+      alert('End time must be after start time');
+      return;
+    }
+
     try {
       console.log('💾 Saving new event:', newEventData, tempEventMarker);
+      
+      
+      const initialStatus = getInitialStatus(newEventData.date, newEventData.time, newEventData.endTime);
       
       const baseEventDoc = {
         title: newEventData.title,
         description: newEventData.description,
         date: newEventData.date,
         time: newEventData.time,
+        endTime: newEventData.endTime,
         location: newEventData.location,
         latitude: tempEventMarker.lat,
         longitude: tempEventMarker.lng,
         organizerId: user.uid,
-        status: 'draft',
+        status: initialStatus, // Set correct initial status
         eventType: 'display-only', // Mark as display-only event (no applications)
         acceptingApplications: false, // No vendor applications for map markers
         createdAt: new Date(),
@@ -381,46 +950,21 @@ const EventOrganizerMap = ({ organizerData }) => {
       };
 
       if (newEventData.isRecurring && newEventData.recurringEndDate) {
-        // Create multiple events for recurring pattern
-        const startDate = new Date(newEventData.date);
-        const endDate = new Date(newEventData.recurringEndDate);
-        const eventsToCreate = [];
+        console.log('🔄 Creating single recurring event...');
         
-        let currentDate = new Date(startDate);
-        let eventCount = 0;
-        const maxEvents = 52; // Limit to prevent too many events
+        // For recurring events, store only ONE event with recurring metadata
+        const recurringEventDoc = {
+          ...baseEventDoc,
+          isRecurring: true,
+          recurringPattern: newEventData.recurringPattern,
+          recurringEndDate: newEventData.recurringEndDate,
+          originalDate: newEventData.date, // Store the original start date
+          status: 'upcoming' // Recurring events start as upcoming
+        };
         
-        while (currentDate <= endDate && eventCount < maxEvents) {
-          const eventDoc = {
-            ...baseEventDoc,
-            date: currentDate.toISOString().split('T')[0],
-            recurringId: `${user.uid}_${Date.now()}`, // Group recurring events
-            recurringIndex: eventCount
-          };
-          eventsToCreate.push(eventDoc);
-          
-          // Calculate next date based on pattern
-          switch (newEventData.recurringPattern) {
-            case 'daily':
-              currentDate.setDate(currentDate.getDate() + 1);
-              break;
-            case 'weekly':
-              currentDate.setDate(currentDate.getDate() + 7);
-              break;
-            case 'monthly':
-              currentDate.setMonth(currentDate.getMonth() + 1);
-              break;
-          }
-          eventCount++;
-        }
-        
-        // Create all recurring events
-        for (const eventDoc of eventsToCreate) {
-          await addDoc(collection(db, 'events'), eventDoc);
-        }
-        
-        console.log(`✅ Created ${eventsToCreate.length} recurring events`);
-        alert(`Successfully created ${eventsToCreate.length} recurring events!`);
+        await addDoc(collection(db, 'events'), recurringEventDoc);
+        console.log('✅ Single recurring event saved successfully');
+        alert('Successfully created recurring event!');
         
       } else {
         // Create single event
@@ -433,64 +977,6 @@ const EventOrganizerMap = ({ organizerData }) => {
     } catch (error) {
       console.error('❌ Error saving event:', error);
       alert('Error saving event. Please try again.');
-    }
-  };
-
-  // Cancel/Remove an existing event
-  const cancelEvent = async (eventId, eventTitle) => {
-    if (!eventId) {
-      alert('Unable to cancel event - missing event ID');
-      return;
-    }
-
-    const confirmMessage = `Are you sure you want to permanently delete "${eventTitle}"?\n\nThis action cannot be undone.`;
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    try {
-      console.log('🗑️ Cancelling event:', eventId);
-      
-      // Delete the event from Firestore
-      await deleteDoc(doc(db, 'events', eventId));
-      
-      console.log('✅ Event cancelled successfully');
-      alert('Event has been successfully deleted.');
-      
-      // Close the info window
-      setSelectedEvent(null);
-      
-    } catch (error) {
-      console.error('❌ Error cancelling event:', error);
-      alert('Error cancelling event. Please try again.');
-    }
-  };
-
-  // Update event status
-  const updateEventStatus = async (eventId, newStatus, eventTitle) => {
-    if (!eventId) {
-      alert('Unable to update event - missing event ID');
-      return;
-    }
-
-    try {
-      console.log('🔄 Updating event status:', eventId, 'to', newStatus);
-      
-      // Update the event status in Firestore
-      await updateDoc(doc(db, 'events', eventId), {
-        status: newStatus,
-        updatedAt: new Date()
-      });
-      
-      console.log('✅ Event status updated successfully');
-      
-      // Update the selected event state to reflect the change immediately
-      setSelectedEvent(prev => prev ? { ...prev, status: newStatus } : null);
-      
-    } catch (error) {
-      console.error('❌ Error updating event status:', error);
-      alert('Error updating event status. Please try again.');
     }
   };
 
@@ -763,11 +1249,41 @@ const EventOrganizerMap = ({ organizerData }) => {
     }
   }, [mapsLoaded, updateTruckMarkers]);
 
-  // Fetch organizer's events
+  // Load events for the current user and fetch organizer's logo
   useEffect(() => {
     if (!user) return;
 
     console.log('🎭 EventOrganizerMap: Setting up events query for user:', user.uid);
+
+    // Fetch organizer's logo
+    const fetchOrganizerLogo = async () => {
+      try {
+        console.log('🎭 Fetching organizer logo for user:', user.uid);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log('👤 User data:', userData);
+          console.log('🖼️ Logo URL found:', userData.logoUrl);
+          setOrganizerLogo(userData.logoUrl || null);
+        } else {
+          console.log('❌ User document does not exist');
+        }
+      } catch (error) {
+        console.error('Error fetching organizer logo:', error);
+      }
+    };
+
+    fetchOrganizerLogo();
+
+    // Set up a listener for user document changes to update logo in real-time
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        console.log('🔄 User document updated, new logo URL:', userData.logoUrl);
+        setOrganizerLogo(userData.logoUrl || null);
+      }
+    });
 
     const eventsQuery = query(
       collection(db, 'events'),
@@ -784,7 +1300,10 @@ const EventOrganizerMap = ({ organizerData }) => {
       setEvents(eventsData);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeUser();
+    };
   }, [user]);
 
   // Update markers when data changes
@@ -794,38 +1313,240 @@ const EventOrganizerMap = ({ organizerData }) => {
     }
   }, [mapsLoaded, updateTruckMarkers]);
 
-  // Fetch organizer's events
+  // Handle event markers with custom HTML for logos
   useEffect(() => {
-    if (!user) return;
+    if (!mapRef.current || !window.google || !isMapLoaded) return;
+    
+    console.log('🎭 EventOrganizerMap: Updating event markers, found events:', visibleEvents.length);
+    const currentEventIds = new Set();
 
-    console.log('🎭 EventOrganizerMap: Setting up events query for user:', user.uid);
+    // Check if we have new events that need markers
+    const newEventIds = visibleEvents.map(event => `event_${event.id}`);
+    const existingEventIds = Object.keys(markerRefs.current).filter(id => id.startsWith('event_'));
+    const hasNewEvents = newEventIds.some(id => !existingEventIds.includes(id));
+    const hasRemovedEvents = existingEventIds.some(id => !newEventIds.includes(id));
+    
+    // Only skip marker recreation if InfoWindow is open AND no new/removed events
+    if (infoWindowInstanceRef.current && !hasNewEvents && !hasRemovedEvents) {
+      console.log('🔒 InfoWindow is open and no event changes detected, skipping marker recreation');
+      return;
+    }
+    
+    if (infoWindowInstanceRef.current && (hasNewEvents || hasRemovedEvents)) {
+      console.log('🆕 InfoWindow is open but new/removed events detected, updating markers carefully');
+    }
 
-    const eventsQuery = query(
-      collection(db, 'events'),
-      where('organizerId', '==', user.uid)
-    );
+    for (const event of visibleEvents) {
+      const eventMarkerId = `event_${event.id}`;
+      currentEventIds.add(eventMarkerId);
+      
+      const position = { lat: event.latitude, lng: event.longitude };
+      const icon = getEventMarkerIcon(event.status, organizerLogo);
+      
+      console.log('🎯 Processing event marker:', {
+        id: event.id,
+        status: event.status,
+        hasLogo: !!organizerLogo,
+        iconType: icon?.type || 'standard'
+      });
 
-    const unsubscribe = onSnapshot(eventsQuery, 
-      (snapshot) => {
-        const eventsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })).filter(event => event.latitude && event.longitude);
+      if (!markerRefs.current[eventMarkerId]) {
+        console.log('🌟 Creating new event marker for:', event.id);
+        let marker;
+        
+        // Check if we need to create a custom HTML marker for logos
+        if (icon && icon.type === 'custom' && icon.logoUrl) {
+          console.log('🎨 Creating custom HTML marker with logo:', icon.logoUrl);
+          const logoContent = `
+            <div style="
+              width: ${icon.size}px; 
+              height: ${icon.size}px; 
+              position: relative;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              <!-- Logo image with status-colored border -->
+              <div style="
+                width: ${icon.size}px; 
+                height: ${icon.size}px; 
+                border-radius: 50%; 
+                overflow: hidden;
+                background: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                border: 3px solid ${icon.borderColor};
+                position: relative;
+              ">
+                <img src="${icon.logoUrl}" style="
+                  width: calc(100% - 6px); 
+                  height: calc(100% - 6px); 
+                  object-fit: cover;
+                  display: block;
+                  border-radius: 50%;
+                " onerror="console.error('❌ Failed to load logo image:', this.src); this.style.display='none';" 
+                   onload="console.log('✅ Logo image loaded successfully:', this.src); this.style.opacity='1';" 
+                   alt="Organization Logo" />
+              </div>
+              <!-- Small star overlay to distinguish from food truck markers -->
+              <div style="
+                position: absolute;
+                bottom: -2px;
+                right: -2px;
+                width: 16px;
+                height: 16px;
+                background: #FFD700;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                border: 2px solid white;
+                font-size: 10px;
+                z-index: 3;
+              ">
+                ⭐
+              </div>
+            </div>
+          `;
+          
+          console.log('🎨 Custom marker HTML content:', logoContent);
+          marker = createCustomMarker(position, logoContent, mapRef.current);
+          console.log('🎨 Custom marker created:', marker);
+          
+          // Add click listener for custom marker with debouncing
+          const debouncedClickHandler = () => {
+            setTimeout(() => handleEventSelection(event), 0);
+          };
+          marker.addClickListener(debouncedClickHandler);
+          
+        } else {
+          // Create standard Google Maps marker
+          const markerOptions = {
+            position,
+            map: mapRef.current,
+            title: event.title,
+          };
+          
+          // Only add icon if it's a valid Google Maps icon (not custom)
+          if (icon && icon.type !== 'custom') {
+            markerOptions.icon = icon;
+          }
+          
+          marker = new window.google.maps.Marker(markerOptions);
+          
+          // Add click listener for standard marker with debouncing  
+          const debouncedClickHandler = () => {
+            setTimeout(() => handleEventSelection(event), 0);
+          };
+          marker.addListener('click', debouncedClickHandler);
+        }
+        
+        markerRefs.current[eventMarkerId] = marker;
+      } else {
+        console.log('🔄 Event marker already exists for:', event.id);
+        // Optionally update existing marker if needed
+      }
+    }
 
-        console.log('🎪 EventOrganizerMap: Found events:', eventsData.length);
-        setEvents(eventsData);
-      },
-      (error) => {
-        console.error('❌ EventOrganizerMap: Events listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('📋 User may not have permission to read events collection');
-          setEvents([]); // Set empty array as fallback
+    // Clean up markers for events that are no longer visible
+    Object.keys(markerRefs.current).forEach(id => {
+      if (id.startsWith('event_') && !currentEventIds.has(id)) {
+        console.log('🗑️ Cleaning up event marker for:', id);
+        if (markerRefs.current[id]) {
+          markerRefs.current[id].setMap(null);
+          delete markerRefs.current[id];
         }
       }
-    );
+    });
+  }, [isMapLoaded, visibleEvents, organizerLogo]);
 
-    return () => unsubscribe();
-  }, [user]);
+  // Automatic event status updating based on start and end times
+  useEffect(() => {
+    if (!events.length) return;
+
+    const updateEventStatuses = async () => {
+      // Debounce rapid updates (prevent updates more than once per 30 seconds)
+      const now = Date.now();
+      if (now - lastStatusUpdate < 30000) {
+        console.log('🕐 Skipping status update - too soon since last update');
+        return;
+      }
+      setLastStatusUpdate(now);
+
+      const currentDate = new Date();
+      const today = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const currentTime = currentDate.toTimeString().slice(0, 5); // HH:MM format
+      
+      console.log('🕐 Auto-checking event statuses at:', currentTime, 'on', today);
+
+      let updatesNeeded = 0;
+
+      for (const event of events) {
+        // Skip automatic status updates for recurring events - they're handled dynamically
+        if (event.isRecurring) continue;
+        
+        if (!event.date || !event.time || !event.endTime) continue;
+
+        const eventDate = event.date;
+        const eventStartTime = event.time;
+        const eventEndTime = event.endTime;
+        let newStatus = event.status;
+
+        // Check if event is today
+        if (eventDate === today) {
+          // Event is active if current time is between start and end time
+          if (currentTime >= eventStartTime && currentTime < eventEndTime) {
+            newStatus = 'active';
+          }
+          // Event is completed if current time is past end time
+          else if (currentTime >= eventEndTime) {
+            newStatus = 'completed';
+          }
+          // Event is upcoming if it hasn't started yet today
+          else if (currentTime < eventStartTime) {
+            newStatus = 'upcoming';
+          }
+        }
+        // Event is completed if the date has passed
+        else if (eventDate < today) {
+          newStatus = 'completed';
+        }
+        // Event is upcoming if it's in the future
+        else if (eventDate > today) {
+          newStatus = 'upcoming';
+        }
+
+        // Update status if it has changed
+        if (newStatus !== event.status) {
+          updatesNeeded++;
+          try {
+            console.log(`🔄 Auto-updating event "${event.title}" status from ${event.status} to ${newStatus}`);
+            await updateDoc(doc(db, 'events', event.id), {
+              status: newStatus,
+              updatedAt: new Date()
+            });
+          } catch (error) {
+            console.error('❌ Error auto-updating event status:', error);
+          }
+        }
+      }
+
+      if (updatesNeeded === 0) {
+        console.log('✅ All event statuses are current');
+      }
+    };
+
+    // Run status update immediately only if enough time has passed
+    updateEventStatuses();
+
+    // Set up interval to check every 5 minutes instead of every minute to reduce conflicts
+    const statusInterval = setInterval(updateEventStatuses, 1 * 60 * 1000); // Check every 1 minute for real-time updates
+
+    return () => clearInterval(statusInterval);
+  }, [events, lastStatusUpdate]);
 
   const mapOptions = {
     disableDefaultUI: false,
@@ -833,6 +1554,7 @@ const EventOrganizerMap = ({ organizerData }) => {
     streetViewControl: false,
     mapTypeControl: true,
     fullscreenControl: true,
+    clickableIcons: false, // Disable clicks on POI icons to prevent Google InfoWindows
     styles: [
       {
         featureType: 'poi',
@@ -1071,15 +1793,25 @@ const EventOrganizerMap = ({ organizerData }) => {
               )}
 
               {/* Event Markers - Distinctive Star Design with Smart Filtering */}
-              {getVisibleEvents(events).map((event) => (
-                <Marker
-                  key={event.id}
-                  position={{ lat: event.latitude, lng: event.longitude }}
-                  icon={getEventMarkerIcon(event.status)}
-                  onClick={() => setSelectedEvent(event)}
-                  animation={event.status === 'active' ? window.google.maps.Animation.BOUNCE : null}
-                />
-              ))}
+              {isMapLoaded && visibleEvents.map((event, index) => {
+                const icon = getEventMarkerIcon(event.status, organizerLogo);
+                
+                // If it's a custom marker with logo, we need to handle it differently
+                if (icon?.type === 'custom') {
+                  // Custom HTML marker will be handled in useEffect
+                  return null;
+                } else {
+                  return (
+                    <Marker
+                      key={`event-${event.id}`}
+                      position={{ lat: event.latitude, lng: event.longitude }}
+                      icon={icon}
+                      onClick={() => setSelectedEvent(event)}
+                      animation={event.status === 'active' ? window.google.maps.Animation.BOUNCE : null}
+                    />
+                  );
+                }
+              })}
 
               {/* Truck Markers */}
               {trucks.map((truck) => (
@@ -1091,85 +1823,8 @@ const EventOrganizerMap = ({ organizerData }) => {
                 />
               ))}
 
-              {/* Event Info Window */}
-              {selectedEvent && (
-                <InfoWindow
-                  position={{ lat: selectedEvent.latitude, lng: selectedEvent.longitude }}
-                  onCloseClick={() => setSelectedEvent(null)}
-                >
-                  <div style={{ maxWidth: '320px' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#FF6B35' }}>🌟 {selectedEvent.title}</h4>
-                    <p><strong>Date:</strong> {selectedEvent.date}</p>
-                    
-                    {/* Status with dropdown for updates */}
-                    <div style={{ marginBottom: '10px' }}>
-                      <strong>Status: </strong>
-                      <select
-                        value={selectedEvent.status}
-                        onChange={(e) => updateEventStatus(selectedEvent.id, e.target.value, selectedEvent.title)}
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid #ddd',
-                          backgroundColor: selectedEvent.status === 'active' ? '#4CAF50' : 
-                                         selectedEvent.status === 'published' ? '#2196F3' :
-                                         selectedEvent.status === 'completed' ? '#9C27B0' :
-                                         selectedEvent.status === 'cancelled' ? '#F44336' : '#9E9E9E',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="draft" style={{color: '#000'}}>Draft</option>
-                        <option value="published" style={{color: '#000'}}>Published</option>
-                        <option value="active" style={{color: '#000'}}>Active</option>
-                        <option value="completed" style={{color: '#000'}}>Completed</option>
-                      </select>
-                    </div>
-                    
-                    <p><strong>Location:</strong> {selectedEvent.location}</p>
-                    {selectedEvent.description && (
-                      <p><strong>Description:</strong> {selectedEvent.description.substring(0, 100)}...</p>
-                    )}
-                    {selectedEvent.time && (
-                      <p><strong>Time:</strong> {selectedEvent.time}</p>
-                    )}
-                    
-                    <div style={{ 
-                      marginTop: '15px', 
-                      paddingTop: '10px', 
-                      borderTop: '1px solid #eee',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <div style={{ fontSize: '12px', color: '#666' }}>
-                        📍 Your event - click status to update
-                      </div>
-                      <button
-                        onClick={() => cancelEvent(selectedEvent.id, selectedEvent.title)}
-                        style={{
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
-                        onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
-                      >
-                        🗑️ Delete Event
-                      </button>
-                    </div>
-                  </div>
-                </InfoWindow>
-              )}
+              {/* Event Info Window - Now handled by native Google Maps InfoWindow */}
+              {/* Native InfoWindow is created and managed in handleEventSelection */}
 
               {/* Truck Info Window */}
               {selectedTruck && (
@@ -1298,7 +1953,7 @@ const EventOrganizerMap = ({ organizerData }) => {
       <div className="map-stats-grid">
         <div className="map-stat-card" style={{ background: 'linear-gradient(135deg, #FF6B35, #FF3D00)' }}>
           <h4 className="map-stat-label">🌟 Your Events</h4>
-          <p className="map-stat-number">{getVisibleEvents(events).length}</p>
+          <p className="map-stat-number">{visibleEvents.length}</p>
           <p style={{ margin: 0, fontSize: '12px', opacity: 0.8 }}>
             {events.filter(e => e.status === 'active').length} active • {events.filter(e => e.status === 'completed' && (e.recurringPattern || e.recurringId)).length} recurring
           </p>
@@ -1407,7 +2062,7 @@ const EventOrganizerMap = ({ organizerData }) => {
             <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Date
+                  Date *
                 </label>
                 <input
                   type="date"
@@ -1424,12 +2079,29 @@ const EventOrganizerMap = ({ organizerData }) => {
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Time
+                  Start Time *
                 </label>
                 <input
                   type="time"
                   value={newEventData.time}
                   onChange={(e) => setNewEventData(prev => ({ ...prev, time: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  End Time *
+                </label>
+                <input
+                  type="time"
+                  value={newEventData.endTime}
+                  onChange={(e) => setNewEventData(prev => ({ ...prev, endTime: e.target.value }))}
                   style={{
                     width: '100%',
                     padding: '10px',

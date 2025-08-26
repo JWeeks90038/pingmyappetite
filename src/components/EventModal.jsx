@@ -1,7 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import '../assets/EventModal.css';
 
 const EventModal = ({ event, isOpen, onClose, onApply }) => {
+  const [organizerSocialLinks, setOrganizerSocialLinks] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (event?.createdBy && isOpen) {
+      fetchOrganizerSocialLinks();
+    }
+  }, [event?.createdBy, isOpen]);
+
+  const fetchOrganizerSocialLinks = async () => {
+    if (!event?.createdBy) return;
+    
+    setLoading(true);
+    try {
+      const organizerDoc = await getDoc(doc(db, "users", event.createdBy));
+      if (organizerDoc.exists()) {
+        const organizerData = organizerDoc.data();
+        setOrganizerSocialLinks({
+          facebook: organizerData.facebook || '',
+          instagram: organizerData.instagram || '',
+          tiktok: organizerData.tiktok || '',
+          twitter: organizerData.twitter || '',
+          organizationName: organizerData.organizationName || organizerData.truckName || 'Event Organizer'
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching organizer social links:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen || !event) return null;
 
   const formatDate = (dateString) => {
@@ -83,8 +117,14 @@ const EventModal = ({ event, isOpen, onClose, onApply }) => {
             <div className="info-section">
               <h4>📅 Date & Time</h4>
               <div className="datetime-details">
-                <p><strong>Start:</strong> {formatDate(event.startDate)} at {formatTime(event.startTime)}</p>
-                <p><strong>End:</strong> {formatDate(event.endDate)} at {formatTime(event.endTime)}</p>
+                <p><strong>Date:</strong> {formatDate(event.startDate || event.date)}</p>
+                <p><strong>Start Time:</strong> {formatTime(event.startTime || event.time)}</p>
+                {(event.endTime || event.endTime) && (
+                  <p><strong>End Time:</strong> {formatTime(event.endTime || event.endTime)}</p>
+                )}
+                {event.endDate && event.endDate !== (event.startDate || event.date) && (
+                  <p><strong>End Date:</strong> {formatDate(event.endDate)}</p>
+                )}
               </div>
             </div>
 
@@ -209,26 +249,61 @@ const EventModal = ({ event, isOpen, onClose, onApply }) => {
           </div>
 
           {/* Social Media Links */}
-          {(event.socialMedia?.facebook || event.socialMedia?.instagram || event.socialMedia?.twitter) && (
+          {(event.socialMedia?.facebook || event.socialMedia?.instagram || event.socialMedia?.twitter || 
+            organizerSocialLinks.facebook || organizerSocialLinks.instagram || organizerSocialLinks.tiktok || organizerSocialLinks.twitter) && (
             <div className="social-links">
-              <h4>Follow this Event</h4>
-              <div className="social-buttons">
-                {event.socialMedia.facebook && (
-                  <a href={event.socialMedia.facebook} target="_blank" rel="noopener noreferrer" className="social-btn facebook">
-                    📘 Facebook
-                  </a>
-                )}
-                {event.socialMedia.instagram && (
-                  <a href={event.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="social-btn instagram">
-                    📷 Instagram
-                  </a>
-                )}
-                {event.socialMedia.twitter && (
-                  <a href={event.socialMedia.twitter} target="_blank" rel="noopener noreferrer" className="social-btn twitter">
-                    🐦 Twitter
-                  </a>
-                )}
-              </div>
+              {/* Event-specific social media */}
+              {(event.socialMedia?.facebook || event.socialMedia?.instagram || event.socialMedia?.twitter) && (
+                <div className="social-section">
+                  <h4>📱 Follow this Event</h4>
+                  <div className="social-buttons">
+                    {event.socialMedia.facebook && (
+                      <a href={event.socialMedia.facebook} target="_blank" rel="noopener noreferrer" className="social-btn facebook">
+                        📘 Facebook
+                      </a>
+                    )}
+                    {event.socialMedia.instagram && (
+                      <a href={event.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="social-btn instagram">
+                        📷 Instagram
+                      </a>
+                    )}
+                    {event.socialMedia.twitter && (
+                      <a href={event.socialMedia.twitter} target="_blank" rel="noopener noreferrer" className="social-btn twitter">
+                        ❌ X (Twitter)
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Organizer social media */}
+              {(organizerSocialLinks.facebook || organizerSocialLinks.instagram || organizerSocialLinks.tiktok || organizerSocialLinks.twitter) && (
+                <div className="social-section">
+                  <h4>🏢 Follow {organizerSocialLinks.organizationName}</h4>
+                  <div className="social-buttons">
+                    {organizerSocialLinks.facebook && (
+                      <a href={organizerSocialLinks.facebook} target="_blank" rel="noopener noreferrer" className="social-btn facebook">
+                        � Facebook
+                      </a>
+                    )}
+                    {organizerSocialLinks.instagram && (
+                      <a href={organizerSocialLinks.instagram} target="_blank" rel="noopener noreferrer" className="social-btn instagram">
+                        📷 Instagram
+                      </a>
+                    )}
+                    {organizerSocialLinks.tiktok && (
+                      <a href={organizerSocialLinks.tiktok} target="_blank" rel="noopener noreferrer" className="social-btn tiktok">
+                        🎵 TikTok
+                      </a>
+                    )}
+                    {organizerSocialLinks.twitter && (
+                      <a href={organizerSocialLinks.twitter} target="_blank" rel="noopener noreferrer" className="social-btn twitter">
+                        ❌ X (Twitter)
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

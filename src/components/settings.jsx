@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import OwnerSettings from './OwnerSettings';
 import CustomerSettings from './CustomerSettings';
+import EventOrganizerSettings from './EventOrganizerSettings';
 import MediaUploader from './MediaUploader';
 
 const Settings = () => {
@@ -130,9 +131,17 @@ const Settings = () => {
           stripeMsg={stripeMsg}
         />
       )}
+      {role === 'event-organizer' && (
+        <EventOrganizerSettings
+          plan={plan}
+          cardInfo={cardInfo}
+          handleManageSubscription={handleManageSubscription}
+          stripeMsg={stripeMsg}
+        />
+      )}
       {role === 'customer' && <CustomerSettings />}
-      {role && role !== 'customer' && role !== 'owner' && (
-        <p>Role not found. Please contact support.</p>
+      {role && role !== 'customer' && role !== 'owner' && role !== 'event-organizer' && (
+        <p>Role not found. Please contact support. Current role: "{role}"</p>
       )}
     </div>
   );

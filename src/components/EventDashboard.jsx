@@ -515,6 +515,9 @@ const EventDashboard = () => {
                       </div>
                       <div className="event-details">
                         <p><strong>Date:</strong> {event.date}</p>
+                        {event.time && (
+                          <p><strong>Time:</strong> {event.time}{event.endTime && ` - ${event.endTime}`}</p>
+                        )}
                         <p><strong>Location:</strong> {event.location}</p>
                         <p><strong>Vendors:</strong> {event.vendors || 0} applied</p>
                       </div>

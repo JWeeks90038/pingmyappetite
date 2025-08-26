@@ -436,12 +436,17 @@ const createCustomMarker = (position, content, map) => {
   return null;
 };
 
-// Simplified event marker icon with 2 colors and smaller size
+// Event marker icon with 3-color system: Gray for draft, Yellow for active, Green for completed
 const getEventIcon = (eventStatus) => {
   if (!window.google) return null;
   
-  // Simple 2-color system: Yellow for active events, Gray for everything else
-  const fillColor = eventStatus === 'active' ? '#FFD700' : '#9E9E9E';
+  // 3-color system: Gray for draft, Yellow for active, Green for completed
+  let fillColor = '#9E9E9E'; // Default gray for draft
+  if (eventStatus === 'active') {
+    fillColor = '#FFD700'; // Gold for active
+  } else if (eventStatus === 'completed') {
+    fillColor = '#4CAF50'; // Green for completed
+  }
 
   return {
     path: "M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z", // Star shape
@@ -1115,13 +1120,13 @@ return (
             <div style={{
               width: '14px',
               height: '14px',
-              backgroundColor: '#FFD700',
+              backgroundColor: '#9E9E9E',
               borderRadius: '50%',
               border: '2px solid white',
               boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
             }} />
             <span style={{ fontSize: '12px' }}>
-              <strong>Happening Now</strong> - Event is currently active
+              <strong>Draft</strong> - Event not started yet
             </span>
           </div>
           
@@ -1129,13 +1134,27 @@ return (
             <div style={{
               width: '14px',
               height: '14px',
-              backgroundColor: '#9E9E9E',
+              backgroundColor: '#FFD700',
               borderRadius: '50%',
               border: '2px solid white',
               boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
             }} />
             <span style={{ fontSize: '12px' }}>
-              <strong>Not Active</strong> - Draft, published, completed, or cancelled
+              <strong>Active</strong> - Event is happening now
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: '#4CAF50',
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
+            }} />
+            <span style={{ fontSize: '12px' }}>
+              <strong>Completed</strong> - Event has ended
             </span>
           </div>
         </div>
