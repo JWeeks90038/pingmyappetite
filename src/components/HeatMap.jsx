@@ -112,9 +112,30 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const heatmapRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      //console.log("Auth state changed. Current user:", user);
-      setCurrentUser(user || null);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Fetch user document to get role information
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('🎯 HeatMap: User data fetched:', userData.role);
+            setCurrentUser({
+              ...user,
+              role: userData.role,
+              plan: userData.plan
+            });
+          } else {
+            console.log('🔍 HeatMap: No user document found, using auth user only');
+            setCurrentUser(user);
+          }
+        } catch (error) {
+          console.error('❌ HeatMap: Error fetching user data:', error);
+          setCurrentUser(user);
+        }
+      } else {
+        setCurrentUser(null);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -280,6 +301,19 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     }
     console.log("🚛 HeatMap: Using truck names from location data:", updatedNames);
     setTruckNames(updatedNames);
+    
+    // For food truck owners, center the map on their truck's location
+    if (currentUser.role === 'owner' && currentUser.uid) {
+      const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
+      if (userTruck && userTruck.latitude && userTruck.longitude) {
+        const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
+        console.log("🗺️ HeatMap: Centering map on truck owner's location:", truckCenter);
+        setMapCenter(truckCenter);
+        if (mapRef.current) {
+          mapRef.current.panTo(truckCenter);
+        }
+      }
+    }
   }, [truckLocations, currentUser]);
 
 // Create a circular icon using canvas to mimic borderRadius: "50%"
@@ -667,7 +701,8 @@ const updateTruckMarkers = useCallback(async () => {
       } else {
         // Standard marker
         animateMarkerTo(marker, position);
-        marker.setTitle(truckName);
+        const currentTruckName = truckNames[truck.id] || truck.truckName || truck.name || "Food Truck";
+        marker.setTitle(currentTruckName);
         
         // Only set icon if it's a valid Google Maps icon (not custom)
         if (icon && icon.type !== 'custom') {
