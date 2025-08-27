@@ -20,6 +20,11 @@ service cloud.firestore {
       // This is needed for displaying truck details when clicking map markers
       allow read: if request.auth != null && 
         resource.data.role == 'owner';
+        
+      // Allow authenticated users to read event organizer information for logo display
+      // This is needed for displaying organization logos on event markers
+      allow read: if request.auth != null && 
+        resource.data.role == 'event-organizer';
       
       // Allow admin operations and webhook updates
       allow write: if request.auth != null && 

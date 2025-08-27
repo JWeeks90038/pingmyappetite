@@ -979,54 +979,26 @@ const updateTruckMarkers = useCallback(async () => {
               .catch(error => {
                 console.log('🔒 HeatMap: Permission denied or error fetching organizer data for event:', event.id, error.message);
                 
-                // Create a special marker that indicates this event has an organizer but we can't access their logo
-                // This gives users a visual cue that this is an organized event, not just a generic event
-                const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                                   event.status === 'active' ? '#4CAF50' : 
-                                   event.status === 'completed' ? '#FF63B5' : 
-                                   event.status === 'published' ? '#2196F3' : '#9E9E9E';
+                // Instead of showing building icon, show a basic star for better UX
+                // This maintains consistency while not misleading users
+                console.log('🎉 HeatMap: Creating basic star marker for event (no accessible logo):', event.id);
+                const basicIcon = getEventIcon(event.status);
                 
-                const organizationMarkerContent = `
-                  <div style="
-                    width: 40px; 
-                    height: 40px; 
-                    border-radius: 50%; 
-                    border: 3px solid ${statusColor}; 
-                    overflow: hidden;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                  ">
-                    🏢
-                    <div style="
-                      position: absolute;
-                      bottom: -2px;
-                      right: -2px;
-                      width: 16px;
-                      height: 16px;
-                      background: #FFD700;
-                      border-radius: 50%;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-                      border: 2px solid white;
-                      font-size: 10px;
-                    ">⭐</div>
-                  </div>
-                `;
-                
-                const customMarker = createCustomMarker(position, organizationMarkerContent, mapRef.current);
-                customMarker.addListener('click', () => {
-                  console.log('🎉 HeatMap: Organization event marker clicked for modal:', event.id);
+                const marker = new window.google.maps.Marker({
+                  position,
+                  map: mapRef.current,
+                  icon: basicIcon,
+                  title: `Event: ${event.title}`,
+                  animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                  zIndex: 1000
+                });
+
+                marker.addListener('click', () => {
+                  console.log('🎉 HeatMap: Basic event marker clicked for modal:', event.id);
                   handleEventClick(event);
                 });
                 
-                markerRefs.current[eventId] = customMarker;
+                markerRefs.current[eventId] = marker;
               });
           }
         } else {
