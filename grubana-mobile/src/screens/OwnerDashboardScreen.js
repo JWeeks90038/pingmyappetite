@@ -64,7 +64,7 @@ const OwnerDashboardScreen = () => {
     };
   }, [user, isLive]);
 
-  // Handle app backgrounding/foregrounding to maintain truck presence
+  // Handle app backgrounding/foregrounding to maintain truck presence for 8-hour duration
   useEffect(() => {
     if (!user?.uid || !isLive) return;
 
@@ -79,7 +79,7 @@ const OwnerDashboardScreen = () => {
           console.error("Error updating lastActive on app foreground:", error);
         });
       }
-      // Note: We don't set isLive to false when backgrounded to keep truck visible
+      // Note: We don't set isLive to false when backgrounded - scheduled task handles 8-hour visibility
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
@@ -139,6 +139,7 @@ const OwnerDashboardScreen = () => {
       await updateDoc(truckLocationRef, {
         isLive: false,
         lastActive: Date.now(),
+        // Note: Don't clear sessionStartTime here - let the scheduled task handle 8-hour visibility
       });
     }
   };
@@ -162,6 +163,7 @@ const OwnerDashboardScreen = () => {
           isLive: true,
           visible: true,
           lastActive: Date.now(),
+          sessionStartTime: Date.now(), // Set session start for 8-hour visibility tracking
           lat: location?.latitude || 0,
           lng: location?.longitude || 0,
           kitchenType: truckData?.kitchenType || 'truck',

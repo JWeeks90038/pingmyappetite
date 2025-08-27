@@ -828,12 +828,23 @@ useEffect(() => {
       const isLive = data.isLive === true;
       const visible = data.visible === true;
       const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+      const GRACE_PERIOD = 15 * 60 * 1000; // 15 minutes grace period
       const lastActive = data.lastActive || 0;
-      const isStale = nowMs - lastActive > EIGHT_HOURS;
+      const sessionStartTime = data.sessionStartTime || lastActive;
       
-      // Check if truck should be removed
-      // Remove if: explicitly removed, not live, not visible, stale for 8+ hours, or trucks hidden
-      if (change.type === 'removed' || !isLive || !visible || isStale || !showTrucks) {
+      // Enhanced visibility logic matching HeatMap
+      const timeSinceActive = nowMs - lastActive;
+      const sessionDuration = nowMs - sessionStartTime;
+      const isRecentlyActive = timeSinceActive <= GRACE_PERIOD;
+      const withinEightHourWindow = sessionDuration < EIGHT_HOURS;
+      
+      // Check if truck should be removed with enhanced 8-hour session logic
+      const shouldHide = change.type === 'removed' || 
+                        !visible || 
+                        (!isRecentlyActive && !withinEightHourWindow) ||
+                        !showTrucks;
+      
+      if (shouldHide) {
         if (foodTruckMarkers.current[id]) {
           foodTruckMarkers.current[id].setMap(null);
           delete foodTruckMarkers.current[id];

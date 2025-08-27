@@ -127,5 +127,19 @@ service cloud.firestore {
       // Allow users to read and write their own nudge history
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Menu items collection - allow truck owners to manage their menu items
+    match /menuItems/{itemId} {
+      // Allow truck owners to create menu items for their own truck
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.truckId;
+      
+      // Allow truck owners to read, update, and delete their own menu items
+      allow read, update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.truckId;
+      
+      // Allow all authenticated users to read menu items for discovery
+      allow read: if request.auth != null;
+    }
   }
 }

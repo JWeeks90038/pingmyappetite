@@ -598,6 +598,7 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
   }, []);
 
   const ONLINE_THRESHOLD = 8 * 60 * 60 * 1000; // 8 hours in milliseconds (consistent with mobile)
+  const GRACE_PERIOD = 15 * 60 * 1000; // 15 minutes grace period for active trucks
 
 const updateTruckMarkers = useCallback(async () => {
   if (!window.google || !mapRef.current) return;
@@ -612,31 +613,46 @@ const updateTruckMarkers = useCallback(async () => {
       isLive: truck.isLive,
       visible: truck.visible,
       lastActive: truck.lastActive,
+      sessionStartTime: truck.sessionStartTime,
       timeSinceActive: truck.lastActive ? now - truck.lastActive : 'N/A'
     });
 
     // Since truckLocations can only be created by owners (per Firestore rules), we can trust this data
     // No need to verify role - this avoids permission errors
 
-    // Stricter check for truck visibility - require explicit true values for isLive and visible
+    // Enhanced visibility check with 8-hour minimum session duration
     const hasCoordinates = truck.lat && truck.lng;
     const isExplicitlyVisible = truck.visible === true;
     const isExplicitlyLive = truck.isLive === true;
-    const shouldShow = hasCoordinates && isExplicitlyVisible && isExplicitlyLive;
     
-    // Also hide if truck is very stale (regardless of other flags)
-    const isStale = truck.lastActive && (now - truck.lastActive > ONLINE_THRESHOLD);
+    // Calculate time since last activity and session duration
+    const timeSinceActive = truck.lastActive ? now - truck.lastActive : Infinity;
+    const sessionDuration = truck.sessionStartTime ? now - truck.sessionStartTime : 0;
     
-    console.log('🗺️ HeatMap: Visibility check for truck', truck.id, {
+    // New enhanced visibility logic:
+    // 1. Recently active (within grace period) - always show
+    // 2. Not recently active but within 8-hour session and explicitly visible - show
+    // 3. Everything else - hide
+    const isRecentlyActive = timeSinceActive <= GRACE_PERIOD;
+    const withinEightHourWindow = sessionDuration < ONLINE_THRESHOLD;
+    const shouldShow = hasCoordinates && isExplicitlyVisible && (
+      isRecentlyActive || 
+      (withinEightHourWindow && isExplicitlyVisible)
+    );
+    
+    console.log('🗺️ HeatMap: Enhanced visibility check for truck', truck.id, {
       hasCoordinates,
       isExplicitlyVisible,
       isExplicitlyLive,
-      shouldShow,
-      isStale
+      isRecentlyActive,
+      withinEightHourWindow,
+      sessionDuration: Math.round(sessionDuration / (60 * 1000)) + " minutes",
+      timeSinceActive: Math.round(timeSinceActive / (60 * 1000)) + " minutes",
+      shouldShow
     });
     
-    if (!shouldShow || isStale) {
-      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow, 'isStale:', isStale);
+    if (!shouldShow) {
+      console.log('🗺️ HeatMap: Hiding truck', truck.id, 'shouldShow:', shouldShow);
       if (markerRefs.current[truck.id]) {
         markerRefs.current[truck.id].setMap(null);
         delete markerRefs.current[truck.id];

@@ -15,6 +15,7 @@ import {
   or,
   getDocs,
   orderBy,
+  deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -558,13 +559,27 @@ const handleToggle = async () => {
     try {
       // When making visible, set both visible and isLive to true
       // When hiding, set both to false
-      const updatePromise = updateDoc(truckDocRef, {
+      const updates = {
         visible: newVisibility,
         isLive: newVisibility,
         lastActive: Date.now(),
-      });
+      };
       
-      console.log('🔄 Starting Firestore update for visibility:', { visible: newVisibility, isLive: newVisibility });
+      // Set session start time when going live (for 8-hour visibility tracking)
+      if (newVisibility) {
+        updates.sessionStartTime = Date.now();
+      } else {
+        // Clear session start time when manually hiding
+        updates.sessionStartTime = deleteField();
+      }
+      
+      const updatePromise = updateDoc(truckDocRef, updates);
+      
+      console.log('🔄 Starting Firestore update for visibility:', { 
+        visible: newVisibility, 
+        isLive: newVisibility, 
+        sessionStartTime: newVisibility ? 'set' : 'cleared' 
+      });
 
       // --- Update liveSessions in users collection concurrently ---
       const userDocRef = doc(db, "users", user.uid);
@@ -897,50 +912,33 @@ useEffect(() => {
         }
       });
     }
-    // Note: We don't set isLive to false when hidden to keep truck visible
+    // Note: We don't set isLive to false when hidden - let scheduled task handle 8-hour visibility
   };
 
-  // Enhanced page unload handler to ensure truck is hidden
+  // Enhanced page unload handler - but don't immediately hide truck for 8-hour visibility
   const handleBeforeUnload = async () => {
-    console.log('🚪 Page unload detected - hiding truck from map');
+    console.log('🚪 Page unload detected - updating lastActive but keeping visible for 8-hour duration');
     try {
-      // Use sendBeacon for more reliable delivery during page unload
-      const data = JSON.stringify({
-        isLive: false,
-        visible: false,
-        lastActive: Date.now(),
-      });
-      
-      // Try to use sendBeacon first (more reliable for page unload)
-      if (navigator.sendBeacon) {
-        const blob = new Blob([data], { type: 'application/json' });
-        // Note: sendBeacon can't directly update Firestore, so we'll use the regular method
-      }
-      
-      // Immediate synchronous update
+      // Just update lastActive - scheduled task will handle hiding after 8 hours
       await updateDoc(truckDocRef, {
-        isLive: false,
-        visible: false,
         lastActive: Date.now(),
       });
-      console.log('🚪 Truck hidden from map on page unload');
+      console.log('🚪 LastActive updated on page unload');
     } catch (error) {
-      console.error("🚪 Error hiding truck on page unload:", error);
+      console.error("🚪 Error updating lastActive on page unload:", error);
     }
   };
 
   // Enhanced page hide handler (for mobile browsers)
   const handlePageHide = async () => {
-    console.log('🚪 Page hide detected - hiding truck from map');
+    console.log('🚪 Page hide detected - updating lastActive but keeping visible for 8-hour duration');
     try {
       await updateDoc(truckDocRef, {
-        isLive: false,
-        visible: false,
         lastActive: Date.now(),
       });
-      console.log('🚪 Truck hidden from map on page hide');
+      console.log('🚪 LastActive updated on page hide');
     } catch (error) {
-      console.error("🚪 Error hiding truck on page hide:", error);
+      console.error("🚪 Error updating lastActive on page hide:", error);
     }
   };
 
