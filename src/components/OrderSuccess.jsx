@@ -108,7 +108,7 @@ const OrderSuccess = () => {
         flexWrap: 'wrap'
       }}>
         <Link 
-          to="/orders"
+          to="/my-orders"
           style={{
             backgroundColor: '#2c6f57',
             color: 'white',
@@ -120,7 +120,7 @@ const OrderSuccess = () => {
             display: 'inline-block'
           }}
         >
-          View My Orders
+          🍽️ Track Your Order
         </Link>
         
         <Link 

@@ -51,6 +51,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import MobileGoogleMapsWrapper from "./components/MobileGoogleMapsWrapper";
 import TruckOnboarding from "./components/TruckOnboarding";
 import OrderManagement from "./components/OrderManagement";
+import CustomerOrderTracking from "./components/CustomerOrderTracking";
 import OrderSuccess from "./components/OrderSuccess";
 import OrderCancelled from "./components/OrderCancelled";
 import MarketplaceTest from "./components/MarketplaceTest";
@@ -366,7 +367,10 @@ function App() {
               <Route path="/logout" element={<Logout />} />
               <Route path="/success" element={<Success />} />
               <Route path="/truck-onboarding" element={<TruckOnboarding />} />
-              <Route path="/orders" element={<OrderManagement />} />
+              <Route path="/orders" element={
+                userRole === 'customer' ? <Navigate to="/my-orders" /> : <OrderManagement />
+              } />
+              <Route path="/my-orders" element={<CustomerOrderTracking />} />
               <Route path="/order-success" element={<OrderSuccess />} />
               <Route path="/order-cancelled" element={<OrderCancelled />} />
               <Route path="/marketplace-test" element={<MarketplaceTest />} />
@@ -440,6 +444,7 @@ function App() {
           {/* Customer Pages */}
           <Route element={<CustomerLayout />}>
             <Route path="/customer-dashboard" element={userRole === 'customer' ? <CustomerDashboard /> : <Navigate to="/login" />} />
+            <Route path="/my-orders" element={userRole === 'customer' ? <CustomerOrderTracking /> : <Navigate to="/login" />} />
             <Route path="/messages" element={userRole === 'customer' ? <Messages /> : <Navigate to="/login" />} />
             <Route path="/ping-requests" element={userRole === 'customer' ? <PingRequests /> : <Navigate to="/login" />} />
             <Route path="/notifications" element={userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" />} />

@@ -69,6 +69,20 @@ const Navbar = () => {
                 Dashboard
               </Link>
             </li>
+            {userRole === 'customer' && (
+              <li>
+                <Link to="/my-orders" onClick={() => setMenuOpen(false)}>
+                  My Orders
+                </Link>
+              </li>
+            )}
+            {userRole === 'owner' && (
+              <li>
+                <Link to="/orders" onClick={() => setMenuOpen(false)}>
+                  Order Management
+                </Link>
+              </li>
+            )}
             <li><Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link></li>
             <li><LogoutLink /></li>
           </>

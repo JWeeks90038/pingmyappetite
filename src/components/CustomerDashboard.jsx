@@ -1376,7 +1376,7 @@ return (
         borderTop: '1px solid #eee'
       }}>
         <button
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate('/my-orders')}
           style={{
             backgroundColor: '#2c6f57',
             color: 'white',
