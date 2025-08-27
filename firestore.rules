@@ -99,13 +99,9 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && 
         request.auth.uid == resource.data.organizerId;
       
-      // Allow all authenticated users to read published events for discovery
-      allow read: if request.auth != null && 
-        resource.data.status == 'published';
-      
-      // Allow truck owners to read events for application purposes
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      // Allow all authenticated users to read any events for map display and discovery
+      // This includes draft, published, active, completed events for proper map functionality
+      allow read: if request.auth != null;
     }
     
     // Event applications collection - manage truck applications to events
