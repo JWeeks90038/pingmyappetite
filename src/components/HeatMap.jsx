@@ -263,6 +263,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     
     if (currentUser.role === 'event-organizer') {
       // Event organizers see only their own events
+      console.log('🎯 HeatMap: Setting up event organizer query for user:', currentUser.uid);
       eventsQuery = query(
         collection(db, "events"),
         where("organizerId", "==", currentUser.uid)
@@ -270,29 +271,37 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     } else if (currentUser.role === 'owner') {
       // Food truck owners can read any events (per Firestore rules)
       // They see active and published events to apply to
+      console.log('🚚 HeatMap: Setting up food truck owner query for published/active events');
       eventsQuery = query(
         collection(db, "events"),
         where("status", "in", ["published", "active"])
       );
     } else if (currentUser.role === 'customer') {
       // Customers can only read published events (per Firestore rules)
+      console.log('👥 HeatMap: Setting up customer query for published events');
       eventsQuery = query(
         collection(db, "events"),
         where("status", "==", "published")
       );
     } else {
       // For other users, we'll handle this differently to avoid permission issues
-      console.log('📋 Unknown user role detected, skipping events query to avoid permissions');
+      console.log('📋 Unknown user role detected:', currentUser.role, 'skipping events query to avoid permissions');
       setEvents([]);
       return;
     }
     
     const unsubscribe = onSnapshot(eventsQuery, 
       (snapshot) => {
-        const eventsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })).filter(event => {
+        console.log('📋 HeatMap: Raw events snapshot received:', snapshot.size, 'documents');
+        
+        const eventsData = snapshot.docs.map((doc) => {
+          const eventData = {
+            id: doc.id,
+            ...doc.data(),
+          };
+          console.log('📋 HeatMap: Processing event:', eventData.id, 'status:', eventData.status, 'hasLocation:', !!(eventData.latitude && eventData.longitude));
+          return eventData;
+        }).filter(event => {
           // Check if event has location data
           const hasLocation = event.latitude && event.longitude;
           
@@ -301,21 +310,31 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
             return hasLocation;
           } else if (currentUser.role === 'owner') {
             // For food truck owners, show active and published events with location
-            return hasLocation && (event.status === 'active' || event.status === 'published');
+            const shouldShow = hasLocation && (event.status === 'active' || event.status === 'published');
+            console.log('🚚 HeatMap: Food truck owner event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
+            return shouldShow;
           } else if (currentUser.role === 'customer') {
             // For customers, show published events with location
-            return hasLocation && event.status === 'published';
+            const shouldShow = hasLocation && event.status === 'published';
+            console.log('👥 HeatMap: Customer event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
+            return shouldShow;
           }
           
           return false; // This shouldn't be reached due to early return above
         });
         
-        console.log("🎉 HeatMap: Events fetched:", eventsData.length, "events for", currentUser.role || 'unknown role');
+        console.log("🎉 HeatMap: Final events after filtering:", eventsData.length, "events for", currentUser.role || 'unknown role');
+        if (eventsData.length > 0) {
+          console.log("🎉 HeatMap: Event details:", eventsData.map(e => ({ id: e.id, title: e.title, status: e.status, lat: e.latitude, lng: e.longitude })));
+        }
         setEvents(eventsData);
       },
       (error) => {
-        console.error('❌ HeatMap: Events listener error:', error);
-        console.log('📋 Event organizer may not have created events yet or index missing');
+        console.error('❌ HeatMap: Events listener error for role', currentUser.role, ':', error);
+        console.error('❌ HeatMap: Error details:', error.code, error.message);
+        if (error.code === 'permission-denied') {
+          console.log('🔒 HeatMap: Permission denied - user may not have access to events or Firestore rules need updating');
+        }
         setEvents([]); // Set empty array as fallback
       }
     );
@@ -745,6 +764,7 @@ const updateTruckMarkers = useCallback(async () => {
   });
 
   // Create/update event markers
+  console.log('🎉 HeatMap: Event marker processing - showEvents:', showEvents, 'events.length:', events.length);
   if (showEvents) {
     for (const event of events) {
       const eventId = `event_${event.id}`;
@@ -752,7 +772,7 @@ const updateTruckMarkers = useCallback(async () => {
       currentTruckIds.add(eventId);
 
       if (!markerRefs.current[eventId]) {
-        console.log('🎉 HeatMap: Creating new event marker for:', event.id);
+        console.log('🎉 HeatMap: Creating new event marker for:', event.id, 'title:', event.title, 'position:', position);
         
         // Start with basic icon, then upgrade to custom if logo is available
         const basicIcon = getEventIcon(event.status);
