@@ -88,8 +88,7 @@ const OrderCart = ({ cart, setCart, truckId, truckName }) => {
   };
 
   const subtotal = calculateTotal();
-  const platformFee = subtotal * 0.02; // 2% platform fee
-  const total = subtotal;
+  const total = subtotal; // Customer pays the full menu price, platform fee is deducted from merchant
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -254,17 +253,6 @@ const OrderCart = ({ cart, setCart, truckId, truckName }) => {
             }}>
               <span>Subtotal:</span>
               <span>${subtotal.toFixed(2)}</span>
-            </div>
-            
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              marginBottom: '8px',
-              fontSize: '12px',
-              color: '#666'
-            }}>
-              <span>Platform fee (2%):</span>
-              <span>${platformFee.toFixed(2)}</span>
             </div>
             
             <div style={{ 

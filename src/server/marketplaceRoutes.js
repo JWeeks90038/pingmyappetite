@@ -80,6 +80,67 @@ router.post('/subscription/:userId', async (req, res) => {
  * FOOD TRUCK ONBOARDING ROUTES
  */
 
+// Get truck's Stripe account status
+router.get('/trucks/status', async (req, res) => {
+  try {
+    // Get truck ID from authenticated user
+    const truckId = req.user?.uid;
+    
+    if (!truckId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    const truckDoc = await db.collection('users').doc(truckId).get();
+    
+    if (!truckDoc.exists) {
+      return res.json({ 
+        status: 'no_account',
+        message: 'No Stripe account found' 
+      });
+    }
+
+    const truckData = truckDoc.data();
+    const stripeAccountId = truckData.stripeAccountId;
+
+    if (!stripeAccountId) {
+      return res.json({ 
+        status: 'no_account',
+        message: 'No Stripe account created yet' 
+      });
+    }
+
+    // Check account status with Stripe
+    const account = await stripe.accounts.retrieve(stripeAccountId);
+    
+    let status = 'pending';
+    if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
+      status = 'active';
+    } else if (account.details_submitted) {
+      status = 'pending';
+    } else {
+      status = 'created';
+    }
+
+    res.json({
+      status,
+      stripeAccountId: account.id,
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      detailsSubmitted: account.details_submitted,
+      country: account.country,
+      defaultCurrency: account.default_currency
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking truck status:', error);
+    res.status(500).json({ 
+      error: 'Failed to check account status',
+      details: error.message 
+    });
+  }
+});
+
 // Create Stripe Express account for food truck
 router.post('/trucks/onboard', async (req, res) => {
   try {

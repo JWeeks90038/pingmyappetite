@@ -287,7 +287,7 @@ const TruckOnboarding = () => {
             </h3>
             <p style={{ color: '#856404', marginBottom: '15px' }}>
               To start accepting orders and payments from customers, you need to set up a Stripe Connect account. 
-              This allows you to receive payments directly while we handle the transaction fees (2% platform fee).
+              This allows you to receive payments directly with our flexible tiered platform fee structure based on your chosen subscription plan.
             </p>
             <button
               onClick={createStripeAccount}
@@ -376,7 +376,7 @@ const TruckOnboarding = () => {
                 <br />
                 • Status: Ready to accept payments
                 <br />
-                • Platform fee: 2% per transaction
+                • Platform fees: Based on your subscription plan (Basic: 5%, Pro: 2.5%, All-Access: 0%)
               </div>
             </div>
           </div>
@@ -572,11 +572,12 @@ const TruckOnboarding = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '15px', alignItems: 'end' }}>
+          <div style={{ marginBottom: '15px' }}>
             <select
               value={newMenuItem.category}
               onChange={(e) => setNewMenuItem(prev => ({ ...prev, category: e.target.value }))}
               style={{
+                width: '100%',
                 padding: '12px',
                 border: '1px solid #ddd',
                 borderRadius: '6px',
@@ -591,25 +592,26 @@ const TruckOnboarding = () => {
               <option value="drinks">Drinks</option>
               <option value="specials">Daily Specials</option>
             </select>
-
-            <button
-              onClick={addMenuItem}
-              disabled={loading || uploadingImage || !newMenuItem.name || !newMenuItem.price}
-              style={{
-                backgroundColor: '#2c6f57',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '12px 24px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                cursor: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 'not-allowed' : 'pointer',
-                opacity: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 0.6 : 1
-              }}
-            >
-              {uploadingImage ? '📤 Uploading Image...' : (loading ? 'Adding...' : '➕ Add Item')}
-            </button>
           </div>
+
+          <button
+            onClick={addMenuItem}
+            disabled={loading || uploadingImage || !newMenuItem.name || !newMenuItem.price}
+            style={{
+              width: '100%',
+              backgroundColor: '#2c6f57',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px 24px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 'not-allowed' : 'pointer',
+              opacity: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 0.6 : 1
+            }}
+          >
+            {uploadingImage ? '📤 Uploading Image...' : (loading ? 'Adding...' : '➕ Add Item')}
+          </button>
         </div>
 
         {/* Current Menu Items */}
@@ -823,15 +825,82 @@ const TruckOnboarding = () => {
             marginTop: '20px'
           }}>
             <h3 style={{ color: '#2c6f57', marginBottom: '15px' }}>
-              How Pre-Orders Work
+              💰 How Our Tiered Payment Structure Works
             </h3>
-            <ul style={{ color: '#666', lineHeight: '1.6' }}>
-              <li>Customers can browse your menu and place orders before arriving</li>
-              <li>You'll receive notifications when orders come in</li>
-              <li>Payments are processed securely through Stripe Connect</li>
-              <li>You get paid directly to your bank account (minus processing fees)</li>
-              <li>Platform takes a 2% fee to support the service</li>
-            </ul>
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ color: '#2c6f57', marginBottom: '10px' }}>📋 Order Process:</h4>
+              <ul style={{ color: '#666', lineHeight: '1.6', marginBottom: '15px' }}>
+                <li>Customers browse your menu and place orders before arriving</li>
+                <li>You receive instant notifications when orders come in</li>
+                <li>Payments are processed securely through Stripe Connect</li>
+                <li>You get paid directly to your bank account within 2 business days</li>
+              </ul>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ color: '#2c6f57', marginBottom: '10px' }}>💳 Subscription Plans & Platform Fees:</h4>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+                gap: '15px',
+                marginBottom: '15px'
+              }}>
+                <div style={{
+                  backgroundColor: '#fff3cd',
+                  border: '2px solid #ffc107',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  textAlign: 'center'
+                }}>
+                  <h5 style={{ color: '#856404', margin: '0 0 8px 0' }}>🆓 Basic Plan</h5>
+                  <div style={{ color: '#856404', fontSize: '14px' }}>
+                    <strong>Free</strong><br/>
+                    5% platform fee per order
+                  </div>
+                </div>
+                
+                <div style={{
+                  backgroundColor: '#d1ecf1',
+                  border: '2px solid #17a2b8',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  textAlign: 'center'
+                }}>
+                  <h5 style={{ color: '#0c5460', margin: '0 0 8px 0' }}>⭐ Pro Plan</h5>
+                  <div style={{ color: '#0c5460', fontSize: '14px' }}>
+                    <strong>$9.99/month</strong><br/>
+                    2.5% platform fee per order
+                  </div>
+                </div>
+                
+                <div style={{
+                  backgroundColor: '#d4edda',
+                  border: '2px solid #28a745',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  textAlign: 'center'
+                }}>
+                  <h5 style={{ color: '#155724', margin: '0 0 8px 0' }}>🏆 All-Access Plan</h5>
+                  <div style={{ color: '#155724', fontSize: '14px' }}>
+                    <strong>$19.99/month</strong><br/>
+                    0% platform fee per order
+                  </div>
+                </div>
+              </div>
+              <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
+                💡 Platform fees are automatically deducted from your payout - customers always pay full menu price
+              </p>
+            </div>
+            
+            <div>
+              <h4 style={{ color: '#2c6f57', marginBottom: '10px' }}>🔒 Security & Support:</h4>
+              <ul style={{ color: '#666', lineHeight: '1.6' }}>
+                <li>Bank-level security with PCI DSS compliance</li>
+                <li>24/7 fraud monitoring and chargeback protection</li>
+                <li>Dedicated customer support for order issues</li>
+                <li>Real-time order tracking and analytics dashboard</li>
+              </ul>
+            </div>
           </div>
         </div>
       ) : (
