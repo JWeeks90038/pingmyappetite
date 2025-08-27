@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const TruckOnboarding = () => {
   const { user } = useAuth();
@@ -17,6 +18,9 @@ const TruckOnboarding = () => {
     category: '',
     image: null
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -133,6 +137,13 @@ const TruckOnboarding = () => {
 
     setLoading(true);
     try {
+      let imageUrl = null;
+
+      // Upload image if selected
+      if (imageFile) {
+        imageUrl = await uploadImageToFirebase(imageFile);
+      }
+
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
         method: 'POST',
@@ -142,7 +153,8 @@ const TruckOnboarding = () => {
         },
         body: JSON.stringify({
           ...newMenuItem,
-          price: parseFloat(newMenuItem.price)
+          price: parseFloat(newMenuItem.price),
+          image: imageUrl
         })
       });
 
@@ -156,6 +168,7 @@ const TruckOnboarding = () => {
           category: '',
           image: null
         });
+        clearImageSelection();
         alert('Menu item added successfully!');
       } else {
         throw new Error('Failed to add menu item');
@@ -190,6 +203,60 @@ const TruckOnboarding = () => {
       console.error('Error deleting menu item:', error);
       alert('Failed to delete menu item. Please try again.');
     }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (JPG, PNG, etc.)');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImageToFirebase = async (file) => {
+    try {
+      setUploadingImage(true);
+      
+      const storage = getStorage();
+      const fileName = `menu-items/${user.uid}/${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, fileName);
+      
+      // Upload file
+      await uploadBytes(storageRef, file);
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw new Error('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const clearImageSelection = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setNewMenuItem(prev => ({ ...prev, image: null }));
   };
 
   const renderAccountStatus = () => {
@@ -410,6 +477,101 @@ const TruckOnboarding = () => {
             />
           </div>
 
+          {/* Image Upload Section */}
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontWeight: 'bold', 
+              color: '#2c6f57' 
+            }}>
+              📸 Menu Item Photo (optional)
+            </label>
+            
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+              {/* File Upload */}
+              <div style={{ flex: 1 }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  style={{
+                    padding: '8px',
+                    border: '2px dashed #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    width: '100%',
+                    backgroundColor: '#f8f9fa'
+                  }}
+                />
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: '#666', 
+                  marginTop: '5px' 
+                }}>
+                  Max 5MB • JPG, PNG, WebP supported
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              {imagePreview && (
+                <div style={{ 
+                  position: 'relative',
+                  width: '80px', 
+                  height: '80px',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  border: '2px solid #2c6f57'
+                }}>
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                  <button
+                    onClick={clearImageSelection}
+                    style={{
+                      position: 'absolute',
+                      top: '-5px',
+                      right: '-5px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '20px',
+                      height: '20px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {uploadingImage && (
+              <div style={{
+                marginTop: '10px',
+                padding: '8px 12px',
+                backgroundColor: '#cce5ff',
+                border: '1px solid #99ccff',
+                borderRadius: '4px',
+                fontSize: '14px',
+                color: '#0066cc'
+              }}>
+                📤 Uploading image...
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '15px', alignItems: 'end' }}>
             <select
               value={newMenuItem.category}
@@ -432,7 +594,7 @@ const TruckOnboarding = () => {
 
             <button
               onClick={addMenuItem}
-              disabled={loading || !newMenuItem.name || !newMenuItem.price}
+              disabled={loading || uploadingImage || !newMenuItem.name || !newMenuItem.price}
               style={{
                 backgroundColor: '#2c6f57',
                 color: 'white',
@@ -441,11 +603,11 @@ const TruckOnboarding = () => {
                 padding: '12px 24px',
                 fontSize: '14px',
                 fontWeight: 'bold',
-                cursor: (!newMenuItem.name || !newMenuItem.price || loading) ? 'not-allowed' : 'pointer',
-                opacity: (!newMenuItem.name || !newMenuItem.price || loading) ? 0.6 : 1
+                cursor: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 'not-allowed' : 'pointer',
+                opacity: (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) ? 0.6 : 1
               }}
             >
-              {loading ? 'Adding...' : '➕ Add Item'}
+              {uploadingImage ? '📤 Uploading Image...' : (loading ? 'Adding...' : '➕ Add Item')}
             </button>
           </div>
         </div>
@@ -477,53 +639,108 @@ const TruckOnboarding = () => {
                     backgroundColor: 'white',
                     border: '1px solid #ddd',
                     borderRadius: '8px',
-                    padding: '15px',
+                    overflow: 'hidden',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <h4 style={{ margin: 0, color: '#2c6f57', fontSize: '16px' }}>
-                      {item.name}
-                    </h4>
-                    <button
-                      onClick={() => deleteMenuItem(item.id)}
-                      style={{
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c6f57', marginBottom: '8px' }}>
-                    ${parseFloat(item.price).toFixed(2)}
-                  </div>
-                  
-                  {item.description && (
-                    <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#666' }}>
-                      {item.description}
-                    </p>
-                  )}
-                  
-                  {item.category && (
-                    <div style={{
-                      display: 'inline-block',
-                      backgroundColor: '#e9f7f1',
-                      color: '#2c6f57',
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
+                  {/* Item Image */}
+                  {item.image && (
+                    <div style={{ 
+                      width: '100%', 
+                      height: '180px', 
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}>
-                      {item.category}
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px'
+                      }}>
+                        <button
+                          onClick={() => deleteMenuItem(item.id)}
+                          style={{
+                            backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   )}
+
+                  {/* Item Content */}
+                  <div style={{ padding: '15px' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'flex-start', 
+                      marginBottom: '10px' 
+                    }}>
+                      <h4 style={{ margin: 0, color: '#2c6f57', fontSize: '16px' }}>
+                        {item.name}
+                      </h4>
+                      {!item.image && (
+                        <button
+                          onClick={() => deleteMenuItem(item.id)}
+                          style={{
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2c6f57', marginBottom: '8px' }}>
+                      ${parseFloat(item.price).toFixed(2)}
+                    </div>
+                    
+                    {item.description && (
+                      <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#666' }}>
+                        {item.description}
+                      </p>
+                    )}
+                    
+                    {item.category && (
+                      <div style={{
+                        display: 'inline-block',
+                        backgroundColor: '#e9f7f1',
+                        color: '#2c6f57',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {item.category}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
