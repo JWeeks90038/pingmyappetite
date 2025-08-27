@@ -256,13 +256,20 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
 
   // Fetch active events for display on map
   useEffect(() => {
-    if (!currentUser) return;
+    // Always load published events for everyone (authenticated or not)
+    // Only add role-specific events for authenticated users
     
-    // Create user-specific query to avoid permission issues
     let eventsQuery;
     
-    if (currentUser.role === 'event-organizer') {
-      // Event organizers see only their own events
+    if (!currentUser) {
+      // For unauthenticated users, show only published events
+      console.log('🌐 HeatMap: Setting up public query for published events (no authentication)');
+      eventsQuery = query(
+        collection(db, "events"),
+        where("status", "==", "published")
+      );
+    } else if (currentUser.role === 'event-organizer') {
+      // Event organizers see only their own events (all statuses)
       console.log('🎯 HeatMap: Setting up event organizer query for user:', currentUser.uid);
       eventsQuery = query(
         collection(db, "events"),
@@ -284,10 +291,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         where("status", "==", "published")
       );
     } else {
-      // For other users, we'll handle this differently to avoid permission issues
-      console.log('📋 Unknown user role detected:', currentUser.role, 'skipping events query to avoid permissions');
-      setEvents([]);
-      return;
+      // For other authenticated users with unknown roles, show published events
+      console.log('📋 Unknown user role detected:', currentUser.role, 'showing published events only');
+      eventsQuery = query(
+        collection(db, "events"),
+        where("status", "==", "published")
+      );
     }
     
     const unsubscribe = onSnapshot(eventsQuery, 
@@ -305,7 +314,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
           // Check if event has location data
           const hasLocation = event.latitude && event.longitude;
           
-          if (currentUser.role === 'event-organizer') {
+          if (!currentUser) {
+            // For unauthenticated users, show only published events with location
+            const shouldShow = hasLocation && event.status === 'published';
+            console.log('🌐 HeatMap: Public event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
+            return shouldShow;
+          } else if (currentUser.role === 'event-organizer') {
             // For event organizers, show all their events (already filtered by query)
             return hasLocation;
           } else if (currentUser.role === 'owner') {
@@ -318,19 +332,22 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
             const shouldShow = hasLocation && event.status === 'published';
             console.log('👥 HeatMap: Customer event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
             return shouldShow;
+          } else {
+            // For other authenticated users, show published events with location
+            const shouldShow = hasLocation && event.status === 'published';
+            console.log('❓ HeatMap: Unknown role event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
+            return shouldShow;
           }
-          
-          return false; // This shouldn't be reached due to early return above
         });
         
-        console.log("🎉 HeatMap: Final events after filtering:", eventsData.length, "events for", currentUser.role || 'unknown role');
+        console.log("🎉 HeatMap: Final events after filtering:", eventsData.length, "events for", currentUser?.role || 'unauthenticated user');
         if (eventsData.length > 0) {
           console.log("🎉 HeatMap: Event details:", eventsData.map(e => ({ id: e.id, title: e.title, status: e.status, lat: e.latitude, lng: e.longitude })));
         }
         setEvents(eventsData);
       },
       (error) => {
-        console.error('❌ HeatMap: Events listener error for role', currentUser.role, ':', error);
+        console.error('❌ HeatMap: Events listener error for role', currentUser?.role || 'unauthenticated', ':', error);
         console.error('❌ HeatMap: Error details:', error.code, error.message);
         if (error.code === 'permission-denied') {
           console.log('🔒 HeatMap: Permission denied - user may not have access to events or Firestore rules need updating');
