@@ -794,33 +794,13 @@ const updateTruckMarkers = useCallback(async () => {
       if (!markerRefs.current[eventId]) {
         console.log('🎉 HeatMap: Creating new event marker for:', event.id, 'title:', event.title, 'position:', position);
         
-        // Start with basic icon, then upgrade to custom if logo is available
-        const basicIcon = getEventIcon(event.status);
-        
-        const marker = new window.google.maps.Marker({
-          position,
-          map: mapRef.current,
-          icon: basicIcon,
-          title: `Event: ${event.title}`,
-          animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
-          zIndex: 1000 // Higher than truck markers to ensure they're visible
-        });
-
-        // Event marker click handler
-        marker.addListener('click', () => {
-          console.log('🎉 HeatMap: Event marker clicked for modal:', event.id);
-          handleEventClick(event);
-        });
-        
-        markerRefs.current[eventId] = marker;
-        
-        // Fetch organizer logo asynchronously and upgrade marker if available
+        // If event has organizerId, try to fetch logo first and create appropriate marker
         if (event.organizerId) {
           getDoc(doc(db, 'users', event.organizerId))
             .then(organizerDoc => {
               if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
                 const organizerLogoUrl = organizerDoc.data().logoUrl;
-                console.log('🎨 HeatMap: Upgrading event marker with organization logo:', event.id);
+                console.log('🎨 HeatMap: Creating custom event marker with organization logo:', event.id);
                 
                 // Create custom marker with organization logo using documented color system
                 const statusColor = event.status === 'upcoming' ? '#2196F3' : 
@@ -835,7 +815,7 @@ const updateTruckMarkers = useCallback(async () => {
                     border-radius: 50%; 
                     border: 3px solid ${statusColor}; 
                     overflow: hidden;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                     background: white;
                     position: relative;
                   ">
@@ -862,24 +842,77 @@ const updateTruckMarkers = useCallback(async () => {
                   </div>
                 `;
                 
-                // Remove old marker and create custom one
-                if (markerRefs.current[eventId]) {
-                  markerRefs.current[eventId].setMap(null);
-                  
-                  const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
-                  customMarker.addListener('click', () => {
-                    console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
-                    handleEventClick(event);
-                  });
-                  
-                  markerRefs.current[eventId] = customMarker;
-                }
+                const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+                customMarker.addListener('click', () => {
+                  console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+                  handleEventClick(event);
+                });
+                
+                markerRefs.current[eventId] = customMarker;
+              } else {
+                // Fallback to basic star if no logo
+                console.log('🎉 HeatMap: Creating basic star marker for event (no logo):', event.id);
+                const basicIcon = getEventIcon(event.status);
+                
+                const marker = new window.google.maps.Marker({
+                  position,
+                  map: mapRef.current,
+                  icon: basicIcon,
+                  title: `Event: ${event.title}`,
+                  animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                  zIndex: 1000
+                });
+
+                marker.addListener('click', () => {
+                  console.log('🎉 HeatMap: Basic event marker clicked for modal:', event.id);
+                  handleEventClick(event);
+                });
+                
+                markerRefs.current[eventId] = marker;
               }
             })
             .catch(error => {
               console.log('🔒 HeatMap: Could not fetch organizer data for event:', event.id, error.message);
-              // Continue with default icon if organizer data fetch fails
+              
+              // Fallback to basic star if organizer data fetch fails
+              const basicIcon = getEventIcon(event.status);
+              
+              const marker = new window.google.maps.Marker({
+                position,
+                map: mapRef.current,
+                icon: basicIcon,
+                title: `Event: ${event.title}`,
+                animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                zIndex: 1000
+              });
+
+              marker.addListener('click', () => {
+                console.log('🎉 HeatMap: Fallback event marker clicked for modal:', event.id);
+                handleEventClick(event);
+              });
+              
+              markerRefs.current[eventId] = marker;
             });
+        } else {
+          // No organizerId, create basic star marker immediately
+          console.log('🎉 HeatMap: Creating basic star marker for event (no organizerId):', event.id);
+          const basicIcon = getEventIcon(event.status);
+          
+          const marker = new window.google.maps.Marker({
+            position,
+            map: mapRef.current,
+            icon: basicIcon,
+            title: `Event: ${event.title}`,
+            animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+            zIndex: 1000
+          });
+
+          marker.addListener('click', () => {
+            console.log('🎉 HeatMap: Basic event marker clicked for modal:', event.id);
+            handleEventClick(event);
+          });
+          
+          markerRefs.current[eventId] = marker;
         }
       } else {
         // Update existing event marker
