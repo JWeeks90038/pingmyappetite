@@ -363,6 +363,247 @@ router.put('/orders/:orderId/status', async (req, res) => {
   }
 });
 
+/**
+ * MENU MANAGEMENT ROUTES
+ */
+
+// Get truck's menu items
+router.get('/trucks/:truckId/menu', async (req, res) => {
+  try {
+    const { truckId } = req.params;
+
+    const db = admin.firestore();
+    const menuSnapshot = await db.collection('menuItems')
+      .where('truckId', '==', truckId)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const items = menuSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    res.json({
+      items,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching menu items:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch menu items',
+      details: error.message 
+    });
+  }
+});
+
+// Add new menu item
+router.post('/trucks/:truckId/menu', async (req, res) => {
+  try {
+    const { truckId } = req.params;
+    const { name, price, description, category, image } = req.body;
+
+    if (!name || !price) {
+      return res.status(400).json({ 
+        error: 'name and price are required' 
+      });
+    }
+
+    const db = admin.firestore();
+    
+    // Verify truck exists
+    const truckDoc = await db.collection('users').doc(truckId).get();
+    if (!truckDoc.exists) {
+      return res.status(404).json({ error: 'Truck not found' });
+    }
+
+    // Create menu item
+    const menuItemRef = await db.collection('menuItems').add({
+      truckId,
+      name: name.trim(),
+      price: parseFloat(price),
+      description: description?.trim() || '',
+      category: category?.trim() || '',
+      image: image || null,
+      available: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    const menuItem = {
+      id: menuItemRef.id,
+      truckId,
+      name: name.trim(),
+      price: parseFloat(price),
+      description: description?.trim() || '',
+      category: category?.trim() || '',
+      image: image || null,
+      available: true
+    };
+
+    console.log(`✅ Added menu item ${menuItemRef.id} for truck ${truckId}`);
+
+    res.json({
+      item: menuItem,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to add menu item',
+      details: error.message 
+    });
+  }
+});
+
+// Update menu item
+router.put('/trucks/:truckId/menu/:itemId', async (req, res) => {
+  try {
+    const { truckId, itemId } = req.params;
+    const { name, price, description, category, image, available } = req.body;
+
+    const db = admin.firestore();
+    
+    // Verify menu item exists and belongs to truck
+    const menuItemDoc = await db.collection('menuItems').doc(itemId).get();
+    if (!menuItemDoc.exists) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    const menuItemData = menuItemDoc.data();
+    if (menuItemData.truckId !== truckId) {
+      return res.status(403).json({ error: 'Unauthorized to update this menu item' });
+    }
+
+    // Prepare update data
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (name !== undefined) updateData.name = name.trim();
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (description !== undefined) updateData.description = description.trim();
+    if (category !== undefined) updateData.category = category.trim();
+    if (image !== undefined) updateData.image = image;
+    if (available !== undefined) updateData.available = Boolean(available);
+
+    // Update menu item
+    await db.collection('menuItems').doc(itemId).update(updateData);
+
+    console.log(`✅ Updated menu item ${itemId} for truck ${truckId}`);
+
+    res.json({
+      itemId,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to update menu item',
+      details: error.message 
+    });
+  }
+});
+
+// Delete menu item
+router.delete('/trucks/:truckId/menu/:itemId', async (req, res) => {
+  try {
+    const { truckId, itemId } = req.params;
+
+    const db = admin.firestore();
+    
+    // Verify menu item exists and belongs to truck
+    const menuItemDoc = await db.collection('menuItems').doc(itemId).get();
+    if (!menuItemDoc.exists) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    const menuItemData = menuItemDoc.data();
+    if (menuItemData.truckId !== truckId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this menu item' });
+    }
+
+    // Delete menu item
+    await db.collection('menuItems').doc(itemId).delete();
+
+    console.log(`✅ Deleted menu item ${itemId} for truck ${truckId}`);
+
+    res.json({
+      itemId,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete menu item',
+      details: error.message 
+    });
+  }
+});
+
+// Get truck status (including account status)
+router.get('/trucks/status', async (req, res) => {
+  try {
+    // Extract user ID from JWT token
+    const authToken = req.headers.authorization?.replace('Bearer ', '');
+    if (!authToken) {
+      return res.status(401).json({ error: 'No authorization token provided' });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(authToken);
+    const truckId = decodedToken.uid;
+
+    const db = admin.firestore();
+    const truckDoc = await db.collection('users').doc(truckId).get();
+    
+    if (!truckDoc.exists) {
+      return res.status(404).json({ error: 'Truck not found' });
+    }
+
+    const truckData = truckDoc.data();
+    const accountId = truckData.stripeAccountId;
+
+    if (!accountId) {
+      return res.json({
+        status: 'no_account',
+        success: true
+      });
+    }
+
+    // Get account details from Stripe
+    const account = await stripe.accounts.retrieve(accountId);
+
+    let status = 'pending';
+    if (account.details_submitted && account.payouts_enabled && account.charges_enabled) {
+      status = 'active';
+    } else if (account.details_submitted) {
+      status = 'pending';
+    } else {
+      status = 'created';
+    }
+
+    res.json({
+      status,
+      stripeAccountId: accountId,
+      detailsSubmitted: account.details_submitted,
+      payoutsEnabled: account.payouts_enabled,
+      chargesEnabled: account.charges_enabled,
+      requirements: account.requirements,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking truck status:', error);
+    res.status(500).json({ 
+      error: 'Failed to check truck status',
+      details: error.message 
+    });
+  }
+});
+
 // Function to initialize the router with stripe instance
 function createMarketplaceRouter(stripeInstance) {
   stripe = stripeInstance;
