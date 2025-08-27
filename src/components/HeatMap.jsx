@@ -556,16 +556,17 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
     };
   }
   
-  // 3-color system: Gray for draft, Yellow for active, Green for completed, Blue for published, Purple for upcoming
-  let fillColor = '#9E9E9E'; // Default gray for draft
-  if (eventStatus === 'active') {
-    fillColor = '#FFD700'; // Gold for active
+  // Event color system matching EventOrganizerMediaUploader documentation:
+  // Gray (draft), Blue (upcoming), Green (active), Orange (completed)
+  let fillColor = '#9E9E9E'; // Gray for draft
+  if (eventStatus === 'upcoming') {
+    fillColor = '#2196F3'; // Blue for upcoming
+  } else if (eventStatus === 'active') {
+    fillColor = '#4CAF50'; // Green for active
   } else if (eventStatus === 'completed') {
-    fillColor = '#4CAF50'; // Green for completed
+    fillColor = '#FF63B5'; // Orange for completed
   } else if (eventStatus === 'published') {
-    fillColor = '#2196F3'; // Blue for published
-  } else if (eventStatus === 'upcoming') {
-    fillColor = '#9C27B0'; // Purple for upcoming
+    fillColor = '#2196F3'; // Blue for published (same as upcoming)
   }
 
   return {
@@ -821,11 +822,11 @@ const updateTruckMarkers = useCallback(async () => {
                 const organizerLogoUrl = organizerDoc.data().logoUrl;
                 console.log('🎨 HeatMap: Upgrading event marker with organization logo:', event.id);
                 
-                // Create custom marker with organization logo
-                const statusColor = event.status === 'active' ? '#FFD700' : 
-                                   event.status === 'published' ? '#2196F3' : 
-                                   event.status === 'completed' ? '#4CAF50' : 
-                                   event.status === 'upcoming' ? '#9C27B0' : '#9E9E9E';
+                // Create custom marker with organization logo using documented color system
+                const statusColor = event.status === 'upcoming' ? '#2196F3' : 
+                                   event.status === 'active' ? '#4CAF50' : 
+                                   event.status === 'completed' ? '#FF63B5' : 
+                                   event.status === 'published' ? '#2196F3' : '#9E9E9E';
                 
                 const customMarkerContent = `
                   <div style="
