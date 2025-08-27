@@ -702,10 +702,14 @@ const updateTruckMarkers = useCallback(async () => {
         // Standard marker
         animateMarkerTo(marker, position);
         const currentTruckName = truckNames[truck.id] || truck.truckName || truck.name || "Food Truck";
-        marker.setTitle(currentTruckName);
+        
+        // Only call setTitle if it's a standard Google Maps marker
+        if (marker.setTitle && typeof marker.setTitle === 'function') {
+          marker.setTitle(currentTruckName);
+        }
         
         // Only set icon if it's a valid Google Maps icon (not custom)
-        if (icon && icon.type !== 'custom') {
+        if (icon && icon.type !== 'custom' && marker.setIcon && typeof marker.setIcon === 'function') {
           marker.setIcon(icon);
         }
       }
@@ -818,13 +822,22 @@ const updateTruckMarkers = useCallback(async () => {
         const marker = markerRefs.current[eventId];
         
         // Check if this is a standard Google Maps marker (has setPosition method)
-        if (marker.setPosition) {
+        if (marker.setPosition && typeof marker.setPosition === 'function') {
           marker.setPosition(position);
-          marker.setTitle(`Event: ${event.title}`);
+          
+          // Only call setTitle if it's available
+          if (marker.setTitle && typeof marker.setTitle === 'function') {
+            marker.setTitle(`Event: ${event.title}`);
+          }
           
           const icon = getEventIcon(event.status);
-          marker.setIcon(icon);
-          marker.setAnimation(event.status === 'active' ? window.google.maps.Animation.BOUNCE : null);
+          if (marker.setIcon && typeof marker.setIcon === 'function') {
+            marker.setIcon(icon);
+          }
+          
+          if (marker.setAnimation && typeof marker.setAnimation === 'function') {
+            marker.setAnimation(event.status === 'active' ? window.google.maps.Animation.BOUNCE : null);
+          }
         } else {
           // This is a custom marker, recreate it with updated status
           marker.setMap(null);

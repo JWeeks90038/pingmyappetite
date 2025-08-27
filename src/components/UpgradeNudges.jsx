@@ -290,7 +290,7 @@ export default UpgradeNudgeManager;
 
 // Hook to trigger nudges from other components
 export const useUpgradeNudges = () => {
-  const { userPlan, userRole } = useAuth();
+  const { userPlan, userRole, user } = useAuth();
   
   const triggerManualLocationUpdate = () => {
     if (userRole === 'owner' && userPlan === 'basic' && window.trackManualLocationUpdate) {
