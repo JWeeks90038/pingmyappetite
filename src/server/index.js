@@ -6,7 +6,7 @@ import bodyParser from 'body-parser';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
 import fetch from 'node-fetch'; // Add fetch for Node.js
-import createMarketplaceRouter from './marketplaceRoutes.js';
+import { initializeMarketplaceRoutes } from './marketplaceRoutes.js';
 import createWebhookRouter from './webhookRoutes.js';
 
 // Initialize Firebase Admin
@@ -920,7 +920,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use(express.json());
 
 // Initialize marketplace routes with stripe instance
-const marketplaceRoutes = createMarketplaceRouter(stripe);
+const marketplaceRoutes = initializeMarketplaceRoutes(stripe);
 app.use('/api/marketplace', marketplaceRoutes);
 
 // Create a subscription endpoint

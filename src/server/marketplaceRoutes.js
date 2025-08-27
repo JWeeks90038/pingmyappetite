@@ -1,14 +1,80 @@
 import express from 'express';
 import admin from 'firebase-admin';
+import { 
+  calculateOrderPlatformFees, 
+  getSubscriptionPlan,
+  PLATFORM_CONFIG,
+  STRIPE_PROCESSING_FEES 
+} from './paymentConfig.js';
+import { 
+  getUserSubscription, 
+  handleSubscriptionWebhook,
+  initializeSubscriptionService,
+  createOrUpdateSubscription
+} from './subscriptionService.js';
 
 const router = express.Router();
 
-// Constants
-const APPLICATION_FEE_PERCENTAGE = 0.02; // 2% application fee
-const PLATFORM_CURRENCY = 'usd';
-
 // This will be set when the router is created
 let stripe;
+
+/**
+ * Initialize the marketplace routes with Stripe instance
+ * @param {Object} stripeInstance - Configured Stripe instance
+ */
+export function initializeMarketplaceRoutes(stripeInstance) {
+  stripe = stripeInstance;
+  initializeSubscriptionService(stripeInstance);
+  return router;
+}
+
+/**
+ * SUBSCRIPTION ROUTES
+ */
+
+// Get user's current subscription
+router.get('/subscription/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const subscription = await getUserSubscription(userId);
+    
+    res.json({
+      success: true,
+      subscription
+    });
+  } catch (error) {
+    console.error('❌ Error getting subscription:', error);
+    res.status(500).json({ 
+      error: 'Failed to get subscription',
+      details: error.message 
+    });
+  }
+});
+
+// Create or update subscription
+router.post('/subscription/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { planId, paymentMethodId } = req.body;
+    
+    if (!planId) {
+      return res.status(400).json({ error: 'planId is required' });
+    }
+    
+    const result = await createOrUpdateSubscription(userId, planId, paymentMethodId);
+    
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error updating subscription:', error);
+    res.status(500).json({ 
+      error: 'Failed to update subscription',
+      details: error.message 
+    });
+  }
+});
 
 /**
  * FOOD TRUCK ONBOARDING ROUTES
@@ -48,14 +114,21 @@ router.post('/trucks/onboard', async (req, res) => {
     const db = admin.firestore();
     await db.collection('users').doc(truckId).update({
       stripeAccountId: account.id,
-      stripeAccountStatus: 'created',
+      stripeOnboardingStatus: 'pending',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log(`✅ Created Stripe account ${account.id} for truck ${truckId}`);
+    // Create account link for onboarding
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.FRONTEND_URL}/truck/onboarding/refresh`,
+      return_url: `${process.env.FRONTEND_URL}/truck/onboarding/complete`,
+      type: 'account_onboarding',
+    });
 
     res.json({
       accountId: account.id,
+      onboardingUrl: accountLink.url,
       success: true
     });
 
@@ -63,94 +136,6 @@ router.post('/trucks/onboard', async (req, res) => {
     console.error('❌ Error creating Stripe account:', error);
     res.status(500).json({ 
       error: 'Failed to create Stripe account',
-      details: error.message 
-    });
-  }
-});
-
-// Create onboarding link for food truck
-router.post('/trucks/onboarding-link', async (req, res) => {
-  try {
-    const { truckId, accountId } = req.body;
-
-    if (!accountId) {
-      return res.status(400).json({ 
-        error: 'accountId is required' 
-      });
-    }
-
-    // Create account link for onboarding
-    const accountLink = await stripe.accountLinks.create({
-      account: accountId,
-      refresh_url: `${process.env.FRONTEND_URL}/truck/onboarding?refresh=true&truck=${truckId}`,
-      return_url: `${process.env.FRONTEND_URL}/truck/onboarding/success?truck=${truckId}`,
-      type: 'account_onboarding'
-    });
-
-    console.log(`✅ Created onboarding link for account ${accountId}`);
-
-    res.json({
-      onboardingUrl: accountLink.url,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error creating onboarding link:', error);
-    res.status(500).json({ 
-      error: 'Failed to create onboarding link',
-      details: error.message 
-    });
-  }
-});
-
-// Check onboarding status
-router.get('/trucks/:truckId/onboarding-status', async (req, res) => {
-  try {
-    const { truckId } = req.params;
-
-    // Get account ID from Firestore
-    const db = admin.firestore();
-    const truckDoc = await db.collection('users').doc(truckId).get();
-    
-    if (!truckDoc.exists) {
-      return res.status(404).json({ error: 'Truck not found' });
-    }
-
-    const truckData = truckDoc.data();
-    const accountId = truckData.stripeAccountId;
-
-    if (!accountId) {
-      return res.json({
-        onboardingCompleted: false,
-        payoutsEnabled: false,
-        chargesEnabled: false
-      });
-    }
-
-    // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(accountId);
-
-    const status = {
-      onboardingCompleted: account.details_submitted,
-      payoutsEnabled: account.payouts_enabled,
-      chargesEnabled: account.charges_enabled,
-      accountId: account.id
-    };
-
-    // Update status in Firestore
-    await db.collection('users').doc(truckId).update({
-      stripeAccountStatus: account.details_submitted ? 'completed' : 'pending',
-      stripePayoutsEnabled: account.payouts_enabled,
-      stripeChargesEnabled: account.charges_enabled,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    res.json(status);
-
-  } catch (error) {
-    console.error('❌ Error checking onboarding status:', error);
-    res.status(500).json({ 
-      error: 'Failed to check onboarding status',
       details: error.message 
     });
   }
@@ -177,7 +162,14 @@ router.post('/orders/create-checkout', async (req, res) => {
       });
     }
 
-    // Get truck's Stripe account ID
+    // Validate minimum order amount
+    if (totalAmount < PLATFORM_CONFIG.minimumOrderAmount) {
+      return res.status(400).json({ 
+        error: `Minimum order amount is $${PLATFORM_CONFIG.minimumOrderAmount / 100}` 
+      });
+    }
+
+    // Get truck's subscription plan and Stripe account ID
     const db = admin.firestore();
     const truckDoc = await db.collection('users').doc(truckId).get();
     
@@ -194,20 +186,43 @@ router.post('/orders/create-checkout', async (req, res) => {
       });
     }
 
-    // Calculate application fee (2% of total)
-    const applicationFeeAmount = Math.round(totalAmount * APPLICATION_FEE_PERCENTAGE);
+    // Get truck's current subscription to determine platform fees
+    const subscriptionInfo = await getUserSubscription(truckId);
+    const planId = subscriptionInfo.planId;
+    
+    // Calculate platform fees based on truck's subscription plan
+    const feeCalculation = calculateOrderPlatformFees(orderItems, planId);
+    
+    console.log(`📊 Order fee calculation for ${subscriptionInfo.plan.name} plan:`, {
+      totalOrderValue: feeCalculation.totalOrderValue,
+      totalPlatformFee: feeCalculation.totalPlatformFee,
+      platformFeePercentage: (feeCalculation.platformFeePercentage * 100).toFixed(2) + '%',
+      planId
+    });
+
+    // Ensure calculated total matches provided total (with small tolerance for rounding)
+    const calculatedTotal = feeCalculation.totalOrderValue;
+    if (Math.abs(calculatedTotal - totalAmount) > 10) { // 10 cent tolerance
+      return res.status(400).json({ 
+        error: `Order total mismatch. Expected: $${calculatedTotal/100}, Received: $${totalAmount/100}` 
+      });
+    }
     
     // Create order record in Firestore first
     const orderRef = await db.collection('orders').add({
       truckId,
       customerId,
       items: orderItems,
-      totalAmount,
-      applicationFeeAmount,
-      currency: PLATFORM_CURRENCY,
+      totalAmount: calculatedTotal,
+      platformFeeAmount: feeCalculation.totalPlatformFee,
+      platformFeePercentage: feeCalculation.platformFeePercentage,
+      planId,
+      planName: subscriptionInfo.plan.name,
+      currency: PLATFORM_CONFIG.currency,
       status: 'pending',
       paymentStatus: 'pending',
       stripeAccountId,
+      feeBreakdown: feeCalculation.itemBreakdown,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: orderMetadata
@@ -216,57 +231,70 @@ router.post('/orders/create-checkout', async (req, res) => {
     // Create line items for Stripe checkout
     const lineItems = orderItems.map(item => ({
       price_data: {
-        currency: PLATFORM_CURRENCY,
+        currency: PLATFORM_CONFIG.currency,
         product_data: {
           name: item.name,
           description: item.description || '',
           images: item.images || []
         },
-        unit_amount: Math.round(item.price * 100) // Convert to cents
+        unit_amount: item.price // Already in cents from frontend
       },
       quantity: item.quantity || 1
     }));
 
-    // Create Stripe checkout session
+    // Create Stripe checkout session with platform fee
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      customer: customerId,
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/order/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderRef.id}`,
-      cancel_url: `${process.env.FRONTEND_URL}/order/cancelled?order_id=${orderRef.id}`,
+      success_url: `${req.headers.origin || 'https://grubana.com'}/order-success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderRef.id}`,
+      cancel_url: `${req.headers.origin || 'https://grubana.com'}/order-cancelled?order_id=${orderRef.id}`,
       payment_intent_data: {
-        application_fee_amount: applicationFeeAmount,
+        application_fee_amount: feeCalculation.totalPlatformFee,
         transfer_data: {
-          destination: stripeAccountId
+          destination: stripeAccountId,
         },
         metadata: {
           orderId: orderRef.id,
           truckId,
-          customerId: customerId || 'guest'
+          customerId: customerId || 'guest',
+          planId,
+          platformFeeAmount: feeCalculation.totalPlatformFee.toString()
         }
       },
       metadata: {
         orderId: orderRef.id,
         truckId,
-        customerId: customerId || 'guest'
+        customerId: customerId || 'guest',
+        planId
       }
     });
 
     // Update order with Stripe session ID
     await orderRef.update({
       stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log(`✅ Created checkout session ${session.id} for order ${orderRef.id}`);
+    console.log(`✅ Created checkout session for order ${orderRef.id}:`, {
+      sessionId: session.id,
+      totalAmount: calculatedTotal,
+      platformFee: feeCalculation.totalPlatformFee,
+      planName: subscriptionInfo.plan.name
+    });
 
     res.json({
+      success: true,
       sessionId: session.id,
-      sessionUrl: session.url,
+      url: session.url,
       orderId: orderRef.id,
-      applicationFeeAmount,
-      success: true
+      feeBreakdown: {
+        totalAmount: calculatedTotal,
+        platformFee: feeCalculation.totalPlatformFee,
+        platformFeePercentage: feeCalculation.platformFeePercentage,
+        planName: subscriptionInfo.plan.name
+      }
     });
 
   } catch (error) {
@@ -278,347 +306,94 @@ router.post('/orders/create-checkout', async (req, res) => {
   }
 });
 
-// Get order details
-router.get('/orders/:orderId', async (req, res) => {
+/**
+ * WEBHOOK ROUTES
+ */
+
+// Stripe webhook handler
+router.post('/webhooks/stripe', express.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
   try {
-    const { orderId } = req.params;
-
-    const db = admin.firestore();
-    const orderDoc = await db.collection('orders').doc(orderId).get();
-
-    if (!orderDoc.exists) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    const orderData = orderDoc.data();
-    
-    res.json({
-      orderId,
-      ...orderData,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching order:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch order',
-      details: error.message 
-    });
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error('❌ Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
-});
 
-// Update order status (for trucks)
-router.put('/orders/:orderId/status', async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { status, truckId } = req.body;
-
-    if (!status || !truckId) {
-      return res.status(400).json({ 
-        error: 'status and truckId are required' 
-      });
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        await handleCheckoutCompleted(session);
+        break;
+        
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object;
+        await handlePaymentSucceeded(paymentIntent);
+        break;
+        
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+      case 'invoice.payment_failed':
+        await handleSubscriptionWebhook(event);
+        break;
+        
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
 
-    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
-      });
-    }
-
-    const db = admin.firestore();
-    const orderDoc = await db.collection('orders').doc(orderId).get();
-
-    if (!orderDoc.exists) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    const orderData = orderDoc.data();
-
-    // Verify truck owns this order
-    if (orderData.truckId !== truckId) {
-      return res.status(403).json({ error: 'Unauthorized to update this order' });
-    }
-
-    // Update order status
-    await db.collection('orders').doc(orderId).update({
-      status,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    console.log(`✅ Updated order ${orderId} status to ${status}`);
-
-    res.json({
-      orderId,
-      status,
-      success: true
-    });
-
+    res.json({received: true});
   } catch (error) {
-    console.error('❌ Error updating order status:', error);
-    res.status(500).json({ 
-      error: 'Failed to update order status',
-      details: error.message 
-    });
+    console.error('❌ Error handling webhook:', error);
+    res.status(500).json({ error: 'Webhook handler failed' });
   }
 });
 
 /**
- * MENU MANAGEMENT ROUTES
+ * WEBHOOK HELPER FUNCTIONS
  */
 
-// Get truck's menu items
-router.get('/trucks/:truckId/menu', async (req, res) => {
+async function handleCheckoutCompleted(session) {
   try {
-    const { truckId } = req.params;
-    console.log(`🔍 Fetching menu items for truck: ${truckId}`);
+    const orderId = session.metadata.orderId;
+    if (!orderId) return;
 
     const db = admin.firestore();
-    const menuSnapshot = await db.collection('menuItems')
-      .where('truckId', '==', truckId)
-      .get();
-
-    const items = menuSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    console.log(`✅ Found ${items.length} menu items for truck ${truckId}`);
-
-    res.json({
-      items,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching menu items:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch menu items',
-      details: error.message 
-    });
-  }
-});
-
-// Add new menu item
-router.post('/trucks/:truckId/menu', async (req, res) => {
-  try {
-    const { truckId } = req.params;
-    const { name, price, description, category, image } = req.body;
-
-    console.log(`📝 Creating menu item for truck ${truckId}:`, { name, price, description, category, hasImage: !!image });
-
-    if (!name || !price) {
-      return res.status(400).json({ 
-        error: 'name and price are required' 
-      });
-    }
-
-    const db = admin.firestore();
-    
-    // Verify truck exists
-    const truckDoc = await db.collection('users').doc(truckId).get();
-    if (!truckDoc.exists) {
-      console.log(`❌ Truck ${truckId} not found in users collection`);
-      return res.status(404).json({ error: 'Truck not found' });
-    }
-
-    console.log(`✅ Truck ${truckId} verified, creating menu item...`);
-
-    // Create menu item
-    const menuItemData = {
-      truckId,
-      name: name.trim(),
-      price: parseFloat(price),
-      description: description?.trim() || '',
-      category: category?.trim() || '',
-      image: image || null,
-      available: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    await db.collection('orders').doc(orderId).update({
+      paymentStatus: 'completed',
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    console.log(`💾 Saving menu item to Firestore:`, menuItemData);
-
-    const menuItemRef = await db.collection('menuItems').add(menuItemData);
-
-    const menuItem = {
-      id: menuItemRef.id,
-      truckId,
-      name: name.trim(),
-      price: parseFloat(price),
-      description: description?.trim() || '',
-      category: category?.trim() || '',
-      image: image || null,
-      available: true
-    };
-
-    console.log(`✅ Successfully added menu item ${menuItemRef.id} for truck ${truckId}`);
-
-    res.json({
-      item: menuItem,
-      success: true
     });
 
+    console.log(`✅ Payment completed for order: ${orderId}`);
   } catch (error) {
-    console.error('❌ Error adding menu item:', error);
-    res.status(500).json({ 
-      error: 'Failed to add menu item',
-      details: error.message 
-    });
+    console.error('❌ Error handling checkout completion:', error);
   }
-});
-
-// Update menu item
-router.put('/trucks/:truckId/menu/:itemId', async (req, res) => {
-  try {
-    const { truckId, itemId } = req.params;
-    const { name, price, description, category, image, available } = req.body;
-
-    const db = admin.firestore();
-    
-    // Verify menu item exists and belongs to truck
-    const menuItemDoc = await db.collection('menuItems').doc(itemId).get();
-    if (!menuItemDoc.exists) {
-      return res.status(404).json({ error: 'Menu item not found' });
-    }
-
-    const menuItemData = menuItemDoc.data();
-    if (menuItemData.truckId !== truckId) {
-      return res.status(403).json({ error: 'Unauthorized to update this menu item' });
-    }
-
-    // Prepare update data
-    const updateData = {
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    if (name !== undefined) updateData.name = name.trim();
-    if (price !== undefined) updateData.price = parseFloat(price);
-    if (description !== undefined) updateData.description = description.trim();
-    if (category !== undefined) updateData.category = category.trim();
-    if (image !== undefined) updateData.image = image;
-    if (available !== undefined) updateData.available = Boolean(available);
-
-    // Update menu item
-    await db.collection('menuItems').doc(itemId).update(updateData);
-
-    console.log(`✅ Updated menu item ${itemId} for truck ${truckId}`);
-
-    res.json({
-      itemId,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error updating menu item:', error);
-    res.status(500).json({ 
-      error: 'Failed to update menu item',
-      details: error.message 
-    });
-  }
-});
-
-// Delete menu item
-router.delete('/trucks/:truckId/menu/:itemId', async (req, res) => {
-  try {
-    const { truckId, itemId } = req.params;
-
-    const db = admin.firestore();
-    
-    // Verify menu item exists and belongs to truck
-    const menuItemDoc = await db.collection('menuItems').doc(itemId).get();
-    if (!menuItemDoc.exists) {
-      return res.status(404).json({ error: 'Menu item not found' });
-    }
-
-    const menuItemData = menuItemDoc.data();
-    if (menuItemData.truckId !== truckId) {
-      return res.status(403).json({ error: 'Unauthorized to delete this menu item' });
-    }
-
-    // Delete menu item
-    await db.collection('menuItems').doc(itemId).delete();
-
-    console.log(`✅ Deleted menu item ${itemId} for truck ${truckId}`);
-
-    res.json({
-      itemId,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error deleting menu item:', error);
-    res.status(500).json({ 
-      error: 'Failed to delete menu item',
-      details: error.message 
-    });
-  }
-});
-
-// Get truck status (including account status)
-router.get('/trucks/status', async (req, res) => {
-  try {
-    // Extract user ID from JWT token
-    const authToken = req.headers.authorization?.replace('Bearer ', '');
-    if (!authToken) {
-      return res.status(401).json({ error: 'No authorization token provided' });
-    }
-
-    const decodedToken = await admin.auth().verifyIdToken(authToken);
-    const truckId = decodedToken.uid;
-
-    const db = admin.firestore();
-    const truckDoc = await db.collection('users').doc(truckId).get();
-    
-    if (!truckDoc.exists) {
-      return res.status(404).json({ error: 'Truck not found' });
-    }
-
-    const truckData = truckDoc.data();
-    const accountId = truckData.stripeAccountId;
-
-    if (!accountId) {
-      return res.json({
-        status: 'no_account',
-        success: true
-      });
-    }
-
-    // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(accountId);
-
-    let status = 'pending';
-    if (account.details_submitted && account.payouts_enabled && account.charges_enabled) {
-      status = 'active';
-    } else if (account.details_submitted) {
-      status = 'pending';
-    } else {
-      status = 'created';
-    }
-
-    res.json({
-      status,
-      stripeAccountId: accountId,
-      detailsSubmitted: account.details_submitted,
-      payoutsEnabled: account.payouts_enabled,
-      chargesEnabled: account.charges_enabled,
-      requirements: account.requirements,
-      success: true
-    });
-
-  } catch (error) {
-    console.error('❌ Error checking truck status:', error);
-    res.status(500).json({ 
-      error: 'Failed to check truck status',
-      details: error.message 
-    });
-  }
-});
-
-// Function to initialize the router with stripe instance
-function createMarketplaceRouter(stripeInstance) {
-  stripe = stripeInstance;
-  return router;
 }
 
-export default createMarketplaceRouter;
+async function handlePaymentSucceeded(paymentIntent) {
+  try {
+    const orderId = paymentIntent.metadata.orderId;
+    if (!orderId) return;
+
+    const db = admin.firestore();
+    await db.collection('orders').doc(orderId).update({
+      status: 'confirmed',
+      paymentStatus: 'completed',
+      stripePaymentIntentId: paymentIntent.id,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`✅ Payment succeeded for order: ${orderId}, amount: $${paymentIntent.amount / 100}`);
+  } catch (error) {
+    console.error('❌ Error handling payment success:', error);
+  }
+}
+
+export default router;
