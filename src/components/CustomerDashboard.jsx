@@ -2120,7 +2120,11 @@ return (
           overflowY: 'auto',
           borderRight: '1px solid #eee'
         }}>
-          <PreOrderContent truckId={activeTruck.ownerUid || activeTruck.uid || activeTruck.id} cart={cart} setCart={setCart} />
+          {(() => {
+            console.log('🛒 Pre-Order Modal rendering with activeTruck:', activeTruck);
+            console.log('🛒 Pre-Order Modal truckId will be:', activeTruck.ownerUid || activeTruck.uid || activeTruck.id);
+            return <PreOrderContent truckId={activeTruck.ownerUid || activeTruck.uid || activeTruck.id} cart={cart} setCart={setCart} />;
+          })()}
         </div>
 
         {/* Cart */}
