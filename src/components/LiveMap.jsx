@@ -7,6 +7,7 @@ import {
 import { collection, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import PinDrop from "../utils/pinDrop";
+import EventModal from "./EventModal";
 import "../assets/LiveMap.css";
 
 const containerStyle = {
@@ -45,6 +46,8 @@ const LiveMap = ({ isLoaded }) => {
   const [mapCenter, setMapCenter] = useState(defaultCenter);
   const [userLocation, setUserLocation] = useState(null);
   const [mapZoom, setMapZoom] = useState(4);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
   const mapRef = useRef(null);
 
   // Geolocation effect to center map on user's location
@@ -155,6 +158,13 @@ const LiveMap = ({ isLoaded }) => {
     }
   };
 
+  // Event click handler for modal
+  const handleEventClick = (event) => {
+    console.log('🎉 LiveMap: Event clicked for details:', event.id);
+    setSelectedEvent(event);
+    setShowEventModal(true);
+  };
+
   const filteredPins = pins.filter((pin) =>
     selectedCuisine === "all" ? true : pin.cuisine === selectedCuisine
   );
@@ -217,6 +227,7 @@ const LiveMap = ({ isLoaded }) => {
             position={{ lat: event.latitude, lng: event.longitude }}
             icon={getEventIcon(event.status)}
             title={`Event: ${event.title} - ${event.date}`}
+            onClick={() => handleEventClick(event)}
           />
         ))}
 
@@ -275,6 +286,24 @@ const LiveMap = ({ isLoaded }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Event Modal */}
+      {selectedEvent && (
+        <EventModal 
+          event={selectedEvent}
+          isOpen={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            setSelectedEvent(null);
+          }}
+          onApply={() => {
+            // Handle application logic here if needed for customer view
+            console.log('Customer viewing event details:', selectedEvent.id);
+            setShowEventModal(false);
+            setSelectedEvent(null);
+          }}
+        />
       )}
     </>
   );

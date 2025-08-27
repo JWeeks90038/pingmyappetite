@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, del
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { useGoogleMaps } from './MobileGoogleMapsWrapper';
+import EventModal from './EventModal';
 import './EventOrganizerMap.css';
 
 const LIBRARIES = ['visualization', 'places'];
@@ -29,6 +30,7 @@ const EventOrganizerMap = ({ organizerData }) => {
   const [trucks, setTrucks] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedTruck, setSelectedTruck] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
   const selectedEventRef = useRef(null);
   const infoWindowRef = useRef(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -575,9 +577,10 @@ const EventOrganizerMap = ({ organizerData }) => {
     // Use ref to prevent rapid state changes
     selectedEventRef.current = event;
     setSelectedEvent(event);
+    setShowEventModal(true);
     
-    // Create native InfoWindow
-    createNativeInfoWindow(event);
+    // Create native InfoWindow (keep existing functionality)
+    // createNativeInfoWindow(event);
   }, [isClickThrottled, createNativeInfoWindow]);
 
   // Cleanup InfoWindow on unmount
@@ -2226,6 +2229,26 @@ const EventOrganizerMap = ({ organizerData }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Event Modal */}
+      {selectedEvent && (
+        <EventModal 
+          event={selectedEvent}
+          isOpen={showEventModal}
+          onClose={() => {
+            setShowEventModal(false);
+            setSelectedEvent(null);
+            selectedEventRef.current = null;
+          }}
+          onApply={() => {
+            // Handle application logic for event organizer view
+            console.log('Event organizer viewing event details:', selectedEvent.id);
+            setShowEventModal(false);
+            setSelectedEvent(null);
+            selectedEventRef.current = null;
+          }}
+        />
       )}
     </div>
   );
