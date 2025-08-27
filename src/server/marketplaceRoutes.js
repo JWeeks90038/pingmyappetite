@@ -480,10 +480,10 @@ router.get('/trucks/:truckId/menu', async (req, res) => {
     console.log(`🍽️ Fetching menu items for truck owner: ${truckId}`);
     
     // Query the menuItems collection with ownerId filter
+    // Note: Not using orderBy to avoid issues with missing createdAt fields
     const menuSnapshot = await db
       .collection('menuItems')
       .where('ownerId', '==', truckId)
-      .orderBy('createdAt', 'desc')
       .get();
 
     const items = [];
@@ -493,6 +493,15 @@ router.get('/trucks/:truckId/menu', async (req, res) => {
         id: doc.id,
         ...data
       });
+    });
+
+    // Sort by createdAt if available, otherwise by name
+    items.sort((a, b) => {
+      if (a.createdAt && b.createdAt) {
+        return new Date(b.createdAt.toDate ? b.createdAt.toDate() : b.createdAt) - 
+               new Date(a.createdAt.toDate ? a.createdAt.toDate() : a.createdAt);
+      }
+      return (a.name || '').localeCompare(b.name || '');
     });
 
     console.log(`🍽️ Found ${items.length} menu items for truck ${truckId}`);
