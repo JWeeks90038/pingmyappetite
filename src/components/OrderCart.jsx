@@ -44,6 +44,9 @@ const OrderCart = ({ cart, setCart, truckId, truckName }) => {
     setLoading(true);
 
     try {
+      // Calculate total amount
+      const totalAmount = Math.round(cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0) * 100); // Convert to cents
+      
       const response = await fetch('http://localhost:3000/api/marketplace/orders/create-checkout', {
         method: 'POST',
         headers: {
@@ -52,15 +55,19 @@ const OrderCart = ({ cart, setCart, truckId, truckName }) => {
         },
         body: JSON.stringify({
           truckId: truckId,
-          items: cart.map(item => ({
+          customerId: user.uid,
+          orderItems: cart.map(item => ({
             name: item.name,
             description: item.description || '',
-            price: parseFloat(item.price || 0),
+            price: Math.round(parseFloat(item.price || 0) * 100), // Convert to cents
             quantity: item.quantity
           })),
-          customerEmail: user.email,
-          successUrl: `${window.location.origin}/order-success?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${window.location.origin}/order-cancelled`
+          totalAmount: totalAmount,
+          orderMetadata: {
+            customerEmail: user.email,
+            truckId: truckId,
+            orderTimestamp: new Date().toISOString()
+          }
         })
       });
 
