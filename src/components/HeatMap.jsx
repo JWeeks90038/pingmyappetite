@@ -557,15 +557,15 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
     };
   }
   
-  // Event color system matching EventOrganizerMediaUploader documentation:
-  // Gray (draft), Blue (upcoming), Green (active), Orange (completed)
+  // Event color system matching EventOrganizerMap documentation:
+  // Gray (draft), Blue (upcoming), Orange (active), Green (completed)
   let fillColor = '#9E9E9E'; // Gray for draft
   if (eventStatus === 'upcoming') {
     fillColor = '#2196F3'; // Blue for upcoming
   } else if (eventStatus === 'active') {
-    fillColor = '#4CAF50'; // Green for active
+    fillColor = '#FF6B35'; // Orange for active
   } else if (eventStatus === 'completed') {
-    fillColor = '#FF63B5'; // Orange for completed
+    fillColor = '#4CAF50'; // Green for completed
   } else if (eventStatus === 'published') {
     fillColor = '#2196F3'; // Blue for published (same as upcoming)
   }
@@ -819,8 +819,8 @@ const updateTruckMarkers = useCallback(async () => {
             console.log('🎨 HeatMap: Creating custom event marker with embedded organization logo:', event.id);
             
             const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                               event.status === 'active' ? '#4CAF50' : 
-                               event.status === 'completed' ? '#FF63B5' : 
+                               event.status === 'active' ? '#FF6B35' : 
+                               event.status === 'completed' ? '#4CAF50' : 
                                event.status === 'published' ? '#2196F3' : '#9E9E9E';
             
             const customMarkerContent = `
@@ -870,8 +870,8 @@ const updateTruckMarkers = useCallback(async () => {
             console.log('🎨 HeatMap: Creating custom event marker with current user logo:', event.id);
             
             const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                               event.status === 'active' ? '#4CAF50' : 
-                               event.status === 'completed' ? '#FF63B5' : 
+                               event.status === 'active' ? '#FF6B35' : 
+                               event.status === 'completed' ? '#4CAF50' : 
                                event.status === 'published' ? '#2196F3' : '#9E9E9E';
             
             const customMarkerContent = `
@@ -925,8 +925,8 @@ const updateTruckMarkers = useCallback(async () => {
                   
                   // Create custom marker with organization logo using documented color system
                   const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                                     event.status === 'active' ? '#4CAF50' : 
-                                     event.status === 'completed' ? '#FF63B5' : 
+                                     event.status === 'active' ? '#FF6B35' : 
+                                     event.status === 'completed' ? '#4CAF50' : 
                                      event.status === 'published' ? '#2196F3' : '#9E9E9E';
                   
                   const customMarkerContent = `
@@ -1070,9 +1070,10 @@ const updateTruckMarkers = useCallback(async () => {
               .then(organizerDoc => {
                 if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
                   const organizerLogoUrl = organizerDoc.data().logoUrl;
-                  const statusColor = event.status === 'active' ? '#FFD700' : 
-                                     event.status === 'published' ? '#2196F3' : 
-                                     event.status === 'completed' ? '#4CAF50' : '#9E9E9E';
+                  const statusColor = event.status === 'upcoming' ? '#2196F3' : 
+                                     event.status === 'active' ? '#FF6B35' : 
+                                     event.status === 'completed' ? '#4CAF50' : 
+                                     event.status === 'published' ? '#2196F3' : '#9E9E9E';
                   
                   const customMarkerContent = `
                     <div style="
@@ -1611,7 +1612,21 @@ return (
             <div style={{
               width: '14px',
               height: '14px',
-              backgroundColor: '#FFD700',
+              backgroundColor: '#2196F3',
+              borderRadius: '50%',
+              border: '2px solid white',
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
+            }} />
+            <span style={{ fontSize: '12px' }}>
+              <strong>Upcoming</strong> - Event scheduled
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: '#FF6B35',
               borderRadius: '50%',
               border: '2px solid white',
               boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
