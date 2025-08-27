@@ -49,6 +49,7 @@ async function debugMenuItems() {
         console.log(`   Owner ID: ${data.ownerId || 'N/A'}`);
         console.log(`   Price: $${data.price || 'N/A'}`);
         console.log(`   Category: ${data.category || 'N/A'}`);
+        console.log(`   Image URL: ${data.image || data.imageUrl || 'N/A'}`);
         console.log(`   Available: ${data.available !== undefined ? data.available : 'N/A'}`);
         console.log(`   Created: ${data.createdAt ? data.createdAt.toDate() : 'N/A'}`);
         
