@@ -858,7 +858,7 @@ const updateTruckMarkers = useCallback(async () => {
             `;
             
             const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
-            customMarker.addListener('click', () => {
+            customMarker.addClickListener(() => {
               console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
               handleEventClick(event);
             });
@@ -909,7 +909,7 @@ const updateTruckMarkers = useCallback(async () => {
             `;
             
             const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
-            customMarker.addListener('click', () => {
+            customMarker.addClickListener(() => {
               console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
               handleEventClick(event);
             });
@@ -964,7 +964,7 @@ const updateTruckMarkers = useCallback(async () => {
                   `;
                   
                   const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
-                  customMarker.addListener('click', () => {
+                  customMarker.addClickListener(() => {
                     console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
                     handleEventClick(event);
                   });
@@ -1105,7 +1105,7 @@ const updateTruckMarkers = useCallback(async () => {
                   `;
                   
                   const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
-                  customMarker.addListener('click', () => {
+                  customMarker.addClickListener(() => {
                     console.log('🎉 HeatMap: Updated custom event marker clicked for modal:', event.id);
                     handleEventClick(event);
                   });
