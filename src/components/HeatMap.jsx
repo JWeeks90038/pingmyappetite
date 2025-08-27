@@ -123,7 +123,8 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
             setCurrentUser({
               ...user,
               role: userData.role,
-              plan: userData.plan
+              plan: userData.plan,
+              logoUrl: userData.logoUrl
             });
           } else {
             console.log('🔍 HeatMap: No user document found, using auth user only');
@@ -794,21 +795,198 @@ const updateTruckMarkers = useCallback(async () => {
       if (!markerRefs.current[eventId]) {
         console.log('🎉 HeatMap: Creating new event marker for:', event.id, 'title:', event.title, 'position:', position);
         
-        // If event has organizerId, try to fetch logo first and create appropriate marker
+        // If event has organizerId, check for embedded logo URL first, then try to fetch if needed
         if (event.organizerId) {
-          getDoc(doc(db, 'users', event.organizerId))
-            .then(organizerDoc => {
-              if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
-                const organizerLogoUrl = organizerDoc.data().logoUrl;
-                console.log('🎨 HeatMap: Creating custom event marker with organization logo:', event.id);
+          // First check if the event already has the organizer logo URL embedded
+          if (event.organizerLogoUrl) {
+            // Use the embedded logo URL directly (no permission issues)
+            console.log('🎨 HeatMap: Creating custom event marker with embedded organization logo:', event.id);
+            
+            const statusColor = event.status === 'upcoming' ? '#2196F3' : 
+                               event.status === 'active' ? '#4CAF50' : 
+                               event.status === 'completed' ? '#FF63B5' : 
+                               event.status === 'published' ? '#2196F3' : '#9E9E9E';
+            
+            const customMarkerContent = `
+              <div style="
+                width: 40px; 
+                height: 40px; 
+                border-radius: 50%; 
+                border: 3px solid ${statusColor}; 
+                overflow: hidden;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                background: white;
+                position: relative;
+              ">
+                <img src="${event.organizerLogoUrl}" style="
+                  width: 100%; 
+                  height: 100%; 
+                  object-fit: cover;
+                " />
+                <div style="
+                  position: absolute;
+                  bottom: -2px;
+                  right: -2px;
+                  width: 16px;
+                  height: 16px;
+                  background: #FFD700;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                  border: 2px solid white;
+                  font-size: 10px;
+                ">⭐</div>
+              </div>
+            `;
+            
+            const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+            customMarker.addListener('click', () => {
+              console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+              handleEventClick(event);
+            });
+            
+            markerRefs.current[eventId] = customMarker;
+          } else if (currentUser && currentUser.uid === event.organizerId && currentUser.logoUrl) {
+            // Use current user's logo directly for their own events
+            const organizerLogoUrl = currentUser.logoUrl;
+            console.log('🎨 HeatMap: Creating custom event marker with current user logo:', event.id);
+            
+            const statusColor = event.status === 'upcoming' ? '#2196F3' : 
+                               event.status === 'active' ? '#4CAF50' : 
+                               event.status === 'completed' ? '#FF63B5' : 
+                               event.status === 'published' ? '#2196F3' : '#9E9E9E';
+            
+            const customMarkerContent = `
+              <div style="
+                width: 40px; 
+                height: 40px; 
+                border-radius: 50%; 
+                border: 3px solid ${statusColor}; 
+                overflow: hidden;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                background: white;
+                position: relative;
+              ">
+                <img src="${organizerLogoUrl}" style="
+                  width: 100%; 
+                  height: 100%; 
+                  object-fit: cover;
+                " />
+                <div style="
+                  position: absolute;
+                  bottom: -2px;
+                  right: -2px;
+                  width: 16px;
+                  height: 16px;
+                  background: #FFD700;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                  border: 2px solid white;
+                  font-size: 10px;
+                ">⭐</div>
+              </div>
+            `;
+            
+            const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+            customMarker.addListener('click', () => {
+              console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+              handleEventClick(event);
+            });
+            
+            markerRefs.current[eventId] = customMarker;
+          } else {
+            // Try to fetch other organizer's logo (may fail due to permissions)
+            getDoc(doc(db, 'users', event.organizerId))
+              .then(organizerDoc => {
+                if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
+                  const organizerLogoUrl = organizerDoc.data().logoUrl;
+                  console.log('🎨 HeatMap: Creating custom event marker with organization logo:', event.id);
+                  
+                  // Create custom marker with organization logo using documented color system
+                  const statusColor = event.status === 'upcoming' ? '#2196F3' : 
+                                     event.status === 'active' ? '#4CAF50' : 
+                                     event.status === 'completed' ? '#FF63B5' : 
+                                     event.status === 'published' ? '#2196F3' : '#9E9E9E';
+                  
+                  const customMarkerContent = `
+                    <div style="
+                      width: 40px; 
+                      height: 40px; 
+                      border-radius: 50%; 
+                      border: 3px solid ${statusColor}; 
+                      overflow: hidden;
+                      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                      background: white;
+                      position: relative;
+                    ">
+                      <img src="${organizerLogoUrl}" style="
+                        width: 100%; 
+                        height: 100%; 
+                        object-fit: cover;
+                      " />
+                      <div style="
+                        position: absolute;
+                        bottom: -2px;
+                        right: -2px;
+                        width: 16px;
+                        height: 16px;
+                        background: #FFD700;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                        border: 2px solid white;
+                        font-size: 10px;
+                      ">⭐</div>
+                    </div>
+                  `;
+                  
+                  const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+                  customMarker.addListener('click', () => {
+                    console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+                    handleEventClick(event);
+                  });
+                  
+                  markerRefs.current[eventId] = customMarker;
+                } else {
+                  // Fallback to basic star if no logo
+                  console.log('🎉 HeatMap: Creating basic star marker for event (no logo):', event.id);
+                  const basicIcon = getEventIcon(event.status);
+                  
+                  const marker = new window.google.maps.Marker({
+                    position,
+                    map: mapRef.current,
+                    icon: basicIcon,
+                    title: `Event: ${event.title}`,
+                    animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                    zIndex: 1000
+                  });
+
+                  marker.addListener('click', () => {
+                    console.log('🎉 HeatMap: Basic event marker clicked for modal:', event.id);
+                    handleEventClick(event);
+                  });
+                  
+                  markerRefs.current[eventId] = marker;
+                }
+              })
+              .catch(error => {
+                console.log('🔒 HeatMap: Permission denied or error fetching organizer data for event:', event.id, error.message);
                 
-                // Create custom marker with organization logo using documented color system
+                // Create a special marker that indicates this event has an organizer but we can't access their logo
+                // This gives users a visual cue that this is an organized event, not just a generic event
                 const statusColor = event.status === 'upcoming' ? '#2196F3' : 
                                    event.status === 'active' ? '#4CAF50' : 
                                    event.status === 'completed' ? '#FF63B5' : 
                                    event.status === 'published' ? '#2196F3' : '#9E9E9E';
                 
-                const customMarkerContent = `
+                const organizationMarkerContent = `
                   <div style="
                     width: 40px; 
                     height: 40px; 
@@ -816,14 +994,14 @@ const updateTruckMarkers = useCallback(async () => {
                     border: 3px solid ${statusColor}; 
                     overflow: hidden;
                     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                    background: white;
+                    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
                     position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
                   ">
-                    <img src="${organizerLogoUrl}" style="
-                      width: 100%; 
-                      height: 100%; 
-                      object-fit: cover;
-                    " />
+                    🏢
                     <div style="
                       position: absolute;
                       bottom: -2px;
@@ -842,57 +1020,15 @@ const updateTruckMarkers = useCallback(async () => {
                   </div>
                 `;
                 
-                const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+                const customMarker = createCustomMarker(position, organizationMarkerContent, mapRef.current);
                 customMarker.addListener('click', () => {
-                  console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+                  console.log('🎉 HeatMap: Organization event marker clicked for modal:', event.id);
                   handleEventClick(event);
                 });
                 
                 markerRefs.current[eventId] = customMarker;
-              } else {
-                // Fallback to basic star if no logo
-                console.log('🎉 HeatMap: Creating basic star marker for event (no logo):', event.id);
-                const basicIcon = getEventIcon(event.status);
-                
-                const marker = new window.google.maps.Marker({
-                  position,
-                  map: mapRef.current,
-                  icon: basicIcon,
-                  title: `Event: ${event.title}`,
-                  animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
-                  zIndex: 1000
-                });
-
-                marker.addListener('click', () => {
-                  console.log('🎉 HeatMap: Basic event marker clicked for modal:', event.id);
-                  handleEventClick(event);
-                });
-                
-                markerRefs.current[eventId] = marker;
-              }
-            })
-            .catch(error => {
-              console.log('🔒 HeatMap: Could not fetch organizer data for event:', event.id, error.message);
-              
-              // Fallback to basic star if organizer data fetch fails
-              const basicIcon = getEventIcon(event.status);
-              
-              const marker = new window.google.maps.Marker({
-                position,
-                map: mapRef.current,
-                icon: basicIcon,
-                title: `Event: ${event.title}`,
-                animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
-                zIndex: 1000
               });
-
-              marker.addListener('click', () => {
-                console.log('🎉 HeatMap: Fallback event marker clicked for modal:', event.id);
-                handleEventClick(event);
-              });
-              
-              markerRefs.current[eventId] = marker;
-            });
+          }
         } else {
           // No organizerId, create basic star marker immediately
           console.log('🎉 HeatMap: Creating basic star marker for event (no organizerId):', event.id);

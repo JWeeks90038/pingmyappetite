@@ -940,6 +940,7 @@ const EventOrganizerMap = ({ organizerData }) => {
         latitude: tempEventMarker.lat,
         longitude: tempEventMarker.lng,
         organizerId: user.uid,
+        organizerLogoUrl: organizerLogo, // Include organizer's logo URL for universal access
         status: initialStatus, // Set correct initial status
         eventType: 'display-only', // Mark as display-only event (no applications)
         acceptingApplications: false, // No vendor applications for map markers

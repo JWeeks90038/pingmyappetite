@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   collection, 
   addDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { validatePhoneNumber, formatPhoneE164 } from '../utils/twilioService';
 import '../assets/CreateEventForm.css';
 
 const CreateEventForm = ({ organizerId, onEventCreated }) => {
+  const [organizerLogoUrl, setOrganizerLogoUrl] = useState(null);
   const [formData, setFormData] = useState({
     // Basic Event Information
     eventName: '',
@@ -58,6 +61,25 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Fetch organizer's logo URL when component mounts
+  useEffect(() => {
+    const fetchOrganizerLogo = async () => {
+      if (organizerId) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', organizerId));
+          if (userDoc.exists() && userDoc.data().logoUrl) {
+            setOrganizerLogoUrl(userDoc.data().logoUrl);
+            console.log('📸 CreateEventForm: Fetched organizer logo URL:', userDoc.data().logoUrl);
+          }
+        } catch (error) {
+          console.error('❌ CreateEventForm: Error fetching organizer logo:', error);
+        }
+      }
+    };
+
+    fetchOrganizerLogo();
+  }, [organizerId]);
 
   const eventTypes = [
     { value: 'festival', label: 'Food Festival' },
@@ -193,6 +215,7 @@ const CreateEventForm = ({ organizerId, onEventCreated }) => {
         ...formData,
         contactPhone: formattedPhone,
         organizerId,
+        organizerLogoUrl, // Include organizer's logo URL for universal access
         status: 'draft', // draft, published, cancelled
         eventType: 'full-event', // Mark as full event (accepts applications)
         acceptingApplications: true, // Accept vendor applications
