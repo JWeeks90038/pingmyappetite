@@ -14,9 +14,10 @@ const containerStyle = {
   height: "500px",
 };
 
-const center = {
-  lat: 34.0522,
-  lng: -118.2437,
+// Default center - will be updated with user location
+const defaultCenter = {
+  lat: 39.8283,
+  lng: -98.5795, // Center of USA as fallback
 };
 
 // Simplified event marker icon with 2 colors and smaller size
@@ -41,7 +42,51 @@ const LiveMap = ({ isLoaded }) => {
   const [pins, setPins] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
+  const [mapCenter, setMapCenter] = useState(defaultCenter);
+  const [userLocation, setUserLocation] = useState(null);
+  const [mapZoom, setMapZoom] = useState(4);
   const mapRef = useRef(null);
+
+  // Geolocation effect to center map on user's location
+  useEffect(() => {
+    console.log('🌍 LiveMap: Attempting to get user location...');
+    
+    if (!navigator.geolocation) {
+      console.log('⚠️ LiveMap: Geolocation not supported by this browser');
+      return;
+    }
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000 // 5 minutes cache
+    };
+
+    const successCallback = (position) => {
+      const { latitude, longitude } = position.coords;
+      console.log('✅ LiveMap: User location detected:', { latitude, longitude });
+      
+      const newLocation = { lat: latitude, lng: longitude };
+      setUserLocation(newLocation);
+      setMapCenter(newLocation);
+      setMapZoom(12); // Zoom in when we have user location
+      
+      // If map is already loaded, update its center
+      if (mapRef.current) {
+        console.log('🗺️ LiveMap: Updating map center to user location');
+        mapRef.current.panTo(newLocation);
+        mapRef.current.setZoom(12);
+      }
+    };
+
+    const errorCallback = (error) => {
+      console.log('❌ LiveMap: Geolocation error:', error.message);
+      // Keep default center as fallback
+      setMapZoom(4);
+    };
+
+    navigator.geolocation.getCurrentPosition(successCallback, errorCallback, options);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -141,11 +186,19 @@ const LiveMap = ({ isLoaded }) => {
       <GoogleMap
         mapContainerClassName="google-map-container"
         mapContainerStyle={containerStyle}
-        center={center}
-        zoom={12}
+        center={mapCenter}
+        zoom={mapZoom}
         onClick={handleMapClick}
         onLoad={(map) => {
           mapRef.current = map;
+          console.log('🗺️ LiveMap: Map loaded with center:', mapCenter);
+          
+          // If we already have user location, center on it
+          if (userLocation) {
+            console.log('🎯 LiveMap: Centering on user location after map load');
+            map.panTo(userLocation);
+            map.setZoom(12);
+          }
         }}
       >
         {/* Pin markers for food requests */}
