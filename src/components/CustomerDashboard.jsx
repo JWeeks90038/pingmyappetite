@@ -821,6 +821,12 @@ useEffect(() => {
   if (!user || !window.google || !mapInstance.current) return;
 
   const unsubscribe = onSnapshot(collection(db, 'truckLocations'), async (snapshot) => {
+    console.log('🚛 Real-time truck update received:', {
+      size: snapshot.size,
+      changes: snapshot.docChanges().length,
+      changeTypes: snapshot.docChanges().map(c => c.type)
+    });
+    
     const nowMs = Date.now();
     const existingIds = new Set();
 
@@ -829,6 +835,15 @@ useEffect(() => {
       const data = change.doc.data();
       const id = change.doc.id;
       existingIds.add(id);
+
+      console.log('🚛 Processing truck change:', {
+        changeType: change.type,
+        truckId: id,
+        isLive: data.isLive,
+        visible: data.visible,
+        lastActive: data.lastActive ? new Date(data.lastActive).toLocaleTimeString() : 'N/A',
+        truckName: data.truckName
+      });
 
       const lat = data.lat || 0;
       const lng = data.lng || 0;
@@ -852,6 +867,14 @@ useEffect(() => {
                         !showTrucks;
       
       if (shouldHide) {
+        console.log('🚫 Hiding truck:', id, 'Reason:', {
+          removed: change.type === 'removed',
+          notVisible: !visible,
+          notRecentlyActive: !isRecentlyActive,
+          outsideEightHourWindow: !withinEightHourWindow,
+          showTrucksOff: !showTrucks
+        });
+        
         if (foodTruckMarkers.current[id]) {
           foodTruckMarkers.current[id].setMap(null);
           delete foodTruckMarkers.current[id];
@@ -955,6 +978,7 @@ useEffect(() => {
         }
 
         foodTruckMarkers.current[id] = marker;
+        console.log('✅ Added new truck marker:', id, 'Position:', position, 'Marker type:', icon?.type || 'standard');
       } else {
         const marker = foodTruckMarkers.current[id];
         
@@ -963,6 +987,7 @@ useEffect(() => {
           // Custom marker - update position
           marker.position = position;
           marker.draw(); // Redraw at new position
+          console.log('🔄 Updated custom truck marker:', id, 'New position:', position);
           
           // Update custom marker content if needed
           if (icon && icon.type === 'custom') {
@@ -989,9 +1014,11 @@ useEffect(() => {
           // Standard marker - only animate if it's a real Google Maps marker
           if (marker && typeof marker.getPosition === 'function' && !marker.div) {
             animateMarkerMove(marker, position);
+            console.log('🔄 Animated standard truck marker:', id, 'New position:', position);
           } else if (marker && marker.setPosition && typeof marker.setPosition === 'function') {
             // Fallback to simple position update if animation fails
             marker.setPosition(position);
+            console.log('🔄 Updated standard truck marker (fallback):', id, 'New position:', position);
           }
           
           if (marker && typeof marker.setIcon === 'function') {
