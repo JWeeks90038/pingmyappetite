@@ -21,7 +21,7 @@ const Success = () => {
           const user = auth.currentUser;
           if (user) {
             // Fetch session details from your server to get plan info
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
             const response = await fetch(`${API_URL}/session-details`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

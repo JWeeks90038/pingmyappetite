@@ -10,7 +10,8 @@ const MarketplaceTest = () => {
 
     // Test 1: Health check
     try {
-      const response = await fetch('http://localhost:3000/api/health');
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/health`);
       results.push({
         test: 'Health Check',
         status: response.ok ? 'PASS' : 'FAIL',
@@ -26,7 +27,8 @@ const MarketplaceTest = () => {
 
     // Test 2: Check marketplace routes exist
     try {
-      const response = await fetch('http://localhost:3000/api/marketplace/trucks/status', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
         headers: {
           'Authorization': 'Bearer fake-token-for-test'
         }
@@ -174,7 +176,7 @@ const MarketplaceTest = () => {
         </h4>
         <ul style={{ color: '#0066cc', margin: 0 }}>
           <li>Frontend: http://localhost:5173</li>
-          <li>Backend: http://localhost:3000</li>
+          <li>Backend: {import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app'}</li>
           <li>Database: Firebase Firestore</li>
           <li>Payments: Stripe Connect (Test Mode)</li>
         </ul>

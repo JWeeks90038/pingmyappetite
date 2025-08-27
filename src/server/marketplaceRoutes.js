@@ -477,20 +477,25 @@ router.get('/trucks/:truckId/menu', async (req, res) => {
     }
 
     const db = admin.firestore();
+    console.log(`🍽️ Fetching menu items for truck owner: ${truckId}`);
+    
+    // Query the menuItems collection with ownerId filter
     const menuSnapshot = await db
-      .collection('users')
-      .doc(truckId)
-      .collection('menu')
+      .collection('menuItems')
+      .where('ownerId', '==', truckId)
       .orderBy('createdAt', 'desc')
       .get();
 
     const items = [];
     menuSnapshot.forEach(doc => {
+      const data = doc.data();
       items.push({
         id: doc.id,
-        ...doc.data()
+        ...data
       });
     });
+
+    console.log(`🍽️ Found ${items.length} menu items for truck ${truckId}`);
 
     res.json({
       success: true,
@@ -532,15 +537,16 @@ router.post('/trucks/:truckId/menu', async (req, res) => {
       description: description?.trim() || '',
       category: category || '',
       image: image || null,
+      ownerId: truckId, // Use ownerId field
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      truckId
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
+    console.log(`🍽️ Adding menu item for truck ${truckId}:`, name);
+
+    // Add to menuItems collection
     const docRef = await db
-      .collection('users')
-      .doc(truckId)
-      .collection('menu')
+      .collection('menuItems')
       .add(menuItem);
 
     // Return the created item with its ID
@@ -591,10 +597,11 @@ router.put('/trucks/:truckId/menu/:itemId', async (req, res) => {
     if (category !== undefined) updateData.category = category || '';
     if (image !== undefined) updateData.image = image;
 
+    console.log(`🍽️ Updating menu item ${itemId} for truck ${truckId}`);
+
+    // Update in menuItems collection
     await db
-      .collection('users')
-      .doc(truckId)
-      .collection('menu')
+      .collection('menuItems')
       .doc(itemId)
       .update(updateData);
 
@@ -627,10 +634,12 @@ router.delete('/trucks/:truckId/menu/:itemId', async (req, res) => {
     }
 
     const db = admin.firestore();
+    
+    console.log(`🗑️ Deleting menu item ${itemId} for truck ${truckId}`);
+
+    // Delete from menuItems collection
     await db
-      .collection('users')
-      .doc(truckId)
-      .collection('menu')
+      .collection('menuItems')
       .doc(itemId)
       .delete();
 

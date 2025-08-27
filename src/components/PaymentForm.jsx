@@ -23,7 +23,7 @@ const PaymentForm = ({ planType = 'all-access', hasValidReferral = false, referr
       }
 
       // Use your API base URL
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       console.log('Using API URL:', API_URL);
       console.log('Environment VITE_API_URL:', import.meta.env.VITE_API_URL);
       

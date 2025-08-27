@@ -47,7 +47,8 @@ const OrderCart = ({ cart, setCart, truckId, truckName }) => {
       // Calculate total amount
       const totalAmount = Math.round(cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0) * 100); // Convert to cents
       
-      const response = await fetch('http://localhost:3000/api/marketplace/orders/create-checkout', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/marketplace/orders/create-checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

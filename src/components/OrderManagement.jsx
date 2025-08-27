@@ -38,7 +38,8 @@ const OrderManagement = ({ userRole = null }) => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/marketplace/orders', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/marketplace/orders`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
         }
@@ -59,7 +60,8 @@ const OrderManagement = ({ userRole = null }) => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/marketplace/orders/${orderId}/status`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/marketplace/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

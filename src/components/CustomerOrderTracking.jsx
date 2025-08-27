@@ -21,7 +21,7 @@ const CustomerOrderTracking = () => {
     if (!user) return;
     
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/orders`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`

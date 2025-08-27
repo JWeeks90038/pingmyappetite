@@ -38,7 +38,7 @@ const TruckOnboarding = () => {
       const token = await user.getIdToken();
       console.log('🔍 Token obtained for status check:', token ? 'Token received' : 'No token');
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       console.log('🌍 Making status API call to:', `${apiUrl}/api/marketplace/trucks/status`);
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
@@ -57,7 +57,7 @@ const TruckOnboarding = () => {
 
   const loadMenuItems = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
@@ -76,7 +76,7 @@ const TruckOnboarding = () => {
   const createStripeAccount = async () => {
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboard`, {
         method: 'POST',
         headers: {
@@ -117,7 +117,7 @@ const TruckOnboarding = () => {
       const token = await user.getIdToken();
       console.log('🔐 Token obtained:', token ? 'Token received' : 'No token');
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       console.log('🌍 Making API call to:', `${apiUrl}/api/marketplace/trucks/onboarding-link`);
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboarding-link`, {
@@ -162,7 +162,7 @@ const TruckOnboarding = () => {
         imageUrl = await uploadImageToFirebase(imageFile);
       }
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
         method: 'POST',
         headers: {
@@ -203,7 +203,7 @@ const TruckOnboarding = () => {
     if (!confirm('Are you sure you want to delete this menu item?')) return;
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu/${itemId}`, {
         method: 'DELETE',
         headers: {

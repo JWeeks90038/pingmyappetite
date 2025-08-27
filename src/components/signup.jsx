@@ -212,7 +212,7 @@ const userData = {
         
         try {
           // Create Stripe checkout session directly
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          const API_URL = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
           const priceId = getPriceId(formData.plan);
           
           if (!priceId) {
@@ -258,7 +258,7 @@ const userData = {
         
         try {
           // Create Stripe checkout session directly
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          const API_URL = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
           const priceId = getPriceId(formData.plan);
           
           if (!priceId) {

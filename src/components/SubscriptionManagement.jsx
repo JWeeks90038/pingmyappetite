@@ -21,7 +21,8 @@ const SubscriptionManagement = () => {
       setLoading(true);
       
       // Get current subscription
-      const response = await fetch(`http://localhost:3000/api/marketplace/subscription/${user.uid}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/marketplace/subscription/${user.uid}`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
         }
@@ -59,7 +60,8 @@ const SubscriptionManagement = () => {
       // For paid plans, we would need to collect payment method
       // For now, let's handle the basic (free) plan switch
       if (newPlanId === 'basic') {
-        const response = await fetch(`http://localhost:3000/api/marketplace/subscription/${user.uid}`, {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
+        const response = await fetch(`${apiUrl}/api/marketplace/subscription/${user.uid}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
