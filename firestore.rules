@@ -49,6 +49,9 @@ service cloud.firestore {
       // Allow creation if the ownerUid matches the authenticated user
       allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerUid;
       
+      // Allow all authenticated users to read truck locations (for map display)
+      allow read: if request.auth != null;
+      
       // Allow read access for all authenticated users (for map display)
       allow read: if request.auth != null;
     }

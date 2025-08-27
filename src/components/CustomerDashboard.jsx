@@ -351,6 +351,12 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
   }, [user]);
 
   const animateMarkerMove = (marker, newPosition) => {
+    // Check if marker is a valid Google Maps marker with getPosition method
+    if (!marker || typeof marker.getPosition !== 'function') {
+      console.warn('Invalid marker object for animation:', marker);
+      return;
+    }
+    
     const DELTA = 0.02;
     const currentPos = marker.getPosition();
     if (!currentPos) return;
@@ -1789,12 +1795,23 @@ return (
         src={displayMenuUrl}
         style={{ width: '100%', height: 'calc(100% - 120px)' }}
         title="Menu PDF"
+        onLoad={() => console.log('Menu PDF loaded successfully')}
+        onError={(e) => console.error('Menu PDF failed to load:', e)}
       />
     ) : (
       <img
         src={displayMenuUrl}
         alt="Menu"
         style={{ maxWidth: '100%', maxHeight: 'calc(100% - 120px)', objectFit: 'contain' }}
+        onLoad={() => console.log('Menu image loaded successfully')}
+        onError={(e) => {
+          console.error('Menu image failed to load:', e);
+          e.target.style.display = 'none';
+          // Show fallback message
+          const fallback = document.createElement('div');
+          fallback.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Menu image could not be loaded. Please try again later.</p>';
+          e.target.parentNode.appendChild(fallback);
+        }}
       />
     )}
   </div>
