@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage</title>
+</head>
+<body>
+    <script>
+        console.log('Clearing all browser storage...');
+        localStorage.clear();
+        sessionStorage.clear();
+        window.__cacheCleared = undefined;
+        console.log('Storage cleared');
+        document.body.innerHTML = '<h2>Storage cleared. You can close this tab.</h2>';
+    </script>
+</body>
+</html>

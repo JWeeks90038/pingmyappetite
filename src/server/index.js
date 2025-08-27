@@ -6,6 +6,8 @@ import bodyParser from 'body-parser';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
 import fetch from 'node-fetch'; // Add fetch for Node.js
+import createMarketplaceRouter from './marketplaceRoutes.js';
+import createWebhookRouter from './webhookRoutes.js';
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -910,7 +912,16 @@ Grubana System`,
   res.json({ received: true });
 });
 
+// Initialize webhook routes with stripe instance (BEFORE express.json())
+const webhookRoutes = createWebhookRouter(stripe);
+app.use('/api/webhooks', webhookRoutes);
+
+// Apply JSON middleware for all other routes
 app.use(express.json());
+
+// Initialize marketplace routes with stripe instance
+const marketplaceRoutes = createMarketplaceRouter(stripe);
+app.use('/api/marketplace', marketplaceRoutes);
 
 // Create a subscription endpoint
 app.post('/create-subscription', async (req, res) => {

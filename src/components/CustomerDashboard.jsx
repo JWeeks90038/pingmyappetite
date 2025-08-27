@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import {
   collection,
@@ -27,6 +28,8 @@ import FavoriteButton from './FavoriteButton';
 import trailerIconImg from '/trailer-icon.png';
 import cartIconImg from '/cart-icon.png';
 import { QRCodeCanvas } from "qrcode.react";
+import PreOrderContent from './PreOrderContent';
+import OrderCart from './OrderCart';
 
 // Component to handle individual favorite items with dynamic name loading
 const FavoriteListItem = ({ favorite }) => {
@@ -71,6 +74,7 @@ const FavoriteListItem = ({ favorite }) => {
 
 
 const CustomerDashboard = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [username, setUsername] = useState('');
   const [cuisineType, setCuisineType] = useState('');
@@ -118,6 +122,12 @@ const CustomerDashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [claimedDrop, setClaimedDrop] = useState(null);
   const [claimCode, setClaimCode] = useState('');
+  
+  // Pre-order states
+  const [showPreOrderModal, setShowPreOrderModal] = useState(false);
+  const [menuItems, setMenuItems] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
   const [favorites, setFavorites] = useState([]);
   const [favoriteTrucks, setFavoriteTrucks] = useState([]);
@@ -1302,6 +1312,43 @@ return (
       {pingError && (
         <p style={{ color: 'red', marginTop: '10px' }}>{pingError}</p>
       )}
+      
+      {/* My Orders Button */}
+      <div style={{ 
+        marginTop: '15px', 
+        textAlign: 'center',
+        paddingTop: '15px',
+        borderTop: '1px solid #eee'
+      }}>
+        <button
+          onClick={() => navigate('/orders')}
+          style={{
+            backgroundColor: '#2c6f57',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#1e4a3f';
+            e.target.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#2c6f57';
+            e.target.style.transform = 'translateY(0)';
+          }}
+        >
+          📋 My Orders
+        </button>
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+          View your order history and status
+        </div>
+      </div>
     </section>
 
     <div 
@@ -1657,6 +1704,41 @@ return (
                   </div>
                 )}
               </div>
+              
+              {/* Pre-order Button */}
+              <div style={{ marginTop: '15px', textAlign: 'center' }}>
+                <button
+                  onClick={() => setShowPreOrderModal(true)}
+                  style={{
+                    backgroundColor: '#2c6f57',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transition: 'all 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#1e4a3f';
+                    e.target.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#2c6f57';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  🛒 Pre-Order - Skip the Line!
+                </button>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Place your order before you arrive
+                </div>
+              </div>
             </div>
           )}
 
@@ -1930,6 +2012,97 @@ return (
 >
   Back to Top ↑
 </a>
+
+{/* Pre-Order Modal */}
+{showPreOrderModal && activeTruck && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    zIndex: 1001,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }}>
+    <div style={{
+      width: '90%',
+      maxWidth: '800px',
+      height: '90%',
+      backgroundColor: '#fff',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '20px',
+        backgroundColor: '#2c6f57',
+        color: 'white',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h2 style={{ margin: 0 }}>
+          Order from {activeTruck.truckName || 'Food Truck'}
+        </h2>
+        <button
+          onClick={() => {
+            setShowPreOrderModal(false);
+            setCart([]);
+          }}
+          style={{
+            backgroundColor: 'transparent',
+            color: 'white',
+            border: '2px solid white',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            cursor: 'pointer',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Menu Items */}
+        <div style={{ 
+          flex: 2, 
+          padding: '20px', 
+          overflowY: 'auto',
+          borderRight: '1px solid #eee'
+        }}>
+          <PreOrderContent truckId={activeTruck.uid} cart={cart} setCart={setCart} />
+        </div>
+
+        {/* Cart */}
+        <div style={{ 
+          flex: 1, 
+          padding: '20px', 
+          backgroundColor: '#f8f9fa',
+          overflowY: 'auto'
+        }}>
+          <OrderCart 
+            cart={cart} 
+            setCart={setCart} 
+            truckId={activeTruck.uid}
+            truckName={activeTruck.truckName || 'Food Truck'}
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
   </div>
 );
 

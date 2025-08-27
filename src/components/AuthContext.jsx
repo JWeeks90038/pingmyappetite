@@ -17,6 +17,14 @@ export const AuthContextProvider = ({ children }) => {
   const [previousUser, setPreviousUser] = useState(null);
   const auth = getAuth();
 
+  console.log(`🔐 AuthContext state:`, { 
+    user: user?.email, 
+    userRole, 
+    userPlan, 
+    userSubscriptionStatus, 
+    loading 
+  });
+
   useEffect(() => {
     let unsubUserDoc = null;
 

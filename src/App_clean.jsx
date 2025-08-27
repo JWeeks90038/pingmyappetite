@@ -1,6 +1,5 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import React from 'react';
+import { useEffect } from 'react';
 
 import PublicLayout from './layouts/PublicLayout';
 import CustomerLayout from './layouts/CustomerLayout';
@@ -75,7 +74,16 @@ const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 // Safely pass Google Maps API key (with fallback)
 const safeGoogleMapsKey = googleMapsKey || 'test-key';
 
-// Add network connectivity check function
+// Promise to ensure app is ready (cache clear complete)
+const appReadyPromise = import.meta.env.MODE === 'development' 
+  ? clearAppCache().then(() => {
+      console.log('🧹 Cache cleared in development mode');
+    }).catch(error => {
+      console.error('🚨 Failed to clear cache:', error);
+    })
+  : Promise.resolve(null);
+
+// Add network connectivity check
 const checkNetworkConnectivity = () => {
   if (!navigator.onLine) {
     console.warn('🌐 Network: Device appears to be offline');
@@ -83,6 +91,64 @@ const checkNetworkConnectivity = () => {
   }
   return true;
 };
+
+// Listen for network changes
+window.addEventListener('online', () => {
+  console.log('🌐 Network: Connection restored');
+});
+
+window.addEventListener('offline', () => {
+  console.warn('🌐 Network: Connection lost');
+});
+
+// Global error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('🚨 Unhandled Promise Rejection:', event.reason);
+  
+  // Handle Firebase permission-denied errors gracefully
+  if (event.reason && event.reason.code === 'permission-denied') {
+    console.log('🚨 Global handler: Firebase permission denied error caught during logout');
+    event.preventDefault();
+    return;
+  }
+  
+  // Handle generic Firebase permission errors
+  if (event.reason && typeof event.reason === 'string' && 
+      event.reason.includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: Firebase permission error caught during logout');
+    event.preventDefault();
+    return;
+  }
+  
+  // Handle FirebaseError objects with permission denied
+  if (event.reason && event.reason.constructor && 
+      event.reason.constructor.name === 'FirebaseError' &&
+      event.reason.message && event.reason.message.includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: FirebaseError permission denied caught during authentication state change');
+    event.preventDefault();
+    return;
+  }
+  
+  // Handle snapshot listener permission errors specifically
+  if (event.reason && event.reason.toString && 
+      event.reason.toString().includes('Missing or insufficient permissions')) {
+    console.log('🚨 Global handler: Snapshot listener permission error caught - preventing error display');
+    event.preventDefault();
+    return;
+  }
+  
+  // Handle Firestore connectivity errors (400 Bad Request)
+  if (event.reason && (
+      event.reason.message?.includes('Failed to fetch') ||
+      event.reason.message?.includes('400') ||
+      event.reason.message?.includes('Bad Request') ||
+      event.reason.code === 'unavailable'
+    )) {
+    console.log('🚨 Global handler: Firestore connectivity error caught:', event.reason.message);
+    event.preventDefault();
+    return;
+  }
+});
 
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
@@ -161,9 +227,7 @@ function ProtectedDashboardRoute({ children }) {
 function App() {
   const { user, userRole, loading } = useAuth();
   
-  // Debug logging with timestamp to track re-renders
-  const renderTime = new Date().toISOString();
-  console.log(`🏁 App component render at ${renderTime}:`, { loading, user: user?.email, userRole });
+  console.log('🏁 App component loading state:', { loading, user: user?.email, userRole });
   console.log('🗺️ Current URL:', window.location.href);
 
   // Check Firebase readiness
@@ -177,85 +241,6 @@ function App() {
     }).catch(error => {
       console.error('🔥 Failed to import Firebase:', error);
     });
-  }, []);
-
-  // Setup event listeners and cache management
-  useEffect(() => {
-    // Setup network event listeners
-    const handleOnline = () => {
-      console.log('🌐 Network: Connection restored');
-    };
-
-    const handleOffline = () => {
-      console.warn('🌐 Network: Connection lost');
-    };
-
-    // Setup global error handler
-    const handleUnhandledRejection = (event) => {
-      console.error('🚨 Unhandled Promise Rejection:', event.reason);
-      
-      // Handle Firebase permission-denied errors gracefully
-      if (event.reason && event.reason.code === 'permission-denied') {
-        console.log('🚨 Global handler: Firebase permission denied error caught during logout');
-        event.preventDefault();
-        return;
-      }
-      
-      // Handle generic Firebase permission errors
-      if (event.reason && typeof event.reason === 'string' && 
-          event.reason.includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: Firebase permission error caught during logout');
-        event.preventDefault();
-        return;
-      }
-      
-      // Handle FirebaseError objects with permission denied
-      if (event.reason && event.reason.constructor && 
-          event.reason.constructor.name === 'FirebaseError' &&
-          event.reason.message && event.reason.message.includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: FirebaseError permission denied caught during authentication state change');
-        event.preventDefault();
-        return;
-      }
-      
-      // Handle snapshot listener permission errors specifically
-      if (event.reason && event.reason.toString && 
-          event.reason.toString().includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: Snapshot listener permission error caught - preventing error display');
-        event.preventDefault();
-        return;
-      }
-      
-      // Handle Firestore connectivity errors (400 Bad Request)
-      if (event.reason && (
-          event.reason.message?.includes('Failed to fetch') ||
-          event.reason.message?.includes('400') ||
-          event.reason.message?.includes('Bad Request') ||
-          event.reason.code === 'unavailable'
-        )) {
-        console.log('🚨 Global handler: Firestore connectivity error caught:', event.reason.message);
-        event.preventDefault();
-        return;
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    // Development cache clearing (only once per session)
-    if (import.meta.env.MODE === 'development' && !window.__cacheCleared) {
-      console.log('🧹 Development mode detected - skipping automatic cache clear to prevent infinite reload');
-      window.__cacheCleared = true;
-    }
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
   }, []);
 
   // Initialize notification service when user is authenticated
@@ -281,13 +266,11 @@ function App() {
     }
   }, [user, userRole]);
 
-  // Cache busting mechanism for mobile browsers (disabled in development)
+  // Cache busting mechanism for mobile browsers
   useEffect(() => {
     const checkVersion = () => {
       const storedVersion = localStorage.getItem('app_version');
-      const reloadFlag = sessionStorage.getItem('version_reload_done');
-      
-      if (storedVersion !== APP_VERSION && !reloadFlag) {
+      if (storedVersion !== APP_VERSION) {
         console.log(`🔄 App version updated from ${storedVersion} to ${APP_VERSION} - clearing cache`);
         
         if ('caches' in window) {
@@ -301,18 +284,9 @@ function App() {
         
         localStorage.setItem('app_version', APP_VERSION);
         
-        // Only reload on mobile and NOT in development mode
-        if (storedVersion && 
-            import.meta.env.MODE !== 'development' &&
-            /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-          console.log('📱 Mobile detected - scheduling reload for cache refresh');
-          sessionStorage.setItem('version_reload_done', 'true');
-          setTimeout(() => {
-            window.location.reload(true);
-          }, 100);
-        } else {
-          localStorage.setItem('app_version', APP_VERSION);
-          console.log('🚫 Skipping reload in development mode');
+        if (storedVersion && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          console.log('📱 Mobile detected - forcing hard reload for cache refresh');
+          window.location.reload(true);
         }
       }
     };
@@ -326,11 +300,8 @@ function App() {
   window.auth = getAuth();
   
   if (loading) {
-    console.log('⏳ App in loading state, showing loading screen');
     return <div>Loading...</div>;
   }
-
-  console.log('✅ App finished loading, rendering main application');
 
   // Add Stripe validation before rendering Elements
   if (!stripePromise) {

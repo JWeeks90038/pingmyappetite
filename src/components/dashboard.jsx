@@ -1194,6 +1194,56 @@ useEffect(() => {
 )}
 
 <p>Add/Update Truck/Trailer/Menu Photos in Settings</p>
+
+{/* Truck Onboarding Button */}
+<div style={{ textAlign: "center", marginBottom: "20px" }}>
+  <button
+    style={{
+      padding: "12px 24px",
+      background: "#2c6f57",
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      fontSize: "1rem",
+      fontWeight: "bold",
+      cursor: "pointer",
+      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    }}
+    onClick={() => {
+      navigate("/truck-onboarding");
+    }}
+  >
+    💳 Set Up Pre-Orders & Payments
+  </button>
+  <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "5px" }}>
+    Allow customers to order and pay before they arrive
+  </div>
+</div>
+
+{/* Orders Management Button */}
+<div style={{ textAlign: "center", marginBottom: "20px" }}>
+  <button
+    style={{
+      padding: "12px 24px",
+      background: "#17a2b8",
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      fontSize: "1rem",
+      fontWeight: "bold",
+      cursor: "pointer",
+      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+    }}
+    onClick={() => {
+      navigate("/orders");
+    }}
+  >
+    📋 Manage Orders
+  </button>
+  <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "5px" }}>
+    View and update customer orders
+  </div>
+</div>
       
      
       {userPlan ? (
