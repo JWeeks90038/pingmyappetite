@@ -214,10 +214,22 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         collection(db, "events"),
         where("organizerId", "==", currentUser.uid)
       );
+    } else if (currentUser.role === 'owner') {
+      // Food truck owners can read any events (per Firestore rules)
+      // They see active and published events to apply to
+      eventsQuery = query(
+        collection(db, "events"),
+        where("status", "in", ["published", "active"])
+      );
+    } else if (currentUser.role === 'customer') {
+      // Customers can only read published events (per Firestore rules)
+      eventsQuery = query(
+        collection(db, "events"),
+        where("status", "==", "published")
+      );
     } else {
-      // For non-organizers, we'll handle this differently to avoid permission issues
-      // Since they can only read published events, we won't try to query all events
-      console.log('📋 Non-organizer user detected, skipping events query to avoid permissions');
+      // For other users, we'll handle this differently to avoid permission issues
+      console.log('📋 Unknown user role detected, skipping events query to avoid permissions');
       setEvents([]);
       return;
     }
@@ -231,9 +243,15 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
           // Check if event has location data
           const hasLocation = event.latitude && event.longitude;
           
-          // For event organizers, show all their events (already filtered by query)
           if (currentUser.role === 'event-organizer') {
+            // For event organizers, show all their events (already filtered by query)
             return hasLocation;
+          } else if (currentUser.role === 'owner') {
+            // For food truck owners, show active and published events with location
+            return hasLocation && (event.status === 'active' || event.status === 'published');
+          } else if (currentUser.role === 'customer') {
+            // For customers, show published events with location
+            return hasLocation && event.status === 'published';
           }
           
           return false; // This shouldn't be reached due to early return above
@@ -437,8 +455,17 @@ const createCustomMarker = (position, content, map) => {
 };
 
 // Event marker icon with 3-color system: Gray for draft, Yellow for active, Green for completed
-const getEventIcon = (eventStatus) => {
+const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
   if (!window.google) return null;
+  
+  // If organization logo is available, return custom marker config
+  if (organizerLogoUrl) {
+    return {
+      type: 'custom',
+      logoUrl: organizerLogoUrl,
+      status: eventStatus
+    };
+  }
   
   // 3-color system: Gray for draft, Yellow for active, Green for completed
   let fillColor = '#9E9E9E'; // Default gray for draft
@@ -446,6 +473,8 @@ const getEventIcon = (eventStatus) => {
     fillColor = '#FFD700'; // Gold for active
   } else if (eventStatus === 'completed') {
     fillColor = '#4CAF50'; // Green for completed
+  } else if (eventStatus === 'published') {
+    fillColor = '#2196F3'; // Blue for published
   }
 
   return {
@@ -547,8 +576,7 @@ const updateTruckMarkers = useCallback(async () => {
       let marker;
       
       // Check if we need to create a custom HTML marker for cover photos
-      // Temporarily disable custom markers to fix setPosition errors
-      if (false && icon && icon.type === 'custom') {
+      if (icon && icon.type === 'custom') {
         const customMarkerContent = `
           <div style="
             width: 40px; 
@@ -667,12 +695,14 @@ const updateTruckMarkers = useCallback(async () => {
 
       if (!markerRefs.current[eventId]) {
         console.log('🎉 HeatMap: Creating new event marker for:', event.id);
-        const icon = getEventIcon(event.status);
+        
+        // Start with basic icon, then upgrade to custom if logo is available
+        const basicIcon = getEventIcon(event.status);
         
         const marker = new window.google.maps.Marker({
           position,
           map: mapRef.current,
-          icon,
+          icon: basicIcon,
           title: `Event: ${event.title}`,
           animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
           zIndex: 1000 // Higher than truck markers to ensure they're visible
@@ -685,16 +715,171 @@ const updateTruckMarkers = useCallback(async () => {
         });
         
         markerRefs.current[eventId] = marker;
+        
+        // Fetch organizer logo asynchronously and upgrade marker if available
+        if (event.organizerId) {
+          getDoc(doc(db, 'users', event.organizerId))
+            .then(organizerDoc => {
+              if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
+                const organizerLogoUrl = organizerDoc.data().logoUrl;
+                console.log('🎨 HeatMap: Upgrading event marker with organization logo:', event.id);
+                
+                // Create custom marker with organization logo
+                const statusColor = event.status === 'active' ? '#FFD700' : 
+                                   event.status === 'published' ? '#2196F3' : 
+                                   event.status === 'completed' ? '#4CAF50' : '#9E9E9E';
+                
+                const customMarkerContent = `
+                  <div style="
+                    width: 40px; 
+                    height: 40px; 
+                    border-radius: 50%; 
+                    border: 3px solid ${statusColor}; 
+                    overflow: hidden;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    background: white;
+                    position: relative;
+                  ">
+                    <img src="${organizerLogoUrl}" style="
+                      width: 100%; 
+                      height: 100%; 
+                      object-fit: cover;
+                    " />
+                    <div style="
+                      position: absolute;
+                      top: -2px;
+                      right: -2px;
+                      width: 12px;
+                      height: 12px;
+                      background: ${statusColor};
+                      border-radius: 50%;
+                      border: 1px solid white;
+                    "></div>
+                  </div>
+                `;
+                
+                // Remove old marker and create custom one
+                if (markerRefs.current[eventId]) {
+                  markerRefs.current[eventId].setMap(null);
+                  
+                  const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+                  customMarker.addListener('click', () => {
+                    console.log('🎉 HeatMap: Custom event marker clicked for modal:', event.id);
+                    handleEventClick(event);
+                  });
+                  
+                  markerRefs.current[eventId] = customMarker;
+                }
+              }
+            })
+            .catch(error => {
+              console.log('🔒 HeatMap: Could not fetch organizer data for event:', event.id, error.message);
+              // Continue with default icon if organizer data fetch fails
+            });
+        }
       } else {
         // Update existing event marker
         console.log('🎉 HeatMap: Updating event marker for:', event.id);
         const marker = markerRefs.current[eventId];
-        marker.setPosition(position);
-        marker.setTitle(`Event: ${event.title}`);
         
-        const icon = getEventIcon(event.status);
-        marker.setIcon(icon);
-        marker.setAnimation(event.status === 'active' ? window.google.maps.Animation.BOUNCE : null);
+        // Check if this is a standard Google Maps marker (has setPosition method)
+        if (marker.setPosition) {
+          marker.setPosition(position);
+          marker.setTitle(`Event: ${event.title}`);
+          
+          const icon = getEventIcon(event.status);
+          marker.setIcon(icon);
+          marker.setAnimation(event.status === 'active' ? window.google.maps.Animation.BOUNCE : null);
+        } else {
+          // This is a custom marker, recreate it with updated status
+          marker.setMap(null);
+          
+          // Try to get organizer logo and recreate custom marker
+          if (event.organizerId) {
+            getDoc(doc(db, 'users', event.organizerId))
+              .then(organizerDoc => {
+                if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
+                  const organizerLogoUrl = organizerDoc.data().logoUrl;
+                  const statusColor = event.status === 'active' ? '#FFD700' : 
+                                     event.status === 'published' ? '#2196F3' : 
+                                     event.status === 'completed' ? '#4CAF50' : '#9E9E9E';
+                  
+                  const customMarkerContent = `
+                    <div style="
+                      width: 40px; 
+                      height: 40px; 
+                      border-radius: 50%; 
+                      border: 3px solid ${statusColor}; 
+                      overflow: hidden;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                      background: white;
+                      position: relative;
+                    ">
+                      <img src="${organizerLogoUrl}" style="
+                        width: 100%; 
+                        height: 100%; 
+                        object-fit: cover;
+                      " />
+                      <div style="
+                        position: absolute;
+                        top: -2px;
+                        right: -2px;
+                        width: 12px;
+                        height: 12px;
+                        background: ${statusColor};
+                        border-radius: 50%;
+                        border: 1px solid white;
+                      "></div>
+                    </div>
+                  `;
+                  
+                  const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+                  customMarker.addListener('click', () => {
+                    console.log('🎉 HeatMap: Updated custom event marker clicked for modal:', event.id);
+                    handleEventClick(event);
+                  });
+                  
+                  markerRefs.current[eventId] = customMarker;
+                } else {
+                  // Fallback to standard marker if logo not available
+                  const basicIcon = getEventIcon(event.status);
+                  const standardMarker = new window.google.maps.Marker({
+                    position,
+                    map: mapRef.current,
+                    icon: basicIcon,
+                    title: `Event: ${event.title}`,
+                    animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                    zIndex: 1000
+                  });
+                  
+                  standardMarker.addListener('click', () => {
+                    handleEventClick(event);
+                  });
+                  
+                  markerRefs.current[eventId] = standardMarker;
+                }
+              })
+              .catch(error => {
+                console.log('🔒 HeatMap: Could not fetch organizer data for update:', event.id, error.message);
+                // Fallback to standard marker
+                const basicIcon = getEventIcon(event.status);
+                const standardMarker = new window.google.maps.Marker({
+                  position,
+                  map: mapRef.current,
+                  icon: basicIcon,
+                  title: `Event: ${event.title}`,
+                  animation: event.status === 'active' ? window.google.maps.Animation.BOUNCE : null,
+                  zIndex: 1000
+                });
+                
+                standardMarker.addListener('click', () => {
+                  handleEventClick(event);
+                });
+                
+                markerRefs.current[eventId] = standardMarker;
+              });
+          }
+        }
       }
     }
   }
