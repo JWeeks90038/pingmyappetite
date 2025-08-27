@@ -133,6 +133,31 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
                   alignItems: 'flex-start',
                   marginBottom: '10px'
                 }}>
+                  {/* Menu Item Image */}
+                  {item.image && (
+                    <div style={{ 
+                      marginRight: '15px',
+                      flexShrink: 0
+                    }}>
+                      <img 
+                        src={item.image} 
+                        alt={item.name}
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                          border: '1px solid #ddd'
+                        }}
+                        onLoad={() => console.log('✅ Menu item image loaded:', item.name, item.image)}
+                        onError={(e) => {
+                          console.error('❌ Menu item image failed to load:', item.name, item.image);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
                   <div style={{ flex: 1 }}>
                     <h4 style={{ 
                       margin: '0 0 5px 0', 
