@@ -740,4 +740,193 @@ async function handlePaymentSucceeded(paymentIntent) {
   }
 }
 
+/**
+ * ORDER STATUS AND NOTIFICATION ROUTES
+ */
+
+// Get orders for a truck owner
+router.get('/orders', async (req, res) => {
+  try {
+    const truckId = req.user?.uid;
+    
+    if (!truckId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    const ordersSnapshot = await db.collection('orders')
+      .where('truckId', '==', truckId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+
+    const orders = [];
+    ordersSnapshot.forEach(doc => {
+      orders.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      orders
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching orders:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch orders',
+      details: error.message 
+    });
+  }
+});
+
+// Get orders for a customer
+router.get('/customer/orders', async (req, res) => {
+  try {
+    const customerId = req.user?.uid;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    const ordersSnapshot = await db.collection('orders')
+      .where('customerId', '==', customerId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+
+    const orders = [];
+    ordersSnapshot.forEach(doc => {
+      orders.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      orders
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching customer orders:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch orders',
+      details: error.message 
+    });
+  }
+});
+
+// Update order status (for truck owners)
+router.patch('/orders/:orderId/status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    const truckId = req.user?.uid;
+    
+    if (!truckId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status',
+        validStatuses 
+      });
+    }
+
+    const db = admin.firestore();
+    
+    // Verify the order belongs to this truck
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    if (!orderDoc.exists) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const orderData = orderDoc.data();
+    if (orderData.truckId !== truckId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only update your own orders' 
+      });
+    }
+
+    // Update the order status
+    await db.collection('orders').doc(orderId).update({
+      status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`✅ Order ${orderId} status updated to: ${status}`);
+
+    // TODO: Trigger notifications here
+    // This will be handled by Firebase Functions when deployed
+    console.log(`📱 Notification trigger for order ${orderId} status: ${status}`);
+
+    res.json({
+      success: true,
+      message: 'Order status updated successfully',
+      orderId,
+      status
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating order status:', error);
+    res.status(500).json({ 
+      error: 'Failed to update order status',
+      details: error.message 
+    });
+  }
+});
+
+// Get order details
+router.get('/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user?.uid;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const orderData = orderDoc.data();
+    
+    // Verify user can access this order (either truck owner or customer)
+    if (orderData.truckId !== userId && orderData.customerId !== userId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only view your own orders' 
+      });
+    }
+
+    res.json({
+      success: true,
+      order: {
+        id: orderDoc.id,
+        ...orderData
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching order:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch order',
+      details: error.message 
+    });
+  }
+});
+
 export default router;
