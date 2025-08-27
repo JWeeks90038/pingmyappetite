@@ -846,14 +846,19 @@ const updateTruckMarkers = useCallback(async () => {
                     " />
                     <div style="
                       position: absolute;
-                      top: -2px;
+                      bottom: -2px;
                       right: -2px;
-                      width: 12px;
-                      height: 12px;
-                      background: ${statusColor};
+                      width: 16px;
+                      height: 16px;
+                      background: #FFD700;
                       border-radius: 50%;
-                      border: 1px solid white;
-                    "></div>
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                      border: 2px solid white;
+                      font-size: 10px;
+                    ">⭐</div>
                   </div>
                 `;
                 
