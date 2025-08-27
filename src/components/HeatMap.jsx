@@ -482,10 +482,15 @@ const createCustomMarker = (position, content, map) => {
     div.style.position = 'absolute';
     div.style.cursor = 'pointer';
     
-    // Add click event listener to the div
-    div.addEventListener('click', () => {
+    // Add both click and touch events for mobile compatibility
+    const handleInteraction = (e) => {
+      e.preventDefault(); // Prevent default behavior
+      e.stopPropagation(); // Stop event bubbling
       this.clickListeners.forEach(callback => callback());
-    });
+    };
+    
+    div.addEventListener('click', handleInteraction);
+    div.addEventListener('touchend', handleInteraction);
     
     const panes = this.getPanes();
     panes.overlayMouseTarget.appendChild(div);
@@ -817,11 +822,28 @@ const updateTruckMarkers = useCallback(async () => {
           if (event.organizerLogoUrl) {
             // Use the embedded logo URL directly (no permission issues)
             console.log('🎨 HeatMap: Creating custom event marker with embedded organization logo:', event.id);
+            console.log('🎨 HeatMap: Event status for', event.id, ':', event.status);
             
-            const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                               event.status === 'active' ? '#FF6B35' : 
-                               event.status === 'completed' ? '#4CAF50' : 
-                               event.status === 'published' ? '#2196F3' : '#9E9E9E';
+            // More robust status color logic with better fallbacks
+            let statusColor = '#2196F3'; // Default to blue
+            
+            switch(event.status?.toLowerCase()) {
+              case 'upcoming':
+              case 'published':
+                statusColor = '#2196F3'; // Blue
+                break;
+              case 'active':
+              case 'live':
+                statusColor = '#FF6B35'; // Orange
+                break;
+              case 'completed':
+              case 'finished':
+                statusColor = '#4CAF50'; // Green
+                break;
+              default:
+                console.log('🟡 HeatMap: Unknown event status, using blue:', event.status);
+                statusColor = '#2196F3'; // Default to blue instead of grey
+            }
             
             const customMarkerContent = `
               <div style="
@@ -833,6 +855,8 @@ const updateTruckMarkers = useCallback(async () => {
                 box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                 background: white;
                 position: relative;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
               ">
                 <img src="${event.organizerLogoUrl}" style="
                   width: 100%; 
@@ -868,11 +892,28 @@ const updateTruckMarkers = useCallback(async () => {
             // Use current user's logo directly for their own events
             const organizerLogoUrl = currentUser.logoUrl;
             console.log('🎨 HeatMap: Creating custom event marker with current user logo:', event.id);
+            console.log('🎨 HeatMap: Event status for', event.id, ':', event.status);
             
-            const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                               event.status === 'active' ? '#FF6B35' : 
-                               event.status === 'completed' ? '#4CAF50' : 
-                               event.status === 'published' ? '#2196F3' : '#9E9E9E';
+            // More robust status color logic with better fallbacks
+            let statusColor = '#2196F3'; // Default to blue
+            
+            switch(event.status?.toLowerCase()) {
+              case 'upcoming':
+              case 'published':
+                statusColor = '#2196F3'; // Blue
+                break;
+              case 'active':
+              case 'live':
+                statusColor = '#FF6B35'; // Orange
+                break;
+              case 'completed':
+              case 'finished':
+                statusColor = '#4CAF50'; // Green
+                break;
+              default:
+                console.log('🟡 HeatMap: Unknown event status, using blue:', event.status);
+                statusColor = '#2196F3'; // Default to blue instead of grey
+            }
             
             const customMarkerContent = `
               <div style="
@@ -884,6 +925,8 @@ const updateTruckMarkers = useCallback(async () => {
                 box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                 background: white;
                 position: relative;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
               ">
                 <img src="${organizerLogoUrl}" style="
                   width: 100%; 
@@ -922,12 +965,28 @@ const updateTruckMarkers = useCallback(async () => {
                 if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
                   const organizerLogoUrl = organizerDoc.data().logoUrl;
                   console.log('🎨 HeatMap: Creating custom event marker with organization logo:', event.id);
+                  console.log('🎨 HeatMap: Event status for', event.id, ':', event.status);
                   
-                  // Create custom marker with organization logo using documented color system
-                  const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                                     event.status === 'active' ? '#FF6B35' : 
-                                     event.status === 'completed' ? '#4CAF50' : 
-                                     event.status === 'published' ? '#2196F3' : '#9E9E9E';
+                  // More robust status color logic with better fallbacks
+                  let statusColor = '#2196F3'; // Default to blue
+                  
+                  switch(event.status?.toLowerCase()) {
+                    case 'upcoming':
+                    case 'published':
+                      statusColor = '#2196F3'; // Blue
+                      break;
+                    case 'active':
+                    case 'live':
+                      statusColor = '#FF6B35'; // Orange
+                      break;
+                    case 'completed':
+                    case 'finished':
+                      statusColor = '#4CAF50'; // Green
+                      break;
+                    default:
+                      console.log('🟡 HeatMap: Unknown event status, using blue:', event.status);
+                      statusColor = '#2196F3'; // Default to blue instead of grey
+                  }
                   
                   const customMarkerContent = `
                     <div style="
@@ -939,6 +998,8 @@ const updateTruckMarkers = useCallback(async () => {
                       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                       background: white;
                       position: relative;
+                      touch-action: manipulation;
+                      -webkit-tap-highlight-color: transparent;
                     ">
                       <img src="${organizerLogoUrl}" style="
                         width: 100%; 
@@ -1070,10 +1131,28 @@ const updateTruckMarkers = useCallback(async () => {
               .then(organizerDoc => {
                 if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
                   const organizerLogoUrl = organizerDoc.data().logoUrl;
-                  const statusColor = event.status === 'upcoming' ? '#2196F3' : 
-                                     event.status === 'active' ? '#FF6B35' : 
-                                     event.status === 'completed' ? '#4CAF50' : 
-                                     event.status === 'published' ? '#2196F3' : '#9E9E9E';
+                  console.log('🎨 HeatMap: Event status for', event.id, ':', event.status);
+                  
+                  // More robust status color logic with better fallbacks
+                  let statusColor = '#2196F3'; // Default to blue
+                  
+                  switch(event.status?.toLowerCase()) {
+                    case 'upcoming':
+                    case 'published':
+                      statusColor = '#2196F3'; // Blue
+                      break;
+                    case 'active':
+                    case 'live':
+                      statusColor = '#FF6B35'; // Orange
+                      break;
+                    case 'completed':
+                    case 'finished':
+                      statusColor = '#4CAF50'; // Green
+                      break;
+                    default:
+                      console.log('🟡 HeatMap: Unknown event status, using blue:', event.status);
+                      statusColor = '#2196F3'; // Default to blue instead of grey
+                  }
                   
                   const customMarkerContent = `
                     <div style="
@@ -1085,6 +1164,8 @@ const updateTruckMarkers = useCallback(async () => {
                       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                       background: white;
                       position: relative;
+                      touch-action: manipulation;
+                      -webkit-tap-highlight-color: transparent;
                     ">
                       <img src="${organizerLogoUrl}" style="
                         width: 100%; 

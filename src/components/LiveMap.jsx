@@ -4,8 +4,9 @@ import {
   HeatmapLayer,
   Marker,
 } from "@react-google-maps/api";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import PinDrop from "../utils/pinDrop";
 import EventModal from "./EventModal";
 import "../assets/LiveMap.css";
@@ -39,9 +40,63 @@ const getEventIcon = (eventStatus) => {
   };
 };
 
+// Create HTML marker for custom styling
+const createCustomMarker = (position, content, map) => {
+  const marker = new google.maps.OverlayView();
+  marker.clickListeners = []; // Store click listeners
+  marker.position = position; // Store the position
+  
+  marker.onAdd = function() {
+    const div = document.createElement('div');
+    div.innerHTML = content;
+    div.style.position = 'absolute';
+    div.style.cursor = 'pointer';
+    
+    // Add both click and touch events for mobile compatibility
+    const handleInteraction = (e) => {
+      e.preventDefault(); // Prevent default behavior
+      e.stopPropagation(); // Stop event bubbling
+      this.clickListeners.forEach(callback => callback());
+    };
+    
+    div.addEventListener('click', handleInteraction);
+    div.addEventListener('touchend', handleInteraction);
+    
+    const panes = this.getPanes();
+    panes.overlayMouseTarget.appendChild(div);
+    this.div = div;
+  };
+  
+  marker.draw = function() {
+    const overlayProjection = this.getProjection();
+    const sw = overlayProjection.fromLatLngToDivPixel(this.position);
+    const div = this.div;
+    if (div) {
+      div.style.left = (sw.x - 20) + 'px'; // Center the 40px icon
+      div.style.top = (sw.y - 20) + 'px';
+    }
+  };
+  
+  marker.onRemove = function() {
+    if (this.div) {
+      this.div.parentNode.removeChild(this.div);
+      this.div = null;
+    }
+  };
+  
+  // Add method to attach click listeners
+  marker.addClickListener = function(callback) {
+    this.clickListeners.push(callback);
+  };
+  
+  marker.setMap(map);
+  return marker;
+};
+
 const LiveMap = ({ isLoaded }) => {
   const [pins, setPins] = useState([]);
   const [events, setEvents] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
   const [mapCenter, setMapCenter] = useState(defaultCenter);
   const [userLocation, setUserLocation] = useState(null);
@@ -49,6 +104,168 @@ const LiveMap = ({ isLoaded }) => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const mapRef = useRef(null);
+  const eventMarkersRef = useRef({});
+
+  // Monitor authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('🔐 LiveMap: Auth state changed:', user ? user.uid : 'null');
+      setCurrentUser(user);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Create custom event markers with organization logos
+  useEffect(() => {
+    if (!mapRef.current || !window.google || !events.length) return;
+
+    console.log('🎨 LiveMap: Creating custom event markers for', events.length, 'events');
+
+    // Clear existing event markers
+    Object.values(eventMarkersRef.current).forEach(marker => {
+      if (marker.setMap) {
+        marker.setMap(null);
+      }
+    });
+    eventMarkersRef.current = {};
+
+    // Create custom markers for each event
+    events.forEach(event => {
+      const position = new window.google.maps.LatLng(event.latitude, event.longitude);
+      const eventId = event.id;
+
+      console.log('🎉 LiveMap: Creating event marker for:', event.title, 'at position:', position);
+
+      // Check if event has embedded organizer logo URL
+      if (event.organizerLogoUrl) {
+        console.log('🎨 LiveMap: Using embedded logo for event:', eventId);
+        createCustomEventMarker(event, position, event.organizerLogoUrl);
+      } else if (currentUser && currentUser.uid === event.organizerId && currentUser.logoUrl) {
+        console.log('🎨 LiveMap: Using current user logo for own event:', eventId);
+        createCustomEventMarker(event, position, currentUser.logoUrl);
+      } else if (event.organizerId) {
+        // Try to fetch organizer logo
+        getDoc(doc(db, 'users', event.organizerId))
+          .then(organizerDoc => {
+            if (organizerDoc.exists() && organizerDoc.data().logoUrl) {
+              console.log('🎨 LiveMap: Fetched organizer logo for event:', eventId);
+              createCustomEventMarker(event, position, organizerDoc.data().logoUrl);
+            } else {
+              console.log('🎨 LiveMap: No logo found, using basic marker for event:', eventId);
+              createBasicEventMarker(event, position);
+            }
+          })
+          .catch(error => {
+            console.log('🔒 LiveMap: Permission denied fetching organizer data, using basic marker:', eventId);
+            createBasicEventMarker(event, position);
+          });
+      } else {
+        console.log('🎨 LiveMap: No organizer ID, using basic marker for event:', eventId);
+        createBasicEventMarker(event, position);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      Object.values(eventMarkersRef.current).forEach(marker => {
+        if (marker.setMap) {
+          marker.setMap(null);
+        }
+      });
+      eventMarkersRef.current = {};
+    };
+  }, [events, currentUser, mapRef.current]);
+
+  // Helper function to create custom event marker with logo
+  const createCustomEventMarker = (event, position, logoUrl) => {
+    console.log('🎨 LiveMap: Event status for', event.id, ':', event.status);
+    
+    // More robust status color logic with better fallbacks
+    let statusColor = '#2196F3'; // Default to blue
+    
+    switch(event.status?.toLowerCase()) {
+      case 'upcoming':
+      case 'published':
+        statusColor = '#2196F3'; // Blue
+        break;
+      case 'active':
+      case 'live':
+        statusColor = '#FF6B35'; // Orange
+        break;
+      case 'completed':
+      case 'finished':
+        statusColor = '#4CAF50'; // Green
+        break;
+      default:
+        console.log('🟡 LiveMap: Unknown event status, using blue:', event.status);
+        statusColor = '#2196F3'; // Default to blue instead of grey
+    }
+
+    const customMarkerContent = `
+      <div style="
+        width: 40px; 
+        height: 40px; 
+        border-radius: 50%; 
+        border: 3px solid ${statusColor}; 
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        background: white;
+        position: relative;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      ">
+        <img src="${logoUrl}" style="
+          width: 100%; 
+          height: 100%; 
+          object-fit: cover;
+        " />
+        <div style="
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 16px;
+          height: 16px;
+          background: #FFD700;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          border: 2px solid white;
+          font-size: 10px;
+        ">⭐</div>
+      </div>
+    `;
+
+    const customMarker = createCustomMarker(position, customMarkerContent, mapRef.current);
+    customMarker.addClickListener(() => {
+      console.log('🎉 LiveMap: Custom event marker clicked:', event.id);
+      handleEventClick(event);
+    });
+
+    eventMarkersRef.current[event.id] = customMarker;
+  };
+
+  // Helper function to create basic event marker (fallback)
+  const createBasicEventMarker = (event, position) => {
+    const basicIcon = getEventIcon(event.status);
+    
+    const marker = new window.google.maps.Marker({
+      position,
+      map: mapRef.current,
+      icon: basicIcon,
+      title: `Event: ${event.title}`,
+      zIndex: 1000
+    });
+
+    marker.addListener('click', () => {
+      console.log('🎉 LiveMap: Basic event marker clicked:', event.id);
+      handleEventClick(event);
+    });
+
+    eventMarkersRef.current[event.id] = marker;
+  };
 
   // Geolocation effect to center map on user's location
   useEffect(() => {
@@ -220,7 +437,7 @@ const LiveMap = ({ isLoaded }) => {
           />
         ))}
 
-        {/* Event markers (yellow stars) */}
+        {/* Event markers are now handled by custom markers in useEffect - old basic markers commented out
         {events.map((event) => (
           <Marker
             key={event.id}
@@ -230,6 +447,7 @@ const LiveMap = ({ isLoaded }) => {
             onClick={() => handleEventClick(event)}
           />
         ))}
+        */}
 
         {heatmapData.length > 0 && (
           <HeatmapLayer data={heatmapData} options={{ radius: 30 }} />
