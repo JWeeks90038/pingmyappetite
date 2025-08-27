@@ -58,6 +58,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState(null); // Start with null instead of LA coordinates
   const [mapReady, setMapReady] = useState(false); // Track if map is ready to display
+  const [locationDetermined, setLocationDetermined] = useState(false); // Track if we've determined the final location
   
   // EventModal and Application states
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -140,81 +141,76 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   }, []);
 
   useEffect(() => {
+    // Don't start location determination until we have user data
+    if (!currentUser || locationDetermined) return;
+    
+    console.log("🗺️ HeatMap: Starting location determination for", currentUser.role);
+    
+    // For food truck owners, wait briefly for truck location data to load
+    if (currentUser.role === 'owner') {
+      console.log("🚚 HeatMap: Waiting for truck location data...");
+      
+      // Set a timeout to wait for truck data, but not indefinitely
+      const truckLocationTimeout = setTimeout(() => {
+        console.log("🚚 HeatMap: Truck location timeout, falling back to geolocation");
+        attemptGeolocation();
+      }, 2000); // Wait 2 seconds for truck location data
+      
+      // If truck locations are already available, use them immediately
+      if (truckLocations.length > 0) {
+        clearTimeout(truckLocationTimeout);
+        const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
+        if (userTruck && userTruck.latitude && userTruck.longitude) {
+          const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
+          console.log("🗺️ HeatMap: Using truck owner's location:", truckCenter);
+          setMapCenter(truckCenter);
+          setLocationDetermined(true);
+          return;
+        } else {
+          console.log("� HeatMap: No truck location found, using geolocation");
+          attemptGeolocation();
+        }
+      }
+      
+      return () => clearTimeout(truckLocationTimeout);
+    } else {
+      // For non-truck owners, use geolocation immediately
+      attemptGeolocation();
+    }
+  }, [currentUser, truckLocations, locationDetermined]);
+
+  const attemptGeolocation = () => {
     if (navigator.geolocation) {
+      console.log("� HeatMap: Attempting geolocation...");
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const coords = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          //console.log("User geolocation detected:", position.coords);
-          
-          // Only set map center if we don't have a better center yet
-          if (!mapCenter) {
-            setMapCenter(coords);
-          }
-          
-          if (mapRef.current) {
-            mapRef.current.panTo(coords)
-          }
+          console.log("✅ HeatMap: Geolocation successful:", coords);
+          setMapCenter(coords);
+          setLocationDetermined(true);
         },
         (error) => {
-          // Handle geolocation errors more gracefully
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              console.log("🗺️ HeatMap: Geolocation permission denied by user");
-              break;
-            case error.POSITION_UNAVAILABLE:
-              console.log("🗺️ HeatMap: Geolocation position unavailable");
-              break;
-            case error.TIMEOUT:
-              console.log("🗺️ HeatMap: Geolocation request timed out");
-              break;
-            default:
-              console.log("🗺️ HeatMap: Unknown geolocation error:", error.message);
-              break;
-          }
-          
-          // Fall back to LA coordinates if geolocation fails and no map center is set
-          if (!mapCenter) {
-            console.log("🗺️ HeatMap: Falling back to LA coordinates");
-            setMapCenter({ lat: 34.0522, lng: -118.2437 });
-          }
+          console.log("❌ HeatMap: Geolocation failed:", error.message);
+          // Only use LA as a last resort after everything else has failed
+          console.log("🗺️ HeatMap: Using LA coordinates as final fallback");
+          setMapCenter({ lat: 34.0522, lng: -118.2437 });
+          setLocationDetermined(true);
         },
         { 
-          enableHighAccuracy: true, // Requests high accuracy
-          maximumAge: 10000, // Cache the location for 10 seconds
-          timeout: 5000, // Timeout for the geolocation request
+          enableHighAccuracy: true,
+          maximumAge: 5000, // Cache for 5 seconds
+          timeout: 8000, // Give more time for geolocation
         }
       );
     } else {
-      // Browser doesn't support geolocation, fall back to LA
-      if (!mapCenter) {
-        console.log("🗺️ HeatMap: Geolocation not supported, using LA coordinates");
-        setMapCenter({ lat: 34.0522, lng: -118.2437 });
-      }
+      console.log("❌ HeatMap: Geolocation not supported, using LA coordinates");
+      setMapCenter({ lat: 34.0522, lng: -118.2437 });
+      setLocationDetermined(true);
     }
-  }, [mapCenter]);
-
-  // Priority-based map center determination
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    // Priority 1: For food truck owners, use their truck location if available
-    if (currentUser.role === 'owner' && currentUser.uid && truckLocations.length > 0) {
-      const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
-      if (userTruck && userTruck.latitude && userTruck.longitude) {
-        const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
-        console.log("🗺️ HeatMap: Priority 1 - Using truck owner's location:", truckCenter);
-        setMapCenter(truckCenter);
-        return;
-      }
-    }
-    
-    // Priority 2: If no truck location but user is authenticated, trigger geolocation
-    // (This will be handled by the geolocation effect above)
-    
-  }, [currentUser, truckLocations]);
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -1205,7 +1201,10 @@ return (
           <div style={{ fontSize: '18px', marginBottom: '10px' }}>🗺️</div>
           <div>Loading map...</div>
           <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-            Determining your location
+            {currentUser?.role === 'owner' 
+              ? 'Finding your truck location...' 
+              : 'Determining your location...'
+            }
           </div>
         </div>
       </div>
