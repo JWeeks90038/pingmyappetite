@@ -556,7 +556,7 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
     };
   }
   
-  // 3-color system: Gray for draft, Yellow for active, Green for completed
+  // 3-color system: Gray for draft, Yellow for active, Green for completed, Blue for published, Purple for upcoming
   let fillColor = '#9E9E9E'; // Default gray for draft
   if (eventStatus === 'active') {
     fillColor = '#FFD700'; // Gold for active
@@ -564,6 +564,8 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
     fillColor = '#4CAF50'; // Green for completed
   } else if (eventStatus === 'published') {
     fillColor = '#2196F3'; // Blue for published
+  } else if (eventStatus === 'upcoming') {
+    fillColor = '#9C27B0'; // Purple for upcoming
   }
 
   return {
@@ -822,7 +824,8 @@ const updateTruckMarkers = useCallback(async () => {
                 // Create custom marker with organization logo
                 const statusColor = event.status === 'active' ? '#FFD700' : 
                                    event.status === 'published' ? '#2196F3' : 
-                                   event.status === 'completed' ? '#4CAF50' : '#9E9E9E';
+                                   event.status === 'completed' ? '#4CAF50' : 
+                                   event.status === 'upcoming' ? '#9C27B0' : '#9E9E9E';
                 
                 const customMarkerContent = `
                   <div style="
