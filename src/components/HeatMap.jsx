@@ -56,7 +56,8 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [showEvents, setShowEvents] = useState(true); // State for controlling event marker visibility
   const [truckNames, setTruckNames] = useState({});
   const [loading, setLoading] = useState(true);
-  const [mapCenter, setMapCenter] = useState({ lat: 34.0522, lng: -118.2437 });
+  const [mapCenter, setMapCenter] = useState(null); // Start with null instead of LA coordinates
+  const [mapReady, setMapReady] = useState(false); // Track if map is ready to display
   
   // EventModal and Application states
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -104,8 +105,6 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [showCuisineModal, setShowCuisineModal] = useState(false);
   const [tempCuisineFilters, setTempCuisineFilters] = useState(filters);
 
-  const [mapReady, setMapReady] = useState(false);
-
   const mapRef = useRef(null);
   const markerRefs = useRef({});
   const infoWindowRef = useRef(null);
@@ -149,7 +148,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
             lng: position.coords.longitude,
           };
           //console.log("User geolocation detected:", position.coords);
-          setMapCenter(coords);
+          
+          // Only set map center if we don't have a better center yet
+          if (!mapCenter) {
+            setMapCenter(coords);
+          }
+          
           if (mapRef.current) {
             mapRef.current.panTo(coords)
           }
@@ -170,6 +174,12 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
               console.log("🗺️ HeatMap: Unknown geolocation error:", error.message);
               break;
           }
+          
+          // Fall back to LA coordinates if geolocation fails and no map center is set
+          if (!mapCenter) {
+            console.log("🗺️ HeatMap: Falling back to LA coordinates");
+            setMapCenter({ lat: 34.0522, lng: -118.2437 });
+          }
         },
         { 
           enableHighAccuracy: true, // Requests high accuracy
@@ -177,8 +187,34 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
           timeout: 5000, // Timeout for the geolocation request
         }
       );
+    } else {
+      // Browser doesn't support geolocation, fall back to LA
+      if (!mapCenter) {
+        console.log("🗺️ HeatMap: Geolocation not supported, using LA coordinates");
+        setMapCenter({ lat: 34.0522, lng: -118.2437 });
+      }
     }
-  }, []);
+  }, [mapCenter]);
+
+  // Priority-based map center determination
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // Priority 1: For food truck owners, use their truck location if available
+    if (currentUser.role === 'owner' && currentUser.uid && truckLocations.length > 0) {
+      const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
+      if (userTruck && userTruck.latitude && userTruck.longitude) {
+        const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
+        console.log("🗺️ HeatMap: Priority 1 - Using truck owner's location:", truckCenter);
+        setMapCenter(truckCenter);
+        return;
+      }
+    }
+    
+    // Priority 2: If no truck location but user is authenticated, trigger geolocation
+    // (This will be handled by the geolocation effect above)
+    
+  }, [currentUser, truckLocations]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -301,19 +337,6 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     }
     console.log("🚛 HeatMap: Using truck names from location data:", updatedNames);
     setTruckNames(updatedNames);
-    
-    // For food truck owners, center the map on their truck's location
-    if (currentUser.role === 'owner' && currentUser.uid) {
-      const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
-      if (userTruck && userTruck.latitude && userTruck.longitude) {
-        const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
-        console.log("🗺️ HeatMap: Centering map on truck owner's location:", truckCenter);
-        setMapCenter(truckCenter);
-        if (mapRef.current) {
-          mapRef.current.panTo(truckCenter);
-        }
-      }
-    }
   }, [truckLocations, currentUser]);
 
 // Create a circular icon using canvas to mimic borderRadius: "50%"
@@ -1152,22 +1175,41 @@ useEffect(() => {
 
 return (
   <div>
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      center={mapCenter}
-      zoom={12}
-      onLoad={(map) => {
-        mapRef.current = map;
-        if (onMapLoad) onMapLoad(map);
-        setMapReady(true);
-      }}
-    >
-      {mapReady && combinedHeatmapData.length === 0 && userPlan !== "basic" && (
-        <div style={{ textAlign: "center", marginTop: "20px" }}>
-          <h3>No data available for the selected filters.</h3>
+    {mapCenter ? (
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={mapCenter}
+        zoom={12}
+        onLoad={(map) => {
+          mapRef.current = map;
+          if (onMapLoad) onMapLoad(map);
+          setMapReady(true);
+        }}
+      >
+        {mapReady && combinedHeatmapData.length === 0 && userPlan !== "basic" && (
+          <div style={{ textAlign: "center", marginTop: "20px" }}>
+            <h3>No data available for the selected filters.</h3>
+          </div>
+        )}
+      </GoogleMap>
+    ) : (
+      <div style={{ 
+        ...mapContainerStyle, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#f5f5f5',
+        border: '1px solid #ddd'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', marginBottom: '10px' }}>🗺️</div>
+          <div>Loading map...</div>
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            Determining your location
+          </div>
         </div>
-      )}
-    </GoogleMap>
+      </div>
+    )}
 
     {/* Only show heatmap features for Pro and All-Access plans */}
     {userPlan === "pro" || userPlan === "all-access" ? (
