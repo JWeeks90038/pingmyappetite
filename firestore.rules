@@ -144,5 +144,16 @@ service cloud.firestore {
       // Allow all authenticated users to read menu items for discovery
       allow read: if request.auth != null;
     }
+    
+    // Favorites collection - allow customers to manage their favorite trucks
+    match /favorites/{favoriteId} {
+      // Allow users to create, read, update, and delete their own favorites
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow users to create favorites if they are the owner of the favorite
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
   }
 }
