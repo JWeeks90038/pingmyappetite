@@ -985,10 +985,20 @@ useEffect(() => {
             marker.div.innerHTML = customMarkerContent;
           }
         } else {
-          // Standard marker
-          animateMarkerMove(marker, position);
-          marker.setIcon(icon);
-          marker.setTitle(data.truckName || 'Food Truck');
+          // Standard marker - only animate if it's a real Google Maps marker
+          if (marker && typeof marker.getPosition === 'function' && !marker.div) {
+            animateMarkerMove(marker, position);
+          } else if (marker && marker.setPosition && typeof marker.setPosition === 'function') {
+            // Fallback to simple position update if animation fails
+            marker.setPosition(position);
+          }
+          
+          if (marker && typeof marker.setIcon === 'function') {
+            marker.setIcon(icon);
+          }
+          if (marker && typeof marker.setTitle === 'function') {
+            marker.setTitle(data.truckName || 'Food Truck');
+          }
         }
       }
     }

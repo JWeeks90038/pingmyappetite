@@ -135,11 +135,11 @@ service cloud.firestore {
     match /menuItems/{itemId} {
       // Allow truck owners to create menu items for their own truck
       allow create: if request.auth != null && 
-        request.auth.uid == request.resource.data.truckId;
+        request.auth.uid == request.resource.data.ownerId;
       
       // Allow truck owners to read, update, and delete their own menu items
       allow read, update, delete: if request.auth != null && 
-        request.auth.uid == resource.data.truckId;
+        request.auth.uid == resource.data.ownerId;
       
       // Allow all authenticated users to read menu items for discovery
       allow read: if request.auth != null;
