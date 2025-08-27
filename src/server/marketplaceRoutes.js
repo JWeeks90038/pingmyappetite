@@ -19,6 +19,39 @@ const router = express.Router();
 let stripe;
 
 /**
+ * Authentication middleware for marketplace routes
+ */
+const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Authorization header required' 
+      });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('❌ Authentication error:', error);
+    res.status(401).json({ 
+      error: 'Invalid or expired token' 
+    });
+  }
+};
+
+// Apply authentication middleware to all routes except webhooks
+router.use((req, res, next) => {
+  // Skip authentication for webhook routes
+  if (req.path.startsWith('/webhooks/')) {
+    return next();
+  }
+  return authenticateUser(req, res, next);
+});
+
+/**
  * Initialize the marketplace routes with Stripe instance
  * @param {Object} stripeInstance - Configured Stripe instance
  */
@@ -362,6 +395,196 @@ router.post('/orders/create-checkout', async (req, res) => {
     console.error('❌ Error creating checkout session:', error);
     res.status(500).json({ 
       error: 'Failed to create checkout session',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * MENU MANAGEMENT ROUTES
+ */
+
+// Get truck's menu items
+router.get('/trucks/:truckId/menu', async (req, res) => {
+  try {
+    const { truckId } = req.params;
+    
+    // Verify the requesting user owns this truck or is authorized
+    if (req.user?.uid !== truckId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only access your own menu' 
+      });
+    }
+
+    const db = admin.firestore();
+    const menuSnapshot = await db
+      .collection('users')
+      .doc(truckId)
+      .collection('menu')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const items = [];
+    menuSnapshot.forEach(doc => {
+      items.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({
+      success: true,
+      items
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching menu:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch menu items',
+      details: error.message 
+    });
+  }
+});
+
+// Add new menu item
+router.post('/trucks/:truckId/menu', async (req, res) => {
+  try {
+    const { truckId } = req.params;
+    const { name, price, description, category, image } = req.body;
+    
+    // Verify the requesting user owns this truck
+    if (req.user?.uid !== truckId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only modify your own menu' 
+      });
+    }
+
+    if (!name || !price) {
+      return res.status(400).json({ 
+        error: 'Name and price are required' 
+      });
+    }
+
+    const db = admin.firestore();
+    const menuItem = {
+      name: name.trim(),
+      price: parseFloat(price),
+      description: description?.trim() || '',
+      category: category || '',
+      image: image || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      truckId
+    };
+
+    const docRef = await db
+      .collection('users')
+      .doc(truckId)
+      .collection('menu')
+      .add(menuItem);
+
+    // Return the created item with its ID
+    const createdItem = {
+      id: docRef.id,
+      ...menuItem,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log(`✅ Menu item added for truck ${truckId}:`, name);
+
+    res.json({
+      success: true,
+      item: createdItem
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to add menu item',
+      details: error.message 
+    });
+  }
+});
+
+// Update menu item
+router.put('/trucks/:truckId/menu/:itemId', async (req, res) => {
+  try {
+    const { truckId, itemId } = req.params;
+    const { name, price, description, category, image } = req.body;
+    
+    // Verify the requesting user owns this truck
+    if (req.user?.uid !== truckId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only modify your own menu' 
+      });
+    }
+
+    const db = admin.firestore();
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (name !== undefined) updateData.name = name.trim();
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (description !== undefined) updateData.description = description?.trim() || '';
+    if (category !== undefined) updateData.category = category || '';
+    if (image !== undefined) updateData.image = image;
+
+    await db
+      .collection('users')
+      .doc(truckId)
+      .collection('menu')
+      .doc(itemId)
+      .update(updateData);
+
+    console.log(`✅ Menu item updated for truck ${truckId}:`, itemId);
+
+    res.json({
+      success: true,
+      message: 'Menu item updated successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to update menu item',
+      details: error.message 
+    });
+  }
+});
+
+// Delete menu item
+router.delete('/trucks/:truckId/menu/:itemId', async (req, res) => {
+  try {
+    const { truckId, itemId } = req.params;
+    
+    // Verify the requesting user owns this truck
+    if (req.user?.uid !== truckId) {
+      return res.status(403).json({ 
+        error: 'Unauthorized: You can only modify your own menu' 
+      });
+    }
+
+    const db = admin.firestore();
+    await db
+      .collection('users')
+      .doc(truckId)
+      .collection('menu')
+      .doc(itemId)
+      .delete();
+
+    console.log(`✅ Menu item deleted for truck ${truckId}:`, itemId);
+
+    res.json({
+      success: true,
+      message: 'Menu item deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting menu item:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete menu item',
       details: error.message 
     });
   }
