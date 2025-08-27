@@ -262,11 +262,11 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     let eventsQuery;
     
     if (!currentUser) {
-      // For unauthenticated users, show only published events
-      console.log('🌐 HeatMap: Setting up public query for published events (no authentication)');
+      // For unauthenticated users, show upcoming, published and active events
+      console.log('🌐 HeatMap: Setting up public query for upcoming/published/active events (no authentication)');
       eventsQuery = query(
         collection(db, "events"),
-        where("status", "==", "published")
+        where("status", "in", ["published", "active", "upcoming"])
       );
     } else if (currentUser.role === 'event-organizer') {
       // Event organizers see only their own events (all statuses)
@@ -277,25 +277,25 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
       );
     } else if (currentUser.role === 'owner') {
       // Food truck owners can read any events (per Firestore rules)
-      // They see active and published events to apply to
-      console.log('🚚 HeatMap: Setting up food truck owner query for published/active events');
+      // They see upcoming, active and published events to apply to
+      console.log('🚚 HeatMap: Setting up food truck owner query for upcoming/published/active events');
       eventsQuery = query(
         collection(db, "events"),
-        where("status", "in", ["published", "active"])
+        where("status", "in", ["published", "active", "upcoming"])
       );
     } else if (currentUser.role === 'customer') {
-      // Customers can only read published events (per Firestore rules)
-      console.log('👥 HeatMap: Setting up customer query for published events');
+      // Customers can read published, active, and upcoming events for planning
+      console.log('👥 HeatMap: Setting up customer query for upcoming/published/active events');
       eventsQuery = query(
         collection(db, "events"),
-        where("status", "==", "published")
+        where("status", "in", ["published", "active", "upcoming"])
       );
     } else {
-      // For other authenticated users with unknown roles, show published events
-      console.log('📋 Unknown user role detected:', currentUser.role, 'showing published events only');
+      // For other authenticated users with unknown roles, show upcoming/published/active events
+      console.log('📋 Unknown user role detected:', currentUser.role, 'showing upcoming/published/active events');
       eventsQuery = query(
         collection(db, "events"),
-        where("status", "==", "published")
+        where("status", "in", ["published", "active", "upcoming"])
       );
     }
     
@@ -315,26 +315,26 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
           const hasLocation = event.latitude && event.longitude;
           
           if (!currentUser) {
-            // For unauthenticated users, show only published events with location
-            const shouldShow = hasLocation && event.status === 'published';
+            // For unauthenticated users, show upcoming, published and active events with location
+            const shouldShow = hasLocation && (event.status === 'published' || event.status === 'active' || event.status === 'upcoming');
             console.log('🌐 HeatMap: Public event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
             return shouldShow;
           } else if (currentUser.role === 'event-organizer') {
             // For event organizers, show all their events (already filtered by query)
             return hasLocation;
           } else if (currentUser.role === 'owner') {
-            // For food truck owners, show active and published events with location
-            const shouldShow = hasLocation && (event.status === 'active' || event.status === 'published');
+            // For food truck owners, show upcoming, active and published events with location
+            const shouldShow = hasLocation && (event.status === 'active' || event.status === 'published' || event.status === 'upcoming');
             console.log('🚚 HeatMap: Food truck owner event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
             return shouldShow;
           } else if (currentUser.role === 'customer') {
-            // For customers, show published events with location
-            const shouldShow = hasLocation && event.status === 'published';
+            // For customers, show upcoming, published and active events with location
+            const shouldShow = hasLocation && (event.status === 'published' || event.status === 'active' || event.status === 'upcoming');
             console.log('👥 HeatMap: Customer event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
             return shouldShow;
           } else {
-            // For other authenticated users, show published events with location
-            const shouldShow = hasLocation && event.status === 'published';
+            // For other authenticated users, show upcoming, published and active events with location
+            const shouldShow = hasLocation && (event.status === 'published' || event.status === 'active' || event.status === 'upcoming');
             console.log('❓ HeatMap: Unknown role event filter - Event:', event.id, 'shouldShow:', shouldShow, 'hasLocation:', hasLocation, 'status:', event.status);
             return shouldShow;
           }
