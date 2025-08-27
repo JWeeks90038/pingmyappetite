@@ -371,17 +371,19 @@ router.put('/orders/:orderId/status', async (req, res) => {
 router.get('/trucks/:truckId/menu', async (req, res) => {
   try {
     const { truckId } = req.params;
+    console.log(`🔍 Fetching menu items for truck: ${truckId}`);
 
     const db = admin.firestore();
     const menuSnapshot = await db.collection('menuItems')
       .where('truckId', '==', truckId)
-      .orderBy('createdAt', 'desc')
       .get();
 
     const items = menuSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+
+    console.log(`✅ Found ${items.length} menu items for truck ${truckId}`);
 
     res.json({
       items,
@@ -403,6 +405,8 @@ router.post('/trucks/:truckId/menu', async (req, res) => {
     const { truckId } = req.params;
     const { name, price, description, category, image } = req.body;
 
+    console.log(`📝 Creating menu item for truck ${truckId}:`, { name, price, description, category, hasImage: !!image });
+
     if (!name || !price) {
       return res.status(400).json({ 
         error: 'name and price are required' 
@@ -414,11 +418,14 @@ router.post('/trucks/:truckId/menu', async (req, res) => {
     // Verify truck exists
     const truckDoc = await db.collection('users').doc(truckId).get();
     if (!truckDoc.exists) {
+      console.log(`❌ Truck ${truckId} not found in users collection`);
       return res.status(404).json({ error: 'Truck not found' });
     }
 
+    console.log(`✅ Truck ${truckId} verified, creating menu item...`);
+
     // Create menu item
-    const menuItemRef = await db.collection('menuItems').add({
+    const menuItemData = {
       truckId,
       name: name.trim(),
       price: parseFloat(price),
@@ -428,7 +435,11 @@ router.post('/trucks/:truckId/menu', async (req, res) => {
       available: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    };
+
+    console.log(`💾 Saving menu item to Firestore:`, menuItemData);
+
+    const menuItemRef = await db.collection('menuItems').add(menuItemData);
 
     const menuItem = {
       id: menuItemRef.id,
@@ -441,7 +452,7 @@ router.post('/trucks/:truckId/menu', async (req, res) => {
       available: true
     };
 
-    console.log(`✅ Added menu item ${menuItemRef.id} for truck ${truckId}`);
+    console.log(`✅ Successfully added menu item ${menuItemRef.id} for truck ${truckId}`);
 
     res.json({
       item: menuItem,
