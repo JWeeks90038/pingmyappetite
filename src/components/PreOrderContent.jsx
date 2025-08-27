@@ -8,7 +8,12 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    if (!truckId) return;
+    if (!truckId) {
+      console.log('PreOrderContent: No truckId provided');
+      return;
+    }
+
+    console.log('PreOrderContent: Setting up menu items listener for truckId:', truckId);
 
     const menuItemsQuery = query(
       collection(db, 'menuItems'),
@@ -16,17 +21,27 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
     );
 
     const unsubscribe = onSnapshot(menuItemsQuery, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      console.log('PreOrderContent: Menu items query snapshot received:', snapshot.docs.length, 'items');
+      
+      const items = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('PreOrderContent: Menu item found:', doc.id, data);
+        return {
+          id: doc.id,
+          ...data
+        };
+      });
 
+      console.log('PreOrderContent: Final menu items array:', items);
       setMenuItems(items);
       
       // Extract unique categories
       const uniqueCategories = [...new Set(items.map(item => item.category))];
       setCategories(uniqueCategories.sort());
       
+      setLoading(false);
+    }, (error) => {
+      console.error('PreOrderContent: Error fetching menu items:', error);
       setLoading(false);
     });
 

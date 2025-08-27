@@ -632,6 +632,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
       // Combine truck data with owner data for hours and other info
       const truckInfo = {
         id: truckId,
+        ownerUid: ownerUid, // Add ownerUid to the truck info
         ...truckData,
         truckName: truckData.truckName || ownerData.ownerName || ownerData.truckName || 'Food Truck',
         hours: ownerData.hours || '',
@@ -2119,7 +2120,7 @@ return (
           overflowY: 'auto',
           borderRight: '1px solid #eee'
         }}>
-          <PreOrderContent truckId={activeTruck.uid} cart={cart} setCart={setCart} />
+          <PreOrderContent truckId={activeTruck.ownerUid || activeTruck.uid || activeTruck.id} cart={cart} setCart={setCart} />
         </div>
 
         {/* Cart */}
