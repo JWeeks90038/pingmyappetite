@@ -195,9 +195,9 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         },
         (error) => {
           console.log("❌ HeatMap: Geolocation failed:", error.message);
-          // Only use LA as a last resort after everything else has failed
-          console.log("🗺️ HeatMap: Using LA coordinates as final fallback");
-          setMapCenter({ lat: 34.0522, lng: -118.2437 });
+          // Use USA center as fallback instead of LA
+          console.log("🗺️ HeatMap: Using USA center coordinates as final fallback");
+          setMapCenter({ lat: 39.8283, lng: -98.5795 });
           setLocationDetermined(true);
         },
         { 
@@ -207,8 +207,8 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         }
       );
     } else {
-      console.log("❌ HeatMap: Geolocation not supported, using LA coordinates");
-      setMapCenter({ lat: 34.0522, lng: -118.2437 });
+      console.log("❌ HeatMap: Geolocation not supported, using USA center coordinates");
+      setMapCenter({ lat: 39.8283, lng: -98.5795 });
       setLocationDetermined(true);
     }
   };
