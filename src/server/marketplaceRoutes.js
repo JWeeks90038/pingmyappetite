@@ -235,6 +235,66 @@ router.post('/trucks/onboard', async (req, res) => {
   }
 });
 
+// Generate onboarding link for existing Stripe account
+router.post('/trucks/onboarding-link', async (req, res) => {
+  try {
+    const { truckId, accountId } = req.body;
+    
+    // Use authenticated user's ID if no truckId provided
+    const actualTruckId = truckId || req.user?.uid;
+    
+    if (!actualTruckId) {
+      return res.status(401).json({ 
+        error: 'Authentication required' 
+      });
+    }
+
+    let stripeAccountId = accountId;
+    
+    // If no accountId provided, get it from the database
+    if (!stripeAccountId) {
+      const db = admin.firestore();
+      const truckDoc = await db.collection('users').doc(actualTruckId).get();
+      
+      if (!truckDoc.exists) {
+        return res.status(404).json({ 
+          error: 'Truck not found' 
+        });
+      }
+      
+      const truckData = truckDoc.data();
+      stripeAccountId = truckData.stripeAccountId;
+      
+      if (!stripeAccountId) {
+        return res.status(400).json({ 
+          error: 'No Stripe account found. Please create an account first.' 
+        });
+      }
+    }
+
+    // Create account link for onboarding
+    const accountLink = await stripe.accountLinks.create({
+      account: stripeAccountId,
+      refresh_url: `${process.env.CLIENT_URL}/truck-onboarding?refresh=true`,
+      return_url: `${process.env.CLIENT_URL}/truck-onboarding?complete=true`,
+      type: 'account_onboarding',
+    });
+
+    res.json({
+      onboardingUrl: accountLink.url,
+      accountId: stripeAccountId,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating onboarding link:', error);
+    res.status(500).json({ 
+      error: 'Failed to create onboarding link',
+      details: error.message 
+    });
+  }
+});
+
 /**
  * ORDER AND PAYMENT ROUTES
  */

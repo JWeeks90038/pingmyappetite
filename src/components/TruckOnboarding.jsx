@@ -31,10 +31,19 @@ const TruckOnboarding = () => {
 
   const checkAccountStatus = async () => {
     try {
+      console.log('🔍 Checking account status - user object:', user);
+      console.log('🔍 User type:', typeof user);
+      console.log('🔍 User has getIdToken method:', typeof user?.getIdToken === 'function');
+      
+      const token = await user.getIdToken();
+      console.log('🔍 Token obtained for status check:', token ? 'Token received' : 'No token');
+      
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      console.log('🌍 Making status API call to:', `${apiUrl}/api/marketplace/trucks/status`);
+      
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
         headers: {
-          'Authorization': `Bearer ${await user.getIdToken()}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -101,12 +110,21 @@ const TruckOnboarding = () => {
   const getOnboardingLink = async () => {
     setLoading(true);
     try {
+      console.log('🔐 Getting onboarding link - user object:', user);
+      console.log('🔐 User type:', typeof user);
+      console.log('🔐 User has getIdToken method:', typeof user?.getIdToken === 'function');
+      
+      const token = await user.getIdToken();
+      console.log('🔐 Token obtained:', token ? 'Token received' : 'No token');
+      
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      console.log('🌍 Making API call to:', `${apiUrl}/api/marketplace/trucks/onboarding-link`);
+      
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboarding-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await user.getIdToken()}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           truckId: user.uid,
