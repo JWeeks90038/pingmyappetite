@@ -43,16 +43,19 @@ service cloud.firestore {
     
     // Truck locations collection - allow users to manage their truck data
     match /truckLocations/{docId} {
-      // Allow users to read and write their own truck data
+      // Allow users to read and write their own truck data (docId is the user's UID)
+      allow read, write: if request.auth != null && request.auth.uid == docId;
+      
+      // Allow creation if the authenticated user matches the docId
+      allow create: if request.auth != null && request.auth.uid == docId;
+      
+      // Also allow if ownerUid field exists and matches (backward compatibility)
       allow read, write: if request.auth != null && request.auth.uid == resource.data.ownerUid;
       
-      // Allow creation if the ownerUid matches the authenticated user
+      // Allow creation if the ownerUid matches the authenticated user (backward compatibility)
       allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerUid;
       
       // Allow all authenticated users to read truck locations (for map display)
-      allow read: if request.auth != null;
-      
-      // Allow read access for all authenticated users (for map display)
       allow read: if request.auth != null;
     }
     
