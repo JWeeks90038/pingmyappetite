@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const HomeScreen = () => {
-  const { user, userRole } = useAuth();
+  const { user, userData, userRole } = useAuth();
+  const navigation = useNavigation();
 
   return (
     <ScrollView style={styles.container}>
@@ -28,7 +30,7 @@ const HomeScreen = () => {
         {user && (
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>
-              Hello, {user.displayName || user.email}!
+              Hello, {userData?.username || user.displayName || 'there'}!
             </Text>
           </View>
         )}
@@ -38,25 +40,43 @@ const HomeScreen = () => {
             {userRole === 'owner' ? 'Owner Features' : 'Customer Features'}
           </Text>
           
-          {userRole === 'owner' ? (
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>📍 Live Location Tracking</Text>
-                <Text style={styles.featureDescription}>
-                  Share your real-time location with customers
-                </Text>
+                    {userRole === 'owner' ? (
+            <View>
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>📍 Live Location Tracking</Text>
+                  <Text style={styles.featureDescription}>
+                    Share your real-time location with customers
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🍽️ Menu Management</Text>
+                  <Text style={styles.featureDescription}>
+                    Update your menu items and prices
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>📊 Analytics Dashboard</Text>
+                  <Text style={styles.featureDescription}>
+                    Track customer pings and analyze demand
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🎯 Food Drops</Text>
+                  <Text style={styles.featureDescription}>
+                    Create special offers and limited-time deals
+                  </Text>
+                </View>
               </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>📊 Analytics Dashboard</Text>
-                <Text style={styles.featureDescription}>
-                  Track customer pings and analyze demand
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>🎯 Food Drops</Text>
-                <Text style={styles.featureDescription}>
-                  Create special offers and limited-time deals
-                </Text>
+              
+              <View style={styles.actionSection}>
+                <TouchableOpacity 
+                  style={styles.primaryButton}
+                  onPress={() => navigation.navigate('TruckOnboarding')}
+                >
+                  <Text style={styles.buttonText}>🚚 Manage Your Truck</Text>
+                  <Text style={styles.buttonSubtext}>Payment Setup & Menu Management</Text>
+                </TouchableOpacity>
               </View>
             </View>
           ) : (
@@ -179,6 +199,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  actionSection: {
+    marginVertical: 20,
+  },
+  primaryButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  buttonSubtext: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 4,
+    opacity: 0.9,
   },
   aboutSection: {
     backgroundColor: '#fff',

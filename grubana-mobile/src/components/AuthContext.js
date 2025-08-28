@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { db } from "../firebase";
 
 const AuthContext = createContext();
 
 export const AuthContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userPlan, setUserPlan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,7 @@ export const AuthContextProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         setUser(null);
+        setUserData(null);
         setUserRole(null);
         setUserPlan(null);
         setLoading(false);
@@ -44,10 +46,12 @@ export const AuthContextProvider = ({ children }) => {
             twitter: "",
           };
           await setDoc(userDocRef, newUser);
+          setUserData(newUser);
           setUserRole(newUser.role);
           setUserPlan(newUser.plan);
         } else {
           const data = userSnap.data();
+          setUserData(data);
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");
         }
@@ -63,7 +67,7 @@ export const AuthContextProvider = ({ children }) => {
   }, [auth]);
 
   return (
-    <AuthContext.Provider value={{ user, userRole, userPlan, loading }}>
+    <AuthContext.Provider value={{ user, userData, userRole, userPlan, loading }}>
       {children}
     </AuthContext.Provider>
   );

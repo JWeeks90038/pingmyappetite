@@ -56,7 +56,7 @@ export default function SignupSelectionScreen({ navigation }) {
         >
           <View style={styles.optionHeader}>
             <Ionicons name="car" size={40} color="#2c6f57" />
-            <Text style={styles.optionTitle}>Mobile Kitchen Owner</Text>
+            <Text style={styles.optionTitle}>Food Truck</Text>
           </View>
           <Text style={styles.optionDescription}>
             Manage your food truck or trailer, connect with customers, and grow your business
@@ -68,7 +68,31 @@ export default function SignupSelectionScreen({ navigation }) {
             <Text style={styles.featureText}>• Direct customer communication</Text>
           </View>
           <View style={styles.optionButton}>
-            <Text style={styles.optionButtonText}>Sign Up as Owner</Text>
+            <Text style={styles.optionButtonText}>Sign Up as Food Truck</Text>
+            <Ionicons name="arrow-forward" size={16} color="#2c6f57" />
+          </View>
+        </TouchableOpacity>
+
+        {/* Event Organizer Signup Option */}
+        <TouchableOpacity
+          style={styles.optionCard}
+          onPress={() => navigation.navigate('EventOrganizerSignup')}
+        >
+          <View style={styles.optionHeader}>
+            <Ionicons name="calendar" size={40} color="#2c6f57" />
+            <Text style={styles.optionTitle}>Event Organizer</Text>
+          </View>
+          <Text style={styles.optionDescription}>
+            Create and manage food truck events, festivals, and markets
+          </Text>
+          <View style={styles.optionFeatures}>
+            <Text style={styles.featureText}>• Create food truck events</Text>
+            <Text style={styles.featureText}>• Manage vendor applications</Text>
+            <Text style={styles.featureText}>• Event promotion tools</Text>
+            <Text style={styles.featureText}>• Analytics and reporting</Text>
+          </View>
+          <View style={styles.optionButton}>
+            <Text style={styles.optionButtonText}>Sign Up as Organizer</Text>
             <Ionicons name="arrow-forward" size={16} color="#2c6f57" />
           </View>
         </TouchableOpacity>

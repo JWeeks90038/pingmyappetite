@@ -113,19 +113,21 @@ const CustomerDashboard = () => {
   const [tempCuisineFilters, setTempCuisineFilters] = useState(cuisineFilters);
   const [menuModalVisible, setMenuModalVisible] = useState(false);
   const [menuUrl, setMenuUrl] = useState('');
+  const [menuItems, setMenuItems] = useState([]);
+  const [loadingMenu, setLoadingMenu] = useState(false);
   const [currentTruckOwnerId, setCurrentTruckOwnerId] = useState('');
   const [dailyPingCount, setDailyPingCount] = useState(0);
   const [pingError, setPingError] = useState('');
   const [activeDrops, setActiveDrops] = useState([]);
   const [activeTruck, setActiveTruck] = useState(null);
   const [showDropSummary, setShowDropSummary] = useState(false);
+  const [activeModalTab, setActiveModalTab] = useState('details'); // 'details' or 'menu'
   const [userLocation, setUserLocation] = useState(null);
   const [claimedDrop, setClaimedDrop] = useState(null);
   const [claimCode, setClaimCode] = useState('');
   
   // Pre-order states
   const [showPreOrderModal, setShowPreOrderModal] = useState(false);
-  const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
@@ -580,8 +582,11 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
   
   // First clear existing state to prevent stale data
   setMenuUrl('');
+  setMenuItems([]); // Clear menu items
+  setLoadingMenu(false); // Reset loading state
   setActiveTruck(null);
   setShowDropSummary(false);
+  setActiveModalTab('details'); // Reset to details tab
   
   try {
     const truckDoc = await getDoc(doc(db, "truckLocations", truckId));
@@ -653,6 +658,11 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
       setMenuUrl(finalMenuUrl);
       setShowDropSummary(true);
       
+      // Load menu items from Firebase Storage
+      if (user) {
+        loadMenuItems(ownerId);
+      }
+      
       // Small delay to ensure all state updates are processed
       setTimeout(() => {
         setMenuModalVisible(true);
@@ -663,6 +673,55 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
     }
   } catch (error) {
     console.error("Error fetching truck or owner data:", error);
+  }
+};
+
+// Function to load menu items from API
+const loadMenuItems = async (truckOwnerId) => {
+  if (!truckOwnerId) {
+    console.log("No truck owner ID provided");
+    return;
+  }
+  
+  console.log("Loading menu items for truck owner:", truckOwnerId);
+  setLoadingMenu(true);
+  try {
+    const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+    console.log("Making API call to:", `${apiUrl}/api/marketplace/trucks/${truckOwnerId}/menu`);
+    
+    // First try without authentication (for public menu viewing)
+    let response = await fetch(`${apiUrl}/api/marketplace/trucks/${truckOwnerId}/menu`);
+    
+    // If that fails and we have a user, try with authentication
+    if (!response.ok && user) {
+      console.log("Trying with authentication...");
+      try {
+        const token = await user.getIdToken();
+        response = await fetch(`${apiUrl}/api/marketplace/trucks/${truckOwnerId}/menu`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (authError) {
+        console.error("Authentication error:", authError);
+      }
+    }
+
+    if (response.ok) {
+      const data = await response.json();
+      setMenuItems(data.items || []);
+      console.log("Successfully loaded menu items:", data.items?.length || 0, "items");
+    } else {
+      console.error("Failed to load menu items. Status:", response.status);
+      const errorText = await response.text();
+      console.error("Error response:", errorText);
+      setMenuItems([]);
+    }
+  } catch (error) {
+    console.error('Error loading menu items:', error);
+    setMenuItems([]);
+  } finally {
+    setLoadingMenu(false);
   }
 };
 
@@ -1691,6 +1750,9 @@ return (
             <button
               onClick={() => {
                 setMenuModalVisible(false);
+                setActiveModalTab('details'); // Reset to details tab
+                setMenuItems([]); // Clear menu items
+                setLoadingMenu(false); // Reset loading state
                 // Don't clear other state immediately to prevent flickering
                 setTimeout(() => {
                   setShowDropSummary(false);
@@ -1729,450 +1791,536 @@ return (
               <h3 style={{ margin: '0 0 10px 0', color: '#2c6f57' }}>
                 {activeTruck.truckName || 'Food Truck'}
               </h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
-                {/* Current Location */}
-                {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
-                    <span style={{ fontSize: '16px' }}>📍</span>
-                    <strong>Current Location:</strong> 
-                    <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
-                      {activeTruck.manualLocation || 'Address not available'}
-                    </span>
-                  </div>
-                )}
-                {activeTruck.hours && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '16px' }}>🕒</span>
-                    <strong>Hours:</strong> {activeTruck.hours}
-                  </div>
-                )}
-                {activeTruck.cuisine && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '16px' }}>🍽️</span>
-                    <strong>Cuisine:</strong> {activeTruck.cuisine}
-                  </div>
-                )}
-                {activeTruck.kitchenType && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: '16px' }}>🚚</span>
-                    <strong>Type:</strong> {activeTruck.kitchenType}
-                  </div>
-                )}
-              </div>
-              
-              {/* Pre-order Button */}
-              <div style={{ marginTop: '15px', textAlign: 'center' }}>
+
+              {/* Navigation Tabs */}
+              <div style={{
+                display: 'flex',
+                marginBottom: '15px',
+                borderBottom: '2px solid #e9ecef',
+                gap: '10px'
+              }}>
                 <button
-                  onClick={() => setShowPreOrderModal(true)}
+                  onClick={() => setActiveModalTab('details')}
                   style={{
-                    backgroundColor: '#2c6f57',
-                    color: 'white',
+                    backgroundColor: activeModalTab === 'details' ? '#2c6f57' : 'transparent',
+                    color: activeModalTab === 'details' ? 'white' : '#2c6f57',
                     border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    fontSize: '16px',
+                    padding: '8px 16px',
+                    borderRadius: '6px 6px 0 0',
+                    fontSize: '14px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    transition: 'all 0.2s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#1e4a3f';
-                    e.target.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#2c6f57';
-                    e.target.style.transform = 'translateY(0)';
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  🛒 Pre-Order - Skip the Line!
+                  🏪 Truck Details
                 </button>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  Place your order before you arrive
-                </div>
+                <button
+                  onClick={() => {
+                    console.log("Menu tab clicked! Current truck:", activeTruck);
+                    console.log("Current menu items:", menuItems);
+                    console.log("Loading menu state:", loadingMenu);
+                    setActiveModalTab('menu');
+                    
+                    // If we have a truck but no menu items, try loading them
+                    if (activeTruck && activeTruck.ownerUid && menuItems.length === 0 && !loadingMenu) {
+                      console.log("Loading menu items for owner:", activeTruck.ownerUid);
+                      loadMenuItems(activeTruck.ownerUid);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: activeModalTab === 'menu' ? '#2c6f57' : 'transparent',
+                    color: activeModalTab === 'menu' ? 'white' : '#2c6f57',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px 6px 0 0',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  🍽️ View Menu
+                </button>
               </div>
+
+              {/* Truck Details Tab Content */}
+              {activeModalTab === 'details' && (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', fontSize: '14px', color: '#666' }}>
+                    {/* Current Location */}
+                    {((activeTruck.lat && activeTruck.lng) || activeTruck.manualLocation) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexBasis: '100%' }}>
+                        <span style={{ fontSize: '16px' }}>📍</span>
+                        <strong>Current Location:</strong> 
+                        <span style={{ fontSize: '13px', fontStyle: 'italic' }}>
+                          {activeTruck.manualLocation || 'Address not available'}
+                        </span>
+                      </div>
+                    )}
+                    {activeTruck.hours && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '16px' }}>🕒</span>
+                        <strong>Hours:</strong> {activeTruck.hours}
+                      </div>
+                    )}
+                    {activeTruck.cuisine && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '16px' }}>🍽️</span>
+                        <strong>Cuisine:</strong> {activeTruck.cuisine}
+                      </div>
+                    )}
+                    {activeTruck.kitchenType && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '16px' }}>🚚</span>
+                        <strong>Type:</strong> {activeTruck.kitchenType}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Pre-order Button */}
+                  <div style={{ marginTop: '15px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => setShowPreOrderModal(true)}
+                      style={{
+                        backgroundColor: '#2c6f57',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 24px',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s ease',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = '#1e4a3f';
+                        e.target.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = '#2c6f57';
+                        e.target.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      🛒 Pre-Order - Skip the Line!
+                    </button>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                      Place your order before you arrive
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
-          {/* Menu Content */}
-{(() => {
-  console.log("Modal rendering - menuUrl:", menuUrl);
-  console.log("Modal rendering - activeTruck:", activeTruck);
-  
-  // Use truck-specific menu URL if available, fall back to activeTruck stored URL
-  const displayMenuUrl = menuUrl || (activeTruck && (activeTruck.menuUrl || activeTruck.ownerMenuUrl));
-  console.log("Display menu URL:", displayMenuUrl);
-  
-  return displayMenuUrl ? (
-  <div>
-    
-    {/* Truck Cover Photo */}
-    {activeTruck && activeTruck.coverUrl && (
-      <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-        <img
-          src={activeTruck.coverUrl}
-          alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
-          style={{
-            width: '100%',
-            maxWidth: '600px',
-            height: '200px',
-            objectFit: 'cover',
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}
-        />
-      </div>
-    )}
-    
-    {/* Menu Display */}
-    {displayMenuUrl.endsWith('.pdf') ? (
-      <iframe
-        src={displayMenuUrl}
-        style={{ width: '100%', height: 'calc(100% - 120px)' }}
-        title="Menu PDF"
-        onLoad={() => console.log('Menu PDF loaded successfully')}
-        onError={(e) => console.error('Menu PDF failed to load:', e)}
-      />
-    ) : (
-      <img
-        src={displayMenuUrl}
-        alt="Menu"
-        style={{ maxWidth: '100%', maxHeight: 'calc(100% - 120px)', objectFit: 'contain' }}
-        onLoad={() => console.log('Menu image loaded successfully')}
-        onError={(e) => {
-          console.error('Menu image failed to load:', e);
-          e.target.style.display = 'none';
-          // Show fallback message
-          const fallback = document.createElement('div');
-          fallback.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Menu image could not be loaded. Please try again later.</p>';
-          e.target.parentNode.appendChild(fallback);
-        }}
-      />
-    )}
-  </div>
-) : (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '300px',
-    flexDirection: 'column',
-    color: '#666'
-  }}>
-    {/* Truck Cover Photo - shown even when no menu */}
-    {activeTruck && activeTruck.coverUrl && (
-      <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-        <img
-          src={activeTruck.coverUrl}
-          alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
-          style={{
-            width: '100%',
-            maxWidth: '500px',
-            height: '200px',
-            objectFit: 'cover',
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}
-        />
-      </div>
-    )}
-    
-    <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
-    <p>No menu available for this truck</p>
-  </div>
-);
-})()}
+          {/* Content based on active tab */}
+          {activeModalTab === 'details' && (
+            <>
+              {/* Drop Summary */}
+              {showDropSummary && activeTruck && (
+                <div className="drop-summary-card" style={{ marginTop: '20px' }}>
 
-{/* Drop Summary */}
-    {showDropSummary && activeTruck && (
-  <div className="drop-summary-card" style={{ marginTop: '20px' }}>
+                  {claimedDrop && claimCode && (
+                    <div style={{ background: '#e6ffe6', padding: '1em', marginBottom: '1em', borderRadius: '8px', textAlign: 'center' }}>
+                      <p>You claimed: <strong>{claimedDrop.title}</strong></p>
+                      <p>Show this code at the truck:</p>
+                      <h2 style={{ fontSize: "2em", letterSpacing: "0.1em" }}>{claimCode}</h2>
+                    </div>
+                  )}
+                 
+                  <h3>{activeTruck.truckName || activeTruck.name}</h3>
+                  {/* If there are multiple drops (truck marker), show all */}
+                  {activeTruck.drops && activeTruck.drops.length > 0 ? (
+                    activeTruck.drops.map((drop) => (
+                      <div key={drop.id} style={{ marginBottom: '1.5em', borderBottom: '1px solid #eee', paddingBottom: '1em' }}>
+                        <h4>{drop.title}</h4>
+                        <p><strong>Description:</strong> {drop.description || 'No description'}</p>
+                        <p><strong>Quantity:</strong> {drop.quantity ?? 'N/A'}</p>
+                        <p><strong>Expires:</strong> {drop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
+                        <p><strong>Claimed:</strong> {drop.claimedBy?.length ?? 0}</p>
+                        <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
+                      {user && (
+                <>
+                  <button
+                    disabled={
+                      hasUserClaimedDrop(drop.id) || 
+                      drop.claimedBy?.length >= drop.quantity
+                    }
+                    onClick={() => handleClaimDrop(drop.id)}
+                  >
+                    {hasUserClaimedDrop(drop.id)
+                      ? "Already Claimed"
+                      : drop.claimedBy?.length >= drop.quantity
+                      ? "Fully Claimed"
+                      : "Claim Drop"}
+                  </button>
+                  {claimMessage && <p style={{ color: 'green' }}>{claimMessage}</p>}
+                </>
+              )}
+                      </div>
+                    ))
+                  ) : activeTruck.currentDrop ? (
+                    // If a single drop (drop marker), show just that
+                    <>
+                <h4>{activeTruck.currentDrop.title}</h4>
+                <p><strong>Description:</strong> {activeTruck.currentDrop.description || 'No description'}</p>
+                <p><strong>Quantity:</strong> {activeTruck.currentDrop.quantity ?? 'N/A'}</p>
+                <p><strong>Expires:</strong> {activeTruck.currentDrop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
+                <p><strong>Claimed:</strong> {activeTruck.currentDrop.claimedBy?.length ?? 0}</p>
+                <p><strong>Remaining:</strong> {Math.max((activeTruck.currentDrop.quantity ?? 0) - (activeTruck.currentDrop.claimedBy?.length ?? 0), 0)}</p>
+                {user && (
+                  <button
+                    disabled={
+                      hasUserClaimedDrop(activeTruck.currentDrop.id) ||
+                      activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
+                    }
+                    onClick={() => handleClaimDrop(activeTruck.currentDrop.id)}
+                  >
+                    {hasUserClaimedDrop(activeTruck.currentDrop.id)
+                      ? "Already Claimed"
+                      : activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
+                      ? "Fully Claimed"
+                      : "Claim Drop"}
+                  </button>
+                )}
+              </>
+                  ) : (
+                    <p>No active drops</p>
+                  )}
+                </div>
+              )}
 
-    {claimedDrop && claimCode && (
-      <div style={{ background: '#e6ffe6', padding: '1em', marginBottom: '1em', borderRadius: '8px', textAlign: 'center' }}>
-        <p>You claimed: <strong>{claimedDrop.title}</strong></p>
-        <p>Show this code at the truck:</p>
-        <h2 style={{ fontSize: "2em", letterSpacing: "0.1em" }}>{claimCode}</h2>
-      </div>
-    )}
-   
-    <h3>{activeTruck.truckName || activeTruck.name}</h3>
-    {/* If there are multiple drops (truck marker), show all */}
-    {activeTruck.drops && activeTruck.drops.length > 0 ? (
-      activeTruck.drops.map((drop) => (
-        <div key={drop.id} style={{ marginBottom: '1.5em', borderBottom: '1px solid #eee', paddingBottom: '1em' }}>
-          <h4>{drop.title}</h4>
-          <p><strong>Description:</strong> {drop.description || 'No description'}</p>
-          <p><strong>Quantity:</strong> {drop.quantity ?? 'N/A'}</p>
-          <p><strong>Expires:</strong> {drop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
-          <p><strong>Claimed:</strong> {drop.claimedBy?.length ?? 0}</p>
-          <p><strong>Remaining:</strong> {Math.max((drop.quantity ?? 0) - (drop.claimedBy?.length ?? 0), 0)}</p>
-        {user && (
-  <>
-    <button
-      disabled={
-        hasUserClaimedDrop(drop.id) || 
-        drop.claimedBy?.length >= drop.quantity
-      }
-      onClick={() => handleClaimDrop(drop.id)}
-    >
-      {hasUserClaimedDrop(drop.id)
-        ? "Already Claimed"
-        : drop.claimedBy?.length >= drop.quantity
-        ? "Fully Claimed"
-        : "Claim Drop"}
-    </button>
-    {claimMessage && <p style={{ color: 'green' }}>{claimMessage}</p>}
-  </>
-)}
-        </div>
-      ))
-    ) : activeTruck.currentDrop ? (
-      // If a single drop (drop marker), show just that
-      <>
-  <h4>{activeTruck.currentDrop.title}</h4>
-  <p><strong>Description:</strong> {activeTruck.currentDrop.description || 'No description'}</p>
-  <p><strong>Quantity:</strong> {activeTruck.currentDrop.quantity ?? 'N/A'}</p>
-  <p><strong>Expires:</strong> {activeTruck.currentDrop.expiresAt?.toDate().toLocaleString() ?? 'N/A'}</p>
-  <p><strong>Claimed:</strong> {activeTruck.currentDrop.claimedBy?.length ?? 0}</p>
-  <p><strong>Remaining:</strong> {Math.max((activeTruck.currentDrop.quantity ?? 0) - (activeTruck.currentDrop.claimedBy?.length ?? 0), 0)}</p>
-  {user && (
-    <button
-      disabled={
-        hasUserClaimedDrop(activeTruck.currentDrop.id) ||
-        activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
-      }
-      onClick={() => handleClaimDrop(activeTruck.currentDrop.id)}
-    >
-      {hasUserClaimedDrop(activeTruck.currentDrop.id)
-        ? "Already Claimed"
-        : activeTruck.currentDrop.claimedBy?.length >= activeTruck.currentDrop.quantity
-        ? "Fully Claimed"
-        : "Claim Drop"}
-    </button>
-  )}
-</>
-    ) : (
-      <p>No active drops</p>
-    )}
-  </div>
-)}
+              {/* Favorite Button */}
+              {user && currentTruckOwnerId && (
+                <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                  <FavoriteButton
+                    userId={user.uid}
+                    truckOwnerId={currentTruckOwnerId}
+                    truckName={activeTruck?.truckName || activeTruck?.name || ''}
+                    onFavoriteChange={handleFavoriteChange}
+                  />
+                </div>
+              )}
 
-        {/* Favorite Button */}
-            {user && currentTruckOwnerId && (
-              <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                <FavoriteButton
-                  userId={user.uid}
-                  truckOwnerId={currentTruckOwnerId}
-                  truckName={activeTruck?.truckName || activeTruck?.name || ''}
-                  onFavoriteChange={handleFavoriteChange}
-                />
+              {/* --- QR CODE SECTION START --- */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '32px 0 16px 0' }}>
+                <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan or Share the QR Code!</h3>
+                <div ref={qrRef} style={{ marginBottom: 8 }}>
+                  <QRCodeCanvas value="https://grubana.com" size={128} />
+                </div>
+                <button
+                  onClick={() => {
+                    const canvas = qrRef.current.querySelector("canvas");
+                    if (!canvas) return;
+                    const url = canvas.toDataURL("image/png");
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "grubana-qr.png";
+                    link.click();
+                  }}
+                  style={{
+                    padding: "6px 18px",
+                    background: "#2c6f57",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "5px",
+                    fontSize: "1rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  Download QR Code to Share!
+                </button>
               </div>
-            )}
+              {/* --- QR CODE SECTION END --- */}
 
-            {/* --- QR CODE SECTION START --- */}
-<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '32px 0 16px 0' }}>
-  <h3 style={{ textAlign: 'center', marginBottom: 8 }}>Scan or Share the QR Code!</h3>
-  <div ref={qrRef} style={{ marginBottom: 8 }}>
-    <QRCodeCanvas value="https://grubana.com" size={128} />
-  </div>
-  <button
-    onClick={() => {
-      const canvas = qrRef.current.querySelector("canvas");
-      if (!canvas) return;
-      const url = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "grubana-qr.png";
-      link.click();
-    }}
-    style={{
-      padding: "6px 18px",
-      background: "#2c6f57",
-      color: "#fff",
-      border: "none",
-      borderRadius: "5px",
-      fontSize: "1rem",
-      cursor: "pointer"
-    }}
-  >
-    Download QR Code to Share!
-  </button>
-</div>
-{/* --- QR CODE SECTION END --- */}
+              {/* Social Media Links */}
+              <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <h3>Follow This Truck</h3>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '15px',
+                    fontSize: '24px',
+                  }}
+                >
+                  {socialLinks.instagram && (
+                    <a
+                      href={socialLinks.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#E4405F' }}
+                    >
+                      <FaInstagram />
+                    </a>
+                  )}
+                  {socialLinks.facebook && (
+                    <a
+                      href={socialLinks.facebook}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#3b5998' }}
+                    >
+                      <FaFacebook />
+                    </a>
+                  )}
+                  {socialLinks.tiktok && (
+                    <a
+                      href={socialLinks.tiktok}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#000000' }}
+                    >
+                      <FaTiktok />
+                    </a>
+                  )}
+                  {socialLinks.twitter && (
+                    <a
+                      href={socialLinks.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#000000' }}
+                      aria-label="X"
+                    >
+                      <FaXTwitter />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
-          {/* Social Media Links */}
-          <div style={{ textAlign: 'center', marginTop: '10px' }}>
-            <h3>Follow This Truck</h3>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '15px',
-                fontSize: '24px',
-              }}
-            >
-              {socialLinks.instagram && (
-                <a
-                  href={socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#E4405F' }}
-                >
-                  <FaInstagram />
-                </a>
+          {/* Menu Tab Content */}
+          {activeModalTab === 'menu' && (
+            <>
+              {/* Truck Cover Photo */}
+              {activeTruck && activeTruck.coverUrl && (
+                <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                  <img
+                    src={activeTruck.coverUrl}
+                    alt={`${activeTruck.truckName || 'Food Truck'} Photo`}
+                    style={{
+                      width: '100%',
+                      maxWidth: '600px',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
               )}
-              {socialLinks.facebook && (
-                <a
-                  href={socialLinks.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#3b5998' }}
-                >
-                  <FaFacebook />
-                </a>
+
+              {/* Menu Items Display */}
+              {loadingMenu ? (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: '200px',
+                  flexDirection: 'column',
+                  color: '#666'
+                }}>
+                  <div style={{ fontSize: '18px', marginBottom: '10px' }}>⏳</div>
+                  <p>Loading menu...</p>
+                </div>
+              ) : menuItems.length > 0 ? (
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <h3 style={{ color: '#2c6f57', marginBottom: '15px', textAlign: 'center' }}>
+                    🍽️ Menu Items ({menuItems.length})
+                  </h3>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+                    gap: '15px',
+                    padding: '10px'
+                  }}>
+                    {menuItems.map((item, index) => (
+                      <div 
+                        key={index}
+                        style={{
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          backgroundColor: '#fafafa',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: '120px',
+                              objectFit: 'cover',
+                              borderRadius: '6px',
+                              marginBottom: '10px'
+                            }}
+                          />
+                        )}
+                        <h4 style={{ margin: '0 0 8px 0', color: '#2c6f57' }}>
+                          {item.name}
+                        </h4>
+                        {item.description && (
+                          <p style={{ 
+                            margin: '0 0 8px 0', 
+                            fontSize: '14px', 
+                            color: '#666',
+                            lineHeight: '1.4'
+                          }}>
+                            {item.description}
+                          </p>
+                        )}
+                        <p style={{ 
+                          margin: '0', 
+                          fontSize: '16px', 
+                          fontWeight: 'bold', 
+                          color: '#2c6f57'
+                        }}>
+                          ${parseFloat(item.price).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  height: '300px',
+                  flexDirection: 'column',
+                  color: '#666'
+                }}>
+                  <p style={{ fontSize: '18px', marginBottom: '10px' }}>📋</p>
+                  <p>No menu items available for this truck</p>
+                  <p style={{ fontSize: '14px', marginTop: '10px', color: '#999' }}>
+                    The food truck owner hasn't uploaded their menu yet.
+                  </p>
+                </div>
               )}
-              {socialLinks.tiktok && (
-                <a
-                  href={socialLinks.tiktok}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#000000' }}
-                >
-                  <FaTiktok />
-                </a>
-              )}
-              {socialLinks.twitter && (
-                <a
-                  href={socialLinks.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#000000' }}
-                  aria-label="X"
-                >
-                  <FaXTwitter />
-                </a>
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
     )}
 
     <a
-  href="#"
-  onClick={e => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }}
-  style={{
-    display: "inline-block",
-    margin: "30px auto 0 auto",
-    color: "#2c6f57",
-    textDecoration: "underline",
-    cursor: "pointer",
-    fontWeight: "bold"
-  }}
->
-  Back to Top ↑
-</a>
+      href="#"
+      onClick={e => {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
+      style={{
+        display: "inline-block",
+        margin: "30px auto 0 auto",
+        color: "#2c6f57",
+        textDecoration: "underline",
+        cursor: "pointer",
+        fontWeight: "bold"
+      }}
+    >
+      Back to Top ↑
+    </a>
 
-{/* Pre-Order Modal */}
-{showPreOrderModal && activeTruck && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    zIndex: 1001,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  }}>
-    <div style={{
-      width: '90%',
-      maxWidth: '800px',
-      height: '90%',
-      backgroundColor: '#fff',
-      borderRadius: '12px',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
-      {/* Header */}
+    {/* Pre-Order Modal */}
+    {showPreOrderModal && activeTruck && (
       <div style={{
-        padding: '20px',
-        backgroundColor: '#2c6f57',
-        color: 'white',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        zIndex: 1001,
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        justifyContent: 'center',
+        alignItems: 'center',
       }}>
-        <h2 style={{ margin: 0 }}>
-          Order from {activeTruck.truckName || 'Food Truck'}
-        </h2>
-        <button
-          onClick={() => {
-            setShowPreOrderModal(false);
-            setCart([]);
-          }}
-          style={{
-            backgroundColor: 'transparent',
+        <div style={{
+          width: '90%',
+          maxWidth: '800px',
+          height: '90%',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#2c6f57',
             color: 'white',
-            border: '2px solid white',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            cursor: 'pointer',
-            fontSize: '18px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          ×
-        </button>
-      </div>
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <h2 style={{ margin: 0 }}>
+              Order from {activeTruck.truckName || 'Food Truck'}
+            </h2>
+            <button
+              onClick={() => {
+                setShowPreOrderModal(false);
+                setCart([]);
+              }}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'white',
+                border: '2px solid white',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ×
+            </button>
+          </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Menu Items */}
-        <div style={{ 
-          flex: 2, 
-          padding: '20px', 
-          overflowY: 'auto',
-          borderRight: '1px solid #eee'
-        }}>
-          {(() => {
-            console.log('🛒 Pre-Order Modal rendering with activeTruck:', activeTruck);
-            console.log('🛒 Pre-Order Modal truckId will be:', activeTruck.ownerUid || activeTruck.uid || activeTruck.id);
-            return <PreOrderContent truckId={activeTruck.ownerUid || activeTruck.uid || activeTruck.id} cart={cart} setCart={setCart} />;
-          })()}
+          {/* Content */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {/* Menu Items */}
+            <div style={{ 
+              flex: 2, 
+              padding: '20px', 
+              overflowY: 'auto',
+              borderRight: '1px solid #eee'
+            }}>
+              {(() => {
+                console.log('🛒 Pre-Order Modal rendering with activeTruck:', activeTruck);
+                console.log('🛒 Pre-Order Modal truckId will be:', activeTruck.ownerUid || activeTruck.uid || activeTruck.id);
+                return <PreOrderContent truckId={activeTruck.ownerUid || activeTruck.uid || activeTruck.id} cart={cart} setCart={setCart} />;
+              })()}
+            </div>
+
+            {/* Cart */}
+            <div style={{ 
+              flex: 1, 
+              padding: '20px', 
+              backgroundColor: '#f8f9fa',
+              overflowY: 'auto'
+            }}>
+              <OrderCart 
+                cart={cart} 
+                setCart={setCart} 
+                truckId={activeTruck.uid}
+                truckName={activeTruck.truckName || 'Food Truck'}
+              />
+            </div>
+          </div>
         </div>
-
-        {/* Cart */}
-        <div style={{ 
-          flex: 1, 
-          padding: '20px', 
-          backgroundColor: '#f8f9fa',
-          overflowY: 'auto'
-        }}>
-          <OrderCart 
-            cart={cart} 
-            setCart={setCart} 
-            truckId={activeTruck.uid}
-            truckName={activeTruck.truckName || 'Food Truck'}
-          />
-        </div>
       </div>
-    </div>
-  </div>
-)}
-
+    )}
   </div>
 );
 

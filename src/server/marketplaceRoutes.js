@@ -774,7 +774,6 @@ router.get('/orders', async (req, res) => {
     const db = admin.firestore();
     const ordersSnapshot = await db.collection('orders')
       .where('truckId', '==', truckId)
-      .orderBy('createdAt', 'desc')
       .limit(50)
       .get();
 
@@ -784,6 +783,13 @@ router.get('/orders', async (req, res) => {
         id: doc.id,
         ...doc.data()
       });
+    });
+
+    // Sort orders by createdAt in JavaScript since we can't use orderBy yet
+    orders.sort((a, b) => {
+      const aTime = a.createdAt?.seconds || a.createdAt?.getTime() || 0;
+      const bTime = b.createdAt?.seconds || b.createdAt?.getTime() || 0;
+      return bTime - aTime; // Descending order
     });
 
     res.json({
@@ -812,7 +818,6 @@ router.get('/customer/orders', async (req, res) => {
     const db = admin.firestore();
     const ordersSnapshot = await db.collection('orders')
       .where('customerId', '==', customerId)
-      .orderBy('createdAt', 'desc')
       .limit(50)
       .get();
 
@@ -822,6 +827,13 @@ router.get('/customer/orders', async (req, res) => {
         id: doc.id,
         ...doc.data()
       });
+    });
+
+    // Sort orders by createdAt in JavaScript since we can't use orderBy yet
+    orders.sort((a, b) => {
+      const aTime = a.createdAt?.seconds || a.createdAt?.getTime() || 0;
+      const bTime = b.createdAt?.seconds || b.createdAt?.getTime() || 0;
+      return bTime - aTime; // Descending order
     });
 
     res.json({

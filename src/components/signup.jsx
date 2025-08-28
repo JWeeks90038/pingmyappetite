@@ -116,7 +116,7 @@ const SignUp = () => {
       return;
     }
 
-    // Validate mobile kitchen owner plan selection
+    // Validate food truck plan selection
     if (formData.role === 'owner' && !formData.plan) {
       setError('Please select a plan to continue');
       return;
@@ -350,7 +350,7 @@ const userData = {
   >
     <option value="">Select Role</option>
     <option value="customer">Foodie Fan</option>
-    <option value="owner">Mobile Kitchen Owner</option>
+    <option value="owner">Food Truck</option>
     <option value="event-organizer">Event Organizer</option>
   </select>
 
@@ -400,7 +400,7 @@ const userData = {
 
   {formData.role === 'owner' && (
     <>
-      <label>Type of Mobile Kitchen:</label>
+      <label>Type of Food Truck:</label>
       <div className="kitchen-radio-group">
       <label className="kitchen-radio-option">
           <input
@@ -427,7 +427,7 @@ const userData = {
         </label>
       </div>
 
-      <label htmlFor="truck-name">Mobile Kitchen Name</label>
+      <label htmlFor="truck-name">Food Truck Name</label>
       <input
         type="text"
         id="truck-name"
@@ -708,7 +708,7 @@ const userData = {
     placeholder="Confirm your password"
   />
 
-  {/* Referral code section for mobile kitchen owners with paid plans */}
+  {/* Referral code section for food truck owners with paid plans */}
   {formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access') && (
     <>
       <label htmlFor="referralCode">Referral Code (Optional)</label>
