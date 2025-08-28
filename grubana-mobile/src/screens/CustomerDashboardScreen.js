@@ -31,6 +31,7 @@ import {
   query,
   where,
   getDoc,
+  onAuthStateChanged,
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -45,6 +46,10 @@ const CustomerDashboardScreen = () => {
   const [pingError, setPingError] = useState('');
   const [activeDrops, setActiveDrops] = useState([]);
   const [foodTrucks, setFoodTrucks] = useState([]);
+  const [events, setEvents] = useState([]); // Add events state
+  const [selectedEvent, setSelectedEvent] = useState(null); // Add selected event state
+  const [showEventModal, setShowEventModal] = useState(false); // Add event modal state
+  const [currentUser, setCurrentUser] = useState(null); // Add current user state
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   
@@ -273,6 +278,66 @@ const CustomerDashboardScreen = () => {
     }
   };
 
+  // Monitor authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      console.log('🔐 Mobile: Auth state changed:', authUser ? authUser.uid : 'null');
+      setCurrentUser(authUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load events
+  useEffect(() => {
+    console.log('🎉 Mobile: Setting up events listener');
+    
+    const unsubscribe = onSnapshot(collection(db, "events"), 
+      (snapshot) => {
+        const eventsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        })).filter(event => {
+          const hasLocation = event.latitude && event.longitude;
+          const validStatus = event.status === 'published' || 
+                             event.status === 'active' || 
+                             event.status === 'upcoming' ||
+                             event.status === 'live';
+          
+          console.log('🔍 Mobile: Event filter check:', {
+            id: event.id,
+            title: event.title,
+            status: event.status,
+            hasLocation,
+            validStatus,
+            included: hasLocation && validStatus
+          });
+          
+          return hasLocation && validStatus;
+        });
+
+        console.log("🎉 Mobile: Active events fetched:", eventsData.length, 'events');
+        setEvents(eventsData);
+      },
+      (error) => {
+        console.error('❌ Mobile: Events listener error:', error);
+        if (error.code === 'permission-denied') {
+          console.log('📋 User may not have permission to read events collection');
+          setEvents([]); // Set empty array as fallback
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Handle event marker press
+  const handleEventPress = (event) => {
+    console.log('🎉 Mobile: Event marker pressed:', event.id);
+    setSelectedEvent(event);
+    setShowEventModal(true);
+  };
+
   // Calculate distance between two points in miles
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
     const R = 3959; // Radius of Earth in miles
@@ -422,6 +487,54 @@ const CustomerDashboardScreen = () => {
                   </View>
                 </Marker>
               ))}
+
+              {/* Event Markers */}
+              {events.map((event) => {
+                // Get status color for event border
+                const getEventStatusColor = (status) => {
+                  switch(status?.toLowerCase()) {
+                    case 'upcoming':
+                    case 'published':
+                      return '#2196F3'; // Blue
+                    case 'active':
+                    case 'live':
+                      return '#FF6B35'; // Orange
+                    case 'completed':
+                    case 'finished':
+                      return '#4CAF50'; // Green
+                    default:
+                      return '#2196F3'; // Default to blue
+                  }
+                };
+
+                return (
+                  <Marker
+                    key={event.id}
+                    coordinate={{
+                      latitude: event.latitude,
+                      longitude: event.longitude,
+                    }}
+                    title={event.title}
+                    description={`${event.eventType || 'Event'} - ${event.date}`}
+                    onPress={() => handleEventPress(event)}
+                  >
+                    <View style={[
+                      styles.eventMarker,
+                      { borderColor: getEventStatusColor(event.status) }
+                    ]}>
+                      {event.organizerLogoUrl ? (
+                        <Image 
+                          source={{ uri: event.organizerLogoUrl }}
+                          style={styles.eventMarkerImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Ionicons name="star" size={20} color="#FFD700" />
+                      )}
+                    </View>
+                  </Marker>
+                );
+              })}
             </MapView>
           </View>
         ) : (
@@ -450,6 +563,73 @@ const CustomerDashboardScreen = () => {
           </View>
         </View>
       </View>
+
+      {/* Event Modal */}
+      <Modal
+        visible={showEventModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEventModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Event Details</Text>
+            <TouchableOpacity 
+              onPress={() => setShowEventModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          
+          {selectedEvent && (
+            <ScrollView style={styles.modalContent}>
+              {selectedEvent.organizerLogoUrl && (
+                <Image 
+                  source={{ uri: selectedEvent.organizerLogoUrl }}
+                  style={styles.modalEventImage}
+                  resizeMode="cover"
+                />
+              )}
+              
+              <View style={styles.modalEventInfo}>
+                <Text style={styles.modalEventTitle}>{selectedEvent.title}</Text>
+                <Text style={styles.modalEventType}>{selectedEvent.eventType || 'Event'}</Text>
+                <Text style={styles.modalEventDate}>{selectedEvent.date}</Text>
+                <Text style={styles.modalEventTime}>{selectedEvent.time}</Text>
+                
+                {selectedEvent.description && (
+                  <View style={styles.modalEventDescription}>
+                    <Text style={styles.modalEventDescriptionTitle}>Description</Text>
+                    <Text style={styles.modalEventDescriptionText}>{selectedEvent.description}</Text>
+                  </View>
+                )}
+                
+                {selectedEvent.location && (
+                  <View style={styles.modalEventLocation}>
+                    <Text style={styles.modalEventLocationTitle}>Location</Text>
+                    <Text style={styles.modalEventLocationText}>{selectedEvent.location}</Text>
+                  </View>
+                )}
+                
+                <View style={styles.modalEventStatus}>
+                  <Text style={styles.modalEventStatusTitle}>Status</Text>
+                  <View style={[styles.modalEventStatusBadge, {
+                    backgroundColor: selectedEvent.status === 'active' ? '#FF6B35' :
+                                   selectedEvent.status === 'upcoming' ? '#2196F3' :
+                                   selectedEvent.status === 'published' ? '#2196F3' :
+                                   selectedEvent.status === 'completed' ? '#4CAF50' : '#9E9E9E'
+                  }]}>
+                    <Text style={styles.modalEventStatusText}>
+                      {selectedEvent.status?.charAt(0).toUpperCase() + selectedEvent.status?.slice(1) || 'Unknown'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -613,6 +793,129 @@ const styles = StyleSheet.create({
     height: 60,
     marginBottom: 10,
     alignSelf: 'center',
+  },
+  eventMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  eventMarkerImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalEventImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#f0f0f0',
+  },
+  modalEventInfo: {
+    padding: 20,
+  },
+  modalEventTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  modalEventType: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 5,
+  },
+  modalEventDate: {
+    fontSize: 16,
+    color: '#2c6f57',
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  modalEventTime: {
+    fontSize: 16,
+    color: '#2c6f57',
+    marginBottom: 15,
+  },
+  modalEventDescription: {
+    marginBottom: 15,
+  },
+  modalEventDescriptionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalEventDescriptionText: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+  },
+  modalEventLocation: {
+    marginBottom: 15,
+  },
+  modalEventLocationTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalEventLocationText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  modalEventStatus: {
+    marginBottom: 15,
+  },
+  modalEventStatusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalEventStatusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    alignSelf: 'flex-start',
+  },
+  modalEventStatusText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
 
