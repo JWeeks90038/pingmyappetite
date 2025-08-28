@@ -118,7 +118,16 @@ const LiveMap = ({ isLoaded }) => {
 
   // Create custom event markers with organization logos
   useEffect(() => {
-    if (!mapRef.current || !window.google || !events.length) return;
+    console.log('🎨 LiveMap: Custom marker useEffect triggered');
+    console.log('🎨 LiveMap: mapRef.current:', !!mapRef.current);
+    console.log('🎨 LiveMap: window.google:', !!window.google);
+    console.log('🎨 LiveMap: events.length:', events.length);
+    console.log('🎨 LiveMap: isLoaded:', isLoaded);
+    
+    if (!mapRef.current || !window.google || !events.length || !isLoaded) {
+      console.log('🎨 LiveMap: Skipping marker creation - missing requirements');
+      return;
+    }
 
     console.log('🎨 LiveMap: Creating custom event markers for', events.length, 'events');
 
@@ -175,7 +184,7 @@ const LiveMap = ({ isLoaded }) => {
       });
       eventMarkersRef.current = {};
     };
-  }, [events, currentUser, mapRef.current]);
+  }, [events, currentUser, isLoaded]); // Fixed dependencies
 
   // Helper function to create custom event marker with logo
   const createCustomEventMarker = (event, position, logoUrl) => {
@@ -334,13 +343,27 @@ const LiveMap = ({ isLoaded }) => {
         const eventsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data()
-        })).filter(event => 
-          event.latitude && 
-          event.longitude && 
-          (event.status === 'published' || event.status === 'active')
-        );
+        })).filter(event => {
+          const hasLocation = event.latitude && event.longitude;
+          const validStatus = event.status === 'published' || 
+                             event.status === 'active' || 
+                             event.status === 'upcoming' ||
+                             event.status === 'live';
+          
+          console.log('🔍 LiveMap: Event filter check:', {
+            id: event.id,
+            title: event.title,
+            status: event.status,
+            hasLocation,
+            validStatus,
+            included: hasLocation && validStatus
+          });
+          
+          return hasLocation && validStatus;
+        });
 
-        console.log("🎉 LiveMap: Active events fetched:", eventsData);
+        console.log("🎉 LiveMap: Active events fetched:", eventsData.length, 'events');
+        console.log("🎉 LiveMap: Events details:", eventsData.map(e => ({ id: e.id, title: e.title, status: e.status })));
         setEvents(eventsData);
       },
       (error) => {
