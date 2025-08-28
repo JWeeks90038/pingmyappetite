@@ -114,3 +114,19 @@ serviceAccountKey.json
 # macOS resource fork files (AppleDouble files)
 ._*
 **/*._*
+
+# Backup files and temporary scripts
+*_backup.*
+*_backup_*.*
+*_temp.*
+*_test.*
+*_corrupted_*.*
+fix-*.js
+fix-*.cjs
+temp-*.js
+temp-*.cjs
+
+# Mobile app specific temp files
+grubana-mobile/src/screens/*_backup.*
+grubana-mobile/src/screens/*_temp.*
+grubana-mobile/src/screens/*_test.*
