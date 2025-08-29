@@ -924,6 +924,238 @@ app.use(express.json());
 const marketplaceRoutes = initializeMarketplaceRoutes(stripe);
 app.use('/api/marketplace', marketplaceRoutes);
 
+// Create payment intent for mobile orders with Stripe Connect
+app.post('/api/create-payment-intent', async (req, res) => {
+  try {
+    console.log('💳 Creating payment intent for mobile order...');
+    console.log('📱 Request body:', req.body);
+    
+    const {
+      amount,
+      currency = 'usd',
+      transfer_data,
+      application_fee_amount,
+      metadata = {}
+    } = req.body;
+
+    // Validate required fields
+    if (!amount || !transfer_data?.destination) {
+      return res.status(400).json({
+        error: 'Missing required fields: amount and transfer_data.destination'
+      });
+    }
+
+    // Validate connected account
+    try {
+      await stripe.accounts.retrieve(transfer_data.destination);
+    } catch (accountError) {
+      console.error('❌ Invalid connected account:', transfer_data.destination);
+      return res.status(400).json({
+        error: 'Invalid Stripe Connect account ID'
+      });
+    }
+
+    // Create payment intent with Stripe Connect
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount), // Ensure integer
+      currency,
+      transfer_data: {
+        destination: transfer_data.destination,
+      },
+      application_fee_amount: Math.round(application_fee_amount || 0),
+      metadata: {
+        ...metadata,
+        source: 'mobile_app',
+        created_at: new Date().toISOString()
+      },
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    console.log('✅ Payment intent created:', paymentIntent.id);
+    console.log('💰 Amount:', amount, 'cents');
+    console.log('🏪 Connected account:', transfer_data.destination);
+    console.log('💵 Application fee:', application_fee_amount, 'cents');
+
+    res.json({
+      client_secret: paymentIntent.client_secret,
+      payment_intent_id: paymentIntent.id
+    });
+
+  } catch (error) {
+    console.error('❌ Payment intent creation error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to create payment intent'
+    });
+  }
+});
+
+// Get customer payment methods
+app.post('/api/customer-payment-methods', async (req, res) => {
+  try {
+    console.log('💳 Loading customer payment methods...');
+    const { customerId, email } = req.body;
+
+    if (!customerId || !email) {
+      return res.status(400).json({
+        error: 'Missing customerId or email'
+      });
+    }
+
+    // Check if customer exists in Stripe by searching with metadata
+    let stripeCustomer;
+    try {
+      // First try to find customer by Firebase UID in metadata
+      const customers = await stripe.customers.list({
+        email: email,
+        limit: 1
+      });
+
+      if (customers.data.length > 0) {
+        stripeCustomer = customers.data[0];
+        console.log('✅ Found existing Stripe customer:', stripeCustomer.id);
+      } else {
+        console.log('ℹ️ No Stripe customer found for email:', email);
+        return res.json({
+          success: true,
+          paymentMethods: [],
+          customerId: null
+        });
+      }
+    } catch (customerError) {
+      console.log('ℹ️ Customer lookup failed, probably doesn\'t exist yet');
+      return res.json({
+        success: true,
+        paymentMethods: [],
+        customerId: null
+      });
+    }
+
+    // Get payment methods for the customer
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: stripeCustomer.id,
+      type: 'card',
+    });
+
+    console.log('✅ Found', paymentMethods.data.length, 'payment methods');
+
+    res.json({
+      success: true,
+      paymentMethods: paymentMethods.data,
+      customerId: stripeCustomer.id
+    });
+
+  } catch (error) {
+    console.error('❌ Error loading payment methods:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to load payment methods'
+    });
+  }
+});
+
+// Create setup intent for adding payment methods
+app.post('/api/create-setup-intent', async (req, res) => {
+  try {
+    console.log('🔧 Creating setup intent for payment method...');
+    const { customerId, email, name } = req.body;
+
+    if (!customerId || !email) {
+      return res.status(400).json({
+        error: 'Missing customerId or email'
+      });
+    }
+
+    // Find or create Stripe customer
+    let stripeCustomer;
+    try {
+      // First try to find existing customer
+      const customers = await stripe.customers.list({
+        email: email,
+        limit: 1
+      });
+
+      if (customers.data.length > 0) {
+        stripeCustomer = customers.data[0];
+        console.log('✅ Using existing Stripe customer:', stripeCustomer.id);
+      } else {
+        // Create new customer
+        stripeCustomer = await stripe.customers.create({
+          email: email,
+          name: name || 'Customer',
+          metadata: {
+            firebase_uid: customerId,
+            source: 'mobile_app'
+          }
+        });
+        console.log('✅ Created new Stripe customer:', stripeCustomer.id);
+      }
+    } catch (customerError) {
+      console.error('❌ Customer creation/lookup error:', customerError);
+      return res.status(500).json({
+        error: 'Failed to create or find customer'
+      });
+    }
+
+    // Create setup intent
+    const setupIntent = await stripe.setupIntents.create({
+      customer: stripeCustomer.id,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      usage: 'off_session', // For future payments
+      metadata: {
+        firebase_uid: customerId,
+        source: 'mobile_app'
+      }
+    });
+
+    console.log('✅ Setup intent created:', setupIntent.id);
+
+    res.json({
+      client_secret: setupIntent.client_secret,
+      customer_id: stripeCustomer.id
+    });
+
+  } catch (error) {
+    console.error('❌ Setup intent creation error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to create setup intent'
+    });
+  }
+});
+
+// Remove payment method
+app.post('/api/remove-payment-method', async (req, res) => {
+  try {
+    console.log('🗑️ Removing payment method...');
+    const { paymentMethodId } = req.body;
+
+    if (!paymentMethodId) {
+      return res.status(400).json({
+        error: 'Missing paymentMethodId'
+      });
+    }
+
+    // Detach payment method from customer
+    await stripe.paymentMethods.detach(paymentMethodId);
+
+    console.log('✅ Payment method removed:', paymentMethodId);
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing payment method:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to remove payment method'
+    });
+  }
+});
+
 // Create a subscription endpoint
 app.post('/create-subscription', async (req, res) => {
   const { email, paymentMethodId, priceId, uid } = req.body;

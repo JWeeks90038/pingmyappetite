@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
@@ -43,6 +44,11 @@ const LoginScreen = ({ navigation }) => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
+          <Image 
+            source={require('../../assets/grubana-logo-tshirt.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Welcome Back!</Text>
           <Text style={styles.subtitle}>Sign in to continue to Grubana</Text>
         </View>
@@ -108,7 +114,7 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1a1a2e', // Deep navy blue background
   },
   scrollContainer: {
     flexGrow: 1,
@@ -119,29 +125,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logo: {
+    width: 180,
+    height: 72,
+    marginBottom: 20,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#2c6f57', // Back to green
     marginBottom: 10,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#87ceeb', // Light blue
     textAlign: 'center',
   },
   form: {
-    backgroundColor: '#fff',
-    padding: 30,
+    backgroundColor: '#ffffff',
     borderRadius: 20,
+    padding: 25,
+    marginHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: '#000000', // Black border accent
+    borderTopWidth: 4,
+    borderTopColor: '#4682b4', // Blue accent top border
   },
   inputContainer: {
     marginBottom: 20,
@@ -149,31 +166,43 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1a1a2e', // Dark blue for labels
     marginBottom: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 2,
+    borderColor: '#4682b4', // Steel blue border
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f8f9fa',
+    color: '#1a1a2e',
   },
   button: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#2c6f57', // Green button
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#000000', // Black border
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   buttonDisabled: {
-    backgroundColor: '#a0a0a0',
+    backgroundColor: '#cccccc',
+    borderColor: '#999999',
   },
   buttonText: {
-    color: '#fff',
+    color: '#ffffff', // White text on green button
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   divider: {
     flexDirection: 'row',
@@ -183,20 +212,26 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#ddd',
+    backgroundColor: '#4682b4', // Steel blue divider
   },
   dividerText: {
     marginHorizontal: 15,
-    color: '#666',
+    color: '#4682b4',
     fontSize: 14,
+    fontWeight: '500',
   },
   secondaryButton: {
     padding: 15,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#4682b4', // Blue border
+    borderRadius: 12,
+    backgroundColor: 'transparent',
   },
   secondaryButtonText: {
-    color: '#2c6f57',
+    color: '#4682b4', // Steel blue text
     fontSize: 16,
+    fontWeight: '600',
     fontWeight: '600',
   },
 });

@@ -17,6 +17,10 @@ const HomeScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
+        <Image 
+          source={require('../../assets/grubana-logo-tshirt.png')} 
+          style={styles.logo}
+        />
         <Text style={styles.title}>Welcome to Grubana</Text>
         <Text style={styles.subtitle}>
           {userRole === 'owner' 
@@ -46,25 +50,25 @@ const HomeScreen = () => {
                 <View style={styles.featureItem}>
                   <Text style={styles.featureTitle}>📍 Live Location Tracking</Text>
                   <Text style={styles.featureDescription}>
-                    Share your real-time location with customers
+                    Go live on the map! Customers can track your truck in real-time, follow your route, and place pre-orders with a tap of your truck icon.
                   </Text>
                 </View>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureTitle}>🍽️ Menu Management</Text>
                   <Text style={styles.featureDescription}>
-                    Update your menu items and prices
+                    Keep your menu and prices updated in seconds- drive more sales as customers pre-order, skip the line, and keep your service moving fast.
                   </Text>
                 </View>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureTitle}>📊 Analytics Dashboard</Text>
                   <Text style={styles.featureDescription}>
-                    Track customer pings and analyze demand
+                    Track customer pings and analyze demand - see order trends, event performance, and insights that help you boost sales.
                   </Text>
                 </View>
                 <View style={styles.featureItem}>
                   <Text style={styles.featureTitle}>🎯 Food Drops</Text>
                   <Text style={styles.featureDescription}>
-                    Create special offers and limited-time deals
+                    Create more buzz, boost sales with special offers and limited-time drops that keep customers coming back. 
                   </Text>
                 </View>
               </View>
@@ -123,9 +127,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#2c6f57', // Green header
     padding: 30,
     alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: '#000000', // Black border accent
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  logo: {
+    width: 250,
+    height: 100,
+    marginBottom: 20,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 28,
@@ -155,6 +175,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderTopWidth: 4,
+    borderTopColor: '#4682b4', // Blue accent top border
   },
   welcomeText: {
     fontSize: 18,
@@ -170,6 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 15,
+    textAlign: 'center',
   },
   featuresList: {
     backgroundColor: '#fff',
@@ -183,6 +208,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4682b4', // Blue accent left border
   },
   featureItem: {
     paddingVertical: 15,
@@ -194,11 +223,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 5,
+    textAlign: 'center',
   },
   featureDescription: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+    textAlign: 'center',
   },
   actionSection: {
     marginVertical: 20,
@@ -241,11 +272,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderBottomWidth: 4,
+    borderBottomColor: '#4682b4', // Blue accent bottom border
   },
   aboutText: {
     fontSize: 15,
     color: '#555',
     lineHeight: 22,
+    textAlign: 'center',
   },
 });
 

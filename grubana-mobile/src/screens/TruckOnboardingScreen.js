@@ -547,7 +547,7 @@ export default function TruckOnboardingScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🚚 Food Truck Management</Text>
+        <Text style={styles.headerTitle}>Food Truck Management</Text>
         <Text style={styles.headerSubtitle}>Set up payments and manage your menu</Text>
       </View>
 
@@ -648,12 +648,23 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 40,
     alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 5,
+    textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 16,
@@ -679,6 +690,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2c6f57',
+    textAlign: 'center',
   },
   activeTabText: {
     color: '#fff',
@@ -695,14 +707,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
   },
   statusCard: {
     backgroundColor: '#fff3cd',
-    borderWidth: 1,
-    borderColor: '#ffeaa7',
+    borderWidth: 2,
+    borderColor: '#000000',
     borderRadius: 8,
     padding: 20,
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4682b4', // Blue accent left border
   },
   pendingCard: {
     backgroundColor: '#cce5ff',
@@ -721,18 +736,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#856404',
     marginBottom: 15,
+    textAlign: 'center',
   },
   statusDescription: {
     fontSize: 14,
     color: '#856404',
     marginBottom: 15,
     lineHeight: 20,
+    textAlign: 'center',
   },
   accountDetailsCard: {
     backgroundColor: 'white',
     padding: 15,
     borderRadius: 6,
     marginTop: 15,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderTopWidth: 3,
+    borderTopColor: '#4682b4', // Blue accent top border
   },
   accountDetailsTitle: {
     fontSize: 14,
@@ -750,6 +771,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 6,
     alignItems: 'center',
+    marginTop: 150,
   },
   primaryButton: {
     backgroundColor: '#2c6f57',
@@ -767,20 +789,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   addItemCard: {
     backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderWidth: 2,
+    borderColor: '#000000',
     borderRadius: 8,
     padding: 20,
     marginBottom: 30,
+    borderBottomWidth: 4,
+    borderBottomColor: '#4682b4', // Blue accent bottom border
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 20,
+    textAlign: 'center',
   },
   inputRow: {
     flexDirection: 'row',
@@ -811,6 +837,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 8,
+    textAlign: 'center',
   },
   imageRow: {
     flexDirection: 'row',
@@ -960,6 +987,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     flex: 1,
+    textAlign: 'center',
   },
   smallDeleteButton: {
     backgroundColor: '#dc3545',
@@ -975,24 +1003,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 8,
+    textAlign: 'center',
   },
   menuItemDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 8,
     lineHeight: 20,
+    textAlign: 'center',
   },
   categoryTag: {
     backgroundColor: '#e9f7f1',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   categoryText: {
     fontSize: 12,
     fontWeight: 'bold',
     color: '#2c6f57',
+    textAlign: 'center',
   },
   infoCard: {
     backgroundColor: '#f8f9fa',
@@ -1007,6 +1038,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 15,
+    textAlign: 'center',
   },
   infoSection: {
     marginBottom: 20,

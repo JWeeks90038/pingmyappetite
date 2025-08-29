@@ -1,32 +1,640 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  Switch,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+
+import { useAuth } from '../components/AuthContext';
+import { auth, db } from '../services/firebase';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
+
+// React Native compatible UUID generation
+const generateUUID = () => {
+  return 'ping_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+};
 
 export default function PingScreen() {
+  const { user } = useAuth();
+  const [username, setUsername] = useState('');
+  const [cuisineType, setCuisineType] = useState('');
+  const [manualAddress, setManualAddress] = useState('');
+  const [useGeoLocation, setUseGeoLocation] = useState(true);
+  const [userLocation, setUserLocation] = useState(null);
+  const [dailyPingCount, setDailyPingCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('Getting location...');
+  
+  const sendingRef = useRef(false);
+
+  // Available cuisine types for selection (matching MapScreen)
+  const cuisineTypes = [
+    { id: 'american', name: 'American', emoji: '🌭' },
+    { id: 'asian-fusion', name: 'Asian Fusion', emoji: '🥢' },
+    { id: 'bbq', name: 'BBQ', emoji: '🍖' },
+    { id: 'burgers', name: 'Burgers', emoji: '🍔' },
+    { id: 'chinese', name: 'Chinese', emoji: '🥡' },
+    { id: 'coffee', name: 'Coffee', emoji: '☕' },
+    { id: 'desserts', name: 'Desserts', emoji: '🍰' },
+    { id: 'drinks', name: 'Drinks', emoji: '🥤' },
+    { id: 'greek', name: 'Greek', emoji: '🥙' },
+    { id: 'halal', name: 'Halal', emoji: '🕌' },
+    { id: 'healthy', name: 'Healthy', emoji: '🥗' },
+    { id: 'indian', name: 'Indian', emoji: '🍛' },
+    { id: 'italian', name: 'Italian', emoji: '🍝' },
+    { id: 'japanese', name: 'Japanese', emoji: '🍣' },
+    { id: 'korean', name: 'Korean', emoji: '🥢' },
+    { id: 'latin', name: 'Latin', emoji: '🫓' },
+    { id: 'mediterranean', name: 'Mediterranean', emoji: '🥙' },
+    { id: 'mexican', name: 'Mexican', emoji: '🌮' },
+    { id: 'pizza', name: 'Pizza', emoji: '🍕' },
+    { id: 'seafood', name: 'Seafood', emoji: '🦐' },
+    { id: 'southern', name: 'Southern', emoji: '🍗' },
+    { id: 'sushi', name: 'Sushi', emoji: '🍣' },
+    { id: 'thai', name: 'Thai', emoji: '🍜' },
+    { id: 'vegan', name: 'Vegan', emoji: '🌱' },
+    { id: 'wings', name: 'Wings', emoji: '🍗' },
+    { id: 'food', name: 'General Food', emoji: '🍽️' }
+  ];
+
+  // Get user info
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchUserInfo = async () => {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setUsername(userData.displayName || '');
+        } else {
+          setUsername(user.displayName || '');
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+        setUsername(user.displayName || '');
+      }
+    };
+    
+    fetchUserInfo();
+  }, [user]);
+
+  // Get user location
+  useEffect(() => {
+    const getUserLocation = async () => {
+      console.log('🔄 PingScreen: Starting location acquisition...');
+      
+      if (!useGeoLocation) {
+        console.log('📍 PingScreen: Geolocation disabled by user');
+        setLocationStatus('Using manual address');
+        return;
+      }
+
+      try {
+        setLocationStatus('Requesting location permission...');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (status !== 'granted') {
+          console.log('❌ PingScreen: Location permission denied');
+          setLocationStatus('Location permission denied');
+          Alert.alert('Location Permission', 'Location permission denied. Please enable to use current location or enter address manually.');
+          return;
+        }
+
+        setLocationStatus('Getting your location...');
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+          timeout: 15000,
+        });
+        
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        
+        setLocationStatus(`Location: ${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
+        console.log('✅ PingScreen: Got user location');
+        
+      } catch (error) {
+        console.error('❌ PingScreen: Error getting location:', error);
+        setLocationStatus('Location unavailable - use manual address');
+        Alert.alert('Location Error', 'Could not get your location. Please enter address manually or check location settings.');
+      }
+    };
+    
+    getUserLocation();
+  }, [useGeoLocation]);
+
+  // Check daily ping count
+  useEffect(() => {
+    const checkDailyPingCount = async () => {
+      if (!user) return;
+      
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const pingsQuery = query(
+          collection(db, 'pings'),
+          where('userId', '==', user.uid),
+          where('timestamp', '>=', today)
+        );
+        
+        const querySnapshot = await getDocs(pingsQuery);
+        setDailyPingCount(querySnapshot.size);
+      } catch (error) {
+        console.error('Error checking daily ping count:', error);
+      }
+    };
+    
+    checkDailyPingCount();
+  }, [user]);
+
+  // Function to geocode address to coordinates
+  const geocodeAddress = async (address) => {
+    try {
+      console.log('🌍 Geocoding address:', address);
+      
+      // Use Nominatim (OpenStreetMap) geocoding service - free and reliable
+      const encodedAddress = encodeURIComponent(address);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1&addressdetails=1`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Geocoding service error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        
+        console.log('✅ Geocoding successful:', {
+          address: address,
+          lat: lat,
+          lng: lng,
+          displayName: result.display_name
+        });
+        
+        return {
+          success: true,
+          latitude: lat,
+          longitude: lng,
+          formattedAddress: result.display_name || address
+        };
+      } else {
+        console.log('❌ No geocoding results found for:', address);
+        return {
+          success: false,
+          error: 'Address not found. Please check the address and try again.'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Geocoding error:', error);
+      return {
+        success: false,
+        error: 'Unable to locate address. Please check your internet connection and try again.'
+      };
+    }
+  };
+
+  const handleSendPing = async () => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+
+    if (!user || !cuisineType) {
+      Alert.alert('Error', 'Please select a cuisine type');
+      sendingRef.current = false;
+      return;
+    }
+
+    if (dailyPingCount >= 3) {
+      Alert.alert('Limit Reached', 'You can only send 3 pings in a 24-hour period.');
+      sendingRef.current = false;
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let lat, lng, address = '';
+
+      if (useGeoLocation && userLocation) {
+        lat = userLocation.latitude;
+        lng = userLocation.longitude;
+        address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      } else if (manualAddress.trim()) {
+        console.log('🏠 Using manual address:', manualAddress);
+        
+        // Geocode the manual address
+        const geocodeResult = await geocodeAddress(manualAddress.trim());
+        
+        if (geocodeResult.success) {
+          lat = geocodeResult.latitude;
+          lng = geocodeResult.longitude;
+          address = geocodeResult.formattedAddress;
+          console.log('✅ Successfully geocoded manual address');
+        } else {
+          Alert.alert('Address Error', geocodeResult.error);
+          sendingRef.current = false;
+          setLoading(false);
+          return;
+        }
+      } else {
+        Alert.alert('Error', 'Please provide a location');
+        sendingRef.current = false;
+        setLoading(false);
+        return;
+      }
+
+      const pingData = {
+        userId: user.uid,
+        username: username || user.displayName || '',
+        lat,
+        lng,
+        cuisineType,
+        timestamp: serverTimestamp(),
+        address,
+        pingId: generateUUID(),
+      };
+
+      await addDoc(collection(db, 'pings'), pingData);
+
+      // Reset form and update count
+      setCuisineType('');
+      setDailyPingCount(prev => prev + 1);
+      Alert.alert('Success', 'Ping sent successfully! Food trucks in your area will be notified of your craving.');
+      
+    } catch (error) {
+      console.error('Error sending ping:', error);
+      Alert.alert('Error', 'Failed to send ping. Please try again.');
+    } finally {
+      setLoading(false);
+      sendingRef.current = false;
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Ping Screen</Text>
-      <Text style={styles.subtitle}>Send food requests</Text>
-    </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Image 
+          source={require('../../assets/grubana-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>
+          Send a Ping{username ? `, ${username}` : ''}!
+        </Text>
+        <Text style={styles.subtitle}>
+          Let food trucks know what you're craving
+        </Text>
+      </View>
+
+      {/* Ping Statistics */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statNumber}>{dailyPingCount}</Text>
+          <Text style={styles.statLabel}>Pings Today</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statNumber}>{3 - dailyPingCount}</Text>
+          <Text style={styles.statLabel}>Remaining</Text>
+        </View>
+      </View>
+
+      {/* Ping Form */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🎯 Send Your Food Request</Text>
+        
+        <View style={styles.formGroup}>
+          <View style={styles.switchContainer}>
+            <Ionicons name="location" size={20} color="#2c6f57" />
+            <Text style={styles.label}>Use my current location</Text>
+            <Switch
+              value={useGeoLocation}
+              onValueChange={setUseGeoLocation}
+              trackColor={{ false: '#ccc', true: '#2c6f57' }}
+              thumbColor={useGeoLocation ? '#fff' : '#fff'}
+            />
+          </View>
+          <Text style={styles.locationStatus}>{locationStatus}</Text>
+        </View>
+
+        {!useGeoLocation && (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>
+              <Ionicons name="home" size={16} color="#2c6f57" /> Address
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={manualAddress}
+              onChangeText={setManualAddress}
+              placeholder="Enter your address"
+              placeholderTextColor="#999"
+            />
+          </View>
+        )}
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>
+            <Ionicons name="restaurant" size={16} color="#2c6f57" /> What are you craving?
+          </Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={cuisineType}
+              onValueChange={setCuisineType}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+              mode="dropdown"
+            >
+              <Picker.Item label="Select what you're craving..." value="" />
+              {cuisineTypes.map((cuisine) => (
+                <Picker.Item
+                  key={cuisine.id}
+                  label={`${cuisine.emoji} ${cuisine.name}`}
+                  value={cuisine.id}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            (loading || dailyPingCount >= 3 || !cuisineType) && styles.buttonDisabled
+          ]}
+          onPress={handleSendPing}
+          disabled={loading || dailyPingCount >= 3 || !cuisineType}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="send" size={20} color="#fff" style={styles.buttonIcon} />
+              <Text style={styles.sendButtonText}>
+                {dailyPingCount >= 3 ? 'Daily Limit Reached' : 'Send Ping'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {dailyPingCount >= 3 && (
+          <View style={styles.limitNotice}>
+            <Ionicons name="information-circle" size={20} color="#e74c3c" />
+            <Text style={styles.limitText}>
+              You've reached your daily limit of 3 pings. Try again tomorrow!
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* How it works */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📱 How It Works</Text>
+        <View style={styles.stepContainer}>
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>1</Text>
+            </View>
+            <Text style={styles.stepText}>Choose what you're craving</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>2</Text>
+            </View>
+            <Text style={styles.stepText}>Send your ping with location</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>3</Text>
+            </View>
+            <Text style={styles.stepText}>Food trucks see demand in your area</Text>
+          </View>
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>4</Text>
+            </View>
+            <Text style={styles.stepText}>They come to you!</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#2c6f57',
-    marginBottom: 10,
+    marginBottom: 5,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  statBox: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statNumber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  section: {
+    backgroundColor: '#fff',
+    margin: 20,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 15,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationStatus: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  pickerItem: {
+    height: 50,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  sendButton: {
+    backgroundColor: '#2c6f57',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  sendButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  limitNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffeaa7',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 15,
+  },
+  limitText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#e74c3c',
+    flex: 1,
+  },
+  stepContainer: {
+    marginTop: 10,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  stepNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2c6f57',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  stepNumberText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  stepText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
   },
 });

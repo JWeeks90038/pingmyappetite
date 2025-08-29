@@ -780,10 +780,10 @@ const TruckOnboarding = () => {
         textAlign: 'center', 
         marginBottom: '30px' 
       }}>
-        <h1 style={{ color: '#2c6f57', marginBottom: '10px' }}>
-          🚚 Food Truck Management
+        <h1 style={{ color: '#2c6f57', textAlign: 'center', marginBottom: '10px' }}>
+          Food Truck Management
         </h1>
-        <p style={{ color: '#666', fontSize: '16px' }}>
+        <p style={{ color: '#666', fontSize: '16px', textAlign: 'center' }}>
           Set up payments and manage your menu
         </p>
       </div>
@@ -793,7 +793,9 @@ const TruckOnboarding = () => {
         display: 'flex',
         borderBottom: '2px solid #e9ecef',
         marginBottom: '30px',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '0px'
       }}>
         <button
           onClick={() => setActiveTab('payment')}
@@ -802,12 +804,17 @@ const TruckOnboarding = () => {
             color: activeTab === 'payment' ? 'white' : '#2c6f57',
             border: 'none',
             padding: '12px 24px',
-            marginRight: '10px',
             borderRadius: '8px 8px 0 0',
             fontSize: '16px',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '150px',
+            margin: '0'
           }}
         >
           💳 Payment Setup
@@ -823,7 +830,13 @@ const TruckOnboarding = () => {
             fontSize: '16px',
             fontWeight: 'bold',
             cursor: 'pointer',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: '150px',
+            margin: '0'
           }}
         >
           🍽️ Menu Management

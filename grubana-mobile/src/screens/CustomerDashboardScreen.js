@@ -31,11 +31,11 @@ import {
   query,
   where,
   getDoc,
-  onAuthStateChanged,
 } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
 const CustomerDashboardScreen = () => {
+  console.log('🏠 CustomerDashboardScreen: Component mounted/rendered');
   const { user } = useAuth();
   const [username, setUsername] = useState('');
   const [cuisineType, setCuisineType] = useState('');
@@ -52,6 +52,8 @@ const CustomerDashboardScreen = () => {
   const [currentUser, setCurrentUser] = useState(null); // Add current user state
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [demandPins, setDemandPins] = useState([]); // Add demand pins state
+  const [customerPings, setCustomerPings] = useState([]); // Add customer pings state
   
   const mapRef = useRef(null);
   const sendingRef = useRef(false);
@@ -83,30 +85,93 @@ const CustomerDashboardScreen = () => {
   // Get user location
   useEffect(() => {
     const getUserLocation = async () => {
+      console.log('🔄 CustomerDashboard: Starting location acquisition process...');
+      console.log('🔄 CustomerDashboard: useGeoLocation state:', useGeoLocation);
+      
+      if (!useGeoLocation) {
+        console.log('📍 CustomerDashboard: Geolocation disabled by user, using default location');
+        setUserLocation({
+          latitude: 39.8283,
+          longitude: -98.5795,
+          latitudeDelta: 15,
+          longitudeDelta: 15,
+        });
+        return;
+      }
+
       try {
+        console.log('🌍 CustomerDashboard: Requesting location permission...');
         const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log('🌍 CustomerDashboard: Permission status:', status);
+        
         if (status !== 'granted') {
-          Alert.alert('Permission denied', 'Location permission is required to use this feature');
+          console.log('❌ CustomerDashboard: Location permission denied, using default location');
+          setUserLocation({
+            latitude: 39.8283,
+            longitude: -98.5795,
+            latitudeDelta: 15,
+            longitudeDelta: 15,
+          });
+          Alert.alert('Location Permission', 'Location permission denied. Showing nationwide view. Enable location services for better experience.');
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({});
-        setUserLocation({
+        console.log('✅ CustomerDashboard: Location permission granted, getting current position...');
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+          timeout: 15000,
+        });
+        
+        console.log('✅ CustomerDashboard: Got user location:', {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          accuracy: location.coords.accuracy
+        });
+        
+        const newLocation = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
-        });
+        };
+        
+        setUserLocation(newLocation);
+        console.log('✅ CustomerDashboard: User location state updated:', newLocation);
+        
       } catch (error) {
-        console.error('Error getting location:', error);
-        Alert.alert('Error', 'Failed to get your location');
+        console.error('❌ CustomerDashboard: Error getting location:', error);
+        console.error('❌ CustomerDashboard: Error details:', {
+          name: error.name,
+          message: error.message,
+          code: error.code
+        });
+        
+        // Use default location as fallback
+        const fallbackLocation = {
+          latitude: 39.8283,
+          longitude: -98.5795,
+          latitudeDelta: 15,
+          longitudeDelta: 15,
+        };
+        
+        setUserLocation(fallbackLocation);
+        console.log('📍 CustomerDashboard: Set fallback location:', fallbackLocation);
+        
+        Alert.alert('Location Error', `Unable to get your current location: ${error.message}. Showing nationwide view.`);
       }
     };
 
-    if (useGeoLocation) {
-      getUserLocation();
-    }
+    // Always attempt to get location when component mounts or useGeoLocation changes
+    getUserLocation();
   }, [useGeoLocation]);
+
+  // Animate map to new location when userLocation changes
+  useEffect(() => {
+    if (userLocation && mapRef.current && mapReady) {
+      console.log('🗺️ CustomerDashboard: Animating map to new location:', userLocation);
+      mapRef.current.animateToRegion(userLocation, 1000);
+    }
+  }, [userLocation, mapReady]);
 
   // Monitor daily ping count
   useEffect(() => {
@@ -278,16 +343,6 @@ const CustomerDashboardScreen = () => {
     }
   };
 
-  // Monitor authentication state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
-      console.log('🔐 Mobile: Auth state changed:', authUser ? authUser.uid : 'null');
-      setCurrentUser(authUser);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   // Load events
   useEffect(() => {
     console.log('🎉 Mobile: Setting up events listener');
@@ -331,11 +386,162 @@ const CustomerDashboardScreen = () => {
     return () => unsubscribe();
   }, []);
 
+  // Load demand pins
+  useEffect(() => {
+    console.log('📍 Mobile: Setting up demand pins listener');
+    const unsubscribe = onSnapshot(collection(db, "demandPins"), 
+      (snapshot) => {
+        const pinsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        })).filter(pin => {
+          // Only show pins from the last 24 hours
+          const pinTime = pin.timestamp?.toDate() || new Date(pin.timestamp);
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          return pinTime > twentyFourHoursAgo;
+        });
+
+        console.log("📍 Mobile: Active demand pins fetched:", pinsData.length, 'pins');
+        setDemandPins(pinsData);
+      },
+      (error) => {
+        console.error('❌ Mobile: Demand pins listener error:', error);
+        if (error.code === 'permission-denied') {
+          console.log('📋 User may not have permission to read demand pins collection');
+          setDemandPins([]); // Set empty array as fallback
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load customer pings for map display
+  useEffect(() => {
+    console.log('📍 Mobile: Setting up customer pings listener');
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    console.log('📍 Mobile: One day ago timestamp:', oneDayAgo.toISOString());
+    
+    const unsubscribe = onSnapshot(collection(db, "pings"), 
+      (snapshot) => {
+        console.log('📍 Mobile: Raw Firebase snapshot size:', snapshot.size);
+        console.log('📍 Mobile: Raw Firebase docs:', snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
+        
+        const pingsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        })).filter(ping => {
+          // Only show pings from the last 24 hours
+          const pingTimestamp = ping.timestamp?.toDate ? ping.timestamp.toDate() : null;
+          const isRecent = pingTimestamp && pingTimestamp > oneDayAgo;
+          
+          console.log('📍 Mobile: Checking ping:', ping.id, {
+            timestamp: pingTimestamp?.toISOString(),
+            isRecent,
+            lat: ping.lat,
+            lng: ping.lng
+          });
+          
+          // Ensure we have valid coordinates
+          const lat = Number(ping.lat ?? ping.latitude);
+          const lng = Number(ping.lng ?? ping.longitude);
+          const hasValidCoords = isFinite(lat) && isFinite(lng);
+          
+          console.log('📍 Mobile: Ping validation:', {
+            id: ping.id,
+            hasValidCoords,
+            lat,
+            lng,
+            isRecent,
+            passesFilter: isRecent && hasValidCoords
+          });
+          
+          return isRecent && hasValidCoords;
+        });
+
+        console.log("📍 Mobile: Customer pings fetched:", pingsData.length, 'pings');
+        console.log("📍 Mobile: Ping data details:", pingsData.map(p => ({ 
+          id: p.id, 
+          lat: p.lat, 
+          lng: p.lng, 
+          cuisineType: p.cuisineType, 
+          username: p.username,
+          timestamp: p.timestamp?.toDate?.()?.toISOString() 
+        })));
+        setCustomerPings(pingsData);
+      },
+      (error) => {
+        console.error('❌ Mobile: Customer pings listener error:', error);
+        if (error.code === 'permission-denied') {
+          console.log('📋 User may not have permission to read pings collection');
+          setCustomerPings([]); // Set empty array as fallback
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Handle event marker press
   const handleEventPress = (event) => {
     console.log('🎉 Mobile: Event marker pressed:', event.id);
     setSelectedEvent(event);
     setShowEventModal(true);
+  };
+
+  // Handle map press to add demand pins
+  const handleMapPress = async (event) => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please log in to drop demand pins');
+      return;
+    }
+
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    
+    // Show a prompt to get cuisine preference for the pin
+    Alert.prompt(
+      'Drop Demand Pin',
+      'What type of food are you craving at this location?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Drop Pin',
+          onPress: async (cuisineRequest) => {
+            try {
+              // Create demand pin data
+              const pinData = {
+                userId: user.uid,
+                username: username || user.displayName || 'Anonymous',
+                latitude,
+                longitude,
+                cuisineRequest: cuisineRequest || 'Any food',
+                timestamp: serverTimestamp(),
+                id: uuidv4(),
+              };
+
+              // Add to Firebase
+              await addDoc(collection(db, 'demandPins'), pinData);
+
+              // Add to local state
+              setDemandPins(prev => [...prev, {
+                ...pinData,
+                timestamp: new Date(), // Use local timestamp for immediate display
+              }]);
+
+              Alert.alert('Success', 'Demand pin dropped! Food trucks can see your request.');
+            } catch (error) {
+              console.error('Error dropping demand pin:', error);
+              Alert.alert('Error', 'Failed to drop demand pin');
+            }
+          },
+        },
+      ],
+      'plain-text',
+      'Tacos, BBQ, Asian, etc.'
+    );
   };
 
   // Calculate distance between two points in miles
@@ -446,17 +652,28 @@ const CustomerDashboardScreen = () => {
       {/* Map */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Live Map</Text>
-        {userLocation ? (
-          <View style={styles.mapContainer}>
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={userLocation}
-              onMapReady={() => setMapReady(true)}
-              showsUserLocation={true}
-              showsMyLocationButton={true}
-            >
+        <Text style={styles.mapInstructions}>
+          🎯 Tap anywhere on the map to drop a demand pin and let food trucks know what you're craving!
+        </Text>
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            region={userLocation || {
+              latitude: 39.8283,
+              longitude: -98.5795,
+              latitudeDelta: 15,
+              longitudeDelta: 15,
+            }}
+            onMapReady={() => {
+              console.log('🗺️ CustomerDashboard: Map is ready');
+              setMapReady(true);
+            }}
+            onPress={handleMapPress}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+          >
               {/* Food Truck Markers */}
               {foodTrucks.map((truck) => (
                 <Marker
@@ -487,6 +704,44 @@ const CustomerDashboardScreen = () => {
                   </View>
                 </Marker>
               ))}
+
+              {/* Demand Pins */}
+              {demandPins.map((pin) => (
+                <Marker
+                  key={pin.id}
+                  coordinate={{
+                    latitude: pin.latitude,
+                    longitude: pin.longitude,
+                  }}
+                  title={`🍽️ ${pin.cuisineRequest}`}
+                  description={`Requested by ${pin.username}`}
+                >
+                  <View style={styles.demandPinMarker}>
+                    <Ionicons name="location" size={20} color="#FF6B35" />
+                  </View>
+                </Marker>
+              ))}
+
+              {/* Customer Ping Markers */}
+              {console.log('📍 Mobile: Rendering', customerPings.length, 'ping markers') || ''}
+              {customerPings.map((ping) => {
+                console.log('📍 Mobile: Rendering ping marker:', ping.id, 'at', Number(ping.lat ?? ping.latitude), Number(ping.lng ?? ping.longitude));
+                return (
+                <Marker
+                  key={ping.id}
+                  coordinate={{
+                    latitude: Number(ping.lat ?? ping.latitude),
+                    longitude: Number(ping.lng ?? ping.longitude),
+                  }}
+                  title={`🍴 ${ping.cuisineType || 'Food Request'}`}
+                  description={`Ping by ${ping.username || 'Customer'} - ${ping.address || 'Location'}`}
+                >
+                  <View style={styles.pingMarker}>
+                    <Ionicons name="radio" size={18} color="#fff" />
+                  </View>
+                </Marker>
+                );
+              })}
 
               {/* Event Markers */}
               {events.map((event) => {
@@ -537,13 +792,7 @@ const CustomerDashboardScreen = () => {
               })}
             </MapView>
           </View>
-        ) : (
-          <View style={styles.mapPlaceholder}>
-            <ActivityIndicator size="large" color="#2c6f57" />
-            <Text style={styles.mapPlaceholderText}>Loading map...</Text>
-          </View>
-        )}
-      </View>
+        </View>
 
       {/* Stats */}
       <View style={styles.section}>
@@ -554,8 +803,8 @@ const CustomerDashboardScreen = () => {
             <Text style={styles.statLabel}>Active Trucks</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{activeDrops.length}</Text>
-            <Text style={styles.statLabel}>Active Drops</Text>
+            <Text style={styles.statNumber}>{demandPins.length}</Text>
+            <Text style={styles.statLabel}>Demand Pins</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{3 - dailyPingCount}</Text>
@@ -643,6 +892,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c6f57',
     padding: 20,
     alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   title: {
     fontSize: 24,
@@ -667,6 +926,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderTopWidth: 4,
+    borderTopColor: '#4682b4', // Blue accent top border
   },
   sectionTitle: {
     fontSize: 20,
@@ -745,6 +1008,13 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  mapInstructions: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
   mapPlaceholder: {
     height: 300,
     justifyContent: 'center',
@@ -770,6 +1040,30 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  demandPinMarker: {
+    backgroundColor: '#FF6B35',
+    padding: 6,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  pingMarker: {
+    backgroundColor: '#9b59b6',
+    padding: 6,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   statsContainer: {
     flexDirection: 'row',

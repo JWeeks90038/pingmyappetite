@@ -130,3 +130,5 @@ temp-*.cjs
 grubana-mobile/src/screens/*_backup.*
 grubana-mobile/src/screens/*_temp.*
 grubana-mobile/src/screens/*_test.*
+
+.vercel

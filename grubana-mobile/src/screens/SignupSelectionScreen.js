@@ -15,7 +15,7 @@ export default function SignupSelectionScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../../assets/grubana-logo.png')} 
+            source={require('../../assets/grubana-logo-tshirt.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
@@ -113,7 +113,7 @@ export default function SignupSelectionScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1a1a2e', // Deep navy blue background
   },
   scrollContainer: {
     flexGrow: 1,
@@ -128,16 +128,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logo: {
-    width: 120,
-    height: 60,
+    width: 180,
+    height: 72,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#2c6f57', // Green title
     marginBottom: 10,
+    textAlign: 'center',
   },
   subtitle: {
+    fontSize: 16,
+    color: '#87ceeb', // Light blue subtitle
+    textAlign: 'center',
+    marginBottom: 20,
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
@@ -159,8 +164,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: 2,
+    borderColor: '#2c6f57', // Green border
   },
   optionHeader: {
     alignItems: 'center',
@@ -169,7 +174,7 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2c6f57', // Green option titles
     marginTop: 10,
     textAlign: 'center',
   },

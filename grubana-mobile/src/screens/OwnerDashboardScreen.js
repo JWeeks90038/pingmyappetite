@@ -191,7 +191,7 @@ const OwnerDashboardScreen = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/grubana-logo.png')}
+          source={require('../../assets/grubana-logo-tshirt.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -311,6 +311,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c6f57',
     padding: 20,
     alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   title: {
     fontSize: 24,
@@ -335,6 +345,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRightWidth: 4,
+    borderRightColor: '#4682b4', // Blue accent right border
   },
   sectionTitle: {
     fontSize: 20,

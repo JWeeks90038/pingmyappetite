@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthContextProvider, useAuth } from './src/components/AuthContext';
 
 // Import screens
@@ -16,6 +17,7 @@ import EventOrganizerSignupScreen from './src/screens/EventOrganizerSignupScreen
 import PaymentScreen from './src/screens/PaymentScreen.js';
 import HomeScreen from './src/screens/HomeScreen.js';
 import MapScreen from './src/screens/MapScreen.js';
+import CustomerDashboardScreen from './src/screens/CustomerDashboardScreen.js';
 import ProfileScreen from './src/screens/ProfileScreen.js';
 import PingScreen from './src/screens/PingScreen.js';
 import AnalyticsScreen from './src/screens/AnalyticsScreenFresh.js';
@@ -202,9 +204,14 @@ function AppContent() {
 }
 
 export default function App() {
+  // Use the same Stripe publishable key from your web app
+  const stripePublishableKey = 'pk_live_51RSgWMRsRfaVTYCjJJtygE6gtMfcv5Gi0EIK4GGB2IefhoK4gVgf6NxwQSXgJbc8zu1VskfzN3ghavd3awwRafXk00FjrvGznT';
+  
   return (
-    <AuthContextProvider>
-      <AppContent />
-    </AuthContextProvider>
+    <StripeProvider publishableKey={stripePublishableKey}>
+      <AuthContextProvider>
+        <AppContent />
+      </AuthContextProvider>
+    </StripeProvider>
   );
 }
