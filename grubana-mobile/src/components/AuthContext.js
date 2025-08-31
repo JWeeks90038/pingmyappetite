@@ -37,6 +37,7 @@ export const AuthContextProvider = ({ children }) => {
             uid: currentUser.uid,
             username: currentUser.displayName || "",
             email: currentUser.email || "",
+            phone: "",
             role: "customer",
             plan: "basic",
             menuUrl: "",

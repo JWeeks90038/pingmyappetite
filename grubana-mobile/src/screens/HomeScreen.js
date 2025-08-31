@@ -34,7 +34,7 @@ const HomeScreen = () => {
         {user && (
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>
-              Hello, {userData?.username || user.displayName || 'there'}!
+              Hello, {userData?.username || userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'there'}!
             </Text>
           </View>
         )}
@@ -84,24 +84,36 @@ const HomeScreen = () => {
               </View>
             </View>
           ) : (
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>📍 Send Pings</Text>
-                <Text style={styles.featureDescription}>
-                  Let food trucks know what you're craving
-                </Text>
+            <View>
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>📍 Send Pings</Text>
+                  <Text style={styles.featureDescription}>
+                    Let food trucks know what you're craving
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🗺️ Live Map</Text>
+                  <Text style={styles.featureDescription}>
+                    See active food trucks in real-time
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>❤️ Favorites</Text>
+                  <Text style={styles.featureDescription}>
+                    Save your favorite food trucks
+                  </Text>
+                </View>
               </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>🗺️ Live Map</Text>
-                <Text style={styles.featureDescription}>
-                  See active food trucks in real-time
-                </Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureTitle}>❤️ Favorites</Text>
-                <Text style={styles.featureDescription}>
-                  Save your favorite food trucks
-                </Text>
+              
+              <View style={styles.actionSection}>
+                <TouchableOpacity 
+                  style={styles.primaryButton}
+                  onPress={() => navigation.navigate('Map')}
+                >
+                  <Text style={styles.buttonText}>🗺️ Find Trucks</Text>
+                  <Text style={styles.buttonSubtext}>Discover food trucks near you</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}

@@ -54,6 +54,8 @@ const CustomerDashboardScreen = () => {
   const [mapReady, setMapReady] = useState(false);
   const [demandPins, setDemandPins] = useState([]); // Add demand pins state
   const [customerPings, setCustomerPings] = useState([]); // Add customer pings state
+  const [showCuisineModal, setShowCuisineModal] = useState(false); // Cuisine filter modal
+  const [excludedCuisines, setExcludedCuisines] = useState([]); // Excluded cuisines (empty = show all)
   
   const mapRef = useRef(null);
   const sendingRef = useRef(false);
@@ -482,6 +484,50 @@ const CustomerDashboardScreen = () => {
     return () => unsubscribe();
   }, []);
 
+  // Cuisine filtering functions
+  const isCuisineExcluded = (cuisineId) => {
+    return excludedCuisines.includes(cuisineId?.toLowerCase());
+  };
+
+  const handleCuisineSelect = (cuisineId) => {
+    setExcludedCuisines(prev => {
+      if (prev.includes(cuisineId)) {
+        // Remove from excluded (show this cuisine)
+        console.log('🍽️ Including cuisine:', cuisineId);
+        return prev.filter(id => id !== cuisineId);
+      } else {
+        // Add to excluded (hide this cuisine)
+        console.log('🍽️ Excluding cuisine:', cuisineId);
+        return [...prev, cuisineId];
+      }
+    });
+  };
+
+  const handleApplyCuisineFilter = () => {
+    console.log('🍽️ Applying cuisine exclusion filter:', excludedCuisines);
+    setShowCuisineModal(false);
+  };
+
+  const filterPingsByCuisine = (pings) => {
+    if (excludedCuisines.length === 0) {
+      return pings; // Show all if no exclusions
+    }
+
+    return pings.filter(ping => {
+      const pingCuisine = ping.cuisineType?.toLowerCase();
+      const isExcluded = excludedCuisines.some(excluded => {
+        const excludedLower = excluded.toLowerCase();
+        // Check exact match and common variations
+        return pingCuisine === excludedLower || 
+               pingCuisine?.includes(excludedLower) ||
+               excludedLower.includes(pingCuisine);
+      });
+      
+      console.log(`🍽️ Ping cuisine "${pingCuisine}" excluded:`, isExcluded);
+      return !isExcluded; // Include if NOT excluded
+    });
+  };
+
   // Handle event marker press
   const handleEventPress = (event) => {
     console.log('🎉 Mobile: Event marker pressed:', event.id);
@@ -651,7 +697,18 @@ const CustomerDashboardScreen = () => {
 
       {/* Map */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Live Map</Text>
+        <View style={styles.mapHeader}>
+          <Text style={styles.sectionTitle}>Live Map</Text>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setShowCuisineModal(true)}
+          >
+            <Ionicons name="filter" size={20} color="#FF6B35" />
+            <Text style={styles.filterButtonText}>
+              Filter{excludedCuisines.length > 0 ? ` (${excludedCuisines.length} hidden)` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.mapInstructions}>
           🎯 Tap anywhere on the map to drop a demand pin and let food trucks know what you're craving!
         </Text>
@@ -723,25 +780,29 @@ const CustomerDashboardScreen = () => {
               ))}
 
               {/* Customer Ping Markers */}
-              {console.log('📍 Mobile: Rendering', customerPings.length, 'ping markers') || ''}
-              {customerPings.map((ping) => {
-                console.log('📍 Mobile: Rendering ping marker:', ping.id, 'at', Number(ping.lat ?? ping.latitude), Number(ping.lng ?? ping.longitude));
-                return (
-                <Marker
-                  key={ping.id}
-                  coordinate={{
-                    latitude: Number(ping.lat ?? ping.latitude),
-                    longitude: Number(ping.lng ?? ping.longitude),
-                  }}
-                  title={`🍴 ${ping.cuisineType || 'Food Request'}`}
-                  description={`Ping by ${ping.username || 'Customer'} - ${ping.address || 'Location'}`}
-                >
-                  <View style={styles.pingMarker}>
-                    <Ionicons name="radio" size={18} color="#fff" />
-                  </View>
-                </Marker>
-                );
-              })}
+              {(() => {
+                const filteredPings = filterPingsByCuisine(customerPings);
+                console.log('📍 Mobile: Rendering', filteredPings.length, 'filtered ping markers (of', customerPings.length, 'total)');
+                console.log('📍 Mobile: Excluded cuisines:', excludedCuisines);
+                return filteredPings.map((ping) => {
+                  console.log('📍 Mobile: Rendering ping marker:', ping.id, 'cuisine:', ping.cuisineType, 'at', Number(ping.lat ?? ping.latitude), Number(ping.lng ?? ping.longitude));
+                  return (
+                  <Marker
+                    key={ping.id}
+                    coordinate={{
+                      latitude: Number(ping.lat ?? ping.latitude),
+                      longitude: Number(ping.lng ?? ping.longitude),
+                    }}
+                    title={`🍴 ${ping.cuisineType || 'Food Request'}`}
+                    description={`Ping by ${ping.username || 'Customer'} - ${ping.address || 'Location'}`}
+                  >
+                    <View style={styles.pingMarker}>
+                      <Ionicons name="radio" size={18} color="#fff" />
+                    </View>
+                  </Marker>
+                  );
+                });
+              })()}
 
               {/* Event Markers */}
               {events.map((event) => {
@@ -877,6 +938,69 @@ const CustomerDashboardScreen = () => {
               </View>
             </ScrollView>
           )}
+        </View>
+      </Modal>
+
+      {/* Cuisine Filter Modal */}
+      <Modal
+        visible={showCuisineModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCuisineModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.cuisineModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filter by Cuisine</Text>
+              <TouchableOpacity onPress={() => setShowCuisineModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.cuisineModalSubtitle}>
+              Tap cuisines to hide them from the map. All cuisines show by default.
+            </Text>
+            
+            <ScrollView style={styles.cuisineList}>
+              {CUISINE_TYPES.map((cuisine) => (
+                <TouchableOpacity
+                  key={cuisine.value}
+                  style={[
+                    styles.cuisineItem,
+                    isCuisineExcluded(cuisine.value) && styles.cuisineItemExcluded
+                  ]}
+                  onPress={() => handleCuisineSelect(cuisine.value)}
+                >
+                  <Text style={styles.cuisineEmoji}>{cuisine.emoji || '🍽️'}</Text>
+                  <Text style={[
+                    styles.cuisineLabel,
+                    isCuisineExcluded(cuisine.value) && styles.cuisineLabelExcluded
+                  ]}>
+                    {cuisine.label}
+                  </Text>
+                  {isCuisineExcluded(cuisine.value) && (
+                    <Ionicons name="eye-off" size={20} color="#666" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={() => setExcludedCuisines([])}
+              >
+                <Text style={styles.clearFiltersText}>Show All</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.applyFilterButton}
+                onPress={handleApplyCuisineFilter}
+              >
+                <Text style={styles.applyFilterText}>Apply Filter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </ScrollView>

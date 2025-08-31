@@ -7,7 +7,10 @@ import {
   TouchableOpacity, 
   Alert,
   Dimensions,
-  RefreshControl 
+  RefreshControl,
+  Modal,
+  TextInput,
+  Platform
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import { 
@@ -20,22 +23,249 @@ import {
   addDoc, 
   deleteDoc,
   getDocs,
-  serverTimestamp 
+  updateDoc,
+  serverTimestamp,
+  Timestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
 const EventsScreen = () => {
-  const { user, userData } = useAuth();
+  const { user, userData, userRole } = useAuth();
   const [events, setEvents] = useState([]);
+  const [myEvents, setMyEvents] = useState([]);
   const [attendedEvents, setAttendedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState('upcoming'); // upcoming, past, attended
+  const [selectedFilter, setSelectedFilter] = useState('upcoming'); // upcoming, past, attended, my-events
+  
+  // Event management modal states
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    description: '',
+    eventType: 'food-festival',
+    date: new Date(),
+    time: '',
+    endTime: '',
+    location: '',
+    address: '',
+    latitude: null,
+    longitude: null,
+    maxAttendees: null,
+    registrationRequired: false,
+    organizerLogoUrl: '',
+    status: 'upcoming',
+    // Recurring event fields
+    isRecurring: false,
+    recurrenceType: 'weekly', // daily, weekly, monthly, yearly
+    recurrenceInterval: 1, // every X days/weeks/months/years
+    recurrenceEndDate: null,
+    recurrenceCount: null, // number of occurrences
+    weeklyRecurrenceDays: [], // for weekly: ['monday', 'wednesday', 'friday']
+    monthlyRecurrenceType: 'date', // 'date' or 'day' (e.g., 2nd Tuesday)
+  });
+  
+  // Date picker states
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showRecurrenceEndDatePicker, setShowRecurrenceEndDatePicker] = useState(false);
 
-  console.log('🎪 EventsScreen: Component rendering');
+  console.log('🎪 EventsScreen: Component rendering with userRole:', userRole);
+
+  // Simple time picker state
+  const [selectedHour, setSelectedHour] = useState(9);
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  const [selectedPeriod, setSelectedPeriod] = useState('AM');
+  const [endSelectedHour, setEndSelectedHour] = useState(10);
+  const [endSelectedMinute, setEndSelectedMinute] = useState(0);
+  const [endSelectedPeriod, setEndSelectedPeriod] = useState('AM');
+
+  // Simple date picker state
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [recurrenceSelectedMonth, setRecurrenceSelectedMonth] = useState(new Date().getMonth());
+  const [recurrenceSelectedDay, setRecurrenceSelectedDay] = useState(new Date().getDate());
+  const [recurrenceSelectedYear, setRecurrenceSelectedYear] = useState(new Date().getFullYear());
+
+  // Helper function to get month names
+  const getMonthNames = () => [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Helper function to get days in a month
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  // Helper function to get available years (current year + next 2 years)
+  const getAvailableYears = () => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear, currentYear + 1, currentYear + 2];
+  };
+
+  // Helper function to format date from picker values
+  const formatDateFromPicker = (month, day, year) => {
+    return new Date(year, month, day);
+  };
+
+  // Helper function to initialize date picker values
+  const initializeDatePicker = (date, isRecurrence = false) => {
+    const targetDate = date || new Date();
+    if (isRecurrence) {
+      setRecurrenceSelectedMonth(targetDate.getMonth());
+      setRecurrenceSelectedDay(targetDate.getDate());
+      setRecurrenceSelectedYear(targetDate.getFullYear());
+    } else {
+      setSelectedMonth(targetDate.getMonth());
+      setSelectedDay(targetDate.getDate());
+      setSelectedYear(targetDate.getFullYear());
+    }
+  };
+
+  // Geocoding function to convert address to coordinates
+  const geocodeAddress = async (address) => {
+    console.log('🗺️ EventsScreen: geocodeAddress called with:', address);
+    
+    if (!address || address.trim().length < 5) {
+      console.log('🗺️ EventsScreen: Address too short or empty, skipping geocoding');
+      return null;
+    }
+
+    try {
+      console.log('🗺️ EventsScreen: Starting geocoding for address:', address);
+      
+      // Use a free geocoding service (Nominatim - OpenStreetMap)
+      const encodedAddress = encodeURIComponent(address.trim());
+      const geocodingUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
+      console.log('🗺️ EventsScreen: Geocoding URL:', geocodingUrl);
+      
+      const response = await fetch(geocodingUrl);
+      console.log('🗺️ EventsScreen: Geocoding response status:', response.status);
+      
+      if (!response.ok) {
+        console.log('❌ EventsScreen: Geocoding service response not ok:', response.status);
+        throw new Error('Geocoding service unavailable');
+      }
+      
+      const data = await response.json();
+      console.log('🗺️ EventsScreen: Geocoding response data:', data);
+      
+      if (data && data.length > 0) {
+        const result = data[0];
+        const coordinates = {
+          latitude: parseFloat(result.lat),
+          longitude: parseFloat(result.lon)
+        };
+        
+        console.log('✅ EventsScreen: Geocoding successful!');
+        console.log('🗺️ EventsScreen: Raw result:', { lat: result.lat, lon: result.lon });
+        console.log('🗺️ EventsScreen: Parsed coordinates:', coordinates);
+        console.log('🗺️ EventsScreen: Display name:', result.display_name);
+        
+        return coordinates;
+      } else {
+        console.log('❌ EventsScreen: No geocoding results found for address:', address);
+        console.log('🗺️ EventsScreen: Empty data array returned from geocoding service');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ EventsScreen: Geocoding error details:', error);
+      console.error('❌ EventsScreen: Error message:', error.message);
+      console.error('❌ EventsScreen: Error stack:', error.stack);
+      return null;
+    }
+  };
+
+  // Handle address change with geocoding
+  const handleAddressChange = async (text) => {
+    console.log('🗺️ EventsScreen: handleAddressChange called with:', text);
+    console.log('🗺️ EventsScreen: Text length:', text ? text.length : 0);
+    
+    setEventForm(prev => ({ ...prev, address: text }));
+    
+    // Only geocode if address is substantial enough
+    if (text && text.trim().length > 10) {
+      console.log('🗺️ EventsScreen: Address substantial enough, starting geocoding...');
+      
+      const coordinates = await geocodeAddress(text);
+      console.log('🗺️ EventsScreen: Geocoding completed, result:', coordinates);
+      
+      if (coordinates && coordinates.latitude && coordinates.longitude) {
+        console.log('✅ EventsScreen: Updating form with new coordinates...');
+        setEventForm(prev => ({ 
+          ...prev, 
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude 
+        }));
+        console.log('✅ EventsScreen: Form coordinates updated successfully');
+      } else {
+        console.log('❌ EventsScreen: Invalid or null coordinates from geocoding');
+        // Clear coordinates if geocoding failed
+        setEventForm(prev => ({ 
+          ...prev, 
+          latitude: null,
+          longitude: null 
+        }));
+      }
+    } else {
+      console.log('🗺️ EventsScreen: Address too short, clearing coordinates');
+      // Clear coordinates if address is too short
+      setEventForm(prev => ({ 
+        ...prev, 
+        latitude: null,
+        longitude: null 
+      }));
+    }
+  };
+
+  // Helper function to format time from picker values
+  const formatTimeFromPicker = (hour, minute, period) => {
+    const displayHour = hour === 0 ? 12 : hour;
+    const formattedMinute = minute.toString().padStart(2, '0');
+    return `${displayHour}:${formattedMinute} ${period}`;
+  };
+
+  // Helper function to parse time string and set picker values
+  const parseTimeToPickerValues = (timeString) => {
+    if (!timeString) return { hour: 9, minute: 0, period: 'AM' };
+    
+    if (timeString.includes('AM') || timeString.includes('PM')) {
+      const [time, period] = timeString.split(' ');
+      const [hours, minutes] = time.split(':');
+      let hour = parseInt(hours);
+      
+      // Convert 12-hour to picker format (1-12)
+      if (hour === 0) hour = 12;
+      if (period === 'PM' && hour !== 12) hour = hour;
+      if (period === 'AM' && hour === 12) hour = 12;
+      
+      return { hour, minute: parseInt(minutes), period };
+    }
+    
+    return { hour: 9, minute: 0, period: 'AM' };
+  };
+
+  // Initialize picker values when modal opens
+  const initializeTimePicker = (timeString, isEndTime = false) => {
+    const { hour, minute, period } = parseTimeToPickerValues(timeString);
+    if (isEndTime) {
+      setEndSelectedHour(hour);
+      setEndSelectedMinute(minute);
+      setEndSelectedPeriod(period);
+    } else {
+      setSelectedHour(hour);
+      setSelectedMinute(minute);
+      setSelectedPeriod(period);
+    }
+  };
 
   // Fetch events from Firebase
   useEffect(() => {
@@ -46,11 +276,10 @@ const EventsScreen = () => {
     const now = new Date();
     const todayString = now.toISOString().split('T')[0];
 
-    // Query for events - get all upcoming events
+    // Query for all events
     const eventsQuery = query(
       collection(db, 'events'),
-      where('date', '>=', todayString),
-      orderBy('date', 'asc')
+      orderBy('startDate', 'asc')
     );
 
     const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
@@ -69,6 +298,51 @@ const EventsScreen = () => {
 
     return unsubscribe;
   }, [user]);
+
+  // Fetch user's created events (for event organizers)
+  useEffect(() => {
+    if (!user || (userRole !== 'event-organizer' && userRole !== 'owner')) return;
+
+    console.log('🎪 EventsScreen: Setting up my events listener for organizer');
+    console.log('🎪 EventsScreen: User ID:', user.uid);
+    
+    // Temporarily use a simpler query without orderBy to avoid index requirement
+    // TODO: Re-enable orderBy once the composite index is fully built
+    const myEventsQuery = query(
+      collection(db, 'events'),
+      where('organizerId', '==', user.uid)
+      // orderBy('startDate', 'asc') // Temporarily disabled while index builds
+    );
+
+    const unsubscribe = onSnapshot(myEventsQuery, (snapshot) => {
+      console.log('🎪 EventsScreen: Raw snapshot received, docs count:', snapshot.docs.length);
+      
+      let myEventsData = snapshot.docs.map(doc => {
+        const data = { id: doc.id, ...doc.data() };
+        console.log('🎪 EventsScreen: Event doc data:', {
+          id: data.id,
+          title: data.title,
+          organizerId: data.organizerId,
+          startDate: data.startDate
+        });
+        return data;
+      });
+      
+      // Sort manually in JavaScript while waiting for Firestore index
+      myEventsData.sort((a, b) => {
+        const aDate = a.startDate?.toDate ? a.startDate.toDate() : new Date(a.startDate || 0);
+        const bDate = b.startDate?.toDate ? b.startDate.toDate() : new Date(b.startDate || 0);
+        return aDate.getTime() - bDate.getTime();
+      });
+      
+      console.log('🎪 EventsScreen: Found my events:', myEventsData.length);
+      setMyEvents(myEventsData);
+    }, (error) => {
+      console.error('🎪 EventsScreen: Error fetching my events:', error);
+    });
+
+    return unsubscribe;
+  }, [user, userRole]);
 
   // Fetch user's attended events
   useEffect(() => {
@@ -96,7 +370,267 @@ const EventsScreen = () => {
     return unsubscribe;
   }, [user]);
 
-  // Mark event as attended
+  // Check if user can manage events
+  const canManageEvents = () => {
+    return userRole === 'event-organizer' || userRole === 'owner';
+  };
+
+  // Check if user can edit/delete specific event
+  const canEditEvent = (event) => {
+    return canManageEvents() && event.organizerId === user?.uid;
+  };
+
+  // Reset event form
+  const resetEventForm = () => {
+    setEventForm({
+      title: '',
+      description: '',
+      eventType: 'food-festival',
+      date: new Date(),
+      time: '',
+      endTime: '',
+      location: '',
+      address: '',
+      latitude: null,
+      longitude: null,
+      maxAttendees: null,
+      registrationRequired: false,
+      organizerLogoUrl: '',
+      status: 'upcoming',
+      isRecurring: false,
+      recurrenceType: 'weekly',
+      recurrenceInterval: 1,
+      recurrenceEndDate: null,
+      recurrenceCount: null,
+      weeklyRecurrenceDays: [],
+      monthlyRecurrenceType: 'date'
+    });
+    setEditingEvent(null);
+  };
+
+  // Open create event modal
+  const openCreateEventModal = () => {
+    resetEventForm();
+    setShowEventModal(true);
+  };
+
+  // Open edit event modal
+  const openEditEventModal = (event) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title || '',
+      description: event.description || '',
+      eventType: event.eventType || 'food-festival',
+      date: event.startDate?.toDate ? event.startDate.toDate() : new Date(event.startDate) || new Date(),
+      time: event.time || '',
+      endTime: event.endTime || '',
+      location: event.location || '',
+      address: event.address || '',
+      latitude: event.latitude || null,
+      longitude: event.longitude || null,
+      maxAttendees: event.maxAttendees || null,
+      registrationRequired: event.registrationRequired || false,
+      organizerLogoUrl: event.organizerLogoUrl || '',
+      status: event.status || 'upcoming',
+      isRecurring: event.isRecurring || false,
+      recurrenceType: event.recurrenceType || 'weekly',
+      recurrenceInterval: event.recurrenceInterval || 1,
+      recurrenceEndDate: event.recurrenceEndDate?.toDate ? event.recurrenceEndDate.toDate() : null,
+      recurrenceCount: event.recurrenceCount || null,
+      weeklyRecurrenceDays: event.weeklyRecurrenceDays || [],
+      monthlyRecurrenceType: event.monthlyRecurrenceType || 'date'
+    });
+    setShowEventModal(true);
+  };
+
+  // Save event (create or update)
+  const saveEvent = async () => {
+    try {
+      console.log('🎪 EventsScreen: Starting save event process...');
+      console.log('🎪 EventsScreen: Current eventForm state:', {
+        title: eventForm.title,
+        address: eventForm.address,
+        latitude: eventForm.latitude,
+        longitude: eventForm.longitude,
+        hasLatitude: !!eventForm.latitude,
+        hasLongitude: !!eventForm.longitude
+      });
+
+      if (!eventForm.title.trim()) {
+        console.log('❌ EventsScreen: Missing title');
+        Alert.alert('Error', 'Please enter an event title');
+        return;
+      }
+
+      if (!eventForm.location.trim()) {
+        console.log('❌ EventsScreen: Missing location');
+        Alert.alert('Error', 'Please enter an event location');
+        return;
+      }
+
+      if (!eventForm.address.trim()) {
+        console.log('❌ EventsScreen: Missing address');
+        Alert.alert('Error', 'Please enter a full address');
+        return;
+      }
+
+      // Ensure we have coordinates for map display
+      if (!eventForm.latitude || !eventForm.longitude) {
+        console.log('🗺️ EventsScreen: Missing coordinates, attempting to geocode address:', eventForm.address);
+        console.log('🗺️ EventsScreen: Address length:', eventForm.address.length);
+        
+        const coordinates = await geocodeAddress(eventForm.address);
+        console.log('🗺️ EventsScreen: Geocoding result:', coordinates);
+        
+        if (coordinates && coordinates.latitude && coordinates.longitude) {
+          console.log('✅ EventsScreen: Geocoding successful, updating form...');
+          setEventForm(prev => ({ 
+            ...prev, 
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude 
+          }));
+          // Use the coordinates for this save
+          eventForm.latitude = coordinates.latitude;
+          eventForm.longitude = coordinates.longitude;
+          console.log('✅ EventsScreen: Form updated with coordinates:', {
+            latitude: eventForm.latitude,
+            longitude: eventForm.longitude
+          });
+        } else {
+          console.log('❌ EventsScreen: Geocoding failed or returned invalid coordinates');
+          Alert.alert(
+            'Address Error', 
+            'Could not find coordinates for the provided address. Please check the address and try again, or ensure you have an internet connection.'
+          );
+          return;
+        }
+      } else {
+        console.log('✅ EventsScreen: Coordinates already available:', {
+          latitude: eventForm.latitude,
+          longitude: eventForm.longitude
+        });
+      }
+
+      console.log('🎪 EventsScreen: Preparing event data for save...');
+      
+      const eventData = {
+        title: eventForm.title.trim(),
+        description: eventForm.description.trim(),
+        eventType: eventForm.eventType,
+        startDate: Timestamp.fromDate(eventForm.date),
+        endDate: eventForm.endTime ? Timestamp.fromDate(eventForm.date) : null,
+        time: eventForm.time,
+        endTime: eventForm.endTime,
+        location: eventForm.location.trim(),
+        address: eventForm.address.trim(),
+        latitude: eventForm.latitude,
+        longitude: eventForm.longitude,
+        maxAttendees: eventForm.maxAttendees ? parseInt(eventForm.maxAttendees) : null,
+        registrationRequired: eventForm.registrationRequired,
+        organizerLogoUrl: eventForm.organizerLogoUrl.trim(),
+        status: eventForm.status,
+        organizerId: user.uid,
+        organizerName: userData?.businessName || userData?.username || 'Event Organizer',
+        organizerEmail: user.email,
+        updatedAt: serverTimestamp(),
+        // Recurring event fields
+        isRecurring: eventForm.isRecurring,
+        recurrenceType: eventForm.isRecurring ? eventForm.recurrenceType : null,
+        recurrenceInterval: eventForm.isRecurring ? eventForm.recurrenceInterval : null,
+        recurrenceEndDate: eventForm.isRecurring && eventForm.recurrenceEndDate ? Timestamp.fromDate(eventForm.recurrenceEndDate) : null,
+        recurrenceCount: eventForm.isRecurring ? eventForm.recurrenceCount : null,
+        weeklyRecurrenceDays: eventForm.isRecurring && eventForm.recurrenceType === 'weekly' ? eventForm.weeklyRecurrenceDays : null,
+        monthlyRecurrenceType: eventForm.isRecurring && eventForm.recurrenceType === 'monthly' ? eventForm.monthlyRecurrenceType : null,
+      };
+
+      console.log('🎪 EventsScreen: Final event data prepared:');
+      console.log('🎪 EventsScreen: - Title:', eventData.title);
+      console.log('🎪 EventsScreen: - Address:', eventData.address);
+      console.log('🎪 EventsScreen: - Latitude:', eventData.latitude, '(type:', typeof eventData.latitude, ')');
+      console.log('🎪 EventsScreen: - Longitude:', eventData.longitude, '(type:', typeof eventData.longitude, ')');
+      console.log('🎪 EventsScreen: - Has valid coordinates:', !!(eventData.latitude && eventData.longitude));
+
+      // Double-check coordinates before saving
+      if (!eventData.latitude || !eventData.longitude || 
+          isNaN(eventData.latitude) || isNaN(eventData.longitude)) {
+        console.log('❌ EventsScreen: Invalid coordinates detected before save!');
+        console.log('❌ EventsScreen: Latitude:', eventData.latitude, 'valid:', !isNaN(eventData.latitude));
+        console.log('❌ EventsScreen: Longitude:', eventData.longitude, 'valid:', !isNaN(eventData.longitude));
+        Alert.alert(
+          'Coordinates Error', 
+          'Event coordinates are invalid. Please check the address and try again.'
+        );
+        return;
+      }
+
+      console.log('🎪 EventsScreen: Saving event with coordinates:', {
+        latitude: eventData.latitude,
+        longitude: eventData.longitude,
+        address: eventData.address
+      });
+
+      if (editingEvent) {
+        // Update existing event
+        console.log('🎪 EventsScreen: Updating existing event:', editingEvent.id);
+        await updateDoc(doc(db, 'events', editingEvent.id), eventData);
+        console.log('✅ EventsScreen: Event updated successfully!');
+        Alert.alert('Success', 'Event updated successfully!');
+      } else {
+        // Create new event
+        console.log('🎪 EventsScreen: Creating new event...');
+        console.log('🎪 EventsScreen: Event data being sent to Firebase:', JSON.stringify({
+          title: eventData.title,
+          address: eventData.address,
+          latitude: eventData.latitude,
+          longitude: eventData.longitude,
+          organizerId: eventData.organizerId
+        }, null, 2));
+        
+        eventData.createdAt = serverTimestamp();
+        const docRef = await addDoc(collection(db, 'events'), eventData);
+        
+        console.log('✅ EventsScreen: Event created successfully!');
+        console.log('✅ EventsScreen: New event ID:', docRef.id);
+        console.log('✅ EventsScreen: Event should appear on map with coordinates:', {
+          latitude: eventData.latitude,
+          longitude: eventData.longitude
+        });
+        
+        Alert.alert('Success', `Event created successfully with ID: ${docRef.id}! It should now appear on the map.`);
+      }
+
+      setShowEventModal(false);
+      resetEventForm();
+    } catch (error) {
+      console.error('🎪 EventsScreen: Error saving event:', error);
+      Alert.alert('Error', 'Failed to save event. Please try again.');
+    }
+  };
+
+  // Delete event
+  const deleteEvent = async (eventId, eventTitle) => {
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${eventTitle}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🎪 EventsScreen: Deleting event:', eventId);
+              await deleteDoc(doc(db, 'events', eventId));
+              Alert.alert('Success', 'Event deleted successfully');
+            } catch (error) {
+              console.error('🎪 EventsScreen: Error deleting event:', error);
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
   const markEventAttended = async (event) => {
     try {
       console.log('🎪 EventsScreen: Marking event as attended:', event.id);
@@ -156,8 +690,18 @@ const EventsScreen = () => {
   };
 
   // Format date for display
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
+  const formatDate = (dateInput) => {
+    let date;
+    if (dateInput?.toDate) {
+      date = dateInput.toDate();
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else if (typeof dateInput === 'string') {
+      date = new Date(dateInput);
+    } else {
+      return 'Date TBD';
+    }
+    
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       year: 'numeric',
@@ -181,22 +725,50 @@ const EventsScreen = () => {
     return attendedEvents.some(a => a.eventId === eventId);
   };
 
+  // Check if event is in the past
+  const isEventPast = (eventDate) => {
+    const now = new Date();
+    let date;
+    
+    if (eventDate?.toDate) {
+      date = eventDate.toDate();
+    } else if (eventDate instanceof Date) {
+      date = eventDate;
+    } else if (typeof eventDate === 'string') {
+      date = new Date(eventDate);
+    } else {
+      return false;
+    }
+    
+    return date < now;
+  };
+
   // Filter events based on selected filter
   const getFilteredEvents = () => {
     const now = new Date();
-    const todayString = now.toISOString().split('T')[0];
 
     switch (selectedFilter) {
       case 'upcoming':
-        return events.filter(event => event.date >= todayString);
+        return events.filter(event => !isEventPast(event.startDate || event.date));
       case 'past':
-        return events.filter(event => event.date < todayString);
+        return events.filter(event => isEventPast(event.startDate || event.date));
       case 'attended':
         const attendedEventIds = attendedEvents.map(a => a.eventId);
         return events.filter(event => attendedEventIds.includes(event.id));
+      case 'my-events':
+        return myEvents;
       default:
         return events;
     }
+  };
+
+  // Get available filter tabs based on user role
+  const getFilterTabs = () => {
+    const baseTabs = ['upcoming', 'past', 'attended'];
+    if (canManageEvents()) {
+      baseTabs.push('my-events');
+    }
+    return baseTabs;
   };
 
   // Refresh events
@@ -206,22 +778,920 @@ const EventsScreen = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  // Render event management modal
+  const renderEventModal = () => {
+    return (
+      <Modal
+        visible={showEventModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => {
+                setShowEventModal(false);
+                resetEventForm();
+              }}
+            >
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {editingEvent ? 'Edit Event' : 'Create Event'}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalSaveButton}
+              onPress={saveEvent}
+            >
+              <Text style={styles.modalSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Modal Content */}
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {/* Event Title */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Event Title *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={eventForm.title}
+                onChangeText={(text) => setEventForm(prev => ({ ...prev, title: text }))}
+                placeholder="Enter event title"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            {/* Event Description */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Description</Text>
+              <TextInput
+                style={[styles.formInput, styles.formTextArea]}
+                value={eventForm.description}
+                onChangeText={(text) => setEventForm(prev => ({ ...prev, description: text }))}
+                placeholder="Enter event description"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Event Type */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Event Type</Text>
+              <View style={styles.eventTypeContainer}>
+                {['food-festival', 'farmers-market', 'street-fair', 'popup-event', 'catering', 'private-event'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.eventTypeButton,
+                      eventForm.eventType === type && styles.eventTypeButtonActive
+                    ]}
+                    onPress={() => setEventForm(prev => ({ ...prev, eventType: type }))}
+                  >
+                    <Text style={[
+                      styles.eventTypeText,
+                      eventForm.eventType === type && styles.eventTypeTextActive
+                    ]}>
+                      {type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Date and Time */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Date *</Text>
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => {
+                  initializeDatePicker(eventForm.date, false);
+                  setShowDatePicker(true);
+                }}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+                <Text style={styles.dateTimeText}>
+                  {eventForm.date.toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
+                <Text style={styles.formLabel}>Start Time</Text>
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => {
+                    initializeTimePicker(eventForm.time, false);
+                    setShowTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.dateTimeText}>
+                    {eventForm.time || 'Select time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
+                <Text style={styles.formLabel}>End Time</Text>
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => {
+                    initializeTimePicker(eventForm.endTime, true);
+                    setShowEndTimePicker(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={20} color="#666" />
+                  <Text style={styles.dateTimeText}>
+                    {eventForm.endTime || 'Select time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Location */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Location *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={eventForm.location}
+                onChangeText={(text) => setEventForm(prev => ({ ...prev, location: text }))}
+                placeholder="Enter event location"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            {/* Address */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Full Address *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={eventForm.address}
+                onChangeText={handleAddressChange}
+                placeholder="Enter full address (will be geocoded for map display)"
+                placeholderTextColor="#999"
+                onBlur={() => {
+                  // Re-geocode on blur to ensure we have coordinates
+                  if (eventForm.address && !eventForm.latitude) {
+                    handleAddressChange(eventForm.address);
+                  }
+                }}
+              />
+              {eventForm.latitude && eventForm.longitude && (
+                <Text style={styles.coordinatesText}>
+                  📍 Coordinates: {eventForm.latitude.toFixed(6)}, {eventForm.longitude.toFixed(6)}
+                </Text>
+              )}
+            </View>
+
+            {/* Max Attendees */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Max Attendees</Text>
+              <TextInput
+                style={styles.formInput}
+                value={eventForm.maxAttendees?.toString() || ''}
+                onChangeText={(text) => {
+                  const num = text.replace(/[^0-9]/g, '');
+                  setEventForm(prev => ({ ...prev, maxAttendees: num ? parseInt(num) : null }));
+                }}
+                placeholder="Leave empty for unlimited"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Organizer Logo URL */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Organizer Logo URL</Text>
+              <TextInput
+                style={styles.formInput}
+                value={eventForm.organizerLogoUrl}
+                onChangeText={(text) => setEventForm(prev => ({ ...prev, organizerLogoUrl: text }))}
+                placeholder="Enter logo URL (optional)"
+                placeholderTextColor="#999"
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* Event Status */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Status</Text>
+              <View style={styles.statusContainer}>
+                {['upcoming', 'active', 'completed', 'cancelled'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusButton,
+                      eventForm.status === status && styles.statusButtonActive
+                    ]}
+                    onPress={() => setEventForm(prev => ({ ...prev, status }))}
+                  >
+                    <Text style={[
+                      styles.statusText,
+                      eventForm.status === status && styles.statusTextActive
+                    ]}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Recurring Event Settings */}
+            <View style={styles.formGroup}>
+              <View style={styles.checkboxContainer}>
+                <TouchableOpacity
+                  style={[styles.checkbox, eventForm.isRecurring && styles.checkboxChecked]}
+                  onPress={() => setEventForm(prev => ({ ...prev, isRecurring: !prev.isRecurring }))}
+                >
+                  {eventForm.isRecurring && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+                <Text style={styles.checkboxLabel}>Make this a recurring event</Text>
+              </View>
+            </View>
+
+            {/* Recurring Options - Only show if recurring is enabled */}
+            {eventForm.isRecurring && (
+              <>
+                {/* Recurrence Type */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Repeat</Text>
+                  <View style={styles.recurrenceTypeContainer}>
+                    {['daily', 'weekly', 'monthly', 'yearly'].map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.recurrenceTypeButton,
+                          eventForm.recurrenceType === type && styles.recurrenceTypeButtonActive
+                        ]}
+                        onPress={() => setEventForm(prev => ({ ...prev, recurrenceType: type }))}
+                      >
+                        <Text style={[
+                          styles.recurrenceTypeText,
+                          eventForm.recurrenceType === type && styles.recurrenceTypeTextActive
+                        ]}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Recurrence Interval */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>
+                    Repeat every {eventForm.recurrenceInterval} {eventForm.recurrenceType === 'daily' ? 'day(s)' : 
+                      eventForm.recurrenceType === 'weekly' ? 'week(s)' : 
+                      eventForm.recurrenceType === 'monthly' ? 'month(s)' : 'year(s)'}
+                  </Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={eventForm.recurrenceInterval.toString()}
+                    onChangeText={(text) => {
+                      const num = text.replace(/[^0-9]/g, '');
+                      setEventForm(prev => ({ ...prev, recurrenceInterval: num ? parseInt(num) : 1 }));
+                    }}
+                    keyboardType="numeric"
+                    placeholder="1"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                {/* Weekly Days Selection (only for weekly recurrence) */}
+                {eventForm.recurrenceType === 'weekly' && (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.formLabel}>Repeat on</Text>
+                    <View style={styles.weeklyDaysContainer}>
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.weeklyDayButton,
+                            eventForm.weeklyRecurrenceDays.includes(index) && styles.weeklyDayButtonActive
+                          ]}
+                          onPress={() => {
+                            const days = [...eventForm.weeklyRecurrenceDays];
+                            const dayIndex = days.indexOf(index);
+                            if (dayIndex > -1) {
+                              days.splice(dayIndex, 1);
+                            } else {
+                              days.push(index);
+                            }
+                            setEventForm(prev => ({ ...prev, weeklyRecurrenceDays: days }));
+                          }}
+                        >
+                          <Text style={[
+                            styles.weeklyDayText,
+                            eventForm.weeklyRecurrenceDays.includes(index) && styles.weeklyDayTextActive
+                          ]}>
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Monthly Recurrence Type (only for monthly recurrence) */}
+                {eventForm.recurrenceType === 'monthly' && (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.formLabel}>Monthly repeat pattern</Text>
+                    <View style={styles.monthlyTypeContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.monthlyTypeButton,
+                          eventForm.monthlyRecurrenceType === 'date' && styles.monthlyTypeButtonActive
+                        ]}
+                        onPress={() => setEventForm(prev => ({ ...prev, monthlyRecurrenceType: 'date' }))}
+                      >
+                        <Text style={[
+                          styles.monthlyTypeText,
+                          eventForm.monthlyRecurrenceType === 'date' && styles.monthlyTypeTextActive
+                        ]}>
+                          On date {eventForm.date.getDate()}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.monthlyTypeButton,
+                          eventForm.monthlyRecurrenceType === 'day' && styles.monthlyTypeButtonActive
+                        ]}
+                        onPress={() => setEventForm(prev => ({ ...prev, monthlyRecurrenceType: 'day' }))}
+                      >
+                        <Text style={[
+                          styles.monthlyTypeText,
+                          eventForm.monthlyRecurrenceType === 'day' && styles.monthlyTypeTextActive
+                        ]}>
+                          On {['first', 'second', 'third', 'fourth', 'last'][Math.floor((eventForm.date.getDate() - 1) / 7)]} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][eventForm.date.getDay()]}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Recurrence End Options */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>End repeat</Text>
+                  <View style={styles.recurrenceEndContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.recurrenceEndButton,
+                        !eventForm.recurrenceEndDate && !eventForm.recurrenceCount && styles.recurrenceEndButtonActive
+                      ]}
+                      onPress={() => setEventForm(prev => ({ ...prev, recurrenceEndDate: null, recurrenceCount: null }))}
+                    >
+                      <Text style={[
+                        styles.recurrenceEndText,
+                        !eventForm.recurrenceEndDate && !eventForm.recurrenceCount && styles.recurrenceEndTextActive
+                      ]}>
+                        Never
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[
+                        styles.recurrenceEndButton,
+                        eventForm.recurrenceEndDate && styles.recurrenceEndButtonActive
+                      ]}
+                      onPress={() => {
+                        initializeDatePicker(eventForm.recurrenceEndDate || new Date(), true);
+                        setShowRecurrenceEndDatePicker(true);
+                      }}
+                    >
+                      <Text style={[
+                        styles.recurrenceEndText,
+                        eventForm.recurrenceEndDate && styles.recurrenceEndTextActive
+                      ]}>
+                        {eventForm.recurrenceEndDate ? `Until ${eventForm.recurrenceEndDate.toLocaleDateString()}` : 'On date'}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <View style={styles.recurrenceCountContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.recurrenceEndButton,
+                          eventForm.recurrenceCount && styles.recurrenceEndButtonActive
+                        ]}
+                        onPress={() => {
+                          if (!eventForm.recurrenceCount) {
+                            setEventForm(prev => ({ ...prev, recurrenceCount: 5, recurrenceEndDate: null }));
+                          }
+                        }}
+                      >
+                        <Text style={[
+                          styles.recurrenceEndText,
+                          eventForm.recurrenceCount && styles.recurrenceEndTextActive
+                        ]}>
+                          After
+                        </Text>
+                      </TouchableOpacity>
+                      {eventForm.recurrenceCount && (
+                        <>
+                          <TextInput
+                            style={styles.recurrenceCountInput}
+                            value={eventForm.recurrenceCount.toString()}
+                            onChangeText={(text) => {
+                              const num = text.replace(/[^0-9]/g, '');
+                              setEventForm(prev => ({ ...prev, recurrenceCount: num ? parseInt(num) : null }));
+                            }}
+                            keyboardType="numeric"
+                            placeholder="5"
+                            placeholderTextColor="#999"
+                          />
+                          <Text style={styles.recurrenceCountLabel}>occurrences</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
+          </ScrollView>
+
+          {/* Date/Time Pickers */}
+          {showDatePicker && (
+            <Modal
+              transparent={true}
+              animationType="fade"
+              visible={showDatePicker}
+              onRequestClose={() => setShowDatePicker(false)}
+            >
+              <View style={styles.pickerModalOverlay}>
+                <View style={styles.pickerModalContent}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.pickerTitle}>Select Date</Text>
+                    <TouchableOpacity onPress={() => {
+                      const selectedDate = formatDateFromPicker(selectedMonth, selectedDay, selectedYear);
+                      setEventForm(prev => ({ ...prev, date: selectedDate }));
+                      setShowDatePicker(false);
+                    }}>
+                      <Text style={styles.pickerDoneText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.customTimePickerContainer}>
+                    {/* Month Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Month</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {getMonthNames().map((month, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.timePickerOption,
+                              selectedMonth === index && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => {
+                              setSelectedMonth(index);
+                              // Adjust day if it's invalid for the new month
+                              const daysInMonth = getDaysInMonth(index, selectedYear);
+                              if (selectedDay > daysInMonth) {
+                                setSelectedDay(daysInMonth);
+                              }
+                            }}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedMonth === index && styles.timePickerOptionTextSelected,
+                              { fontSize: 14 }
+                            ]}>
+                              {month}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Day Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Day</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {Array.from({ length: getDaysInMonth(selectedMonth, selectedYear) }, (_, i) => i + 1).map((day) => (
+                          <TouchableOpacity
+                            key={day}
+                            style={[
+                              styles.timePickerOption,
+                              selectedDay === day && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setSelectedDay(day)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedDay === day && styles.timePickerOptionTextSelected
+                            ]}>
+                              {day}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Year Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Year</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {getAvailableYears().map((year) => (
+                          <TouchableOpacity
+                            key={year}
+                            style={[
+                              styles.timePickerOption,
+                              selectedYear === year && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setSelectedYear(year)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedYear === year && styles.timePickerOptionTextSelected
+                            ]}>
+                              {year}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={styles.timePreviewContainer}>
+                    <Text style={styles.timePreviewLabel}>Selected Date:</Text>
+                    <Text style={styles.timePreviewText}>
+                      {formatDateFromPicker(selectedMonth, selectedDay, selectedYear).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
+
+          {showTimePicker && (
+            <Modal
+              transparent={true}
+              animationType="fade"
+              visible={showTimePicker}
+              onRequestClose={() => setShowTimePicker(false)}
+            >
+              <View style={styles.pickerModalOverlay}>
+                <View style={styles.pickerModalContent}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.pickerTitle}>Select Start Time</Text>
+                    <TouchableOpacity onPress={() => {
+                      const timeString = formatTimeFromPicker(selectedHour, selectedMinute, selectedPeriod);
+                      setEventForm(prev => ({ ...prev, time: timeString }));
+                      setShowTimePicker(false);
+                    }}>
+                      <Text style={styles.pickerDoneText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.customTimePickerContainer}>
+                    {/* Hour Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Hour</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((hour) => (
+                          <TouchableOpacity
+                            key={hour}
+                            style={[
+                              styles.timePickerOption,
+                              selectedHour === hour && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setSelectedHour(hour)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedHour === hour && styles.timePickerOptionTextSelected
+                            ]}>
+                              {hour}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Minute Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Minute</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {[0, 15, 30, 45].map((minute) => (
+                          <TouchableOpacity
+                            key={minute}
+                            style={[
+                              styles.timePickerOption,
+                              selectedMinute === minute && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setSelectedMinute(minute)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedMinute === minute && styles.timePickerOptionTextSelected
+                            ]}>
+                              {minute.toString().padStart(2, '0')}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* AM/PM Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Period</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {['AM', 'PM'].map((period) => (
+                          <TouchableOpacity
+                            key={period}
+                            style={[
+                              styles.timePickerOption,
+                              selectedPeriod === period && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setSelectedPeriod(period)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              selectedPeriod === period && styles.timePickerOptionTextSelected
+                            ]}>
+                              {period}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={styles.timePreviewContainer}>
+                    <Text style={styles.timePreviewLabel}>Selected Time:</Text>
+                    <Text style={styles.timePreviewText}>
+                      {formatTimeFromPicker(selectedHour, selectedMinute, selectedPeriod)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
+
+          {showEndTimePicker && (
+            <Modal
+              transparent={true}
+              animationType="fade"
+              visible={showEndTimePicker}
+              onRequestClose={() => setShowEndTimePicker(false)}
+            >
+              <View style={styles.pickerModalOverlay}>
+                <View style={styles.pickerModalContent}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowEndTimePicker(false)}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.pickerTitle}>Select End Time</Text>
+                    <TouchableOpacity onPress={() => {
+                      const timeString = formatTimeFromPicker(endSelectedHour, endSelectedMinute, endSelectedPeriod);
+                      setEventForm(prev => ({ ...prev, endTime: timeString }));
+                      setShowEndTimePicker(false);
+                    }}>
+                      <Text style={styles.pickerDoneText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.customTimePickerContainer}>
+                    {/* Hour Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Hour</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((hour) => (
+                          <TouchableOpacity
+                            key={hour}
+                            style={[
+                              styles.timePickerOption,
+                              endSelectedHour === hour && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setEndSelectedHour(hour)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              endSelectedHour === hour && styles.timePickerOptionTextSelected
+                            ]}>
+                              {hour}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Minute Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Minute</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {[0, 15, 30, 45].map((minute) => (
+                          <TouchableOpacity
+                            key={minute}
+                            style={[
+                              styles.timePickerOption,
+                              endSelectedMinute === minute && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setEndSelectedMinute(minute)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              endSelectedMinute === minute && styles.timePickerOptionTextSelected
+                            ]}>
+                              {minute.toString().padStart(2, '0')}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* AM/PM Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Period</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {['AM', 'PM'].map((period) => (
+                          <TouchableOpacity
+                            key={period}
+                            style={[
+                              styles.timePickerOption,
+                              endSelectedPeriod === period && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setEndSelectedPeriod(period)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              endSelectedPeriod === period && styles.timePickerOptionTextSelected
+                            ]}>
+                              {period}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={styles.timePreviewContainer}>
+                    <Text style={styles.timePreviewLabel}>Selected Time:</Text>
+                    <Text style={styles.timePreviewText}>
+                      {formatTimeFromPicker(endSelectedHour, endSelectedMinute, endSelectedPeriod)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
+
+          {showRecurrenceEndDatePicker && (
+            <Modal
+              transparent={true}
+              animationType="fade"
+              visible={showRecurrenceEndDatePicker}
+              onRequestClose={() => setShowRecurrenceEndDatePicker(false)}
+            >
+              <View style={styles.pickerModalOverlay}>
+                <View style={styles.pickerModalContent}>
+                  <View style={styles.pickerHeader}>
+                    <TouchableOpacity onPress={() => setShowRecurrenceEndDatePicker(false)}>
+                      <Text style={styles.pickerCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.pickerTitle}>Select End Date</Text>
+                    <TouchableOpacity onPress={() => {
+                      const selectedDate = formatDateFromPicker(recurrenceSelectedMonth, recurrenceSelectedDay, recurrenceSelectedYear);
+                      setEventForm(prev => ({ ...prev, recurrenceEndDate: selectedDate, recurrenceCount: null }));
+                      setShowRecurrenceEndDatePicker(false);
+                    }}>
+                      <Text style={styles.pickerDoneText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.customTimePickerContainer}>
+                    {/* Month Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Month</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {getMonthNames().map((month, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.timePickerOption,
+                              recurrenceSelectedMonth === index && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => {
+                              setRecurrenceSelectedMonth(index);
+                              // Adjust day if it's invalid for the new month
+                              const daysInMonth = getDaysInMonth(index, recurrenceSelectedYear);
+                              if (recurrenceSelectedDay > daysInMonth) {
+                                setRecurrenceSelectedDay(daysInMonth);
+                              }
+                            }}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              recurrenceSelectedMonth === index && styles.timePickerOptionTextSelected,
+                              { fontSize: 14 }
+                            ]}>
+                              {month}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Day Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Day</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {Array.from({ length: getDaysInMonth(recurrenceSelectedMonth, recurrenceSelectedYear) }, (_, i) => i + 1).map((day) => (
+                          <TouchableOpacity
+                            key={day}
+                            style={[
+                              styles.timePickerOption,
+                              recurrenceSelectedDay === day && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setRecurrenceSelectedDay(day)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              recurrenceSelectedDay === day && styles.timePickerOptionTextSelected
+                            ]}>
+                              {day}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    {/* Year Picker */}
+                    <View style={styles.timePickerColumn}>
+                      <Text style={styles.timePickerLabel}>Year</Text>
+                      <ScrollView style={styles.timePickerScrollView} showsVerticalScrollIndicator={false}>
+                        {getAvailableYears().map((year) => (
+                          <TouchableOpacity
+                            key={year}
+                            style={[
+                              styles.timePickerOption,
+                              recurrenceSelectedYear === year && styles.timePickerOptionSelected
+                            ]}
+                            onPress={() => setRecurrenceSelectedYear(year)}
+                          >
+                            <Text style={[
+                              styles.timePickerOptionText,
+                              recurrenceSelectedYear === year && styles.timePickerOptionTextSelected
+                            ]}>
+                              {year}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={styles.timePreviewContainer}>
+                    <Text style={styles.timePreviewLabel}>Selected End Date:</Text>
+                    <Text style={styles.timePreviewText}>
+                      {formatDateFromPicker(recurrenceSelectedMonth, recurrenceSelectedDay, recurrenceSelectedYear).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          )}
+        </View>
+      </Modal>
+    );
+  };
+
   // Render event card
   const renderEventCard = (event) => {
     const attended = isEventAttended(event.id);
-    const isPast = new Date(event.date) < new Date();
+    const isPast = isEventPast(event.startDate || event.date);
+    const canEdit = canEditEvent(event);
 
     return (
       <View key={event.id} style={styles.eventCard}>
         {/* Event Header */}
         <View style={styles.eventHeader}>
           <Text style={styles.eventTitle}>{event.title || event.eventName}</Text>
-          {attended && (
-            <View style={styles.attendedBadge}>
-              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-              <Text style={styles.attendedText}>Attended</Text>
-            </View>
-          )}
+          <View style={styles.eventHeaderRight}>
+            {attended && (
+              <View style={styles.attendedBadge}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.attendedText}>Attended</Text>
+              </View>
+            )}
+            {canEdit && (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => openEditEventModal(event)}
+              >
+                <Ionicons name="pencil" size={18} color="#2c6f57" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Event Details */}
@@ -229,7 +1699,7 @@ const EventsScreen = () => {
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={16} color="#666" />
             <Text style={styles.detailText}>
-              {formatDate(event.date)}
+              {formatDate(event.startDate || event.date)}
               {event.time && ` at ${formatTime(event.time)}`}
               {event.endTime && ` - ${formatTime(event.endTime)}`}
             </Text>
@@ -255,7 +1725,16 @@ const EventsScreen = () => {
             <View style={styles.detailRow}>
               <Ionicons name="pricetag-outline" size={16} color="#666" />
               <Text style={styles.detailText}>
-                {event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)}
+                {event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1).replace('-', ' ')}
+              </Text>
+            </View>
+          )}
+
+          {event.maxAttendees && (
+            <View style={styles.detailRow}>
+              <Ionicons name="people-outline" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                Max Attendees: {event.maxAttendees}
               </Text>
             </View>
           )}
@@ -263,7 +1742,7 @@ const EventsScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          {!attended && !isPast && (
+          {!attended && !isPast && !canEdit && (
             <TouchableOpacity
               style={styles.attendButton}
               onPress={() => markEventAttended(event)}
@@ -273,7 +1752,7 @@ const EventsScreen = () => {
             </TouchableOpacity>
           )}
 
-          {attended && (
+          {attended && !canEdit && (
             <TouchableOpacity
               style={styles.removeButton}
               onPress={() => removeEventAttendance(event.id)}
@@ -281,6 +1760,26 @@ const EventsScreen = () => {
               <Ionicons name="remove-circle-outline" size={20} color="#f44336" />
               <Text style={styles.removeButtonText}>Remove Attendance</Text>
             </TouchableOpacity>
+          )}
+
+          {canEdit && (
+            <View style={styles.manageButtons}>
+              <TouchableOpacity
+                style={styles.editEventButton}
+                onPress={() => openEditEventModal(event)}
+              >
+                <Ionicons name="pencil" size={18} color="#2c6f57" />
+                <Text style={styles.editEventButtonText}>Edit</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.deleteEventButton}
+                onPress={() => deleteEvent(event.id, event.title)}
+              >
+                <Ionicons name="trash" size={18} color="#f44336" />
+                <Text style={styles.deleteEventButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>
@@ -305,11 +1804,19 @@ const EventsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Events</Text>
+        {canManageEvents() && (
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={openCreateEventModal}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
-        {['upcoming', 'past', 'attended'].map((filter) => (
+        {getFilterTabs().map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[
@@ -324,7 +1831,7 @@ const EventsScreen = () => {
                 selectedFilter === filter && styles.activeFilterTabText
               ]}
             >
-              {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              {filter === 'my-events' ? 'My Events' : filter.charAt(0).toUpperCase() + filter.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -344,18 +1851,34 @@ const EventsScreen = () => {
             <Text style={styles.emptyText}>
               {selectedFilter === 'attended' 
                 ? 'No attended events yet' 
+                : selectedFilter === 'my-events'
+                ? 'No events created yet'
                 : `No ${selectedFilter} events found`}
             </Text>
             <Text style={styles.emptySubtext}>
               {selectedFilter === 'attended'
                 ? 'Mark events as attended to track your event history'
+                : selectedFilter === 'my-events'
+                ? 'Create your first event to get started'
                 : 'Check back later for new events'}
             </Text>
+            {selectedFilter === 'my-events' && canManageEvents() && (
+              <TouchableOpacity
+                style={styles.createFirstEventButton}
+                onPress={openCreateEventModal}
+              >
+                <Ionicons name="add-circle" size={20} color="#2c6f57" />
+                <Text style={styles.createFirstEventText}>Create Your First Event</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           getFilteredEvents().map(renderEventCard)
         )}
       </ScrollView>
+
+      {/* Event Management Modal */}
+      {renderEventModal()}
     </View>
   );
 };
@@ -370,12 +1893,24 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     color: 'white',
     fontSize: 24,
     fontWeight: 'bold',
+    flex: 1,
     textAlign: 'center',
+  },
+  createButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterTabs: {
     flexDirection: 'row',
@@ -424,8 +1959,21 @@ const styles = StyleSheet.create({
   eventHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  eventHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 12,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventTitle: {
     fontSize: 18,
@@ -465,6 +2013,193 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 10,
+  },
+  manageButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    flex: 1,
+  },
+  editEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  editEventButtonText: {
+    fontSize: 14,
+    color: '#2c6f57',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  deleteEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE8E8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  deleteEventButtonText: {
+    fontSize: 14,
+    color: '#f44336',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  createFirstEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  createFirstEventText: {
+    fontSize: 16,
+    color: '#2c6f57',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  modalHeader: {
+    backgroundColor: '#2c6f57',
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalSaveButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  modalSaveText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  formLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  formInput: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    color: '#333',
+  },
+  formTextArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  dateTimeButton: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+  },
+  eventTypeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  eventTypeButton: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  eventTypeButtonActive: {
+    backgroundColor: '#2c6f57',
+    borderColor: '#2c6f57',
+  },
+  eventTypeText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  eventTypeTextActive: {
+    color: 'white',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusButton: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  statusButtonActive: {
+    backgroundColor: '#2c6f57',
+    borderColor: '#2c6f57',
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  statusTextActive: {
+    color: 'white',
   },
   attendButton: {
     flexDirection: 'row',
@@ -525,6 +2260,272 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  
+  // Recurring Event Styles
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: '#FF6B35',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  recurrenceTypeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  recurrenceTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  recurrenceTypeButtonActive: {
+    backgroundColor: '#FF6B35',
+    borderColor: '#FF6B35',
+  },
+  recurrenceTypeText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  recurrenceTypeTextActive: {
+    color: '#fff',
+  },
+  weeklyDaysContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  weeklyDayButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  weeklyDayButtonActive: {
+    backgroundColor: '#FF6B35',
+    borderColor: '#FF6B35',
+  },
+  weeklyDayText: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  weeklyDayTextActive: {
+    color: '#fff',
+  },
+  monthlyTypeContainer: {
+    marginTop: 8,
+  },
+  monthlyTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  monthlyTypeButtonActive: {
+    backgroundColor: '#FF6B35',
+    borderColor: '#FF6B35',
+  },
+  monthlyTypeText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  monthlyTypeTextActive: {
+    color: '#fff',
+  },
+  recurrenceEndContainer: {
+    marginTop: 8,
+  },
+  recurrenceEndButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  recurrenceEndButtonActive: {
+    backgroundColor: '#FF6B35',
+    borderColor: '#FF6B35',
+  },
+  recurrenceEndText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  recurrenceEndTextActive: {
+    color: '#fff',
+  },
+  recurrenceCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recurrenceCountInput: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#333',
+    marginHorizontal: 8,
+  },
+  recurrenceCountLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  // Picker Modal Styles
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 0,
+    width: width * 0.85,
+    maxHeight: 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  pickerCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  pickerDoneText: {
+    fontSize: 16,
+    color: '#FF6B35',
+    fontWeight: '600',
+  },
+  // Custom Time Picker Styles
+  customTimePickerContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    justifyContent: 'space-between',
+  },
+  timePickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  timePickerLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  timePickerScrollView: {
+    height: 150,
+    width: '100%',
+  },
+  timePickerOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 2,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  timePickerOptionSelected: {
+    backgroundColor: '#FF6B35',
+  },
+  timePickerOptionText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '500',
+  },
+  timePickerOptionTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  timePreviewContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 15,
+  },
+  timePreviewLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  timePreviewText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FF6B35',
+  },
+  coordinatesText: {
+    fontSize: 12,
+    color: '#10b981',
+    marginTop: 4,
+    fontWeight: '500',
   },
 });
 

@@ -73,7 +73,7 @@ function CustomerTabs() {
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
-        options={{ title: 'Find Trucks' }}
+        options={{ title: 'Home' }}
       />
       <Tab.Screen 
         name="Map" 
@@ -89,6 +89,62 @@ function CustomerTabs() {
         name="Ping" 
         component={PingScreen}
         options={{ title: 'Send Ping' }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+// Main App Tabs - Event Organizer Version
+function EventOrganizerTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Map') {
+            iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Analytics') {
+            iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#2c6f57',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{ title: 'Event Dashboard' }}
+      />
+      <Tab.Screen 
+        name="Map" 
+        component={MapScreen}
+        options={{ title: 'Map' }}
+      />
+      <Tab.Screen 
+        name="Events" 
+        component={EventsScreen}
+        options={{ title: 'My Events' }}
+      />
+      <Tab.Screen 
+        name="Analytics" 
+        component={AnalyticsScreen}
+        options={{ title: 'Analytics' }}
       />
       <Tab.Screen 
         name="Profile" 
@@ -159,10 +215,23 @@ function OwnerTabs() {
 function MainStackNavigator() {
   const { userRole } = useAuth();
   
+  // Function to determine which tab navigator to show based on user role
+  const getTabNavigator = () => {
+    switch (userRole) {
+      case 'owner':
+        return <OwnerTabs />;
+      case 'event-organizer':
+        return <EventOrganizerTabs />;
+      case 'customer':
+      default:
+        return <CustomerTabs />;
+    }
+  };
+  
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs">
-        {() => userRole === 'owner' ? <OwnerTabs /> : <CustomerTabs />}
+        {() => getTabNavigator()}
       </Stack.Screen>
       <Stack.Screen 
         name="MenuManagement" 

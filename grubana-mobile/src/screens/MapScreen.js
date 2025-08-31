@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../components/AuthContext';
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
@@ -27,9 +28,42 @@ export default function MapScreen() {
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showCuisineModal, setShowCuisineModal] = useState(false);
-  const [selectedCuisine, setSelectedCuisine] = useState('all');
+  const [excludedCuisines, setExcludedCuisines] = useState([]); // Changed to excluded cuisines (empty = show all)
   const [cart, setCart] = useState([]);
   const [showCartModal, setShowCartModal] = useState(false);
+  const [webViewReady, setWebViewReady] = useState(false);
+  const [pendingCuisineFilter, setPendingCuisineFilter] = useState(null);
+  const [showTruckIcon, setShowTruckIcon] = useState(true); // Toggle for truck icon visibility (owners only)
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now()); // Track user activity
+  const [imageAspectRatio, setImageAspectRatio] = useState(null);
+  const [loadingImageSize, setLoadingImageSize] = useState(false);
+  
+  // Events feature states
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  
+  // Drops feature states
+  const [showDropForm, setShowDropForm] = useState(false);
+  const [dropFormData, setDropFormData] = useState({
+    title: "",
+    description: "",
+    quantity: 10,
+    expiresInMinutes: 60,
+  });
+  const [creatingDrop, setCreatingDrop] = useState(false);
+  const [dropCreationMessage, setDropCreationMessage] = useState("");
+  
+  // Customer drop claiming states
+  const [truckDrops, setTruckDrops] = useState([]);
+  const [loadingDrops, setLoadingDrops] = useState(false);
+  const [claimMessage, setClaimMessage] = useState("");
+  const [userClaims, setUserClaims] = useState([]);
+  const [claimCode, setClaimCode] = useState("");
+  const [claimedDrop, setClaimedDrop] = useState(null);
+  const [showClaimCodesModal, setShowClaimCodesModal] = useState(false); // Force closed
+  const [claimCodes, setClaimCodes] = useState([]);
+  const [loadingClaimCodes, setLoadingClaimCodes] = useState(false);
+  
   const { userRole, userData, userPlan, user } = useAuth();
   const webViewRef = useRef(null);
 
@@ -132,6 +166,150 @@ export default function MapScreen() {
     fetchOwnerData();
   }, [user]);
 
+  // Load truck visibility state on component mount
+  useEffect(() => {
+    if (user && userRole === 'owner') {
+      loadTruckVisibilityState();
+    }
+  }, [user, userRole]);
+
+  // Activity tracking - update activity every 5 minutes and on app interactions
+  useEffect(() => {
+    if (!user || userRole !== 'owner') return;
+
+    const activityInterval = setInterval(() => {
+      updateLastActivity();
+    }, 5 * 60 * 1000); // Update every 5 minutes
+
+    // Update activity immediately
+    updateLastActivity();
+
+    return () => {
+      clearInterval(activityInterval);
+    };
+  }, [user, userRole]);
+
+  // Check for truck expiry every hour
+  useEffect(() => {
+    if (!user || userRole !== 'owner') return;
+
+    const expiryInterval = setInterval(() => {
+      checkTruckExpiry();
+    }, 60 * 60 * 1000); // Check every hour
+
+    return () => {
+      clearInterval(expiryInterval);
+    };
+  }, [user, userRole]);
+
+  // Automatically load menu items when truck modal opens
+  useEffect(() => {
+    if (showMenuModal && selectedTruck?.ownerId) {
+      console.log('🍽️ Auto-loading menu items for opened truck modal:', selectedTruck.name);
+      loadMenuItems(selectedTruck.ownerId);
+      
+      // Drops will be loaded by the real-time listener useEffect
+    }
+  }, [showMenuModal, selectedTruck?.ownerId]);
+
+  // Real-time listener for drops when modal is open
+  useEffect(() => {
+    if (!showMenuModal || !selectedTruck?.ownerId) {
+      return;
+    }
+
+    // Only set up real-time listener for customers, event organizers, or owners viewing other trucks
+    if (userRole === 'customer' || userRole === 'event-organizer' || (userRole === 'owner' && selectedTruck.ownerId !== user?.uid)) {
+      console.log('🎁 Setting up real-time drops listener for truck:', selectedTruck.name);
+      
+      const dropsQuery = query(
+        collection(db, "drops"),
+        where("truckId", "==", selectedTruck.ownerId)
+      );
+      
+      const unsubscribeDrops = onSnapshot(dropsQuery, (snapshot) => {
+        const now = new Date();
+        
+        console.log(`🎁 Raw drops from Firebase: ${snapshot.docs.length} documents`);
+        
+        const allDrops = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Log each drop with details
+        allDrops.forEach((drop, index) => {
+          const expiresAt = drop.expiresAt?.toDate() || new Date(0);
+          const claimedCount = drop.claimedBy?.length || 0;
+          const remaining = (drop.quantity || 0) - claimedCount;
+          const isExpired = expiresAt <= now;
+          const hasRemaining = remaining > 0;
+          
+          console.log(`🎁 Drop ${index + 1}:`, {
+            id: drop.id,
+            title: drop.title,
+            quantity: drop.quantity,
+            claimedBy: drop.claimedBy,
+            claimedCount,
+            remaining,
+            expiresAt: expiresAt.toISOString(),
+            isExpired,
+            hasRemaining,
+            willBeShown: !isExpired && hasRemaining
+          });
+        });
+        
+        const activeDrops = allDrops.filter(drop => {
+          const expiresAt = drop.expiresAt?.toDate() || new Date(0);
+          const remaining = (drop.quantity || 0) - (drop.claimedBy?.length || 0);
+          return expiresAt > now && remaining > 0;
+        });
+        
+        console.log(`🎁 Real-time update: ${activeDrops.length} active drops for truck:`, selectedTruck.ownerId);
+        setTruckDrops(activeDrops);
+        setLoadingDrops(false);
+      }, (error) => {
+        console.error("❌ Error in drops real-time listener:", error);
+        setLoadingDrops(false);
+      });
+
+      return () => {
+        console.log('🎁 Cleaning up real-time drops listener');
+        unsubscribeDrops();
+      };
+    }
+  }, [showMenuModal, selectedTruck?.ownerId, userRole, user?.uid]);
+
+  // Function to load and calculate image aspect ratio
+  const loadImageAspectRatio = (imageUrl) => {
+    if (!imageUrl) {
+      setImageAspectRatio(null);
+      return;
+    }
+
+    setLoadingImageSize(true);
+    Image.getSize(
+      imageUrl,
+      (width, height) => {
+        const aspectRatio = width / height;
+        console.log(`📐 Image dimensions: ${width}x${height}, aspect ratio: ${aspectRatio}`);
+        setImageAspectRatio(aspectRatio);
+        setLoadingImageSize(false);
+      },
+      (error) => {
+        console.log('❌ Error loading image size:', error);
+        setImageAspectRatio(16/9); // Fallback to 16:9 aspect ratio
+        setLoadingImageSize(false);
+      }
+    );
+  };
+
+  // Load image aspect ratio when selected truck changes
+  useEffect(() => {
+    if (selectedTruck?.coverUrl) {
+      loadImageAspectRatio(selectedTruck.coverUrl);
+    } else {
+      setImageAspectRatio(null);
+    }
+  }, [selectedTruck?.coverUrl]);
+
   // Function to load menu items from Firestore directly
   const loadMenuItems = async (truckOwnerId) => {
     if (!truckOwnerId) {
@@ -227,6 +405,528 @@ export default function MapScreen() {
     }
   };
 
+  // Drops functionality
+  const handleDropFormChange = (field, value) => {
+    setDropFormData(prev => ({
+      ...prev,
+      [field]: field === "quantity" || field === "expiresInMinutes" 
+        ? parseInt(value) || 0 
+        : value,
+    }));
+  };
+
+  const createDrop = async () => {
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create a drop.");
+      return;
+    }
+
+    if (!dropFormData.title.trim() || !dropFormData.description.trim()) {
+      Alert.alert("Error", "Please fill in all required fields.");
+      return;
+    }
+
+    if (!location) {
+      Alert.alert("Error", "Location not available. Please try again.");
+      return;
+    }
+
+    setCreatingDrop(true);
+    
+    try {
+      // Check if user has permission (similar to web app)
+      console.log("🔄 Checking user permissions for drop creation...");
+      
+      if (userRole !== 'owner') {
+        Alert.alert("Error", "Only food truck owners can create drops.");
+        setCreatingDrop(false);
+        return;
+      }
+
+      const expiresAt = Timestamp.fromDate(
+        new Date(Date.now() + dropFormData.expiresInMinutes * 60 * 1000)
+      );
+
+      const drop = {
+        title: dropFormData.title,
+        description: dropFormData.description,
+        truckId: user.uid,
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+        quantity: dropFormData.quantity,
+        expiresAt,
+        claimedBy: [],
+        createdAt: serverTimestamp(),
+      };
+
+      console.log("🚀 Creating drop:", drop);
+      
+      await addDoc(collection(db, "drops"), drop);
+      
+      console.log("✅ Drop created successfully!");
+      
+      // Reset form
+      setDropFormData({
+        title: "",
+        description: "",
+        quantity: 10,
+        expiresInMinutes: 60,
+      });
+      
+      setShowDropForm(false);
+      setDropCreationMessage("Drop created successfully! 🎉");
+      
+      setTimeout(() => setDropCreationMessage(""), 3000);
+      
+    } catch (error) {
+      console.error("❌ Error creating drop:", error);
+      Alert.alert("Error", `Failed to create drop: ${error.message}`);
+      setDropCreationMessage(`Failed to create drop: ${error.message}`);
+      setTimeout(() => setDropCreationMessage(""), 5000);
+    } finally {
+      setCreatingDrop(false);
+    }
+  };
+
+  // Customer drop claiming functionality
+  const loadTruckDrops = async (truckId) => {
+    if (!truckId) return;
+    
+    setLoadingDrops(true);
+    try {
+      console.log("🎁 Loading drops for truck:", truckId);
+      const dropsQuery = query(
+        collection(db, "drops"),
+        where("truckId", "==", truckId)
+      );
+      
+      const dropsSnapshot = await getDocs(dropsQuery);
+      const now = new Date();
+      
+      const activeDrops = dropsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(drop => {
+          const expiresAt = drop.expiresAt?.toDate() || new Date(0);
+          const remaining = (drop.quantity || 0) - (drop.claimedBy?.length || 0);
+          return expiresAt > now && remaining > 0;
+        });
+      
+      console.log(`🎁 Found ${activeDrops.length} active drops for truck:`, truckId);
+      setTruckDrops(activeDrops);
+    } catch (error) {
+      console.error("❌ Error loading truck drops:", error);
+      setTruckDrops([]);
+    } finally {
+      setLoadingDrops(false);
+    }
+  };
+
+  // Real-time listener for truck drops
+  useEffect(() => {
+    if (!selectedTruck?.ownerId || !showMenuModal) return;
+
+    console.log("🎁 Setting up real-time listener for drops:", selectedTruck.ownerId);
+    
+    const dropsQuery = query(
+      collection(db, "drops"),
+      where("truckId", "==", selectedTruck.ownerId)
+    );
+    
+    const unsubscribe = onSnapshot(dropsQuery, (snapshot) => {
+      const now = new Date();
+      
+      console.log("🎁 Real-time listener triggered, raw snapshot data:");
+      snapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`🎁 Drop ${index + 1} (${doc.id}):`, {
+          title: data.title,
+          quantity: data.quantity,
+          claimedBy: data.claimedBy,
+          claimedByLength: data.claimedBy?.length || 0,
+          remaining: (data.quantity || 0) - (data.claimedBy?.length || 0),
+          expiresAt: data.expiresAt?.toDate(),
+          isExpired: (data.expiresAt?.toDate() || new Date(0)) <= now
+        });
+      });
+      
+      const activeDrops = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(drop => {
+          const expiresAt = drop.expiresAt?.toDate() || new Date(0);
+          const remaining = (drop.quantity || 0) - (drop.claimedBy?.length || 0);
+          const isActive = expiresAt > now && remaining > 0;
+          console.log(`🎁 Drop "${drop.title}" filter check:`, {
+            expiresAt: expiresAt,
+            remaining: remaining,
+            isActive: isActive
+          });
+          return isActive;
+        });
+      
+      console.log(`🎁 Real-time update: ${activeDrops.length} active drops for truck:`, selectedTruck.ownerId);
+      console.log("🎁 Active drops data:", activeDrops);
+      setTruckDrops(activeDrops);
+    });
+
+    return () => {
+      console.log("🎁 Cleaning up drops listener");
+      unsubscribe();
+    };
+  }, [selectedTruck?.ownerId, showMenuModal]);
+
+  const hasUserClaimedDrop = (dropId) => {
+    if (!user || !dropId) return false;
+    
+    const activeClaim = userClaims.find(claim => {
+      const expiresAt = new Date(claim.expiresAt);
+      return claim.dropId === dropId && expiresAt > new Date() && claim.status === 'active';
+    });
+    
+    return !!activeClaim;
+  };
+
+  const handleClaimDrop = async (dropId) => {
+    if (!user) {
+      setClaimMessage("You must be logged in to claim a drop.");
+      setTimeout(() => setClaimMessage(""), 3000);
+      return;
+    }
+
+    try {
+      // Get the drop data first
+      const dropRef = doc(db, "drops", dropId);
+      const dropSnap = await getDoc(dropRef);
+      
+      if (!dropSnap.exists()) {
+        setClaimMessage("Drop not found.");
+        setTimeout(() => setClaimMessage(""), 3000);
+        return;
+      }
+
+      const dropData = dropSnap.data();
+      const alreadyClaimed = dropData.claimedBy?.includes(user.uid);
+      const remaining = (dropData.quantity || 0) - (dropData.claimedBy?.length || 0);
+
+      if (alreadyClaimed) {
+        setClaimMessage("You have already claimed this drop.");
+        setTimeout(() => setClaimMessage(""), 3000);
+        return;
+      }
+
+      if (remaining <= 0) {
+        setClaimMessage("This drop has already been fully claimed.");
+        setTimeout(() => setClaimMessage(""), 3000);
+        return;
+      }
+
+      // Check localStorage for user claims restrictions
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      
+      const userClaimsKey = `userClaims_${user.uid}`;
+      const storedClaimsJson = await AsyncStorage.getItem(userClaimsKey);
+      const storedClaims = storedClaimsJson ? JSON.parse(storedClaimsJson) : [];
+      
+      // Filter out expired claims
+      const activeClaims = storedClaims.filter(claim => {
+        const expiresAt = new Date(claim.expiresAt);
+        return expiresAt > now;
+      });
+      
+      // Check if user already has an active claim
+      if (activeClaims.length > 0) {
+        setClaimMessage(`You already have an active claim for "${activeClaims[0].dropTitle}". You can only claim one drop at a time.`);
+        setTimeout(() => setClaimMessage(""), 5000);
+        return;
+      }
+      
+      // Check for recent claims from different trucks (within 1 hour)
+      const recentClaims = storedClaims.filter(claim => {
+        const claimedAt = new Date(claim.claimedAt);
+        return claimedAt > oneHourAgo;
+      });
+      
+      const recentDifferentTruck = recentClaims.find(claim => claim.truckId !== dropData.truckId);
+      if (recentDifferentTruck) {
+        const timeSinceLastClaim = Math.ceil((now - new Date(recentDifferentTruck.claimedAt)) / (1000 * 60));
+        const waitTime = 60 - timeSinceLastClaim;
+        setClaimMessage(`You recently claimed from another truck. Please wait ${waitTime} more minutes before claiming from a different truck.`);
+        setTimeout(() => setClaimMessage(""), 5000);
+        return;
+      }
+      
+      // All checks passed, store the claim locally
+      const claimData = {
+        userId: user.uid,
+        dropId: dropId,
+        dropTitle: dropData.title,
+        truckId: dropData.truckId,
+        claimedAt: now.toISOString(),
+        expiresAt: dropData.expiresAt.toDate().toISOString(),
+        status: 'active'
+      };
+      
+      // Update AsyncStorage
+      const updatedClaims = [...storedClaims.filter(c => c.dropId !== dropId), claimData];
+      await AsyncStorage.setItem(userClaimsKey, JSON.stringify(updatedClaims));
+      
+      // Update Firebase drop document to increment claimed count
+      const updateDropRef = doc(db, "drops", dropId);
+      const previousClaimedBy = dropData.claimedBy || [];
+      const newClaimedBy = [...previousClaimedBy, user.uid];
+      
+      console.log("🔄 Updating Firebase drop claim:", {
+        dropId,
+        userUid: user.uid,
+        previousClaimedBy,
+        newClaimedBy,
+        previousCount: previousClaimedBy.length,
+        newCount: newClaimedBy.length
+      });
+      
+      try {
+        console.log("🔄 About to call updateDoc with:", {
+          dropId,
+          updateData: { claimedBy: newClaimedBy },
+          newClaimedByLength: newClaimedBy.length,
+          userUid: user.uid,
+          isUserInNewArray: newClaimedBy.includes(user.uid)
+        });
+        
+        console.log("🔒 Firebase Security Rule Check:", {
+          onlyModifyingClaimedBy: true, // We're only updating claimedBy
+          arrayContainsPrevious: newClaimedBy.filter(uid => previousClaimedBy.includes(uid)).length === previousClaimedBy.length,
+          exactlyOneNewItem: newClaimedBy.length === previousClaimedBy.length + 1,
+          userAddingThemselves: newClaimedBy.includes(user.uid),
+          userNotAlreadyClaimed: !previousClaimedBy.includes(user.uid),
+          userNotTruckOwner: user.uid !== dropData.truckId
+        });
+        
+        await updateDoc(updateDropRef, {
+          claimedBy: newClaimedBy
+        });
+        
+        console.log("✅ updateDoc call completed successfully");
+        
+        // Verify the update by reading the document back
+        const verifySnap = await getDoc(updateDropRef);
+        if (verifySnap.exists()) {
+          const verifyData = verifySnap.data();
+          console.log("🔍 Verification read after update:", {
+            dropId,
+            claimedBy: verifyData.claimedBy,
+            claimedByLength: verifyData.claimedBy?.length || 0,
+            expected: newClaimedBy.length,
+            updateSuccessful: verifyData.claimedBy?.includes(user.uid) || false
+          });
+        } else {
+          console.log("❌ Verification failed: document does not exist after update");
+        }
+        
+      } catch (updateError) {
+        console.error("❌ Firebase updateDoc failed:", updateError);
+        console.error("❌ Error details:", {
+          code: updateError.code,
+          message: updateError.message,
+          dropId,
+          userUid: user.uid,
+          truckId: dropData.truckId,
+          updateData: { claimedBy: newClaimedBy }
+        });
+        
+        // If it's a permission error, provide specific feedback
+        if (updateError.code === 'permission-denied') {
+          setClaimMessage("Permission denied: Unable to claim this drop. Please check if you've already claimed it.");
+          setTimeout(() => setClaimMessage(""), 5000);
+          return;
+        }
+        
+        throw updateError;
+      }
+      
+      console.log("✅ Drop claim updated in Firebase for user:", user.uid);
+      
+      // Update local state
+      setUserClaims(updatedClaims);
+
+      const code = `GRB-${user.uid.slice(-4).toUpperCase()}${dropId.slice(-2)}`;
+      setClaimCode(code);
+      setClaimedDrop({ ...dropData, id: dropId });
+      
+      setClaimMessage("Drop claimed successfully! Show your code to the truck owner.");
+      setTimeout(() => setClaimMessage(""), 5000);
+      
+      // Real-time listener will automatically update the drops UI
+      
+    } catch (error) {
+      console.error("❌ Error claiming drop:", error);
+      setClaimMessage("Failed to claim drop. Please try again.");
+      setTimeout(() => setClaimMessage(""), 3000);
+    }
+  };
+
+  // Load user claims from AsyncStorage on app start
+  useEffect(() => {
+    const loadUserClaims = async () => {
+      if (!user) {
+        setUserClaims([]);
+        setClaimCode("");
+        setClaimedDrop(null);
+        return;
+      }
+      
+      try {
+        const userClaimsKey = `userClaims_${user.uid}`;
+        const storedClaimsJson = await AsyncStorage.getItem(userClaimsKey);
+        const storedClaims = storedClaimsJson ? JSON.parse(storedClaimsJson) : [];
+        
+        // Filter out expired claims
+        const now = new Date();
+        const activeClaims = storedClaims.filter(claim => {
+          const expiresAt = new Date(claim.expiresAt);
+          return expiresAt > now;
+        });
+        
+        // Update AsyncStorage with only active claims
+        await AsyncStorage.setItem(userClaimsKey, JSON.stringify(activeClaims));
+        setUserClaims(activeClaims);
+        
+        // Check if user has an active claim and restore the claim code/drop data
+        if (activeClaims.length > 0) {
+          const activeClaim = activeClaims[0];
+          const code = `GRB-${user.uid.slice(-4).toUpperCase()}${activeClaim.dropId.slice(-2)}`;
+          setClaimCode(code);
+          
+          // Fetch the full drop data for display
+          try {
+            const dropRef = doc(db, "drops", activeClaim.dropId);
+            const dropSnap = await getDoc(dropRef);
+            if (dropSnap.exists()) {
+              setClaimedDrop({ ...dropSnap.data(), id: activeClaim.dropId });
+            }
+          } catch (error) {
+            console.error("Error fetching claimed drop:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user claims:", error);
+      }
+    };
+    
+    loadUserClaims();
+  }, [user]);
+
+  // Monitor for expired claims and clear them automatically
+  useEffect(() => {
+    if (!user || !claimedDrop) return;
+
+    const checkExpiration = () => {
+      const now = new Date();
+      
+      // Safely parse the expiration date
+      let dropExpiresAt;
+      try {
+        if (claimedDrop.expiresAt) {
+          // Handle Firestore Timestamp objects
+          if (claimedDrop.expiresAt.toDate && typeof claimedDrop.expiresAt.toDate === 'function') {
+            dropExpiresAt = claimedDrop.expiresAt.toDate();
+          } else if (typeof claimedDrop.expiresAt === 'string') {
+            dropExpiresAt = new Date(claimedDrop.expiresAt);
+          } else {
+            dropExpiresAt = new Date(claimedDrop.expiresAt);
+          }
+        } else {
+          console.log("⚠️ No expiration date found for claimed drop");
+          return;
+        }
+        
+        // Validate the parsed date
+        if (isNaN(dropExpiresAt.getTime())) {
+          console.log("⚠️ Invalid expiration date:", claimedDrop.expiresAt);
+          return;
+        }
+      } catch (error) {
+        console.error("❌ Error parsing expiration date:", error, claimedDrop.expiresAt);
+        return;
+      }
+      
+      console.log("⏰ Checking claim expiration:", {
+        dropTitle: claimedDrop.title,
+        expiresAt: dropExpiresAt.toISOString(),
+        now: now.toISOString(),
+        isExpired: now > dropExpiresAt,
+        timeUntilExpiry: Math.max(0, dropExpiresAt - now) / 1000 / 60 // minutes
+      });
+      
+      if (now > dropExpiresAt) {
+        console.log("🕒 Claim has expired, clearing code and drop data");
+        
+        // Clear the UI state
+        setClaimCode("");
+        setClaimedDrop(null);
+        
+        // Clean up AsyncStorage
+        const cleanupStorage = async () => {
+          try {
+            const userClaimsKey = `userClaims_${user.uid}`;
+            const storedClaimsJson = await AsyncStorage.getItem(userClaimsKey);
+            const storedClaims = storedClaimsJson ? JSON.parse(storedClaimsJson) : [];
+            
+            // Remove expired claims
+            const activeClaims = storedClaims.filter(claim => {
+              const expiresAt = new Date(claim.expiresAt);
+              return expiresAt > now;
+            });
+            
+            await AsyncStorage.setItem(userClaimsKey, JSON.stringify(activeClaims));
+            setUserClaims(activeClaims);
+            
+            console.log("🧹 Cleaned up expired claims from storage");
+          } catch (error) {
+            console.error("Error cleaning up expired claims:", error);
+          }
+        };
+        
+        cleanupStorage();
+      }
+    };
+
+    // Check immediately
+    checkExpiration();
+    
+    // Set up interval to check every 30 seconds
+    const intervalId = setInterval(checkExpiration, 30000);
+    
+    // Cleanup interval on unmount or when claimedDrop changes
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, claimedDrop]);
+
+  // Force close claim codes modal on component mount (emergency fix)
+  useEffect(() => {
+    console.log("🚨 Emergency: Force closing claim codes modal on mount");
+    setShowClaimCodesModal(false);
+  }, []);
+
+  // Debug: Monitor showClaimCodesModal state changes
+  useEffect(() => {
+    console.log("🔗 showClaimCodesModal state changed to:", showClaimCodesModal);
+    if (showClaimCodesModal) {
+      console.log("🚨 CLAIM CODES MODAL IS OPEN - This may be blocking interactions!");
+      
+      // Auto-close modal after 30 seconds as a safety measure
+      const autoCloseTimer = setTimeout(() => {
+        console.log("⏰ Auto-closing claim codes modal after 30 seconds");
+        setShowClaimCodesModal(false);
+      }, 30000);
+      
+      return () => {
+        clearTimeout(autoCloseTimer);
+      };
+    }
+  }, [showClaimCodesModal]);
+
   // Cart functionality
   const addToCart = (item) => {
     console.log('🛒 Adding item to cart:', item.name);
@@ -281,6 +981,162 @@ export default function MapScreen() {
 
   const getTotalItems = () => {
     return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  // Truck visibility persistence functions
+  const updateTruckVisibility = async (isVisible) => {
+    if (!user || userRole !== 'owner') return;
+    
+    try {
+      // Update both collections to keep them in sync
+      const truckDocRef = doc(db, 'trucks', user.uid);
+      const truckLocationRef = doc(db, 'truckLocations', user.uid);
+      
+      const updateData = {
+        visible: isVisible,
+        lastActivityTime: Date.now(),
+        lastToggleTime: Date.now(),
+        updatedAt: serverTimestamp()
+      };
+      
+      // Update trucks collection
+      await updateDoc(truckDocRef, updateData);
+      
+      // Update truckLocations collection (create if doesn't exist)
+      await setDoc(truckLocationRef, updateData, { merge: true });
+      
+      console.log('🚚 Truck visibility updated in both collections:', isVisible);
+    } catch (error) {
+      console.error('❌ Error updating truck visibility:', error);
+    }
+  };
+
+  const updateLastActivity = async () => {
+    if (!user || userRole !== 'owner') return;
+    
+    try {
+      const currentTime = Date.now();
+      setLastActivityTime(currentTime);
+      
+      const truckDocRef = doc(db, 'trucks', user.uid);
+      await setDoc(truckDocRef, {
+        lastActivityTime: currentTime,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      console.error('❌ Error updating last activity:', error);
+    }
+  };
+
+  const checkTruckExpiry = async () => {
+    if (!user || userRole !== 'owner') return;
+    
+    try {
+      const truckDocRef = doc(db, 'trucks', user.uid);
+      const truckDoc = await getDoc(truckDocRef);
+      
+      if (truckDoc.exists()) {
+        const data = truckDoc.data();
+        const lastActivity = data.lastActivityTime || data.lastActive || Date.now();
+        const eightHoursAgo = Date.now() - (8 * 60 * 60 * 1000); // 8 hours in milliseconds
+        
+        if (lastActivity < eightHoursAgo && data.visible !== false) {
+          // Auto-hide truck after 8 hours of inactivity
+          await updateDoc(truckDocRef, {
+            visible: false,
+            autoHidden: true,
+            autoHiddenAt: Date.now(),
+            reason: '8_hour_inactivity',
+            updatedAt: serverTimestamp()
+          });
+          
+          setShowTruckIcon(false);
+          console.log('🚚 Truck auto-hidden due to 8 hours of inactivity');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking truck expiry:', error);
+    }
+  };
+
+  const loadTruckVisibilityState = async () => {
+    if (!user || userRole !== 'owner') return;
+    
+    try {
+      // Check truckLocations first (primary collection for map display)
+      const truckLocationRef = doc(db, 'truckLocations', user.uid);
+      const truckLocationDoc = await getDoc(truckLocationRef);
+      
+      let visibilityData = null;
+      
+      if (truckLocationDoc.exists()) {
+        visibilityData = truckLocationDoc.data();
+      } else {
+        // Fallback to trucks collection
+        const truckDocRef = doc(db, 'trucks', user.uid);
+        const truckDoc = await getDoc(truckDocRef);
+        if (truckDoc.exists()) {
+          visibilityData = truckDoc.data();
+        }
+      }
+      
+      if (visibilityData) {
+        const isVisible = visibilityData.visible !== false; // Default to true if not set
+        setShowTruckIcon(isVisible);
+        console.log('🚚 Loaded truck visibility state from Firebase:', isVisible);
+        
+        // Check if truck should be auto-hidden due to inactivity
+        await checkTruckExpiry();
+      }
+    } catch (error) {
+      console.error('❌ Error loading truck visibility state:', error);
+    }
+  };
+
+  // Fetch claim codes for a specific drop (owner only)
+  const fetchClaimCodes = async (dropId) => {
+    if (!user || userRole !== 'owner') return;
+    
+    setLoadingClaimCodes(true);
+    try {
+      console.log('📋 Fetching claim codes for drop:', dropId);
+      
+      // Get the drop document to access claimedBy array
+      const dropRef = doc(db, 'drops', dropId);
+      const dropSnap = await getDoc(dropRef);
+      
+      if (!dropSnap.exists()) {
+        console.log('❌ Drop not found:', dropId);
+        setClaimCodes([]);
+        return;
+      }
+      
+      const dropData = dropSnap.data();
+      const claimedBy = dropData.claimedBy || [];
+      
+      console.log('📋 Drop claimedBy array:', claimedBy);
+      
+      // Generate codes for each claimed user
+      const codes = claimedBy.map((userId, index) => {
+        const code = `GRB-${userId.slice(-4).toUpperCase()}${dropId.slice(-2)}`;
+        return {
+          id: `${dropId}_${userId}`,
+          code: code,
+          userId: userId,
+          userIdMasked: `${userId.slice(0, 8)}...${userId.slice(-4)}`, // Show first 8 and last 4 chars
+          claimedAt: new Date(), // We don't have exact claim time, use current time as placeholder
+          dropTitle: dropData.title
+        };
+      });
+      
+      setClaimCodes(codes);
+      console.log('📋 Generated claim codes:', codes);
+    } catch (error) {
+      console.error('❌ Error fetching claim codes:', error);
+      setClaimCodes([]);
+    } finally {
+      setLoadingClaimCodes(false);
+    }
   };
 
   const placeOrder = async () => {
@@ -577,8 +1433,8 @@ export default function MapScreen() {
         return isFinite(lat) && isFinite(lng) && isRecent;
       });
       
-      if (userPlan === 'pro' || userPlan === 'all-access') {
-        console.log('📍 MapScreen: Loaded', pings.length, 'customer pings for heatmap (Pro/All-Access)');
+      if (userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') {
+        console.log('📍 MapScreen: Loaded', pings.length, 'customer pings for heatmap (Pro/All-Access/Event-Premium)');
       } else {
         console.log('📍 MapScreen: Loaded', pings.length, 'customer pings for individual markers (Basic)');
       }
@@ -588,11 +1444,43 @@ export default function MapScreen() {
       setCustomerPings(pings);
     });
 
+    // Load events for event organizers and display on map for all users
+    let unsubscribeEvents = null;
+    console.log('🎪 MapScreen: Loading events for map display');
+    
+    unsubscribeEvents = onSnapshot(collection(db, "events"), (snapshot) => {
+      console.log('🎪 MapScreen: Raw events snapshot size:', snapshot.size);
+      
+      const eventsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      })).filter(event => {
+        // Filter for events that should be visible on map
+        const hasCoordinates = event.latitude && event.longitude;
+        const isPublished = event.status !== 'draft'; // Hide draft events
+        
+        console.log('🎪 Event filter check:', {
+          id: event.id,
+          title: event.title,
+          hasCoordinates,
+          isPublished,
+          status: event.status
+        });
+        
+        return hasCoordinates && isPublished;
+      });
+      
+      console.log('🎪 MapScreen: Loaded', eventsData.length, 'visible events');
+      console.log('🎪 Sample event data:', eventsData.slice(0, 2));
+      setEvents(eventsData);
+    });
+
     setLoading(false);
 
     return () => {
       unsubscribeTrucks();
       if (unsubscribePings) unsubscribePings();
+      if (unsubscribeEvents) unsubscribeEvents();
     };
   }, [user, userPlan]);
 
@@ -636,9 +1524,10 @@ export default function MapScreen() {
               lat: location.coords.latitude,
               lng: location.coords.longitude,
               isLive: true,
-              visible: true,
+              visible: showTruckIcon, // Use current visibility state
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
+              lastActivityTime: Date.now(),
               sessionId: sessionId,
               sessionStartTime: Date.now(),
               loginTime: Date.now(),
@@ -647,6 +1536,10 @@ export default function MapScreen() {
               truckName: ownerData.username || ownerData.businessName || "Food Truck",
               coverUrl: ownerData.coverUrl || ownerData.coverURL || null, // Check both case variations
             };
+            
+            // Save to trucks collection for persistence and visibility management
+            const trucksDocRef = doc(db, 'trucks', user.uid);
+            await setDoc(trucksDocRef, locationData, { merge: true });
             
             await setDoc(truckDocRef, locationData, { merge: true });
             console.log('✅ MapScreen: All-Access owner truck location saved to Firebase');
@@ -678,16 +1571,18 @@ export default function MapScreen() {
     const generateHTML = async () => {
       if (!location) {
         setMapHTML('');
+        setWebViewReady(false);
         return;
       }
       
       console.log('🗺️ Generating map HTML with processed truck icons...');
+      setWebViewReady(false); // Reset ready state when regenerating HTML
       const html = await createMapHTML();
       setMapHTML(html);
     };
     
     generateHTML();
-  }, [location, foodTrucks, customerPings, userPlan]);
+  }, [location, foodTrucks, customerPings, events, userPlan, showTruckIcon, excludedCuisines]);
 
   // Mock food truck data with heatmap intensity (fallback for development)
   const mockFoodTrucks = [
@@ -769,6 +1664,48 @@ export default function MapScreen() {
     };
   };
 
+  // Generate personalized event icon based on available data (similar to truck icons)
+  const generateEventIcon = (event) => {
+    const eventTitle = event.title || event.eventName || 'Event';
+    
+    // Option 1: Use processed base64 logo if available, or fallback to original URL
+    const logoUrl = event.base64Logo || event.organizerLogoUrl;
+    if (logoUrl && logoUrl.trim() !== '') {
+      console.log('🎪 Using organizer logo for event icon:', eventTitle, 'Logo type:', event.base64Logo ? 'base64' : 'URL');
+      return {
+        type: 'logo',
+        data: logoUrl,
+        html: `<div style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #FFD700; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.4); background: white; display: flex; align-items: center; justify-content: center; position: relative;">
+          <img src="${logoUrl}" style="width: calc(100% - 6px); height: calc(100% - 6px); object-fit: cover; border-radius: 50%;" onerror="console.log('❌ Event logo failed to load:', this.src); this.style.display='none';" />
+          <div style="position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; background: #FFD700; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid white; font-size: 10px;">⭐</div>
+        </div>`
+      };
+    }
+    
+    // Option 2: Use initials with event status-based colors (fallback only)
+    console.log('🎪 No logo available for event:', eventTitle, 'Using initials fallback');
+    const initials = eventTitle.substring(0, 2).toUpperCase();
+    const statusColors = {
+      'active': '#FFD700',     // Gold for active events
+      'upcoming': '#4CAF50',   // Green for upcoming
+      'completed': '#9E9E9E',  // Gray for completed
+      'cancelled': '#F44336',  // Red for cancelled
+      'default': '#FF6B35'     // Orange default
+    };
+    
+    const eventStatus = (event.status || 'default').toLowerCase();
+    const bgColor = statusColors[eventStatus] || statusColors.default;
+    
+    return {
+      type: 'initials',
+      data: initials,
+      html: `<div style="width: 50px; height: 50px; border-radius: 50%; background: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; border: 3px solid #000000; box-shadow: 0 3px 10px rgba(0,0,0,0.4); position: relative;">
+        ${initials}
+        <div style="position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; background: #FFD700; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid white; font-size: 10px;">⭐</div>
+      </div>`
+    };
+  };
+
   const createMapHTML = async () => {
     if (!location) return '';
     
@@ -776,7 +1713,13 @@ export default function MapScreen() {
     const userLng = location.coords.longitude;
     
     // Use real truck data if available, otherwise fallback to mock data
-    const trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : mockFoodTrucks;
+    let trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : mockFoodTrucks;
+    
+    // Filter out current user's truck if they've toggled it off (owners only)
+    if (userRole === 'owner' && user && !showTruckIcon) {
+      trucksToDisplay = trucksToDisplay.filter(truck => truck.uid !== user.uid);
+      console.log('🚚 Current user truck hidden. Displaying', trucksToDisplay.length, 'trucks');
+    }
     
     // Pre-process trucks with base64 images
     console.log('�️ Pre-processing', trucksToDisplay.length, 'truck images...');
@@ -805,6 +1748,34 @@ export default function MapScreen() {
     
     const successCount = processedTrucks.filter(truck => truck.hasCustomIcon).length;
     console.log(`🎯 Successfully processed ${successCount}/${trucksToDisplay.length} truck images`);
+    
+    // Pre-process events with personalized icons
+    console.log('🎪 Pre-processing', events.length, 'event icons...');
+    const processedEvents = await Promise.all(
+      events.map(async (event) => {
+        let base64Logo = null;
+        
+        if (event.organizerLogoUrl && event.organizerLogoUrl.trim() !== '') {
+          console.log('🔄 Processing organizer logo for:', event.title || event.eventName);
+          base64Logo = await convertImageToBase64(event.organizerLogoUrl);
+        }
+        
+        const eventIcon = generateEventIcon({
+          ...event,
+          base64Logo: base64Logo
+        });
+        
+        return {
+          ...event,
+          base64Logo: base64Logo,
+          hasCustomLogo: !!base64Logo,
+          eventIcon: eventIcon
+        };
+      })
+    );
+    
+    const eventLogoCount = processedEvents.filter(event => event.hasCustomLogo).length;
+    console.log(`🎯 Successfully processed ${eventLogoCount}/${events.length} event logos`);
     
     // 🔍 DEBUG: Log the processed truck data
     console.log('🗺️ WEBVIEW DEBUG: About to create map with processed truck data:');
@@ -984,23 +1955,14 @@ export default function MapScreen() {
     <body>
         <div id="map"></div>
         <div class="controls">
-            <button class="control-btn" onclick="centerOnUser()">� My Location</button>
-            <button class="control-btn" onclick="filterTrucks('all')">🚛 All Trucks</button>
+            <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            ${(userPlan === 'pro' || userPlan === 'all-access') ? `
+            ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
         </div>
 
 
-
-        ${(userPlan === 'pro' || userPlan === 'all-access') ? `
-        <div class="heatmap-controls">
-            <div style="font-size: 12px; margin-bottom: 5px;">� Demand Heatmap</div>
-            <div style="font-size: 11px; color: #666;">Firebase: ${customerPings.length} pings | Live Data</div>
-            <div style="font-size: 10px; color: #999; margin-top: 5px;">Last 24h within 200km</div>
-        </div>
-        ` : ''}
 
         <script>
             body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
@@ -1089,23 +2051,14 @@ export default function MapScreen() {
     <body>
         <div id="map"></div>
         <div class="controls">
-            <button class="control-btn" onclick="centerOnUser()">� My Location</button>
-            <button class="control-btn" onclick="filterTrucks('all')">� All Trucks</button>
+            <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            ${(userPlan === 'pro' || userPlan === 'all-access') ? `
+            ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
         </div>
 
 
-
-        ${(userPlan === 'pro' || userPlan === 'all-access') ? `
-        <div class="heatmap-controls">
-            <div style="font-size: 12px; margin-bottom: 5px;">🔥 Demand Heatmap</div>
-            <div style="font-size: 11px; color: #666;">Firebase: ${customerPings.length} pings | Using: REAL DATA</div>
-            <div style="font-size: 10px; color: #999; margin-top: 5px;">Plan: ${userPlan} | Live Mode</div>
-        </div>
-        ` : ''}
 
         <script>
             // WEBVIEW CONSOLE FORWARDING: Capture all console messages and send to React Native
@@ -1180,6 +2133,9 @@ export default function MapScreen() {
             // Food truck data with pre-processed icons
             const foodTrucks = ${JSON.stringify(processedTrucks)};
             
+            // Event data with pre-processed icons
+            const events = ${JSON.stringify(processedEvents)};
+            
             // Customer ping data for heatmap (Pro/All-Access only)
             const customerPings = ${JSON.stringify(customerPings)};
             
@@ -1203,9 +2159,10 @@ export default function MapScreen() {
             console.log('🔥 Final ping sample data:', testPings.slice(0, 2));
             const userPlan = '${userPlan}';
             const userRole = '${userRole}';
-            const showHeatmapFeatures = userPlan === 'pro' || userPlan === 'all-access';
+            const showHeatmapFeatures = userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium';
             
             let truckMarkers = [];
+            let eventMarkers = [];
             let heatmapLayer = null;
             let showHeatmap = false;
 
@@ -1453,6 +2410,79 @@ export default function MapScreen() {
                 console.log('🚛 Finished creating', truckMarkers.length, 'truck markers');
             }
 
+            // Create event markers with pre-processed personalized icons
+            function createEventMarkers(eventsToDisplay = events) {
+                console.log('🎪 Creating event markers for', eventsToDisplay.length, 'events');
+                
+                // Clear existing event markers
+                eventMarkers.forEach(marker => map.removeLayer(marker));
+                eventMarkers = [];
+
+                for (const event of eventsToDisplay) {
+                    const eventTitle = event.title || event.eventName || 'Event';
+                    const eventStatus = event.status || 'upcoming';
+                    
+                    console.log('🎪 Processing event:', eventTitle);
+                    console.log('🎨 Event icon type:', event.eventIcon ? event.eventIcon.type : 'default');
+                    console.log('🖼️ Has custom logo:', event.hasCustomLogo);
+                    
+                    // Use pre-processed event icon
+                    let iconHtml;
+                    if (event.eventIcon && event.eventIcon.html) {
+                        iconHtml = event.eventIcon.html;
+                        console.log('✅ Using', event.eventIcon.type, 'icon for event:', eventTitle);
+                    } else {
+                        // Fallback to default event icon
+                        iconHtml = '<div style="width: 50px; height: 50px; border-radius: 50%; background: #FF6B35; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; border: 3px solid #000000; box-shadow: 0 3px 10px rgba(0,0,0,0.4);">🎪</div>';
+                        console.log('📦 Using default icon for event:', eventTitle);
+                    }
+                    
+                    const eventIcon = L.divIcon({
+                        html: iconHtml,
+                        iconSize: [50, 50],
+                        className: 'event-marker'
+                    });
+
+                    const lat = event.latitude;
+                    const lng = event.longitude;
+                    
+                    if (!lat || !lng) {
+                        console.log('⚠️ Skipping event without coordinates:', eventTitle);
+                        continue;
+                    }
+
+                    // Format event dates
+                    const startDate = event.startDate ? new Date(event.startDate.seconds ? event.startDate.seconds * 1000 : event.startDate) : null;
+                    const endDate = event.endDate ? new Date(event.endDate.seconds ? event.endDate.seconds * 1000 : event.endDate) : null;
+                    const dateStr = startDate ? startDate.toLocaleDateString() : 'Date TBD';
+                    const timeStr = startDate ? startDate.toLocaleTimeString() : '';
+
+                    const marker = L.marker([lat, lng], { icon: eventIcon })
+                        .addTo(map)
+                        .bindPopup(\`
+                            <div class="truck-popup">
+                                <div class="truck-header">
+                                    \${event.base64Logo ? \`<img src="\${event.base64Logo}" class="truck-cover-image" />\` : event.organizerLogoUrl ? \`<img src="\${event.organizerLogoUrl}" class="truck-cover-image" onerror="this.style.display='none'" />\` : ''}
+                                    <div class="truck-name">🎪 \${eventTitle}</div>
+                                </div>
+                                <div class="truck-status status-\${eventStatus}">\${eventStatus.toUpperCase()}</div>
+                                <div class="truck-details">📅 \${dateStr}</div>
+                                \${timeStr ? \`<div class="truck-details">🕐 \${timeStr}</div>\` : ''}
+                                <div class="truck-details">📍 \${event.address || event.location || 'Location provided on registration'}</div>
+                                \${event.eventType ? \`<div class="truck-details">🎯 \${event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)}</div>\` : ''}
+                                <button class="view-details-btn" onclick="openEventDetails('\${event.id}', '\${eventTitle}', '\${event.eventType || 'event'}', '\${event.base64Logo || event.organizerLogoUrl || ''}', '\${event.eventDescription || ''}', '\${dateStr}', '\${timeStr}', '\${event.address || event.location || ''}')">
+                                    📋 View Event Details
+                                </button>
+                            </div>
+                        \`);
+                    
+                    eventMarkers.push(marker);
+                    console.log('✅ Added event marker for:', eventTitle, 'with icon type:', event.eventIcon ? event.eventIcon.type : 'default');
+                }
+                
+                console.log('🎪 Finished creating', eventMarkers.length, 'event markers');
+            }
+
             // Function to handle truck details modal (communicates with React Native)
             function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok) {
                 console.log('Opening enhanced truck details for:', truckName);
@@ -1478,11 +2508,32 @@ export default function MapScreen() {
                 }));
             }
 
+            // Function to handle event details modal (communicates with React Native)
+            function openEventDetails(eventId, eventTitle, eventType, logoUrl, description, dateStr, timeStr, location) {
+                console.log('Opening event details for:', eventTitle);
+                
+                // Send message to React Native to open event details modal
+                window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'OPEN_EVENT_DETAILS',
+                    data: {
+                        id: eventId,
+                        title: eventTitle,
+                        eventType: eventType,
+                        logoUrl: logoUrl && logoUrl !== 'undefined' ? logoUrl : null,
+                        description: description && description !== 'undefined' ? description : null,
+                        date: dateStr,
+                        time: timeStr,
+                        location: location && location !== 'undefined' ? location : null
+                    }
+                }));
+            }
+
             // Create heatmap from customer pings (Pro/All-Access only)
             function createHeatmap() {
                 console.log('🔥 createHeatmap() called');
                 console.log('🔥 showHeatmapFeatures:', showHeatmapFeatures);
                 console.log('🔥 testPings.length:', testPings.length);
+                console.log('🔥 excludedCuisines:', selectedCuisineType);
                 
                 if (!showHeatmapFeatures) {
                     console.log('❌ Heatmap blocked: Not Pro/All-Access plan');
@@ -1494,12 +2545,16 @@ export default function MapScreen() {
                     return;
                 }
                 
-                const heatData = testPings.map(ping => {
+                // Filter pings by cuisine exclusions
+                const filteredPings = filterPingsByCuisine(testPings, selectedCuisineType);
+                console.log('🍽️ Filtered pings for heatmap:', filteredPings.length, 'of', testPings.length);
+                
+                const heatData = filteredPings.map(ping => {
                     const lat = Number(ping.lat || ping.latitude);
                     const lng = Number(ping.lng || ping.longitude);
                     const intensity = 0.8; // Base intensity for customer pings
                     
-                    console.log('🔥 Processing ping:', { lat, lng, intensity });
+                    console.log('🔥 Processing ping:', { lat, lng, intensity, cuisine: ping.cuisineType });
                     return [lat, lng, intensity];
                 }).filter(point => {
                     const isValid = point[0] && point[1] && isFinite(point[0]) && isFinite(point[1]);
@@ -1618,7 +2673,76 @@ export default function MapScreen() {
             }
 
             // Cuisine filtering variables
-            let selectedCuisineType = 'all';
+            let selectedCuisineType = ${JSON.stringify(excludedCuisines)};
+
+            // Helper function to check if a cuisine should be excluded
+            function isCuisineExcluded(cuisineType, excludedCuisines) {
+                if (!cuisineType || excludedCuisines.length === 0) return false;
+                
+                const itemCuisine = cuisineType.toLowerCase().trim();
+                console.log('🔍 Checking if cuisine should be excluded:', cuisineType, '→', itemCuisine, 'against', excludedCuisines);
+                
+                const isExcluded = excludedCuisines.some(excludedType => {
+                    const normalizedExcluded = excludedType.toLowerCase().trim();
+                    console.log('  🔍 Comparing:', itemCuisine, 'vs', normalizedExcluded);
+                    
+                    // Direct match
+                    if (itemCuisine === normalizedExcluded) {
+                        console.log('  ✅ Direct match found - EXCLUDING');
+                        return true;
+                    }
+                    
+                    // Partial match for compound cuisines
+                    if (itemCuisine.includes(normalizedExcluded) || normalizedExcluded.includes(itemCuisine)) {
+                        console.log('  ✅ Partial match found - EXCLUDING');
+                        return true;
+                    }
+                    
+                    // Handle common variations
+                    const variations = {
+                        'american': ['american', 'burgers', 'bbq'],
+                        'asian': ['asian', 'asian-fusion', 'chinese', 'japanese', 'korean', 'thai', 'sushi'],
+                        'mexican': ['mexican', 'latin', 'tex-mex'],
+                        'italian': ['italian', 'pizza'],
+                        'healthy': ['healthy', 'vegan', 'vegetarian'],
+                        'desserts': ['desserts', 'dessert', 'sweets', 'ice cream'],
+                        'drinks': ['drinks', 'coffee', 'beverages']
+                    };
+                    
+                    for (const [category, variants] of Object.entries(variations)) {
+                        if (variants.includes(normalizedExcluded) && variants.includes(itemCuisine)) {
+                            console.log('  ✅ Variation match found - EXCLUDING');
+                            return true;
+                        }
+                    }
+                    
+                    console.log('  ❌ No match found');
+                    return false;
+                });
+                
+                console.log('🔍 Final result for', cuisineType, ':', isExcluded ? 'EXCLUDED' : 'INCLUDED');
+                return isExcluded;
+            }
+
+            // Filter customer pings by excluded cuisines
+            function filterPingsByCuisine(pings, excludedCuisines) {
+                console.log('🍽️ filterPingsByCuisine called with', pings.length, 'pings and excluded cuisines:', excludedCuisines);
+                
+                if (excludedCuisines.length === 0) {
+                    console.log('🍽️ No exclusions - returning all pings');
+                    return pings;
+                }
+                
+                const filtered = pings.filter(ping => {
+                    const pingCuisine = ping.cuisineType || ping.cuisine || 'food';
+                    const shouldExclude = isCuisineExcluded(pingCuisine, excludedCuisines);
+                    console.log('🍽️ Ping with cuisine', pingCuisine, ':', shouldExclude ? 'FILTERED OUT' : 'KEPT');
+                    return !shouldExclude;
+                });
+                
+                console.log('🍽️ Filtered', pings.length, '→', filtered.length, 'pings');
+                return filtered;
+            }
 
             function showCuisineSelector() {
                 console.log('🍽️ Opening cuisine selector modal');
@@ -1635,33 +2759,127 @@ export default function MapScreen() {
             console.log('🚛 Initializing map with truck markers...');
             createTruckMarkers();
             
-            // Listen for messages from React Native
-            window.addEventListener('message', function(event) {
-                try {
-                    const message = JSON.parse(event.data);
-                    console.log('🍽️ WebView received message:', message.type);
-                    
-                    if (message.type === 'APPLY_CUISINE_FILTER') {
-                        const cuisineType = message.cuisineType;
-                        console.log('🍽️ Applying cuisine filter:', cuisineType);
-                        
-                        selectedCuisineType = cuisineType;
-                        
-                        let filtered = foodTrucks;
-                        if (cuisineType !== 'all') {
-                            filtered = foodTrucks.filter(truck => {
-                                const truckCuisine = (truck.cuisineType || truck.type || 'food').toLowerCase();
-                                return truckCuisine === cuisineType.toLowerCase();
-                            });
-                        }
-                        
-                        console.log('🍽️ Filtered', filtered.length, 'trucks for cuisine:', cuisineType);
-                        createTruckMarkers(filtered);
+            console.log('🎪 Initializing map with event markers...');
+            createEventMarkers();
+            
+            // Listen for messages from React Native using the proper WebView mechanism
+            if (window.ReactNativeWebView) {
+                console.log('🍽️ WebView: ReactNativeWebView detected - setting up message handler');
+                
+                // Override the default message handler
+                window.addEventListener('message', function(event) {
+                    try {
+                        console.log('🍽️ WebView received raw message:', event.data);
+                        const message = JSON.parse(event.data);
+                        console.log('🍽️ WebView parsed message:', message.type, message);
+                        handleCuisineFilterMessage(message);
+                    } catch (error) {
+                        console.log('🔴 Error parsing WebView message:', error);
                     }
-                } catch (error) {
-                    console.log('Error parsing WebView message:', error);
+                });
+                
+                // Send test message to React Native to verify connection
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'WEBVIEW_READY',
+                    message: 'WebView message handler is ready'
+                }));
+                console.log('🍽️ Sent WEBVIEW_READY message to React Native');
+            } else {
+                console.log('🔴 ReactNativeWebView not found - message handling may fail');
+            }
+            
+            // Handle cuisine filter message
+            function handleCuisineFilterMessage(message) {
+                if (message.type === 'APPLY_CUISINE_FILTER') {
+                    const cuisineType = message.cuisineType;
+                    console.log('🍽️ Applying cuisine filter:', cuisineType);
+                    console.log('🍽️ Type of cuisineType:', typeof cuisineType);
+                    console.log('🍽️ Array.isArray(cuisineType):', Array.isArray(cuisineType));
+                    
+                    selectedCuisineType = cuisineType;
+                    
+                    // Filter out excluded cuisines (show all by default, hide deselected)
+                    let filtered = foodTrucks;
+                    if (cuisineType.length > 0) {
+                        console.log('🍽️ Filtering food trucks with exclusions:', cuisineType);
+                        filtered = foodTrucks.filter(truck => {
+                            // Multiple field checks for better compatibility
+                            const truckCuisine = (
+                                truck.cuisineType || 
+                                truck.cuisine || 
+                                truck.type || 
+                                truck.cuisinetype ||
+                                'food'
+                            ).toLowerCase().trim();
+                            
+                            // Check if truck cuisine is NOT in excluded list
+                            const shouldExclude = isCuisineExcluded(truckCuisine, cuisineType);
+                            console.log('🚛 Truck', truck.truckName || truck.name, 'cuisine:', truckCuisine, '→', shouldExclude ? 'EXCLUDED' : 'INCLUDED');
+                            return !shouldExclude;
+                        });
+                    }
+                    
+                    console.log('🍽️ Filtered', filtered.length, 'trucks (excluded cuisines:', cuisineType, ')');
+                    console.log('🍽️ Available truck cuisines:', foodTrucks.map(t => ({
+                        name: t.truckName || t.name,
+                        cuisine: t.cuisineType || t.cuisine || t.type || 'unknown'
+                    })));
+                    createTruckMarkers(filtered);
+                    
+                    // Also filter events (events don't typically have cuisine types, so show all for now)
+                    console.log('🎪 Applying filter to events (showing all events regardless of cuisine filter)');
+                    createEventMarkers(events);
+                    
+                    // Also update heatmap and ping markers with cuisine filter
+                    if (showHeatmapFeatures) {
+                        console.log('🔥 Recreating heatmap with cuisine filter');
+                        createHeatmap();
+                    } else {
+                        console.log('📍 Recreating individual ping markers with cuisine filter');
+                        // Clear existing ping markers
+                        map.eachLayer(function(layer) {
+                            if (layer.options && layer.options.icon && 
+                                layer.options.icon.options && 
+                                layer.options.icon.options.className === 'ping-marker') {
+                                map.removeLayer(layer);
+                            }
+                        });
+                        
+                        // Add filtered ping markers for basic users
+                        const realPings = ${JSON.stringify(customerPings)};
+                        console.log('📍 Raw pings before filtering:', realPings.length);
+                        console.log('📍 Sample ping data:', realPings.slice(0, 3).map(p => ({cuisine: p.cuisineType, user: p.username})));
+                        
+                        const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
+                        console.log('📍 Adding', filteredPings.length, 'filtered ping markers (of', realPings.length, 'total)');
+                        
+                        filteredPings.forEach((ping, index) => {
+                            if (ping.lat && ping.lng) {
+                                const marker = L.marker([ping.lat, ping.lng], {
+                                    icon: L.divIcon({
+                                        className: 'ping-marker',
+                                        html: '<div style="background: #9b59b6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 12px;">📍</div>',
+                                        iconSize: [20, 20],
+                                        iconAnchor: [10, 10]
+                                    })
+                                });
+                                
+                                // Add popup with ping info including cuisine
+                                const popupContent = \`
+                                    <div style="text-align: center; padding: 5px;">
+                                        <strong>Customer Ping</strong><br>
+                                        <small>Cuisine: \${ping.cuisineType || 'Not specified'}</small><br>
+                                        <small>User: \${ping.username || 'Anonymous'}</small>
+                                    </div>
+                                \`;
+                                marker.bindPopup(popupContent);
+                                marker.addTo(map);
+                                console.log('📍 Added filtered ping marker for', ping.cuisineType);
+                            }
+                        });
+                    }
                 }
-            });
+            }
             
             // Initialize heatmap for Pro/All-Access users
             console.log('🔥 Checking heatmap initialization...');
@@ -1686,11 +2904,12 @@ export default function MapScreen() {
             } else {
                 console.log('📋 Basic plan user - showing individual ping markers');
                 
-                // Add individual ping markers for basic users
+                // Add individual ping markers for basic users (with cuisine filtering)
                 const realPings = ${JSON.stringify(customerPings)};
-                console.log('📍 Adding', realPings.length, 'individual ping markers for basic user');
+                const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
+                console.log('📍 Adding', filteredPings.length, 'filtered individual ping markers (of', realPings.length, 'total)');
                 
-                realPings.forEach((ping, index) => {
+                filteredPings.forEach((ping, index) => {
                     if (ping.lat && ping.lng) {
                         const marker = L.marker([ping.lat, ping.lng], {
                             icon: L.divIcon({
@@ -1712,7 +2931,7 @@ export default function MapScreen() {
                         \`;
                         
                         marker.bindPopup(popupContent);
-                        console.log('📍 Added ping marker', index + 1, 'at', ping.lat, ping.lng);
+                        console.log('📍 Added ping marker', index + 1, 'at', ping.lat, ping.lng, 'for cuisine:', ping.cuisineType);
                     }
                 });
                 
@@ -1779,6 +2998,25 @@ export default function MapScreen() {
         return;
       }
       
+      // Handle WebView ready message for debugging
+      if (message.type === 'WEBVIEW_READY') {
+        console.log('✅ WebView is ready and can receive messages:', message.message);
+        setWebViewReady(true);
+        
+        // Apply any pending cuisine filter
+        if (pendingCuisineFilter !== null) {
+          console.log('🍽️ Applying pending cuisine filter:', pendingCuisineFilter);
+          const filterMessage = {
+            type: 'APPLY_CUISINE_FILTER',
+            cuisineType: pendingCuisineFilter
+          };
+          
+          webViewRef.current?.postMessage(JSON.stringify(filterMessage));
+          setPendingCuisineFilter(null);
+        }
+        return;
+      }
+      
       if (message.type === 'OPEN_TRUCK_DETAILS') {
         const { id, name, cuisine, coverUrl, menuUrl, socialLinks } = message.data;
         
@@ -1806,6 +3044,22 @@ export default function MapScreen() {
           ownerId: id
         });
         setShowMenuModal(true);
+        // Load drops for this truck (for both customers and owners)
+        loadTruckDrops(id);
+      } else if (message.type === 'OPEN_EVENT_DETAILS') {
+        const { id, title, eventType, logoUrl, description, date, time, location } = message.data;
+        
+        console.log('🎪 Opening event details modal for:', title);
+        
+        // Show event details alert
+        Alert.alert(
+          `🎪 ${title}`,
+          `${description ? description + '\n\n' : ''}📅 Date: ${date}${time ? `\n🕐 Time: ${time}` : ''}${location ? `\n📍 Location: ${location}` : ''}${eventType ? `\n🎯 Type: ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}` : ''}`,
+          [
+            { text: 'Close', style: 'cancel' },
+            { text: 'More Info', onPress: () => console.log('Event details requested for:', id) }
+          ]
+        );
       } else if (message.type === 'SHOW_CUISINE_MODAL') {
         console.log('🍽️ Opening cuisine modal from WebView');
         console.log('🍽️ Current showCuisineModal state:', showCuisineModal);
@@ -1819,17 +3073,52 @@ export default function MapScreen() {
 
   // Handle cuisine filter application
   const handleApplyCuisineFilter = () => {
-    console.log('🍽️ Applying cuisine filter from React Native:', selectedCuisine);
+    console.log('🍽️ Applying cuisine exclusion filter from React Native:', excludedCuisines);
+    console.log('🍽️ WebView ref current exists:', !!webViewRef.current);
+    console.log('🍽️ WebView ready state:', webViewReady);
     
-    // Send message to WebView to apply the filter
+    const message = {
+      type: 'APPLY_CUISINE_FILTER',
+      cuisineType: excludedCuisines
+    };
+    
+    // Always try to send immediately first
     if (webViewRef.current) {
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'APPLY_CUISINE_FILTER',
-        cuisineType: selectedCuisine
-      }));
+      console.log('🍽️ Sending message immediately (WebView ref exists):', JSON.stringify(message));
+      try {
+        webViewRef.current.postMessage(JSON.stringify(message));
+        console.log('🍽️ Message sent successfully');
+        // Clear any pending filter since we sent it
+        setPendingCuisineFilter(null);
+      } catch (error) {
+        console.log('🔴 Error sending message:', error);
+        console.log('🔄 Storing filter as pending due to send error');
+        setPendingCuisineFilter(excludedCuisines);
+      }
+    } else {
+      console.log('🔄 WebView ref null, storing filter for later application');
+      setPendingCuisineFilter(excludedCuisines);
     }
     
     setShowCuisineModal(false);
+  };
+
+  // Handle cuisine selection (exclusion-based logic)
+  const handleCuisineSelect = (cuisineId) => {
+    if (cuisineId === 'all') {
+      // "All Cuisines" - clear all exclusions (show everything)
+      setExcludedCuisines([]);
+    } else {
+      setExcludedCuisines(prev => {
+        if (prev.includes(cuisineId)) {
+          // Remove from excluded list (show this cuisine)
+          return prev.filter(id => id !== cuisineId);
+        } else {
+          // Add to excluded list (hide this cuisine)
+          return [...prev, cuisineId];
+        }
+      });
+    }
   };
 
   return (
@@ -1844,6 +3133,7 @@ export default function MapScreen() {
       </View>
       
       <WebView
+        ref={webViewRef}
         source={{ html: mapHTML }}
         style={styles.webview}
         javaScriptEnabled={true}
@@ -1856,6 +3146,38 @@ export default function MapScreen() {
         onHttpError={(e) => console.log('HTTP error:', e)}
       />
       
+      {/* Truck Visibility Toggle (Food Truck Owners Only) */}
+      {userRole === 'owner' && (
+        <View style={styles.ownerControlsContainer}>
+          <TouchableOpacity
+            style={styles.truckToggleButton}
+            onPress={async () => {
+              const newVisibility = !showTruckIcon;
+              setShowTruckIcon(newVisibility);
+              await updateTruckVisibility(newVisibility);
+              await updateLastActivity(); // Update activity when user interacts
+              console.log('🚚 Truck visibility toggled:', newVisibility);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.toggleContainer, { backgroundColor: showTruckIcon ? '#4CAF50' : '#757575' }]}>
+              <Ionicons 
+                name={showTruckIcon ? 'car' : 'car-outline'} 
+                size={18} 
+                color="white" 
+              />
+              <Text style={styles.toggleText}>
+                {showTruckIcon ? 'Hide Truck' : 'Show Truck'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {/* Visibility Info Text */}
+          <Text style={styles.visibilityInfoText}>
+            💡 Your truck icon stays visible to customers even when you log out, unless "Hide Truck" is enabled
+          </Text>
+        </View>
+      )}
   
       {/* Food Truck Menu Modal */}
       <Modal
@@ -1871,6 +3193,7 @@ export default function MapScreen() {
               onPress={() => {
                 console.log('Close button pressed!');
                 setShowMenuModal(false);
+                setTruckDrops([]); // Clear drops when modal closes
               }}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1886,27 +3209,34 @@ export default function MapScreen() {
               </Text>
             </View>
             <TouchableOpacity 
-              style={styles.cartButton}
+              style={[
+                styles.cartButton,
+                getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive
+              ]}
               onPress={() => {
                 console.log('🛒 Cart button pressed! Current cart items:', cart.length);
-                console.log('🛒 Current showCartModal state:', showCartModal);
+                console.log('🛒 Opening cart modal...');
                 setShowCartModal(true);
-                console.log('🛒 Set showCartModal to true');
-                
-                // Test with Alert as backup
-                setTimeout(() => {
-                  console.log('🛒 showCartModal state after setState:', showCartModal);
-                  if (!showCartModal) {
-                    Alert.alert('Modal Debug', 'Modal state might not be updating properly');
-                  }
-                }, 100);
               }}
+              activeOpacity={0.8}
             >
-              <Ionicons name="cart" size={20} color="#fff" />
+              <View style={styles.cartButtonContent}>
+                <Ionicons 
+                  name="cart" 
+                  size={22} 
+                  color="#fff" 
+                  style={styles.cartIcon}
+                />
+                {getTotalItems() > 0 && (
+                  <View style={styles.cartBadge}>
+                    <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
+                  </View>
+                )}
+              </View>
               {getTotalItems() > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
-                </View>
+                <Text style={styles.cartButtonLabel}>
+                  ${getFinalTotal()}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1917,7 +3247,32 @@ export default function MapScreen() {
               {selectedTruck?.coverUrl && (
                 <View style={styles.coverPhotoSection}>
                   <Text style={styles.sectionTitle}>📸 Cover Photo</Text>
-                  <Image source={{ uri: selectedTruck.coverUrl }} style={styles.coverImage} />
+                  <View style={[
+                    styles.coverImageContainer,
+                    imageAspectRatio && {
+                      aspectRatio: imageAspectRatio,
+                      maxHeight: 400,
+                      minHeight: undefined
+                    }
+                  ]}>
+                    {loadingImageSize && (
+                      <ActivityIndicator size="small" color="#666" style={styles.imageLoadingIndicator} />
+                    )}
+                    <Image 
+                      source={{ uri: selectedTruck.coverUrl }} 
+                      style={[
+                        styles.coverImage,
+                        imageAspectRatio && {
+                          aspectRatio: imageAspectRatio,
+                          height: undefined,
+                          minHeight: undefined,
+                          maxHeight: undefined
+                        }
+                      ]}
+                      onError={(error) => console.log('Cover image load error:', error)}
+                      onLoad={() => console.log('✅ Cover image loaded successfully')}
+                    />
+                  </View>
                 </View>
               )}
               
@@ -1954,23 +3309,288 @@ export default function MapScreen() {
               )}
             </View>
 
+            {/* Drops Section - Only for truck owners viewing their own truck */}
+            {userRole === 'owner' && selectedTruck?.ownerId === user?.uid && (
+              <View style={styles.dropsSection}>
+                <View style={styles.dropsHeader}>
+                  <Text style={styles.sectionTitle}>🎁 Exclusive Drops</Text>
+                  <TouchableOpacity 
+                    style={styles.createDropButton}
+                    onPress={() => setShowDropForm(!showDropForm)}
+                    disabled={creatingDrop}
+                  >
+                    <Ionicons 
+                      name={showDropForm ? "remove-circle" : "add-circle"} 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.createDropButtonText}>
+                      {showDropForm ? 'Cancel' : 'Create Drop'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {dropCreationMessage ? (
+                  <View style={styles.dropMessageContainer}>
+                    <Text style={[
+                      styles.dropMessage,
+                      { color: dropCreationMessage.includes('successfully') ? '#4CAF50' : '#e74c3c' }
+                    ]}>
+                      {dropCreationMessage}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {showDropForm && (
+                  <View style={styles.dropForm}>
+                    <Text style={styles.dropFormTitle}>Create New Drop</Text>
+                    
+                    <Text style={styles.dropFieldLabel}>Title *</Text>
+                    <View style={styles.dropInputContainer}>
+                      <TextInput
+                        style={styles.dropInput}
+                        value={dropFormData.title}
+                        onChangeText={(value) => handleDropFormChange('title', value)}
+                        placeholder="Enter drop title"
+                        placeholderTextColor="#999"
+                        maxLength={50}
+                      />
+                    </View>
+
+                    <Text style={styles.dropFieldLabel}>Description *</Text>
+                    <View style={styles.dropInputContainer}>
+                      <TextInput
+                        style={[styles.dropInput, styles.dropTextArea]}
+                        value={dropFormData.description}
+                        onChangeText={(value) => handleDropFormChange('description', value)}
+                        placeholder="Describe your exclusive drop"
+                        placeholderTextColor="#999"
+                        multiline
+                        numberOfLines={3}
+                        maxLength={200}
+                      />
+                    </View>
+
+                    <View style={styles.dropRowInputs}>
+                      <View style={styles.dropHalfInput}>
+                        <Text style={styles.dropFieldLabel}>Quantity</Text>
+                        <View style={styles.dropInputContainer}>
+                          <TextInput
+                            style={styles.dropInput}
+                            value={dropFormData.quantity.toString()}
+                            onChangeText={(value) => handleDropFormChange('quantity', value)}
+                            placeholder="10"
+                            placeholderTextColor="#999"
+                            keyboardType="numeric"
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.dropHalfInput}>
+                        <Text style={styles.dropFieldLabel}>Expires (min)</Text>
+                        <View style={styles.dropInputContainer}>
+                          <TextInput
+                            style={styles.dropInput}
+                            value={dropFormData.expiresInMinutes.toString()}
+                            onChangeText={(value) => handleDropFormChange('expiresInMinutes', value)}
+                            placeholder="60"
+                            placeholderTextColor="#999"
+                            keyboardType="numeric"
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={[styles.submitDropButton, creatingDrop && styles.submitDropButtonDisabled]}
+                      onPress={createDrop}
+                      disabled={creatingDrop || !location}
+                    >
+                      {creatingDrop ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.submitDropButtonText}>Create Drop</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Display existing drops for owners */}
+                {console.log("🎁 DEBUG: truckDrops.length =", truckDrops.length, "userRole =", userRole, "selectedTruck?.ownerId =", selectedTruck?.ownerId, "user?.uid =", user?.uid)}
+                {truckDrops.length > 0 && (
+                  <View style={styles.ownerDropsList}>
+                    <Text style={styles.ownerDropsTitle}>Your Active Drops</Text>
+                    {truckDrops.map((drop) => (
+                      <View key={drop.id} style={styles.ownerDropCard}>
+                        <View style={styles.ownerDropHeader}>
+                          <Text style={styles.ownerDropTitle}>{drop.title}</Text>
+                          <Text style={styles.ownerDropExpiry}>
+                            Expires: {drop.expiresAt?.toDate().toLocaleString()}
+                          </Text>
+                        </View>
+                        
+                        <Text style={styles.ownerDropDescription}>{drop.description}</Text>
+                        
+                        <View style={styles.ownerDropStats}>
+                          <View style={styles.ownerDropStat}>
+                            <Text style={styles.ownerDropStatLabel}>Total Quantity</Text>
+                            <Text style={styles.ownerDropStatValue}>{drop.quantity || 0}</Text>
+                          </View>
+                          <View style={styles.ownerDropStat}>
+                            <Text style={styles.ownerDropStatLabel}>Claimed</Text>
+                            <Text style={styles.ownerDropStatValue}>{drop.claimedBy?.length || 0}</Text>
+                          </View>
+                          <View style={styles.ownerDropStat}>
+                            <Text style={styles.ownerDropStatLabel}>Remaining</Text>
+                            <Text style={styles.ownerDropStatValue}>
+                              {(drop.quantity || 0) - (drop.claimedBy?.length || 0)}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        {(drop.claimedBy?.length || 0) > 0 && (
+                          <TouchableOpacity 
+                            style={styles.viewCodesButton}
+                            onPress={() => {
+                              console.log("🔗 View Claim Codes button pressed for drop:", drop.id);
+                              console.log("🔗 Current showClaimCodesModal state:", showClaimCodesModal);
+                              
+                              if (showClaimCodesModal) {
+                                // Modal is already open, close it
+                                console.log("🔗 Modal is open, closing it");
+                                setShowClaimCodesModal(false);
+                              } else {
+                                // Modal is closed, open it
+                                console.log("🔗 Modal is closed, opening it");
+                                fetchClaimCodes(drop.id);
+                                setShowClaimCodesModal(true);
+                              }
+                              console.log("🔗 Button press action completed");
+                            }}
+                          >
+                            <Ionicons name="code-slash" size={16} color="#fff" />
+                            <Text style={styles.viewCodesButtonText}>
+                              View Claim Codes ({drop.claimedBy?.length || 0})
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Customer Drops Section - Only for customers, event organizers, or owners viewing other trucks */}
+            {(userRole === 'customer' || userRole === 'event-organizer' || (userRole === 'owner' && selectedTruck?.ownerId !== user?.uid)) && (
+              <View style={styles.customerDropsSection}>
+                <View style={styles.dropsHeader}>
+                  <Text style={styles.sectionTitle}>🎁 Exclusive Drops</Text>
+                  {loadingDrops && (
+                    <Text style={styles.loadingText}>Loading...</Text>
+                  )}
+                </View>
+
+                {/* Show claimed drop with code if user has one */}
+                {claimedDrop && claimCode && (
+                  <View style={styles.claimedDropCard}>
+                    <Text style={styles.claimedDropTitle}>✅ You claimed: {claimedDrop.title}</Text>
+                    <Text style={styles.claimedDropText}>Show this code at the truck:</Text>
+                    <Text style={styles.claimCode}>{claimCode}</Text>
+                    <Text style={styles.claimedDropExpires}>
+                      Expires: {claimedDrop.expiresAt?.toDate().toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+
+                {claimMessage ? (
+                  <View style={styles.claimMessageContainer}>
+                    <Text style={[
+                      styles.claimMessage,
+                      { color: claimMessage.includes('successfully') ? '#4CAF50' : '#e74c3c' }
+                    ]}>
+                      {claimMessage}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {!loadingDrops && truckDrops.length === 0 && (
+                  <View style={styles.noDropsContainer}>
+                    <Text style={styles.noDropsText}>No active drops available</Text>
+                  </View>
+                )}
+
+                {truckDrops.length > 0 && (
+                  <View style={styles.dropsContainer}>
+                    {truckDrops.map((drop) => (
+                      <View key={drop.id} style={styles.dropCard}>
+                        <Text style={styles.dropTitle}>{drop.title}</Text>
+                        <Text style={styles.dropDescription}>{drop.description}</Text>
+                        <View style={styles.dropDetailsRow}>
+                          <Text style={styles.dropDetail}>
+                            Quantity: {drop.quantity}
+                          </Text>
+                          <Text style={styles.dropDetail}>
+                            Claimed: {drop.claimedBy?.length || 0}
+                          </Text>
+                        </View>
+                        <View style={styles.dropDetailsRow}>
+                          <Text style={styles.dropDetail}>
+                            Remaining: {Math.max((drop.quantity || 0) - (drop.claimedBy?.length || 0), 0)}
+                          </Text>
+                          <Text style={styles.dropDetail}>
+                            Expires: {drop.expiresAt?.toDate().toLocaleTimeString()}
+                          </Text>
+                        </View>
+                        {user && (
+                          <TouchableOpacity
+                            style={[
+                              styles.claimDropButton,
+                              (hasUserClaimedDrop(drop.id) || 
+                               (drop.claimedBy?.length || 0) >= (drop.quantity || 0) ||
+                               Boolean(claimedDrop)) // Disable if user already has an active claim
+                                ? styles.claimDropButtonDisabled 
+                                : styles.claimDropButtonActive
+                            ]}
+                            onPress={() => handleClaimDrop(drop.id)}
+                            disabled={
+                              hasUserClaimedDrop(drop.id) || 
+                              (drop.claimedBy?.length || 0) >= (drop.quantity || 0) ||
+                              Boolean(claimedDrop) // Disable if user already has an active claim
+                            }
+                          >
+                            <Text style={[
+                              styles.claimDropButtonText,
+                              (hasUserClaimedDrop(drop.id) || 
+                               (drop.claimedBy?.length || 0) >= (drop.quantity || 0) ||
+                               Boolean(claimedDrop))
+                                ? styles.claimDropButtonTextDisabled 
+                                : styles.claimDropButtonTextActive
+                            ]}>
+                              {hasUserClaimedDrop(drop.id)
+                                ? "Already Claimed"
+                                : (drop.claimedBy?.length || 0) >= (drop.quantity || 0)
+                                ? "Fully Claimed"
+                                : claimedDrop
+                                ? "One Claim Active"
+                                : "Claim Drop"}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Menu Section */}
             <View style={styles.menuSection}>
               <View style={styles.menuHeader}>
                 <Text style={styles.sectionTitle}>📋 Menu</Text>
-                <TouchableOpacity 
-                  style={styles.viewMenuButton}
-                  onPress={() => {
-                    if (selectedTruck?.ownerId) {
-                      loadMenuItems(selectedTruck.ownerId);
-                    }
-                  }}
-                  disabled={loadingMenu}
-                >
-                  <Text style={styles.viewMenuButtonText}>
-                    {loadingMenu ? 'Loading...' : 'View Menu'}
-                  </Text>
-                </TouchableOpacity>
+                {loadingMenu && (
+                  <Text style={styles.loadingMenuText}>Loading...</Text>
+                )}
               </View>
 
               {loadingMenu && (
@@ -2010,7 +3630,7 @@ export default function MapScreen() {
                 <View style={styles.emptyMenuContainer}>
                   <Text style={styles.emptyMenuText}>
                     {selectedTruck.menuUrl ? 
-                      'Tap "View Menu" to load items' : 
+                      'No menu items available at this time.' : 
                       'This food truck has not uploaded a menu yet.'
                     }
                   </Text>
@@ -2018,6 +3638,378 @@ export default function MapScreen() {
               )}
             </View>
           </ScrollView>
+
+          {/* Shopping Cart Overlay - Inside Truck Modal */}
+          {showCartModal && (
+            <View style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 9999,
+              justifyContent: 'flex-start',
+              alignItems: 'center'
+            }}>
+              <View style={{ 
+                backgroundColor: '#ffffff', 
+                marginTop: 60,
+                borderRadius: 20,
+                margin: 20,
+                width: '90%',
+                maxHeight: '80%',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.3,
+                shadowRadius: 20,
+                elevation: 10
+              }}>
+                {/* Cart Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#eee'
+                }}>
+                  <Text style={{ 
+                    fontSize: 24, 
+                    fontWeight: 'bold',
+                    color: '#000'
+                  }}>
+                    🛒 Your Cart
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      console.log('🛒 Close cart X button pressed');
+                      setShowCartModal(false);
+                    }}
+                    style={{
+                      padding: 10,
+                      backgroundColor: '#f0f0f0',
+                      borderRadius: 20
+                    }}
+                  >
+                    <Text style={{ fontSize: 18, color: '#666' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Cart Items */}
+                <ScrollView style={{ maxHeight: 300, padding: 20 }}>
+                  {cart.length === 0 ? (
+                    <View style={{ alignItems: 'center', padding: 30 }}>
+                      <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>
+                        Your cart is empty
+                      </Text>
+                      <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginTop: 10 }}>
+                        Add some delicious items from the menu!
+                      </Text>
+                    </View>
+                  ) : (
+                    cart.map((item, index) => (
+                      <View key={item.id} style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingVertical: 15,
+                        borderBottomWidth: index < cart.length - 1 ? 1 : 0,
+                        borderBottomColor: '#f0f0f0'
+                      }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000' }}>
+                            {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
+                            ${item.price.toFixed(2)} each
+                          </Text>
+                        </View>
+                        
+                        <View style={{ 
+                          flexDirection: 'row', 
+                          alignItems: 'center',
+                          backgroundColor: '#f8f8f8',
+                          borderRadius: 8,
+                          padding: 5
+                        }}>
+                          <TouchableOpacity 
+                            onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                            style={{
+                              backgroundColor: '#e74c3c',
+                              borderRadius: 15,
+                              width: 30,
+                              height: 30,
+                              justifyContent: 'center',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>-</Text>
+                          </TouchableOpacity>
+                          
+                          <Text style={{ 
+                            marginHorizontal: 15, 
+                            fontSize: 16, 
+                            fontWeight: 'bold',
+                            color: '#000',
+                            minWidth: 20,
+                            textAlign: 'center'
+                          }}>
+                            {item.quantity}
+                          </Text>
+                          
+                          <TouchableOpacity 
+                            onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                            style={{
+                              backgroundColor: '#27ae60',
+                              borderRadius: 15,
+                              width: 30,
+                              height: 30,
+                              justifyContent: 'center',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>+</Text>
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={{ 
+                          fontSize: 16, 
+                          fontWeight: 'bold',
+                          color: '#2c6f57',
+                          marginLeft: 15,
+                          minWidth: 60,
+                          textAlign: 'right'
+                        }}>
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
+
+                {/* Cart Total & Checkout */}
+                {cart.length > 0 && (
+                  <View style={{
+                    borderTopWidth: 1,
+                    borderTopColor: '#eee',
+                    padding: 20
+                  }}>
+                    {/* Order Summary */}
+                    <View style={{ marginBottom: 15 }}>
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 8
+                      }}>
+                        <Text style={{ fontSize: 16, color: '#666' }}>
+                          Subtotal:
+                        </Text>
+                        <Text style={{ fontSize: 16, color: '#000' }}>
+                          ${getTotalPrice()}
+                        </Text>
+                      </View>
+
+                      {/* Sales Tax Display */}
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 8
+                      }}>
+                        <Text style={{ fontSize: 14, color: '#666' }}>
+                          Sales Tax (8.75%):
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#666' }}>
+                          ${getSalesTax()}
+                        </Text>
+                      </View>
+
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingTop: 8,
+                        borderTopWidth: 1,
+                        borderTopColor: '#f0f0f0'
+                      }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                          Total:
+                        </Text>
+                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2c6f57' }}>
+                          ${getFinalTotal()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity 
+                      onPress={placeOrder}
+                      style={{
+                        backgroundColor: '#2c6f57',
+                        borderRadius: 12,
+                        padding: 18,
+                        alignItems: 'center',
+                        marginBottom: 10
+                      }}
+                    >
+                      <Text style={{ 
+                        fontSize: 18, 
+                        color: '#fff',
+                        fontWeight: 'bold'
+                      }}>
+                        💳 Pay with Stripe (${getFinalTotal()})
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      onPress={() => {
+                        console.log('🛒 Continue shopping pressed');
+                        setShowCartModal(false);
+                      }}
+                      style={{
+                        backgroundColor: '#f8f8f8',
+                        borderRadius: 12,
+                        padding: 15,
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Text style={{ 
+                        fontSize: 16, 
+                        color: '#666',
+                        fontWeight: '500'
+                      }}>
+                        Continue Shopping
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Claim Codes Overlay - Inside Truck Modal */}
+          {showClaimCodesModal && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 10000,
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 20,
+            }}>
+              <View style={{
+                backgroundColor: '#1a1a2e',
+                borderRadius: 15,
+                padding: 20,
+                width: '90%',
+                maxHeight: '80%',
+                borderWidth: 2,
+                borderColor: '#2c6f57',
+              }}>
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  paddingBottom: 15,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#333',
+                }}>
+                  <Text style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: '#fff',
+                  }}>
+                    🔑 Claim Codes
+                  </Text>
+                  <TouchableOpacity 
+                    style={{
+                      padding: 8,
+                      backgroundColor: '#e74c3c',
+                      borderRadius: 20,
+                    }}
+                    onPress={() => {
+                      console.log("🔗 Close button pressed in claim codes overlay");
+                      setShowClaimCodesModal(false);
+                    }}
+                  >
+                    <Text style={{ fontSize: 18, color: '#fff', fontWeight: 'bold' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {loadingClaimCodes ? (
+                  <View style={{ alignItems: 'center', padding: 30 }}>
+                    <ActivityIndicator size="large" color="#2c6f57" />
+                    <Text style={{ color: '#fff', marginTop: 10, fontSize: 16 }}>
+                      Loading claim codes...
+                    </Text>
+                  </View>
+                ) : claimCodes.length === 0 ? (
+                  <View style={{ alignItems: 'center', padding: 30 }}>
+                    <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>
+                      No active claim codes found
+                    </Text>
+                    <Text style={{ color: '#999', fontSize: 14, textAlign: 'center', marginTop: 10 }}>
+                      Codes will appear here when customers claim drops
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView style={{ maxHeight: 400 }}>
+                    {claimCodes.map((claim) => (
+                      <View key={claim.id} style={{
+                        backgroundColor: '#2a2a3e',
+                        borderRadius: 10,
+                        padding: 15,
+                        marginBottom: 15,
+                        borderWidth: 1,
+                        borderColor: '#4682b4',
+                      }}>
+                        <View style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 10,
+                        }}>
+                          <Text style={{
+                            fontSize: 20,
+                            fontWeight: 'bold',
+                            color: '#2c6f57',
+                            letterSpacing: 2,
+                          }}>
+                            {claim.code}
+                          </Text>
+                          <Text style={{
+                            fontSize: 12,
+                            color: '#999',
+                          }}>
+                            {claim.dropTitle}
+                          </Text>
+                        </View>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#fff',
+                          marginBottom: 5,
+                        }}>
+                          User: {claim.userIdMasked}
+                        </Text>
+                        <Text style={{
+                          fontSize: 12,
+                          color: '#999',
+                        }}>
+                          Claimed: {new Date(claim.claimedAt).toLocaleString()}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -2030,28 +4022,58 @@ export default function MapScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.cuisineModalContent}>
-            <Text style={styles.cuisineModalTitle}>🍽️ Select Cuisine Type</Text>
+            <Text style={styles.cuisineModalTitle}>🍽️ Cuisine Filter</Text>
+            <Text style={styles.cuisineModalSubtitle}>
+              {excludedCuisines.length === 0 
+                ? 'Showing all cuisine types' 
+                : `Hiding ${excludedCuisines.length} cuisine type${excludedCuisines.length === 1 ? '' : 's'}`
+              }
+            </Text>
             
             <ScrollView style={styles.cuisineScrollView}>
               <View style={styles.cuisineGrid}>
-                {cuisineTypes.map((cuisine) => (
-                  <TouchableOpacity
-                    key={cuisine.id}
-                    style={[
-                      styles.cuisineOption,
-                      selectedCuisine === cuisine.id && styles.cuisineOptionSelected
-                    ]}
-                    onPress={() => setSelectedCuisine(cuisine.id)}
-                  >
-                    <Text style={styles.cuisineEmoji}>{cuisine.emoji}</Text>
-                    <Text style={[
-                      styles.cuisineName,
-                      selectedCuisine === cuisine.id && styles.cuisineNameSelected
-                    ]}>
-                      {cuisine.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {cuisineTypes.map((cuisine) => {
+                  const isExcluded = excludedCuisines.includes(cuisine.id);
+                  const isShowingAll = excludedCuisines.length === 0;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={cuisine.id}
+                      style={[
+                        styles.cuisineOption,
+                        cuisine.id === 'all' && isShowingAll && styles.cuisineOptionAll,
+                        isExcluded && styles.cuisineOptionExcluded
+                      ]}
+                      onPress={() => handleCuisineSelect(cuisine.id)}
+                    >
+                      <View style={styles.cuisineOptionContent}>
+                        <Text style={[
+                          styles.cuisineEmoji,
+                          isExcluded && styles.cuisineEmojiExcluded
+                        ]}>
+                          {cuisine.emoji}
+                        </Text>
+                        <Text style={[
+                          styles.cuisineName,
+                          cuisine.id === 'all' && isShowingAll && styles.cuisineNameAll,
+                          isExcluded && styles.cuisineNameExcluded
+                        ]}>
+                          {cuisine.name}
+                        </Text>
+                        {isExcluded && cuisine.id !== 'all' && (
+                          <View style={styles.cuisineExcludedIcon}>
+                            <Text style={styles.cuisineExcludedText}>✕</Text>
+                          </View>
+                        )}
+                        {cuisine.id === 'all' && isShowingAll && (
+                          <View style={styles.cuisineAllIcon}>
+                            <Text style={styles.cuisineAllText}>✓</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
             
@@ -2061,6 +4083,13 @@ export default function MapScreen() {
                 onPress={() => setShowCuisineModal(false)}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.cuisineModalButton, styles.clearButton]}
+                onPress={() => setExcludedCuisines([])}
+              >
+                <Text style={styles.clearButtonText}>Show All</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -2074,256 +4103,8 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-      {/* Shopping Cart Overlay - Working Cart with Checkout */}
-      {console.log('🛒 RENDER CHECK: showCartModal =', showCartModal)}
 
-      {showCartModal && (
-        <View style={{ 
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          zIndex: 9999,
-          justifyContent: 'flex-start',
-          alignItems: 'center'
-        }}>
-          <View style={{ 
-            backgroundColor: '#ffffff', 
-            marginTop: 60,
-            borderRadius: 20,
-            margin: 20,
-            width: '90%',
-            maxHeight: '80%',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 20,
-            elevation: 10
-          }}>
-            {/* Cart Header */}
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: 20,
-              borderBottomWidth: 1,
-              borderBottomColor: '#eee'
-            }}>
-              <Text style={{ 
-                fontSize: 24, 
-                fontWeight: 'bold',
-                color: '#000'
-              }}>
-                🛒 Your Cart
-              </Text>
-              <TouchableOpacity 
-                onPress={() => {
-                  console.log('🛒 Close cart X button pressed');
-                  setShowCartModal(false);
-                }}
-                style={{
-                  padding: 10,
-                  backgroundColor: '#f0f0f0',
-                  borderRadius: 20
-                }}
-              >
-                <Text style={{ fontSize: 18, color: '#666' }}>✕</Text>
-              </TouchableOpacity>
-            </View>
 
-            {/* Cart Items */}
-            <ScrollView style={{ maxHeight: 300, padding: 20 }}>
-              {cart.length === 0 ? (
-                <View style={{ alignItems: 'center', padding: 30 }}>
-                  <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>
-                    Your cart is empty
-                  </Text>
-                  <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginTop: 10 }}>
-                    Add some delicious items from the menu!
-                  </Text>
-                </View>
-              ) : (
-                cart.map((item, index) => (
-                  <View key={item.id} style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingVertical: 15,
-                    borderBottomWidth: index < cart.length - 1 ? 1 : 0,
-                    borderBottomColor: '#f0f0f0'
-                  }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000' }}>
-                        {item.name}
-                      </Text>
-                      <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
-                        ${item.price.toFixed(2)} each
-                      </Text>
-                    </View>
-                    
-                    <View style={{ 
-                      flexDirection: 'row', 
-                      alignItems: 'center',
-                      backgroundColor: '#f8f8f8',
-                      borderRadius: 8,
-                      padding: 5
-                    }}>
-                      <TouchableOpacity 
-                        onPress={() => updateQuantity(item.id, item.quantity - 1)}
-                        style={{
-                          backgroundColor: '#e74c3c',
-                          borderRadius: 15,
-                          width: 30,
-                          height: 30,
-                          justifyContent: 'center',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>-</Text>
-                      </TouchableOpacity>
-                      
-                      <Text style={{ 
-                        marginHorizontal: 15, 
-                        fontSize: 16, 
-                        fontWeight: 'bold',
-                        color: '#000',
-                        minWidth: 20,
-                        textAlign: 'center'
-                      }}>
-                        {item.quantity}
-                      </Text>
-                      
-                      <TouchableOpacity 
-                        onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                        style={{
-                          backgroundColor: '#27ae60',
-                          borderRadius: 15,
-                          width: 30,
-                          height: 30,
-                          justifyContent: 'center',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                    
-                    <Text style={{ 
-                      fontSize: 16, 
-                      fontWeight: 'bold',
-                      color: '#2c6f57',
-                      marginLeft: 15,
-                      minWidth: 60,
-                      textAlign: 'right'
-                    }}>
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            {/* Cart Total & Checkout */}
-            {cart.length > 0 && (
-              <View style={{
-                borderTopWidth: 1,
-                borderTopColor: '#eee',
-                padding: 20
-              }}>
-                {/* Order Summary */}
-                <View style={{ marginBottom: 15 }}>
-                  <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8
-                  }}>
-                    <Text style={{ fontSize: 16, color: '#666' }}>
-                      Subtotal:
-                    </Text>
-                    <Text style={{ fontSize: 16, color: '#000' }}>
-                      ${getTotalPrice()}
-                    </Text>
-                  </View>
-
-                  {/* Sales Tax Display */}
-                  <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8
-                  }}>
-                    <Text style={{ fontSize: 14, color: '#666' }}>
-                      Sales Tax (8.75%):
-                    </Text>
-                    <Text style={{ fontSize: 14, color: '#666' }}>
-                      ${getSalesTax()}
-                    </Text>
-                  </View>
-
-                  <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: 8,
-                    borderTopWidth: 1,
-                    borderTopColor: '#f0f0f0'
-                  }}>
-                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
-                      Total:
-                    </Text>
-                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2c6f57' }}>
-                      ${getFinalTotal()}
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity 
-                  onPress={placeOrder}
-                  style={{
-                    backgroundColor: '#2c6f57',
-                    borderRadius: 12,
-                    padding: 18,
-                    alignItems: 'center',
-                    marginBottom: 10
-                  }}
-                >
-                  <Text style={{ 
-                    fontSize: 18, 
-                    color: '#fff',
-                    fontWeight: 'bold'
-                  }}>
-                    💳 Pay with Stripe (${getFinalTotal()})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  onPress={() => {
-                    console.log('🛒 Continue shopping pressed');
-                    setShowCartModal(false);
-                  }}
-                  style={{
-                    backgroundColor: '#f8f8f8',
-                    borderRadius: 12,
-                    padding: 15,
-                    alignItems: 'center'
-                  }}
-                >
-                  <Text style={{ 
-                    fontSize: 16, 
-                    color: '#666',
-                    fontWeight: '500'
-                  }}>
-                    Continue Shopping
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -2498,14 +4279,33 @@ const styles = StyleSheet.create({
     color: '#2c6f57',
     marginBottom: 10,
   },
+  loadingMenuText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
   coverPhotoSection: {
     marginBottom: 20,
   },
+  coverImageContainer: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
+    width: '100%',
+  },
   coverImage: {
     width: '100%',
-    height: 200,
+    minHeight: 200,
+    maxHeight: 400,
     borderRadius: 10,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
+  },
+  imageLoadingIndicator: {
+    position: 'absolute',
+    zIndex: 1,
   },
   socialSection: {
     marginBottom: 20,
@@ -2551,6 +4351,246 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
+  
+  // Drops Section Styles
+  dropsSection: {
+    marginBottom: 20,
+    backgroundColor: '#2a2a3e',
+    borderRadius: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#4682b4',
+  },
+  dropsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  createDropButton: {
+    backgroundColor: '#4682b4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  createDropButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  dropMessageContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  dropMessage: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  dropForm: {
+    backgroundColor: '#1a1a2e',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  dropFormTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  dropFieldLabel: {
+    fontSize: 14,
+    color: '#4682b4',
+    fontWeight: '600',
+    marginBottom: 5,
+    marginTop: 10,
+  },
+  dropInputContainer: {
+    backgroundColor: '#2a2a3e',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4682b4',
+  },
+  dropInput: {
+    color: '#fff',
+    fontSize: 16,
+    padding: 12,
+    minHeight: 45,
+  },
+  dropTextArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  dropRowInputs: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dropHalfInput: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  submitDropButton: {
+    backgroundColor: '#2c6f57',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  submitDropButtonDisabled: {
+    backgroundColor: '#666',
+    borderColor: '#999',
+  },
+  submitDropButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
+  // Customer Drops Section Styles
+  customerDropsSection: {
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 5,
+  },
+  claimedDropCard: {
+    backgroundColor: '#d4edda',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#c3e6cb',
+    alignItems: 'center',
+  },
+  claimedDropTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#155724',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  claimedDropText: {
+    fontSize: 14,
+    color: '#155724',
+    marginBottom: 5,
+  },
+  claimCode: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#155724',
+    letterSpacing: 2,
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#c3e6cb',
+    borderStyle: 'dashed',
+  },
+  claimedDropExpires: {
+    fontSize: 12,
+    color: '#155724',
+    fontStyle: 'italic',
+  },
+  claimMessageContainer: {
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  claimMessage: {
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  noDropsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noDropsText: {
+    color: '#666',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  dropsContainer: {
+    marginTop: 10,
+  },
+  dropCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  dropTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 6,
+  },
+  dropDescription: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  dropDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  dropDetail: {
+    fontSize: 12,
+    color: '#666',
+    flex: 1,
+  },
+  claimDropButton: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  claimDropButtonActive: {
+    backgroundColor: '#2c6f57',
+  },
+  claimDropButtonDisabled: {
+    backgroundColor: '#cccccc',
+  },
+  claimDropButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  claimDropButtonTextActive: {
+    color: '#fff',
+  },
+  claimDropButtonTextDisabled: {
+    color: '#666',
+  },
+  
   menuSection: {
     flex: 1,
   },
@@ -2559,16 +4599,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
-  },
-  viewMenuButton: {
-    backgroundColor: '#e74c3c',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  viewMenuButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   loadingContainer: {
     padding: 40,
@@ -2645,8 +4675,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
     color: '#2c6f57',
+  },
+  cuisineModalSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+    fontStyle: 'italic',
   },
   cuisineScrollView: {
     maxHeight: 400,
@@ -2663,26 +4700,105 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#e0e0e0',
     borderRadius: 8,
-    padding: 15,
+    padding: 12,
     marginBottom: 10,
     alignItems: 'center',
+    position: 'relative',
   },
   cuisineOptionSelected: {
     borderColor: '#2c6f57',
     backgroundColor: '#2c6f57',
   },
+  cuisineOptionExcluded: {
+    borderColor: '#e74c3c',
+    backgroundColor: '#ffe6e6',
+    opacity: 0.7,
+  },
+  cuisineOptionAll: {
+    borderColor: '#4682b4',
+    backgroundColor: '#4682b4',
+  },
+  cuisineOptionContent: {
+    alignItems: 'center',
+    width: '100%',
+  },
   cuisineEmoji: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  cuisineEmojiExcluded: {
+    opacity: 0.5,
   },
   cuisineName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
     color: '#333',
+    lineHeight: 14,
   },
   cuisineNameSelected: {
     color: 'white',
+  },
+  cuisineNameAll: {
+    color: 'white',
+  },
+  cuisineNameExcluded: {
+    color: '#999',
+    textDecorationLine: 'line-through',
+  },
+  cuisineCheckmark: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#2c6f57',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  cuisineCheckmarkText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cuisineExcludedIcon: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#e74c3c',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  cuisineExcludedText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cuisineAllIcon: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#4682b4',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  cuisineAllText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   cuisineModalButtons: {
     flexDirection: 'row',
@@ -2693,25 +4809,33 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0',
   },
   cuisineModalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 6,
-    minWidth: 100,
+    minWidth: 80,
     alignItems: 'center',
   },
   cancelButton: {
     backgroundColor: '#e0e0e0',
   },
+  clearButton: {
+    backgroundColor: '#4682b4',
+  },
   applyButton: {
     backgroundColor: '#2c6f57',
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
   },
+  clearButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
+  },
   applyButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: 'white',
   },
@@ -2722,30 +4846,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cartButton: {
-    backgroundColor: '#e74c3c',
-    borderRadius: 20,
-    padding: 8,
+    borderRadius: 25,
+    padding: 12,
     position: 'relative',
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  cartButtonActive: {
+    backgroundColor: '#27ae60',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  cartButtonInactive: {
+    backgroundColor: '#e74c3c',
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: '#fff',
+  },
+  cartButtonContent: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartIcon: {
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  cartButtonLabel: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
   },
   cartBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff6b35',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e74c3c',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   cartBadgeText: {
-    color: '#e74c3c',
+    color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
   },
   addToCartButton: {
     backgroundColor: '#e74c3c',
@@ -2877,5 +5049,203 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  // Truck visibility toggle styles
+  ownerControlsContainer: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    zIndex: 1000,
+    alignItems: 'flex-end',
+  },
+  truckToggleButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  toggleText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  visibilityInfoText: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 8,
+    maxWidth: 280,
+    fontSize: 11,
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  
+  // Owner drops list styles
+  ownerDropsList: {
+    marginTop: 15,
+  },
+  ownerDropsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  ownerDropCard: {
+    backgroundColor: '#2c2c54',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#40407a',
+  },
+  ownerDropHeader: {
+    marginBottom: 8,
+  },
+  ownerDropTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  ownerDropExpiry: {
+    fontSize: 12,
+    color: '#bbb',
+  },
+  ownerDropDescription: {
+    fontSize: 14,
+    color: '#ddd',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  ownerDropStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  ownerDropStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  ownerDropStatLabel: {
+    fontSize: 12,
+    color: '#bbb',
+    marginBottom: 4,
+  },
+  ownerDropStatValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+  },
+  viewCodesButton: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 8,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewCodesButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  
+  // Modal overlay style
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999, // Ensure it's above everything
+    elevation: 1000, // Android elevation
+  },
+  
+  // Claim codes modal styles
+  claimCodesModalContent: {
+    backgroundColor: '#2c2c54',
+    borderRadius: 20,
+    margin: 20,
+    maxHeight: '80%',
+    borderWidth: 2,
+    borderColor: '#e74c3c',
+  },
+  claimCodesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#40407a',
+  },
+  claimCodesTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  loadingContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  noCodesContainer: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  noCodesText: {
+    color: '#bbb',
+    fontSize: 16,
+  },
+  claimCodesList: {
+    maxHeight: 400,
+  },
+  claimCodeCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 15,
+    margin: 10,
+    borderWidth: 1,
+    borderColor: '#40407a',
+  },
+  claimCodeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  claimCodeValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+    fontFamily: 'monospace',
+  },
+  claimCodeExpiry: {
+    fontSize: 12,
+    color: '#bbb',
+  },
+  claimCodeUserId: {
+    fontSize: 12,
+    color: '#ddd',
+    marginBottom: 4,
+  },
+  claimCodeCreated: {
+    fontSize: 12,
+    color: '#bbb',
   },
 });

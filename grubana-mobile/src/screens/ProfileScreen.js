@@ -63,8 +63,14 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (userData) {
+      console.log('🔍 ProfileScreen: Full userData object:', userData);
+      console.log('🔍 ProfileScreen: Available userData fields:', Object.keys(userData));
+      console.log('🔍 ProfileScreen: userData.username:', userData.username);
+      console.log('🔍 ProfileScreen: user.displayName:', user?.displayName);
+      console.log('🔍 ProfileScreen: user.email:', user?.email);
+      
       setUserProfile({
-        username: userData.username || '',
+        username: userData.username || userData.displayName || user?.displayName || user?.email?.split('@')[0] || '',
         truckName: userData.truckName || '',
         ownerName: userData.ownerName || '',
         phone: userData.phone || '',
@@ -82,14 +88,86 @@ export default function ProfileScreen() {
         twitter: userData.twitter || '',
       });
     }
-  }, [userData]);
+  }, [userData, user]);
+
+  // Function to refresh user data from Firestore
+  const refreshUserData = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      console.log('🔄 Refreshing user data from Firestore...');
+      const userDocRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userDocRef);
+      
+      if (userSnap.exists()) {
+        const freshUserData = userSnap.data();
+        console.log('🔍 Fresh userData from Firestore:', freshUserData);
+        console.log('🔍 Fresh userData fields:', Object.keys(freshUserData));
+        
+        setUserProfile({
+          username: freshUserData.username || freshUserData.displayName || user?.displayName || user?.email?.split('@')[0] || '',
+          truckName: freshUserData.truckName || '',
+          ownerName: freshUserData.ownerName || '',
+          phone: freshUserData.phone || '',
+          location: freshUserData.location || '',
+          cuisine: freshUserData.cuisine || '',
+          hours: freshUserData.hours || '',
+          description: freshUserData.description || '',
+          menuUrl: freshUserData.menuUrl || '',
+          coverUrl: freshUserData.coverUrl || '',
+        });
+        
+        setSocialLinks({
+          instagram: freshUserData.instagram || '',
+          facebook: freshUserData.facebook || '',
+          tiktok: freshUserData.tiktok || '',
+          twitter: freshUserData.twitter || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
+  // Refresh data when component mounts
+  useEffect(() => {
+    refreshUserData();
+  }, [user?.uid]);
+
+  // Function to format phone number for display
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+    
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Format based on length
+    if (cleaned.length === 10) {
+      // US format: (123) 456-7890
+      return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+    } else if (cleaned.length === 11 && cleaned[0] === '1') {
+      // US format with country code: +1 (123) 456-7890
+      return cleaned.replace(/(\d{1})(\d{3})(\d{3})(\d{4})/, '+$1 ($2) $3-$4');
+    } else if (cleaned.length > 10) {
+      // International format: +XX XXX XXX XXXX
+      return `+${cleaned}`;
+    }
+    
+    return phone; // Return original if no formatting applies
+  };
 
   const editField = (field) => {
     setEditingField(field);
     setModalInput(userProfile[field] || '');
+    
+    const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+    const promptMessage = field === 'phone' 
+      ? 'Enter your phone number (with or without country code):'
+      : `Enter new ${field.toLowerCase()}:`;
+    
     Alert.prompt(
-      `Edit ${field.charAt(0).toUpperCase() + field.slice(1)}`,
-      `Enter new ${field.toLowerCase()}:`,
+      `Edit ${fieldName}`,
+      promptMessage,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -97,18 +175,33 @@ export default function ProfileScreen() {
           onPress: (value) => handleFieldUpdate(field, value)
         }
       ],
-      'plain-text',
+      field === 'phone' ? 'phone-pad' : 'plain-text',
       userProfile[field]
     );
   };
 
   const handleFieldUpdate = async (field, value) => {
     if (value && value.trim()) {
+      // Validate phone number format if field is phone
+      if (field === 'phone') {
+        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/; // Basic international phone format
+        const cleanPhone = value.replace(/[\s\-\(\)\.]/g, ''); // Remove common separators
+        
+        if (!phoneRegex.test(cleanPhone)) {
+          Alert.alert(
+            'Invalid Phone Number', 
+            'Please enter a valid phone number (e.g., +1234567890 or 1234567890)'
+          );
+          return;
+        }
+        value = cleanPhone; // Store clean version
+      }
+      
       setLoading(true);
       try {
         await updateDoc(doc(db, 'users', user.uid), { [field]: value });
         setUserProfile(prev => ({ ...prev, [field]: value }));
-        Alert.alert('Success', 'Information updated successfully!');
+        Alert.alert('Success', `${field === 'phone' ? 'Phone number' : 'Information'} updated successfully!`);
       } catch (error) {
         console.error('Error updating field:', error);
         Alert.alert('Error', 'Failed to update information. Please try again.');
@@ -480,13 +573,22 @@ export default function ProfileScreen() {
 
       {/* Account Information */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Information</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Account Information</Text>
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={refreshUserData}
+            disabled={loading}
+          >
+            <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
+          </TouchableOpacity>
+        </View>
         
         {(userRole === 'owner' ? [
           { key: 'truckName', label: 'Truck Name' },
           { key: 'ownerName', label: 'Owner Name' },
           { key: 'username', label: 'Username' },
-          { key: 'phone', label: 'Phone' },
+          { key: 'phone', label: 'Phone Number' },
           { key: 'location', label: 'Location' },
           { key: 'cuisine', label: 'Cuisine Type' },
           { key: 'hours', label: 'Hours' },
@@ -495,9 +597,15 @@ export default function ProfileScreen() {
           { key: 'coverUrl', label: 'Cover Image', isImage: true },
         ] : [
           { key: 'username', label: 'Username' },
+          { key: 'phone', label: 'Phone Number' },
         ]).map(({ key, label, isImage }) => (
           <View key={key} style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>{label}</Text>
+            {key === 'phone' && (
+              <Text style={styles.fieldHelpText}>
+                Format: (123) 456-7890 or +1 (123) 456-7890
+              </Text>
+            )}
             
             {isImage ? (
               // Image field with preview
@@ -536,7 +644,10 @@ export default function ProfileScreen() {
               // Regular text field
               <View style={styles.fieldRow}>
                 <Text style={styles.fieldValue}>
-                  {userProfile[key] || 'Not set'}
+                  {key === 'phone' 
+                    ? (userProfile[key] ? formatPhoneNumber(userProfile[key]) : 'Not set')
+                    : (userProfile[key] || 'Not set')
+                  }
                 </Text>
                 <TouchableOpacity 
                   style={styles.editButton}
@@ -785,6 +896,25 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  refreshButton: {
+    backgroundColor: '#4682b4',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#000',
+  },
+  refreshButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   avatarContainer: {
     alignItems: 'center',
     marginBottom: 15,
@@ -845,6 +975,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4682b4',
     fontWeight: '600',
+    marginBottom: 5,
+  },
+  fieldHelpText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
     marginBottom: 5,
   },
   fieldValue: {
