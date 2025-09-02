@@ -61,7 +61,7 @@ const TermsOfService = () => {
       <section className="section">
         <h2>7. Refunds</h2>
         <p>
-          Refunds will be provided in accordance with our refund policy. Please review our refund policy for details. If you believe you are entitled to a refund, contact us at grubana.co@gmail.com.
+          Refunds will be provided in accordance with our refund policy. Please review our refund policy for details. If you believe you are entitled to a refund, contact us at flavor@grubana.com.
         </p>
       </section>
 
@@ -180,7 +180,7 @@ const TermsOfService = () => {
       <section className="section">
         <h2>18. Contact Us</h2>
         <p>
-          If you have any questions about these Terms of Service, please contact us at <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a>.
+          If you have any questions about these Terms of Service, please contact us at <a href="mailto:flavor@grubana.com">flavor@grubana.com</a>.
         </p>
       </section>
 

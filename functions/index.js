@@ -12,3 +12,6 @@ export * from "./orderNotificationTriggers.js";
 
 // Export SMS service
 export * from "./smsService.js";
+
+// Export welcome email functions
+export * from "./welcomeEmailTriggers.js";

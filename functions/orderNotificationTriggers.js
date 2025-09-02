@@ -1,12 +1,12 @@
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const { onCall } = require('firebase-functions/v2/https');
-const { logger } = require('firebase-functions');
-const { sendOrderStatusNotification, getNotificationStatus } = require('./orderNotificationService');
+import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onCall } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
+import { sendOrderStatusNotification, getNotificationStatus } from './orderNotificationService.js';
 
 /**
  * Trigger notifications when order status changes
  */
-exports.onOrderStatusChanged = onDocumentUpdated({
+export const onOrderStatusChanged = onDocumentUpdated({
   document: 'orders/{orderId}',
   region: 'us-central1'
 }, async (event) => {
@@ -54,7 +54,10 @@ exports.onOrderStatusChanged = onDocumentUpdated({
 /**
  * Manual notification trigger (for testing and manual sends)
  */
-exports.sendOrderNotification = onCall({
+/**
+ * Send notifications to truck owners when new orders are placed
+ */
+export const onOrderCreated = onDocumentCreated({
   region: 'us-central1'
 }, async (request) => {
   try {
@@ -80,7 +83,7 @@ exports.sendOrderNotification = onCall({
 /**
  * Get notification system status
  */
-exports.getNotificationSystemStatus = onCall({
+export const getNotificationSystemStatus = onCall({
   region: 'us-central1'
 }, async (request) => {
   try {
@@ -100,7 +103,7 @@ exports.getNotificationSystemStatus = onCall({
 /**
  * Test notification function (for development)
  */
-exports.testNotification = onCall({
+export const testNotification = onCall({
   region: 'us-central1'
 }, async (request) => {
   try {

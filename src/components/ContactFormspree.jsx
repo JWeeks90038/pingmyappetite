@@ -34,7 +34,7 @@ const ContactFormspree = () => {
 
     try {
       // Direct Formspree submission - no backend needed
-      const response = await fetch('https://formspree.io/f/xjkrnnjd', {
+      const response = await fetch('https://formspree.io/f/xovnlpyz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ const ContactFormspree = () => {
               <div className="contact-details">
                 <div className="contact-item">
                   <h3>📧 Email</h3>
-                  <p>grubana.co@gmail.com</p>
+                  <p>flavor@grubana.com</p>
                 </div>
                 <div className="contact-item">
                   <h3>💬 Response Time</h3>

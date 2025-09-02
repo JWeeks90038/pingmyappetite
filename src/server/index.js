@@ -522,7 +522,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
               const userData = userDoc.data();
               
               // Send referral notification via Formspree to both email addresses
-              const emailAddresses = ['grubana.co@gmail.com', 'curiela1974@icloud.com'];
+              const emailAddresses = ['flavor@grubana.com', 'curiela1974@icloud.com'];
               
               const baseEmailData = {
                 subject: `PAID Arayaki Hibachi Referral - ${userData.username || userData.ownerName} (${planType} plan)`,
@@ -568,7 +568,7 @@ Grubana System`,
                     to: emailAddress
                   };
                   
-                  const formspreeResponse = await fetch('https://formspree.io/f/mpwlvzaj', {
+                  const formspreeResponse = await fetch('https://formspree.io/f/mblakpqg', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(emailData),
@@ -751,7 +751,7 @@ ${userData.role === 'event-organizer' ?
   'Visit your Event Dashboard to start creating amazing events: https://grubana.com/event-dashboard' : 
   'Visit your Dashboard to maximize your features: https://grubana.com/dashboard'}
 
-Questions about your ${planType} features? We're here to help at grubana.co@gmail.com
+Questions about your ${planType} features? We're here to help at flavor@grubana.com
 
 Welcome to the premium experience!
 The Grubana Team`,
@@ -763,7 +763,7 @@ The Grubana Team`,
                     email_type: 'welcome_paid_user',
                     trial_status: 'active',
                     _subject: `🎉 Welcome to Grubana ${planType.charAt(0).toUpperCase() + planType.slice(1)} - Your Premium Access is Active!`,
-                    _replyto: 'grubana.co@gmail.com'
+                    _replyto: 'flavor@grubana.com'
                   }),
                 });
                 
@@ -816,7 +816,7 @@ The Grubana Team`,
             console.log(`✅ Auto-cancelled subscription for Arayaki_Hibachi referral user: ${updatedSub.id}`);
             
             // Send notification email about trial ending and auto-cancellation
-            const emailAddresses = ['grubana.co@gmail.com', 'curiela1974@icloud.com'];
+            const emailAddresses = ['flavor@grubana.com', 'curiela1974@icloud.com'];
             
             for (const emailAddress of emailAddresses) {
               try {
@@ -848,7 +848,7 @@ Grubana System`,
                   _subject: `Arayaki Hibachi Trial Ended - ${userData.username || userData.ownerName}`
                 };
                 
-                await fetch('https://formspree.io/f/mpwlvzaj', {
+                await fetch('https://formspree.io/f/mblakpqg', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(emailData),
@@ -1237,7 +1237,7 @@ if (uid) {
     // 5. Send welcome email (after successful subscription creation)
     const msg = {
       to: email,
-      from: 'grubana.co@gmail.com',
+      from: 'flavor@grubana.com',
       subject: 'Welcome to Ping My Appetite!',
       text: 'Thanks for subscribing to the All-Access Plan! We’re excited to have you on board.',
       html: '<strong>Thanks for subscribing to the All-Access Plan! We’re excited to have you on board.</strong>',
@@ -1380,7 +1380,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           
           <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
           
-          <p>Need help getting started? Contact us at grubana.co@gmail.com</p>
+          <p>Need help getting started? Contact us at flavor@grubana.com</p>
           
           <p>Happy food trucking!<br/>The Grubana Team</p>
         </div>
@@ -1397,7 +1397,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
     
     const mailOptions = {
       to: email,
-      from: 'grubana.co@gmail.com',
+      from: 'flavor@grubana.com',
       subject: messageContent.subject,
       html: messageContent.html,
     };
@@ -1469,13 +1469,13 @@ app.post('/api/send-referral-notification', async (req, res) => {
   try {
     // TODO: Add the second email address here
     const notificationEmails = [
-      'grubana.co@gmail.com',
+      'flavor@grubana.com',
       // 'second-email@example.com' // Replace with actual second email
     ];
     
     const mailOptions = {
       to: notificationEmails,
-      from: 'grubana.co@gmail.com',
+      from: 'flavor@grubana.com',
       subject: `🎯 New Arayaki Hibachi Referral - ${newUserName} (${selectedPlan} plan)`,
       html: referralEmailHtml,
     };
@@ -1503,7 +1503,7 @@ app.post('/api/send-beta-code', async (req, res) => {
   try {
     await sgMail.send({
       to: email,
-      from: 'grubana.co@gmail.com',
+      from: 'flavor@grubana.com',
       subject: 'Beta Access Invite',
       text: 'You have been invited to the Grubana beta!',
       html: '<strong>You have been invited to the Grubana beta!</strong>',

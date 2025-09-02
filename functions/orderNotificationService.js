@@ -1,6 +1,6 @@
-const admin = require('firebase-admin');
-const { logger } = require('firebase-functions');
-const { sendOrderStatusSMS, checkTwilioConfig } = require('./twilioService');
+import admin from 'firebase-admin';
+import { logger } from 'firebase-functions';
+import { sendOrderStatusSMS, checkTwilioConfig } from './twilioService.js';
 
 /**
  * Calculate estimated preparation time based on order complexity
@@ -389,7 +389,7 @@ const getNotificationStatus = () => {
   };
 };
 
-module.exports = {
+export {
   sendOrderStatusNotification,
   calculateEstimatedTime,
   getUserNotificationPreferences,

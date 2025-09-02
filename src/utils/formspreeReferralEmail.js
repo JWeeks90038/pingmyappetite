@@ -26,12 +26,12 @@ Grubana System
     `;
 
     // Send to Formspree endpoint
-    // Replace 'mpwlvzaj' with your actual Formspree form ID
-    const response = await fetch('https://formspree.io/f/mpwlvzaj', {
+    // Replace 'mblakpqg' with your actual Formspree form ID
+    const response = await fetch('https://formspree.io/f/mblakpqg', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: 'grubana.co@gmail.com',
+        to: 'flavor@grubana.com',
         subject: `🎯 New Arayaki Hibachi Referral - ${newUserName} (${selectedPlan} plan)`,
         message: notificationContent,
         referralCode: referralCode,

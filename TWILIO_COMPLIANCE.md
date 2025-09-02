@@ -22,7 +22,7 @@ View SMS Terms
 ### 3. **Opt-out Mechanisms** ✅
 - **STOP Command**: Users can text "STOP" to opt out
 - **Account Settings**: Toggle SMS notifications in user settings
-- **Support Email**: Contact grubana.co@gmail.com to opt out
+- **Support Email**: Contact flavor@grubana.com to opt out
 
 ### 4. **Message Frequency Disclosure** ✅
 Clearly stated in SMS consent page:
@@ -114,7 +114,7 @@ Food truck discovery and customer engagement platform
 
 **Business Name**: Grubana  
 **Website**: https://grubana.com  
-**Support Email**: grubana.co@gmail.com  
+**Support Email**: flavor@grubana.com  
 **SMS Consent Page**: https://grubana.com/sms-consent  
 **Privacy Policy**: https://grubana.com/privacypolicy  
 **Terms of Service**: https://grubana.com/termsofservice  

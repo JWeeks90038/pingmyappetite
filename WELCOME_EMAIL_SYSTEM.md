@@ -71,7 +71,7 @@ TWILIO_PHONE_NUMBER=+1234567890
 - **Form ID**: mpwlvzaj (already configured)
 - **Endpoint**: https://formspree.io/f/mpwlvzaj
 - **Fields**: to, subject, message, user metadata
-- **Reply-to**: grubana.co@gmail.com
+- **Reply-to**: flavor@grubana.com
 
 ### Twilio Setup (For SMS)
 1. Get credentials from https://console.twilio.com/

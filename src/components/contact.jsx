@@ -31,7 +31,7 @@ const handleSubmit = async (e) => {
 
   try {
     // Send contact form via Formspree
-    const response = await fetch('https://formspree.io/f/xjkrnnjd', {
+    const response = await fetch('https://formspree.io/f/xovnlpyz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -106,7 +106,7 @@ const handleSubmit = async (e) => {
         <div className="contact-info">
           <h2>Other Ways to Connect</h2>
           <p>
-            <strong>Email:</strong> <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a><br />
+            <strong>Email:</strong> <a href="mailto:flavor@grubana.com">flavor@grubana.com</a><br />
             <strong>Instagram:</strong> <a href="https://www.instagram.com/grubanaapp/" target="_blank" rel="noopener noreferrer">@grubanaapp</a><br />
             <strong>Facebook:</strong> <a href="https://www.facebook.com/profile.php?id=61576765928284" target="_blank" rel="noopener noreferrer">Grubana on Facebook</a>
           </p>

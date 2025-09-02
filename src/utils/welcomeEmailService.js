@@ -54,7 +54,7 @@ Ready to grow your business? Visit your dashboard to get started!
 
 The Grubana Team
 
-Questions? Reply to this email or contact us at grubana.co@gmail.com
+Questions? Reply to this email or contact us at flavor@grubana.com
         `
       },
       'event-organizer': {
@@ -99,7 +99,7 @@ P.S. Consider our paid plans for unlimited events and premium features!
         user_plan: plan,
         email_type: 'welcome_free_user',
         _subject: messageConfig.subject,
-        _replyto: 'grubana.co@gmail.com'
+        _replyto: 'flavor@grubana.com'
       }),
     });
 
@@ -151,7 +151,7 @@ Your 30-day free trial has started! Here's what to do next:
 
 Start maximizing your Pro benefits today: https://grubana.com/dashboard
 
-Questions about your Pro features? We're here to help at grubana.co@gmail.com
+Questions about your Pro features? We're here to help at flavor@grubana.com
 
 Welcome to the Pro community!
 The Grubana Pro Team
@@ -183,7 +183,7 @@ Your 30-day free trial has started! Here's your premium roadmap:
 
 Unlock the full potential: https://grubana.com/dashboard
 
-Your dedicated support team is ready to help you succeed: grubana.co@gmail.com
+Your dedicated support team is ready to help you succeed: flavor@grubana.com
 
 Welcome to All-Access excellence!
 The Grubana Elite Team
@@ -213,7 +213,7 @@ Your 30-day free trial has started! Get your first event rolling:
 
 Start creating memorable events: https://grubana.com/event-dashboard
 
-Need help planning your first event? Contact us at grubana.co@gmail.com
+Need help planning your first event? Contact us at flavor@grubana.com
 
 Happy event organizing!
 The Grubana Events Team
@@ -243,7 +243,7 @@ Your 30-day free trial has started! Here's your pro roadmap:
 
 Maximize your event potential: https://grubana.com/event-dashboard
 
-Your Pro success team is here to help: grubana.co@gmail.com
+Your Pro success team is here to help: flavor@grubana.com
 
 Welcome to Pro-level events!
 The Grubana Events Pro Team
@@ -276,7 +276,7 @@ Your dedicated account manager will contact you within 24 hours to help you get 
 
 Enterprise-level events start here: https://grubana.com/event-dashboard
 
-Direct access to your Premium team: grubana.co@gmail.com
+Direct access to your Premium team: flavor@grubana.com
 
 Welcome to Premium excellence!
 The Grubana Enterprise Team
@@ -308,7 +308,7 @@ The Grubana Enterprise Team
         email_type: 'welcome_paid_user',
         trial_status: 'active',
         _subject: messageConfig.subject,
-        _replyto: 'grubana.co@gmail.com'
+        _replyto: 'flavor@grubana.com'
       }),
     });
 

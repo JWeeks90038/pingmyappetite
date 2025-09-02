@@ -163,7 +163,7 @@ const PrivacyPolicy = () => {
       <div>You may object to or restrict certain processing of your data.</div><br></br>
       <div>You may request a copy of your data in a portable format.</div><br></br>
       <div>You can opt-out of marketing emails and SMS messages at any time.</div><br></br>
-      <div>To exercise your rights, please contact us at grubana.co@gmail.com.</div><br></br>
+      <div>To exercise your rights, please contact us at flavor@grubana.com.</div><br></br>
   </section>
 
   <section className="section">
@@ -228,7 +228,7 @@ const PrivacyPolicy = () => {
   <section className="section">
     <h2>15. Contact Us</h2>
     <p>
-      If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a>.
+      If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at <a href="mailto:flavor@grubana.com">flavor@grubana.com</a>.
     </p>
   </section>
 </section>

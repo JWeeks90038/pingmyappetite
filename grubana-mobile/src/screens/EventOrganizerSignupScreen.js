@@ -8,13 +8,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Image,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { Picker } from '@react-native-picker/picker';
 
 export default function EventOrganizerSignupScreen({ navigation }) {
   const [formData, setFormData] = useState({
@@ -28,27 +27,39 @@ export default function EventOrganizerSignupScreen({ navigation }) {
     website: '',
     description: '',
     plan: '',
+    referralCode: '',
+    smsConsent: false,
   });
   const [loading, setLoading] = useState(false);
-
-  const organizationTypes = [
-    { label: 'Select Organization Type', value: '' },
-    { label: 'Community Organization', value: 'community' },
-    { label: 'City/Municipality', value: 'government' },
-    { label: 'Event Planning Company', value: 'event-company' },
-    { label: 'Business District', value: 'business-district' },
-    { label: 'Non-Profit Organization', value: 'non-profit' },
-    { label: 'Mall/Shopping Center', value: 'retail' },
-    { label: 'Corporate/Office Complex', value: 'corporate' },
-    { label: 'School/University', value: 'education' },
-    { label: 'Other', value: 'other' },
-  ];
+  const [isValidReferral, setIsValidReferral] = useState(false);
+  const [referralMessage, setReferralMessage] = useState('');
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+
+    // Validate referral code in real-time
+    if (field === 'referralCode') {
+      validateReferralCode(value);
+    }
+  };
+
+  const validateReferralCode = (code) => {
+    if (!code.trim()) {
+      setIsValidReferral(false);
+      setReferralMessage('');
+      return;
+    }
+
+    if (code.toLowerCase() === 'arayaki_hibachi') {
+      setIsValidReferral(true);
+      setReferralMessage('✅ Valid referral code applied! 30-day free trial included.');
+    } else {
+      setIsValidReferral(false);
+      setReferralMessage('❌ Invalid referral code. This code is not recognized.');
+    }
   };
 
   const handleSignup = async () => {
@@ -92,11 +103,41 @@ export default function EventOrganizerSignupScreen({ navigation }) {
         description: formData.description,
         plan: formData.plan || 'basic',
         subscriptionStatus: 'active',
+        referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
+        hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
+        
+        // Notification preferences based on SMS consent
+        notificationPreferences: {
+          emailNotifications: true,
+          smsNotifications: formData.smsConsent || false,
+          eventUpdates: true,
+          marketingEmails: true,
+        },
+        
+        // Store explicit SMS consent for compliance
+        smsConsent: formData.smsConsent || false,
+        smsConsentTimestamp: formData.smsConsent ? serverTimestamp() : null,
+        
         createdAt: serverTimestamp(),
         stripeCustomerId: null,
       };
 
       await setDoc(doc(db, 'users', user.uid), userData);
+
+      // If valid referral code used, create referral document
+      if (formData.referralCode?.toLowerCase() === 'arayaki_hibachi') {
+        await setDoc(doc(db, 'referrals', user.uid), {
+          userId: user.uid,
+          userEmail: formData.email,
+          userName: formData.contactName,
+          organizationName: formData.organizationName,
+          referralCode: formData.referralCode,
+          selectedPlan: formData.plan || 'basic',
+          signupAt: serverTimestamp(),
+          paymentCompleted: (formData.plan || 'basic') === 'basic', // Basic is free
+          emailSent: false
+        });
+      }
 
       Alert.alert(
         'Success!',
@@ -131,14 +172,6 @@ export default function EventOrganizerSignupScreen({ navigation }) {
           >
             <Ionicons name="arrow-back" size={24} color="#2c6f57" />
           </TouchableOpacity>
-          
-          <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/grubana-logo.png')} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
           
           <Text style={styles.title}>Join as Event Organizer</Text>
           <Text style={styles.subtitle}>
@@ -192,17 +225,12 @@ export default function EventOrganizerSignupScreen({ navigation }) {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Organization Type *</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={formData.organizationType}
-                onValueChange={(value) => handleInputChange('organizationType', value)}
-                style={styles.picker}
-              >
-                {organizationTypes.map((type) => (
-                  <Picker.Item key={type.value} label={type.label} value={type.value} />
-                ))}
-              </Picker>
-            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Community Organization, City/Municipality, Event Planning Company"
+              value={formData.organizationType}
+              onChangeText={(value) => handleInputChange('organizationType', value)}
+            />
           </View>
 
           <View style={styles.inputGroup}>
@@ -230,6 +258,29 @@ export default function EventOrganizerSignupScreen({ navigation }) {
           </View>
 
           <View style={styles.inputGroup}>
+            <Text style={styles.label}>Referral Code (Optional)</Text>
+            <TextInput
+              style={[
+                styles.input,
+                isValidReferral && styles.inputSuccess,
+                referralMessage.includes('❌') && styles.inputError
+              ]}
+              placeholder="Enter referral code"
+              value={formData.referralCode}
+              onChangeText={(value) => handleInputChange('referralCode', value)}
+              autoCapitalize="characters"
+            />
+            {referralMessage ? (
+              <Text style={[
+                styles.referralMessage,
+                isValidReferral ? styles.successMessage : styles.errorMessage
+              ]}>
+                {referralMessage}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Password *</Text>
             <TextInput
               style={styles.input}
@@ -251,6 +302,19 @@ export default function EventOrganizerSignupScreen({ navigation }) {
             />
           </View>
 
+          {/* SMS Consent */}
+          <View style={styles.consentContainer}>
+            <Switch
+              value={formData.smsConsent}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, smsConsent: value }))}
+              trackColor={{ false: '#767577', true: '#ff6b35' }}
+              thumbColor={formData.smsConsent ? '#fff' : '#f4f3f4'}
+            />
+            <Text style={styles.consentText}>
+              I consent to receive SMS notifications about events and important updates
+            </Text>
+          </View>
+
           <TouchableOpacity
             style={[styles.signupButton, loading && styles.buttonDisabled]}
             onPress={handleSignup}
@@ -266,6 +330,15 @@ export default function EventOrganizerSignupScreen({ navigation }) {
               By signing up, you agree to our Terms of Service and Privacy Policy
             </Text>
           </View>
+
+          <TouchableOpacity 
+            style={styles.signInButton}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={styles.signInButtonText}>
+              Have an account already? Sign In
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -292,13 +365,6 @@ const styles = {
     top: 60,
     left: 20,
     padding: 10,
-  },
-  logoContainer: {
-    marginBottom: 20,
-  },
-  logo: {
-    width: 80,
-    height: 80,
   },
   title: {
     fontSize: 24,
@@ -338,14 +404,21 @@ const styles = {
     height: 80,
     textAlignVertical: 'top',
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+  inputSuccess: {
+    borderColor: '#28a745',
   },
-  picker: {
-    height: 50,
+  inputError: {
+    borderColor: '#dc3545',
+  },
+  referralMessage: {
+    marginTop: 5,
+    fontSize: 14,
+  },
+  successMessage: {
+    color: '#28a745',
+  },
+  errorMessage: {
+    color: '#dc3545',
   },
   signupButton: {
     backgroundColor: '#2c6f57',
@@ -371,5 +444,28 @@ const styles = {
     color: '#666',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  consentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    paddingHorizontal: 10,
+  },
+  consentText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 10,
+    flex: 1,
+    lineHeight: 20,
+  },
+  signInButton: {
+    marginTop: 15,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  signInButtonText: {
+    fontSize: 16,
+    color: '#2c6f57',
+    fontWeight: '500',
   },
 };

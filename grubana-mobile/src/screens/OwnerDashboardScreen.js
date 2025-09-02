@@ -11,8 +11,10 @@ import {
   Image,
   AppState,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useAuth } from '../components/AuthContext';
+import ContactFormModal from '../components/ContactFormModal';
 import { db } from '../services/firebase';
 import { doc, updateDoc, onSnapshot, setDoc } from 'firebase/firestore';
 
@@ -23,6 +25,7 @@ const OwnerDashboardScreen = () => {
   const [locationTracking, setLocationTracking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [truckData, setTruckData] = useState(null);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   // Monitor truck location document
   useEffect(() => {
@@ -190,11 +193,20 @@ const OwnerDashboardScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/grubana-logo-tshirt.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.headerTop}>
+          <Image 
+            source={require('../../assets/grubana-logo-tshirt.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <TouchableOpacity 
+            style={styles.contactButton}
+            onPress={() => setShowContactModal(true)}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#2c6f57" />
+            <Text style={styles.contactButtonText}>Contact Us</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.title}>Owner Dashboard</Text>
         <Text style={styles.subtitle}>Manage your food truck presence</Text>
       </View>
@@ -298,6 +310,12 @@ const OwnerDashboardScreen = () => {
           🎯 Create food drops during peak hours to attract more customers.
         </Text>
       </View>
+
+      {/* Contact Form Modal */}
+      <ContactFormModal 
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </ScrollView>
   );
 };
@@ -321,6 +339,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   title: {
     fontSize: 24,

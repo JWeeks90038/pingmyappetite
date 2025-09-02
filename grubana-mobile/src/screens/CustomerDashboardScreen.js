@@ -18,6 +18,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../components/AuthContext';
+import ContactFormModal from '../components/ContactFormModal';
 import { auth, db } from '../services/firebase';
 import { CUISINE_TYPES } from '../constants/cuisineTypes';
 import {
@@ -56,6 +57,7 @@ const CustomerDashboardScreen = () => {
   const [customerPings, setCustomerPings] = useState([]); // Add customer pings state
   const [showCuisineModal, setShowCuisineModal] = useState(false); // Cuisine filter modal
   const [excludedCuisines, setExcludedCuisines] = useState([]); // Excluded cuisines (empty = show all)
+  const [showContactModal, setShowContactModal] = useState(false); // Contact form modal
   
   const mapRef = useRef(null);
   const sendingRef = useRef(false);
@@ -606,11 +608,20 @@ const CustomerDashboardScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Image 
-          source={require('../../assets/grubana-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.headerTop}>
+          <Image 
+            source={require('../../assets/grubana-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <TouchableOpacity 
+            style={styles.contactButton}
+            onPress={() => setShowContactModal(true)}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#2c6f57" />
+            <Text style={styles.contactButtonText}>Contact Us</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.title}>
           Welcome{username ? `, ${username}` : ''}!
         </Text>
@@ -1003,6 +1014,12 @@ const CustomerDashboardScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Contact Form Modal */}
+      <ContactFormModal 
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </ScrollView>
   );
 };
@@ -1026,6 +1043,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   title: {
     fontSize: 24,

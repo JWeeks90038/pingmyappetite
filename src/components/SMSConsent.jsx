@@ -93,7 +93,7 @@ const SMSConsent = () => {
             
             <div className="opt-out-method">
               <h3>3. Contact Support</h3>
-              <p>Email us at <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a> to opt out</p>
+              <p>Email us at <a href="mailto:flavor@grubana.com">flavor@grubana.com</a> to opt out</p>
             </div>
           </div>
           
@@ -107,7 +107,7 @@ const SMSConsent = () => {
           <p>For help with SMS messages, you can:</p>
           <ul>
             <li><strong>Text HELP</strong> to any Grubana SMS for assistance</li>
-            <li><strong>Email Support:</strong> <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a></li>
+            <li><strong>Email Support:</strong> <a href="mailto:flavor@grubana.com">flavor@grubana.com</a></li>
             <li><strong>Visit Help:</strong> <Link to="/support">Support Center</Link></li>
           </ul>
         </section>
@@ -142,7 +142,7 @@ const SMSConsent = () => {
           <h2>📞 Contact Information</h2>
           <div className="contact-details">
             <p><strong>Grubana SMS Program</strong></p>
-            <p>Email: <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a></p>
+            <p>Email: <a href="mailto:flavor@grubana.com">flavor@grubana.com</a></p>
             <p>Website: <a href="https://grubana.com">https://grubana.com</a></p>
             <p>Support: Text HELP to any Grubana message</p>
           </div>

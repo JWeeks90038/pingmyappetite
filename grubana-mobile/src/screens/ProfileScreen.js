@@ -17,6 +17,7 @@ import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
+import ContactFormModal from '../components/ContactFormModal';
 import { auth, db, storage } from '../firebase';
 import { useStripe, CardField, usePaymentSheet } from '@stripe/stripe-react-native';
 
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [modalInput, setModalInput] = useState('');
   
   // Payment method states
@@ -809,6 +811,13 @@ export default function ProfileScreen() {
       {/* Action Buttons */}
       <View style={styles.section}>
         <TouchableOpacity 
+          style={styles.contactButton} 
+          onPress={() => setShowContactModal(true)}
+        >
+          <Text style={styles.contactButtonText}>Contact Support</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
           style={styles.logoutButton} 
           onPress={handleLogout}
         >
@@ -827,6 +836,12 @@ export default function ProfileScreen() {
           <Text style={styles.deleteButtonText}>Delete Account</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Contact Form Modal */}
+      <ContactFormModal 
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </ScrollView>
   );
 }
@@ -1138,6 +1153,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  contactButton: {
+    backgroundColor: '#2c6f57',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+    marginBottom: 15,
+  },
+  contactButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   logoutButton: {
     backgroundColor: '#d32f2f',

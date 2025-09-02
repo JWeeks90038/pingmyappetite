@@ -1,5 +1,5 @@
-const twilio = require('twilio');
-const { logger } = require('firebase-functions');
+import twilio from 'twilio';
+import { logger } from 'firebase-functions';
 
 // Initialize Twilio client
 let twilioClient = null;
@@ -190,7 +190,7 @@ const checkTwilioConfig = () => {
   };
 };
 
-module.exports = {
+export {
   initializeTwilio,
   sendSMS,
   sendOrderStatusSMS,

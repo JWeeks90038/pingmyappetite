@@ -29,7 +29,7 @@ const RefundPolicy = () => (
     <section className="section">
       <h2>4. Exceptional Circumstances</h2>
       <p>
-        Refunds may be granted, at our sole and absolute discretion, in cases of duplicate charges, proven technical errors resulting in incorrect billing, or other extenuating circumstances. <br></br><br></br>To request a refund under these circumstances, you must contact us at <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a> within 14 days of the charge and provide all relevant details and supporting documentation. Grubana’s decision regarding refunds is final.
+        Refunds may be granted, at our sole and absolute discretion, in cases of duplicate charges, proven technical errors resulting in incorrect billing, or other extenuating circumstances. <br></br><br></br>To request a refund under these circumstances, you must contact us at <a href="mailto:flavor@grubana.com">flavor@grubana.com</a> within 14 days of the charge and provide all relevant details and supporting documentation. Grubana’s decision regarding refunds is final.
       </p>
     </section>
 
@@ -43,7 +43,7 @@ const RefundPolicy = () => (
     <section className="section">
       <h2>6. Contact Us</h2>
       <p>
-        If you have any questions about this Refund Policy or wish to request a refund, please contact us at <a href="mailto:grubana.co@gmail.com">grubana.co@gmail.com</a>.
+        If you have any questions about this Refund Policy or wish to request a refund, please contact us at <a href="mailto:flavor@grubana.com">flavor@grubana.com</a>.
       </p>
     </section>
 
