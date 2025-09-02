@@ -1,7 +1,14 @@
 import { onRequest } from "firebase-functions/v2/https";
-import * as functions from "firebase-functions";
 import Stripe from "stripe";
-import * as admin from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+
+// Initialize Firebase Admin if not already initialized
+if (getApps().length === 0) {
+  initializeApp();
+}
+
+const db = getFirestore();
 
 // CORS headers for mobile app
 const corsHeaders = {
@@ -14,8 +21,8 @@ export const createPaymentIntent = onRequest({
   region: "us-central1",
   cors: true
 }, async (req, res) => {
-  // Initialize Stripe with the secret from config
-  const stripe = new Stripe(functions.config().stripe.secret_key, {
+  // Initialize Stripe with the secret from environment
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
     apiVersion: "2024-06-20",
   });
 
@@ -51,10 +58,10 @@ export const createPaymentIntent = onRequest({
 
     // Get or create Stripe customer
     let customer;
-    const userDoc = await admin.firestore().collection("users").doc(userId).get();
+    const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data();
 
-    if (userData.stripeCustomerId) {
+    if (userData && userData.stripeCustomerId) {
       // Existing customer
       customer = await stripe.customers.retrieve(userData.stripeCustomerId);
     } else {
@@ -69,10 +76,12 @@ export const createPaymentIntent = onRequest({
         },
       });
 
-      // Update user document with Stripe customer ID
-      await admin.firestore().collection("users").doc(userId).update({
-        stripeCustomerId: customer.id,
-      });
+      // Update user document with Stripe customer ID (only if user exists)
+      if (userData) {
+        await db.collection("users").doc(userId).update({
+          stripeCustomerId: customer.id,
+        });
+      }
     }
 
     // Apply discount for valid referral
@@ -116,8 +125,8 @@ export const handleSubscriptionUpdate = onRequest({
   region: "us-central1",
   cors: true
 }, async (req, res) => {
-  // Initialize Stripe with the secret from config
-  const stripe = new Stripe(functions.config().stripe.secret_key, {
+  // Initialize Stripe with the secret from environment
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
     apiVersion: "2024-06-20",
   });
 
@@ -148,17 +157,17 @@ export const handleSubscriptionUpdate = onRequest({
 
     if (paymentIntent.status === "succeeded") {
       // Update user subscription status in Firestore
-      await admin.firestore().collection("users").doc(userId).update({
+      await db.collection("users").doc(userId).update({
         subscriptionStatus: "active",
         paymentCompleted: true,
-        subscriptionStartDate: admin.firestore.FieldValue.serverTimestamp(),
+        subscriptionStartDate: FieldValue.serverTimestamp(),
         stripePaymentIntentId: paymentIntentId,
         plan: paymentIntent.metadata.planType,
       });
 
       // If referral was used, update referral document
       if (paymentIntent.metadata.discountApplied === "true") {
-        const referralQuery = await admin.firestore()
+        const referralQuery = await db
           .collection("referrals")
           .where("userId", "==", userId)
           .get();
@@ -167,7 +176,7 @@ export const handleSubscriptionUpdate = onRequest({
           const referralDoc = referralQuery.docs[0];
           await referralDoc.ref.update({
             paymentCompleted: true,
-            paymentCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+            paymentCompletedAt: FieldValue.serverTimestamp(),
             stripePaymentIntentId: paymentIntentId,
           });
         }

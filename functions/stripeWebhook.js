@@ -1,13 +1,20 @@
 import { onRequest } from "firebase-functions/v2/https";
-import * as functions from "firebase-functions";
 import Stripe from "stripe";
-import * as admin from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+
+// Initialize Firebase Admin if not already initialized
+if (getApps().length === 0) {
+  initializeApp();
+}
+
+const db = getFirestore();
 
 export const stripeWebhook = onRequest({
   region: "us-central1",
 }, async (req, res) => {
   // Initialize Stripe
-  const stripe = new Stripe(functions.config().stripe.secret_key, {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
     apiVersion: "2024-06-20",
   });
 
@@ -15,7 +22,7 @@ export const stripeWebhook = onRequest({
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, functions.config().stripe.endpoint_secret);
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, process.env.STRIPE_ENDPOINT_SECRET);
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
     res.status(400).send(`Webhook Error: ${err.message}`);
@@ -76,17 +83,17 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
 
   try {
     // Update user subscription status
-    await admin.firestore().collection("users").doc(userId).update({
+    await db.collection("users").doc(userId).update({
       subscriptionStatus: "active",
       paymentCompleted: true,
-      subscriptionStartDate: admin.firestore.FieldValue.serverTimestamp(),
+      subscriptionStartDate: FieldValue.serverTimestamp(),
       stripePaymentIntentId: paymentIntent.id,
       plan: paymentIntent.metadata.planType,
     });
 
     // Update referral if applicable
     if (paymentIntent.metadata.discountApplied === "true") {
-      const referralQuery = await admin.firestore()
+      const referralQuery = await db
         .collection("referrals")
         .where("userId", "==", userId)
         .get();
@@ -95,7 +102,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         const referralDoc = referralQuery.docs[0];
         await referralDoc.ref.update({
           paymentCompleted: true,
-          paymentCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          paymentCompletedAt: FieldValue.serverTimestamp(),
           stripePaymentIntentId: paymentIntent.id,
         });
       }
@@ -118,9 +125,9 @@ async function handlePaymentIntentFailed(paymentIntent) {
 
   try {
     // Update user to reflect payment failure
-    await admin.firestore().collection("users").doc(userId).update({
+    await db.collection("users").doc(userId).update({
       subscriptionStatus: "payment_failed",
-      lastPaymentAttempt: admin.firestore.FieldValue.serverTimestamp(),
+      lastPaymentAttempt: FieldValue.serverTimestamp(),
       stripePaymentIntentId: paymentIntent.id,
     });
 
