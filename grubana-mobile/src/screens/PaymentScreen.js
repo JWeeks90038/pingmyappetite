@@ -12,11 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../components/AuthContext';
+import { useStripe } from '@stripe/stripe-react-native';
 
 export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(route.params?.plan || 'pro');
   const { user } = useAuth();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   
   const { hasValidReferral, referralCode, userId } = route.params || {};
 
@@ -54,49 +56,96 @@ export default function PaymentScreen({ navigation, route }) {
     setLoading(true);
     
     try {
-      // For now, simulate payment completion
+      // Create payment intent using Firebase Functions
+      const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createPaymentIntent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: Math.round(plans[selectedPlan].priceAmount * 100), // Amount in cents
+          currency: 'usd',
+          planType: selectedPlan,
+          userId: user.uid,
+          userEmail: user.email,
+          hasValidReferral,
+          referralCode,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        Alert.alert('Error', result.error || 'Failed to create payment');
+        setLoading(false);
+        return;
+      }
+
+      // Initialize payment sheet
+      const initResponse = await initPaymentSheet({
+        paymentIntentClientSecret: result.clientSecret,
+        merchantDisplayName: 'Grubana',
+        applePay: {
+          merchantId: 'merchant.com.grubana.app', // Replace with your actual Apple Pay merchant ID
+        },
+        googlePay: {
+          merchantId: 'merchant.com.grubana', // Replace with your actual Google Pay merchant ID
+          testEnvironment: false, // Set to false for production
+        },
+        returnURL: 'grubana://payment-return',
+        defaultBillingDetails: {
+          email: user.email,
+        },
+      });
+
+      if (initResponse.error) {
+        Alert.alert('Error', initResponse.error.message);
+        setLoading(false);
+        return;
+      }
+
+      // Present payment sheet
+      const paymentResponse = await presentPaymentSheet();
+
+      if (paymentResponse.error) {
+        if (paymentResponse.error.code !== 'Canceled') {
+          Alert.alert('Payment failed', paymentResponse.error.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Payment successful - update user's subscription status locally
+      // The webhook will also update this, but we do it here for immediate UI feedback
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        subscriptionStatus: 'active',
+        plan: selectedPlan,
+        paymentCompleted: true,
+        subscriptionStartDate: new Date(),
+        stripeCustomerId: result.customerId,
+      });
+
+      // Show success message with discount info if applicable
+      let successMessage = `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`;
+      if (result.discountApplied) {
+        const savings = ((result.originalAmount - result.amount) / 100).toFixed(2);
+        successMessage += `\n\nReferral discount applied! You saved $${savings}.`;
+      }
+
       Alert.alert(
-        'Payment Simulation',
-        `This would process payment for ${plans[selectedPlan].name} (${plans[selectedPlan].price}/month).\n\nFor testing, we'll mark payment as completed.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => setLoading(false)
-          },
-          {
-            text: 'Simulate Payment',
-            onPress: async () => {
-              try {
-                // Update user's subscription status in Firestore
-                const userRef = doc(db, 'users', user.uid);
-                await updateDoc(userRef, {
-                  subscriptionStatus: 'active',
-                  plan: selectedPlan,
-                  paymentCompleted: true,
-                  subscriptionStartDate: new Date(),
-                });
-                
-                Alert.alert(
-                  'Payment Successful!',
-                  `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`,
-                  [{ text: 'Continue', onPress: () => {
-                    // Navigation will automatically switch to owner dashboard
-                    // since subscriptionStatus is now 'active'
-                  }}]
-                );
-              } catch (error) {
-                console.error('Error updating subscription:', error);
-                Alert.alert('Error', 'Failed to complete payment. Please try again.');
-              } finally {
-                setLoading(false);
-              }
-            }
-          }
-        ]
+        'Payment Successful!',
+        successMessage,
+        [{ text: 'Continue', onPress: () => {
+          // Navigation will automatically switch to owner dashboard
+          // since subscriptionStatus is now 'active'
+        }}]
       );
+
     } catch (error) {
+      console.error('Payment error:', error);
       Alert.alert('Error', 'Payment failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };

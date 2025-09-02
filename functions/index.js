@@ -1,5 +1,8 @@
+// Export Stripe payment functions
+export * from "./stripePayments.js";
+
 // Export webhook handler
-// export * from "./stripeWebhook.js"; // TODO: Create this file for Stripe webhooks
+export * from "./stripeWebhook.js";
 
 // Export scheduled tasks
 export * from "./scheduled-tasks.js";

@@ -254,13 +254,61 @@ function MainStackNavigator() {
 
 // Inner app component that uses auth context
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, userData } = useAuth();
+
+  console.log('🔍 AppContent Debug:', {
+    hasUser: !!user,
+    loading,
+    hasUserData: !!userData,
+    userData: userData ? {
+      plan: userData.plan,
+      subscriptionStatus: userData.subscriptionStatus,
+      role: userData.role,
+      uid: userData.uid
+    } : null
+  });
 
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text>Loading...</Text>
       </View>
+    );
+  }
+
+  // Check if user needs to complete payment
+  const needsPayment = user && userData && 
+    (userData.plan === 'pro' || userData.plan === 'all-access') && 
+    (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus);
+
+  console.log('🔍 Payment Check in App.js:', {
+    needsPayment,
+    hasUser: !!user,
+    hasUserData: !!userData,
+    plan: userData?.plan,
+    subscriptionStatus: userData?.subscriptionStatus,
+    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access',
+    condition2: userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus
+  });
+
+  if (needsPayment) {
+    console.log('🎯 Showing Payment Screen for plan:', userData?.plan);
+    return (
+      <NavigationContainer>
+        <StatusBar style="light" />
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen 
+            name="PaymentScreen" 
+            component={PaymentScreen}
+            initialParams={{
+              plan: userData.plan,
+              hasValidReferral: userData.hasValidReferral,
+              referralCode: userData.referralCode,
+              userId: user.uid
+            }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     );
   }
 

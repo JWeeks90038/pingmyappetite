@@ -152,7 +152,28 @@ const AuthStack = () => {
 const AppNavigator = () => {
   const { user, userRole, userData } = useAuth();
 
+  // Enhanced debug logging
+  console.log('🔍 AppNavigator Render:', {
+    timestamp: new Date().toISOString(),
+    hasUser: !!user,
+    userId: user?.uid,
+    userRole,
+    hasUserData: !!userData,
+    userData: userData ? {
+      plan: userData.plan,
+      subscriptionStatus: userData.subscriptionStatus,
+      role: userData.role,
+      uid: userData.uid
+    } : null
+  });
+
   if (!user) {
+    console.log('🔍 No user - showing AuthStack');
+    return <AuthStack />;
+  }
+
+  if (!userData) {
+    console.log('🔍 User exists but no userData yet - showing AuthStack while loading');
     return <AuthStack />;
   }
 
@@ -161,8 +182,18 @@ const AppNavigator = () => {
     (userData.plan === 'pro' || userData.plan === 'all-access') && 
     (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus);
 
+  console.log('🔍 Payment Check:', {
+    needsPayment,
+    plan: userData?.plan,
+    subscriptionStatus: userData?.subscriptionStatus,
+    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access',
+    condition2: userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus,
+    bothConditions: (userData?.plan === 'pro' || userData?.plan === 'all-access') && (userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus)
+  });
+
   // If user needs payment, show payment in a stack
   if (needsPayment) {
+    console.log('🎯 Showing Payment Screen for:', userData?.plan);
     return (
       <Stack.Navigator
         screenOptions={{
@@ -194,6 +225,7 @@ const AppNavigator = () => {
   }
 
   // Return different navigators based on user role
+  console.log('🔍 Navigating to:', userRole === 'owner' ? 'OwnerTabs' : 'CustomerTabs');
   if (userRole === 'owner') {
     return <OwnerTabs />;
   } else {
