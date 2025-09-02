@@ -10,6 +10,7 @@ import CustomerDashboardScreen from '../screens/CustomerDashboardScreen';
 import OwnerDashboardScreen from '../screens/OwnerDashboardScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import PaymentScreen from '../screens/PaymentScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 // Import AuthContext
@@ -137,6 +138,11 @@ const AuthStack = () => {
         name="Signup" 
         component={SignupScreen}
         options={{ title: 'Create Account' }}
+      />
+      <Stack.Screen 
+        name="Payment" 
+        component={PaymentScreen}
+        options={{ title: 'Complete Payment' }}
       />
     </Stack.Navigator>
   );
