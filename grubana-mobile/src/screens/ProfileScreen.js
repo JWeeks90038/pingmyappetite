@@ -10,8 +10,11 @@ import {
   Switch,
   Modal,
   ActivityIndicator,
-  Image
+  Image,
+  Linking,
+  Platform
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { signOut, sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -56,6 +59,22 @@ export default function ProfileScreen() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [modalInput, setModalInput] = useState('');
   
+  // Business Hours state
+  const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
+  const [showTimePickerModal, setShowTimePickerModal] = useState(false);
+  const [businessHours, setBusinessHours] = useState({
+    monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    saturday: { open: '10:00 AM', close: '6:00 PM', closed: false },
+    sunday: { open: '10:00 AM', close: '4:00 PM', closed: false },
+  });
+  const [selectedDay, setSelectedDay] = useState('monday');
+  const [selectedTimeType, setSelectedTimeType] = useState('open');
+  const [tempTime, setTempTime] = useState(new Date());
+  
   // Payment method states
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
@@ -89,6 +108,12 @@ export default function ProfileScreen() {
         tiktok: userData.tiktok || '',
         twitter: userData.twitter || '',
       });
+      
+      // Load business hours if available and normalize to AM/PM format
+      if (userData.businessHours) {
+        const normalizedBusinessHours = normalizeBusinessHoursToAMPM(userData.businessHours);
+        setBusinessHours(normalizedBusinessHours);
+      }
     }
   }, [userData, user]);
 
@@ -285,6 +310,43 @@ export default function ProfileScreen() {
         { text: 'Got it!', style: 'default' }
       ]
     );
+  };
+
+  const openCustomerPortal = async () => {
+    try {
+      setLoading(true);
+      
+      // Call Firebase Function to create Customer Portal session
+      const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createCustomerPortalSession', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          returnUrl: 'grubana://profile' // Deep link back to profile screen
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        // Open the Stripe Customer Portal in external browser
+        const supported = await Linking.canOpenURL(data.url);
+        if (supported) {
+          await Linking.openURL(data.url);
+        } else {
+          Alert.alert('Error', 'Unable to open subscription management portal');
+        }
+      } else {
+        Alert.alert('Error', data.error || 'Failed to open subscription management');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      Alert.alert('Error', 'Failed to open subscription management portal');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveSocialLinks = async () => {
@@ -531,6 +593,201 @@ export default function ProfileScreen() {
     }
   };
 
+  // Business Hours Helper Functions
+  const formatBusinessHours = (hours) => {
+    if (!hours) return '';
+    
+    const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    const openDays = daysOfWeek.filter(day => !hours[day]?.closed);
+    if (openDays.length === 0) return 'Closed';
+    
+    // Group consecutive days with same hours
+    const groups = [];
+    let currentGroup = null;
+    
+    openDays.forEach(day => {
+      const dayHours = hours[day];
+      const timeString = `${dayHours.open}-${dayHours.close}`;
+      
+      if (!currentGroup || currentGroup.hours !== timeString) {
+        currentGroup = { days: [day], hours: timeString };
+        groups.push(currentGroup);
+      } else {
+        currentGroup.days.push(day);
+      }
+    });
+    
+    return groups.map(group => {
+      const dayNames = group.days.map(day => shortDays[daysOfWeek.indexOf(day)]);
+      const dayRange = dayNames.length === 1 ? dayNames[0] : 
+                      dayNames.length === 2 ? dayNames.join(', ') :
+                      `${dayNames[0]}-${dayNames[dayNames.length - 1]}`;
+      return `${dayRange}: ${group.hours}`;
+    }).join(', ');
+  };
+
+  // Function to normalize business hours to AM/PM format
+  const normalizeBusinessHoursToAMPM = (hours) => {
+    const normalizedHours = {};
+    
+    Object.keys(hours).forEach(day => {
+      const dayHours = hours[day];
+      normalizedHours[day] = {
+        ...dayHours,
+        open: convertTo12HourFormat(dayHours.open),
+        close: convertTo12HourFormat(dayHours.close)
+      };
+    });
+    
+    return normalizedHours;
+  };
+
+  // Function to convert time string to 12-hour AM/PM format
+  const convertTo12HourFormat = (timeStr) => {
+    if (!timeStr) return '9:00 AM';
+    
+    // If already in 12-hour format, return as is
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      return timeStr;
+    }
+    
+    // Convert from 24-hour format to 12-hour format
+    try {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes)) {
+        console.log('⚠️ Invalid time format:', timeStr, '- using default');
+        return '9:00 AM';
+      }
+      
+      let hour12 = hours;
+      let period = 'AM';
+      
+      if (hours === 0) {
+        hour12 = 12;
+        period = 'AM';
+      } else if (hours === 12) {
+        hour12 = 12;
+        period = 'PM';
+      } else if (hours > 12) {
+        hour12 = hours - 12;
+        period = 'PM';
+      }
+      
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      const converted = `${hour12}:${formattedMinutes} ${period}`;
+      
+      console.log('🕐 Converted', timeStr, '→', converted);
+      return converted;
+    } catch (error) {
+      console.error('Error converting time format:', error);
+      return '9:00 AM';
+    }
+  };
+
+  const openTimePicker = (day, timeType) => {
+    setSelectedDay(day);
+    setSelectedTimeType(timeType);
+    
+    const timeStr = businessHours[day][timeType];
+    let date = new Date();
+    
+    // Handle both 12-hour (9:00 AM) and 24-hour (09:00) formats
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      // 12-hour format
+      const [time, period] = timeStr.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      let hour24 = hours;
+      
+      if (period === 'PM' && hours !== 12) {
+        hour24 = hours + 12;
+      } else if (period === 'AM' && hours === 12) {
+        hour24 = 0;
+      }
+      
+      date.setHours(hour24, minutes, 0, 0);
+    } else {
+      // 24-hour format (legacy support)
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      date.setHours(hours, minutes, 0, 0);
+    }
+    
+    setTempTime(date);
+    setShowTimePickerModal(true);
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    if (Platform.OS === 'android') {
+      setShowTimePickerModal(false);
+    }
+    
+    if (selectedTime) {
+      setTempTime(selectedTime);
+      if (Platform.OS === 'ios') {
+        updateBusinessHours(selectedTime);
+      } else {
+        updateBusinessHours(selectedTime);
+      }
+    }
+  };
+
+  const updateBusinessHours = (time) => {
+    const timeStr = time.toLocaleTimeString('en-US', { 
+      hour12: true, 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    });
+
+    console.log('⏰ ProfileScreen: Setting business hours to 12-hour format:', timeStr);
+    console.log('⏰ ProfileScreen: Full business hours being updated:', {
+      day: selectedDay,
+      type: selectedTimeType,
+      newTime: timeStr,
+      currentBusinessHours: businessHours
+    });
+
+    setBusinessHours(prev => ({
+      ...prev,
+      [selectedDay]: {
+        ...prev[selectedDay],
+        [selectedTimeType]: timeStr
+      }
+    }));
+  };
+
+  const toggleDayClosed = (day) => {
+    setBusinessHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        closed: !prev[day].closed
+      }
+    }));
+  };
+
+  const saveBusinessHours = async () => {
+    try {
+      setLoading(true);
+      console.log('⏰ ProfileScreen: Saving business hours to Firestore:', businessHours);
+      
+      await updateDoc(doc(db, 'users', user.uid), {
+        businessHours: businessHours,
+        lastUpdated: new Date()
+      });
+      
+      console.log('✅ ProfileScreen: Business hours saved successfully to Firestore');
+      Alert.alert('Success', 'Business hours updated successfully!');
+      setShowBusinessHoursModal(false);
+    } catch (error) {
+      console.error('❌ ProfileScreen: Error saving business hours:', error);
+      Alert.alert('Error', 'Failed to save business hours');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Header with Logo */}
@@ -644,19 +901,29 @@ export default function ProfileScreen() {
               </View>
             ) : (
               // Regular text field
-              <View style={styles.fieldRow}>
+              <View style={key === 'hours' ? styles.businessHoursFieldContainer : styles.fieldRow}>
                 <Text style={styles.fieldValue}>
                   {key === 'phone' 
                     ? (userProfile[key] ? formatPhoneNumber(userProfile[key]) : 'Not set')
+                    : key === 'hours'
+                    ? (formatBusinessHours(businessHours) || 'Not set')
                     : (userProfile[key] || 'Not set')
                   }
                 </Text>
                 <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={() => editField(key)}
+                  style={key === 'hours' ? styles.manageHoursButton : styles.editButton}
+                  onPress={() => {
+                    if (key === 'hours') {
+                      setShowBusinessHoursModal(true);
+                    } else {
+                      editField(key);
+                    }
+                  }}
                   disabled={loading}
                 >
-                  <Text style={styles.editButtonText}>Edit</Text>
+                  <Text style={key === 'hours' ? styles.manageHoursButtonText : styles.editButtonText}>
+                    {key === 'hours' ? '⏰ Manage Hours' : 'Edit'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -769,9 +1036,12 @@ export default function ProfileScreen() {
           </View>
           <TouchableOpacity 
             style={styles.manageButton}
-            onPress={() => Alert.alert('Coming Soon', 'Subscription management will be available soon!')}
+            onPress={openCustomerPortal}
+            disabled={loading}
           >
-            <Text style={styles.manageButtonText}>Manage Subscription</Text>
+            <Text style={styles.manageButtonText}>
+              {loading ? 'Loading...' : 'Manage Subscription'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -842,6 +1112,105 @@ export default function ProfileScreen() {
         visible={showContactModal}
         onClose={() => setShowContactModal(false)}
       />
+
+      {/* Business Hours Modal */}
+      {userRole === 'owner' && (
+        <Modal
+          visible={showBusinessHoursModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowBusinessHoursModal(false)}
+        >
+          <View style={styles.businessHoursModalContainer}>
+            <View style={styles.businessHoursModalHeader}>
+              <TouchableOpacity onPress={() => setShowBusinessHoursModal(false)}>
+                <Text style={styles.businessHoursModalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.businessHoursModalTitle}>Business Hours</Text>
+              <TouchableOpacity onPress={saveBusinessHours}>
+                <Text style={styles.businessHoursModalSave}>Save</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.businessHoursModalContent}>
+              {Object.entries(businessHours).map(([day, hours]) => (
+                <View key={day} style={styles.dayRow}>
+                  <View style={styles.dayHeader}>
+                    <Text style={styles.dayName}>
+                      {day.charAt(0).toUpperCase() + day.slice(1)}
+                    </Text>
+                    <Switch
+                      value={!hours.closed}
+                      onValueChange={() => toggleDayClosed(day)}
+                      trackColor={{ false: '#ccc', true: '#2c6f57' }}
+                      thumbColor={!hours.closed ? '#fff' : '#f4f3f4'}
+                    />
+                  </View>
+                  
+                  {!hours.closed && (
+                    <View style={styles.timeRow}>
+                      <TouchableOpacity 
+                        style={styles.timeButton}
+                        onPress={() => openTimePicker(day, 'open')}
+                      >
+                        <Text style={styles.timeLabel}>Open</Text>
+                        <Text style={styles.timeValue}>{hours.open}</Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={styles.timeSeparator}>to</Text>
+                      
+                      <TouchableOpacity 
+                        style={styles.timeButton}
+                        onPress={() => openTimePicker(day, 'close')}
+                      >
+                        <Text style={styles.timeLabel}>Close</Text>
+                        <Text style={styles.timeValue}>{hours.close}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Time Picker Modal */}
+          {showTimePickerModal && (
+            <Modal
+              visible={showTimePickerModal}
+              transparent={true}
+              animationType="slide"
+            >
+              <View style={styles.timePickerOverlay}>
+                <View style={styles.timePickerContainer}>
+                  <View style={styles.timePickerHeader}>
+                    <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
+                      <Text style={styles.businessHoursModalCancel}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.timePickerTitle}>
+                      {selectedTimeType === 'open' ? 'Opening' : 'Closing'} Time
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
+                      <Text style={styles.businessHoursModalSave}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <DateTimePicker
+                    value={tempTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleTimeChange}
+                    style={styles.timePicker}
+                    textColor="#000000"
+                    accentColor="#2c6f57"
+                    locale="en_US"
+                    themeVariant="light"
+                  />
+                </View>
+              </View>
+            </Modal>
+          )}
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -1007,6 +1376,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  businessHoursFieldContainer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  manageHoursButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#000',
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  manageHoursButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   textInput: {
     borderWidth: 1,
@@ -1331,5 +1719,119 @@ const styles = StyleSheet.create({
     color: '#ddd',
     marginBottom: 8,
     paddingLeft: 10,
+  },
+  // Business Hours Modal styles
+  businessHoursModalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  businessHoursModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  businessHoursModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  businessHoursModalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  businessHoursModalCancel: {
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  businessHoursModalSave: {
+    fontSize: 16,
+    color: '#2c6f57',
+    fontWeight: '600',
+  },
+  dayRow: {
+    marginBottom: 20,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dayName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+  },
+  timeButton: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 15,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  timeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  timeSeparator: {
+    fontSize: 16,
+    color: '#666',
+    marginHorizontal: 15,
+  },
+  timePickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  timePickerContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  timePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  timePicker: {
+    backgroundColor: '#fff',
+    color: '#000000',
+    width: '100%',
+    height: Platform.OS === 'ios' ? 200 : 50,
   },
 });

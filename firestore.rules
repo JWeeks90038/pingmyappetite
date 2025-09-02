@@ -227,5 +227,25 @@ service cloud.firestore {
       // Allow order creation during checkout process (handled by backend)
       allow create: if request.auth != null;
     }
+    
+    // Catering requests collection - allow authenticated users to create catering requests
+    match /cateringRequests/{requestId} {
+      // Allow authenticated users to create catering requests
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      
+      // Allow users to read their own catering requests
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow truck owners to read catering requests for their truck
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.truckOwnerId;
+      
+      // Allow truck owners to update status of catering requests for their truck
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.truckOwnerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'response', 'updatedAt']);
+    }
   }
 }

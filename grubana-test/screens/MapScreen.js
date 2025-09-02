@@ -22,6 +22,10 @@ export default function MapScreen() {
   const [selectedTruck, setSelectedTruck] = useState(null);
   const [maxDistance, setMaxDistance] = useState(DISTANCE_SETTINGS.MAP_SCREEN_DEFAULT); // Default 25 miles
   const [showDistanceFilter, setShowDistanceFilter] = useState(false);
+  
+  // Status filtering states
+  const [showOpenTrucks, setShowOpenTrucks] = useState(true);
+  const [showClosedTrucks, setShowClosedTrucks] = useState(true);
 
   useEffect(() => {
     getCurrentLocation();
@@ -46,8 +50,21 @@ export default function MapScreen() {
       return distance <= maxDistance;
     });
 
-    setFoodTrucks(filteredTrucks);
-  }, [userLocation, allFoodTrucks, maxDistance]);
+    // Apply status filter
+    const statusFilteredTrucks = filteredTrucks.filter(truck => {
+      const truckStatus = getTruckStatus(truck);
+      
+      if (truckStatus === 'open' || truckStatus === 'busy') {
+        return showOpenTrucks;
+      } else if (truckStatus === 'closed') {
+        return showClosedTrucks;
+      }
+      
+      return true; // Show trucks with unknown status by default
+    });
+
+    setFoodTrucks(statusFilteredTrucks);
+  }, [userLocation, allFoodTrucks, maxDistance, showOpenTrucks, showClosedTrucks]);
 
   const getCurrentLocation = async () => {
     try {
@@ -101,30 +118,89 @@ export default function MapScreen() {
 
   const getTruckIcon = (kitchenType) => {
     switch (kitchenType) {
-      case 'trailer': return '�';
+      case 'trailer': return '🚚';
       case 'cart': return '🛒';
       default: return '🍕';
     }
   };
 
-  const renderTruckItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.truckItem}
-      onPress={() => setSelectedTruck(item)}
-    >
-      <View style={styles.truckHeader}>
-        <Text style={styles.truckIcon}>{getTruckIcon(item.kitchenType)}</Text>
-        <View style={styles.truckInfo}>
-          <Text style={styles.truckName}>{item.truckName || 'Food Truck'}</Text>
-          <Text style={styles.truckCuisine}>{item.cuisine || 'Various'}</Text>
-          <Text style={styles.distance}>{getDistanceFromUser(item.lat, item.lng)}</Text>
+  // Get truck status based on business hours
+  const getTruckStatus = (truck) => {
+    // If truck has explicit status, use it
+    if (truck.status) {
+      return truck.status;
+    }
+
+    // If truck has business hours, check if it's currently open
+    if (truck.businessHours) {
+      const now = new Date();
+      const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
+      const dayHours = truck.businessHours[currentDay];
+      
+      if (!dayHours || dayHours.closed) {
+        return 'closed';
+      }
+
+      const currentTime = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
+      
+      // Simple time comparison (this could be enhanced with the same logic from MapScreen.js)
+      // For now, assume open during business hours
+      return 'open';
+    }
+
+    // Default to open if no business hours are set
+    return 'open';
+  };
+
+  // Toggle truck status visibility
+  const toggleTruckStatus = () => {
+    if (showClosedTrucks && showOpenTrucks) {
+      // Currently showing all - hide closed trucks
+      setShowClosedTrucks(false);
+    } else if (!showClosedTrucks && showOpenTrucks) {
+      // Currently hiding closed - hide open trucks instead
+      setShowClosedTrucks(true);
+      setShowOpenTrucks(false);
+    } else if (showClosedTrucks && !showOpenTrucks) {
+      // Currently hiding open - show all trucks
+      setShowOpenTrucks(true);
+    }
+  };
+
+  const getStatusToggleText = () => {
+    if (showClosedTrucks && showOpenTrucks) {
+      return '🟢 Hide Closed';
+    } else if (!showClosedTrucks && showOpenTrucks) {
+      return '🔴 Show Closed';
+    } else if (showClosedTrucks && !showOpenTrucks) {
+      return '🟢 Show Open';
+    }
+    return '🟢 Hide Closed';
+  };
+
+  const renderTruckItem = ({ item }) => {
+    const truckStatus = getTruckStatus(item);
+    const statusEmoji = truckStatus === 'open' ? '🟢' : truckStatus === 'busy' ? '🟡' : '🔴';
+    
+    return (
+      <TouchableOpacity
+        style={styles.truckItem}
+        onPress={() => setSelectedTruck(item)}
+      >
+        <View style={styles.truckHeader}>
+          <Text style={styles.truckIcon}>{getTruckIcon(item.kitchenType)}</Text>
+          <View style={styles.truckInfo}>
+            <Text style={styles.truckName}>{item.truckName || 'Food Truck'}</Text>
+            <Text style={styles.truckCuisine}>{item.cuisine || 'Various'}</Text>
+            <Text style={styles.distance}>{getDistanceFromUser(item.lat, item.lng)}</Text>
+          </View>
+          <View style={styles.liveIndicator}>
+            <Text style={styles.liveText}>{statusEmoji} {truckStatus.toUpperCase()}</Text>
+          </View>
         </View>
-        <View style={styles.liveIndicator}>
-          <Text style={styles.liveText}>🔴 LIVE</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -137,12 +213,20 @@ export default function MapScreen() {
               : 'Getting your location...'}
           </Text>
         </View>
-        <TouchableOpacity 
-          style={styles.filterButton}
-          onPress={() => setShowDistanceFilter(!showDistanceFilter)}
-        >
-          <Ionicons name="options" size={24} color="#2c6f57" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setShowDistanceFilter(!showDistanceFilter)}
+          >
+            <Ionicons name="options" size={24} color="#2c6f57" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.statusToggleButton}
+            onPress={toggleTruckStatus}
+          >
+            <Text style={styles.statusToggleText}>{getStatusToggleText()}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Distance Filter Controls */}
@@ -253,6 +337,23 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 8,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statusToggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2c6f57',
+  },
+  statusToggleText: {
+    fontSize: 12,
+    color: '#2c6f57',
+    fontWeight: '600',
   },
   filterContainer: {
     backgroundColor: '#fff',

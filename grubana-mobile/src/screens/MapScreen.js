@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput } from 'react-native';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { calculateStripeConnectPayment, preparePaymentIntentData } from '../utils/paymentConfig';
@@ -28,7 +30,7 @@ export default function MapScreen() {
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showCuisineModal, setShowCuisineModal] = useState(false);
-  const [excludedCuisines, setExcludedCuisines] = useState([]); // Changed to excluded cuisines (empty = show all)
+  const [excludedCuisines, setExcludedCuisines] = useState([]); // Changed to excluded cuisines (empty = Show All)
   const [cart, setCart] = useState([]);
   const [showCartModal, setShowCartModal] = useState(false);
   const [webViewReady, setWebViewReady] = useState(false);
@@ -56,6 +58,197 @@ export default function MapScreen() {
   // Customer drop claiming states
   const [truckDrops, setTruckDrops] = useState([]);
   const [loadingDrops, setLoadingDrops] = useState(false);
+
+  // Catering booking states
+  const [showCateringModal, setShowCateringModal] = useState(false);
+  const [cateringFormData, setCateringFormData] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    eventDate: '',
+    eventTime: '',
+    eventLocation: '',
+    guestCount: '',
+    specialRequests: '',
+  });
+  const [submittingCateringForm, setSubmittingCateringForm] = useState(false);
+
+  // Function to check if truck is currently open based on business hours
+  const checkTruckOpenStatus = (businessHours) => {
+    if (!businessHours) {
+      console.log('⏰ MapScreen: No business hours data - defaulting to OPEN');
+      return 'open'; // Default to open if no hours set
+    }
+    
+    const now = new Date();
+    const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
+    const currentTime12 = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
+    
+    console.log('⏰ MapScreen: Checking truck status for', currentDay, 'at', currentTime12);
+    console.log('⏰ MapScreen: Business hours data:', businessHours);
+    
+    const dayHours = businessHours[currentDay];
+    if (!dayHours || dayHours.closed) {
+      console.log('⏰ MapScreen: Truck is marked as CLOSED today');
+      return 'closed';
+    }
+    
+    console.log('⏰ MapScreen: Today\'s hours:', dayHours.open, '-', dayHours.close);
+    console.log('⏰ MapScreen: Current time:', currentTime12);
+    
+    // Helper function to convert AM/PM time to minutes since midnight for easy comparison
+    const timeToMinutes = (timeStr) => {
+      if (!timeStr) return 0;
+      
+      console.log('⏰ Converting to minutes:', timeStr);
+      
+      const timeStr_clean = timeStr.trim();
+      
+      // Check if it's already 24-hour format (no AM/PM)
+      if (!timeStr_clean.includes('AM') && !timeStr_clean.includes('PM')) {
+        // 24-hour format like "09:00" or "17:00"
+        const timeParts = timeStr_clean.split(':');
+        if (timeParts.length !== 2) {
+          console.log('❌ Invalid 24-hour format - expected "HH:MM", got:', timeStr);
+          return 0;
+        }
+        
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+          console.log('❌ Invalid 24-hour time values - hours:', hours, 'minutes:', minutes);
+          return 0;
+        }
+        
+        const totalMinutes = hours * 60 + minutes;
+        console.log('⏰ Converted 24-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+        return totalMinutes;
+      }
+      
+      // 12-hour format with AM/PM - handle various whitespace characters
+      const parts = timeStr_clean.split(/\s+/); // Split on any whitespace (space, non-breaking space, etc.)
+      console.log('⏰ Split parts:', parts, 'Length:', parts.length);
+      console.log('⏰ Original string bytes:', Array.from(timeStr_clean).map(char => char.charCodeAt(0)));
+      
+      if (parts.length !== 2) {
+        console.log('❌ Invalid time format - expected "H:MM AM/PM", got:', timeStr);
+        console.log('❌ Split result:', parts);
+        console.log('❌ Trying alternative parsing...');
+        
+        // Try alternative parsing for edge cases
+        const ampmMatch = timeStr_clean.match(/(AM|PM)/i);
+        if (ampmMatch) {
+          const ampm = ampmMatch[0].toUpperCase();
+          const timeOnly = timeStr_clean.replace(/(AM|PM)/i, '').trim();
+          console.log('⏰ Alternative parsing - time:', timeOnly, 'period:', ampm);
+          
+          const timeParts = timeOnly.split(':');
+          if (timeParts.length === 2) {
+            let hours = parseInt(timeParts[0], 10);
+            const minutes = parseInt(timeParts[1], 10);
+            
+            if (!isNaN(hours) && !isNaN(minutes) && hours >= 1 && hours <= 12 && minutes >= 0 && minutes <= 59) {
+              // Convert to 24-hour format
+              if (ampm === 'PM' && hours !== 12) {
+                hours = hours + 12;
+              } else if (ampm === 'AM' && hours === 12) {
+                hours = 0;
+              }
+              
+              const totalMinutes = hours * 60 + minutes;
+              console.log('✅ Alternative parsing successful:', timeStr, '→', totalMinutes, 'minutes');
+              return totalMinutes;
+            }
+          }
+        }
+        
+        return 0;
+      }
+      
+      const [time, period] = parts;
+      console.log('⏰ Time part:', '"' + time + '"', 'Period part:', '"' + period + '"');
+      
+      const timeParts = time.split(':');
+      console.log('⏰ Time split by colon:', timeParts, 'Length:', timeParts.length);
+      
+      if (timeParts.length !== 2) {
+        console.log('❌ Invalid time part - expected "H:MM", got:', time);
+        console.log('❌ Time parts:', timeParts);
+        return 0;
+      }
+      
+      let hours = parseInt(timeParts[0], 10);
+      const minutes = parseInt(timeParts[1], 10);
+      
+      console.log('⏰ Raw parsing - hours string:', '"' + timeParts[0] + '"', 'minutes string:', '"' + timeParts[1] + '"');
+      console.log('⏰ Parsed integers - hours:', hours, 'minutes:', minutes);
+      console.log('⏰ Type check - hours type:', typeof hours, 'minutes type:', typeof minutes);
+      console.log('⏰ NaN check - isNaN(hours):', isNaN(hours), 'isNaN(minutes):', isNaN(minutes));
+      
+      if (isNaN(hours) || isNaN(minutes)) {
+        console.log('❌ Failed to parse time:', time, '-> hours:', hours, 'minutes:', minutes);
+        return 0;
+      }
+      
+      // Validate ranges for 12-hour format
+      console.log('⏰ Range validation - hours >= 1:', hours >= 1, 'hours <= 12:', hours <= 12, 'minutes >= 0:', minutes >= 0, 'minutes <= 59:', minutes <= 59);
+      if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+        console.log('❌ Invalid 12-hour time values - hours:', hours, 'minutes:', minutes);
+        console.log('❌ Range check failed: hours range (1-12):', (hours >= 1 && hours <= 12), 'minutes range (0-59):', (minutes >= 0 && minutes <= 59));
+        return 0;
+      }
+      
+      // Convert to 24-hour format for calculation
+      if (period.toUpperCase() === 'PM' && hours !== 12) {
+        hours = hours + 12;
+      } else if (period.toUpperCase() === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      const totalMinutes = hours * 60 + minutes;
+      console.log('⏰ Converted 12-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+      return totalMinutes;
+    };
+    
+    // Convert all times to minutes since midnight for comparison
+    const currentMinutes = timeToMinutes(currentTime12);
+    const openMinutes = timeToMinutes(dayHours.open);
+    const closeMinutes = timeToMinutes(dayHours.close);
+    
+    console.log('⏰ MapScreen: Time comparison (minutes since midnight):');
+    console.log('⏰   Open:', openMinutes, '(' + dayHours.open + ')');
+    console.log('⏰   Current:', currentMinutes, '(' + currentTime12 + ')');
+    console.log('⏰   Close:', closeMinutes, '(' + dayHours.close + ')');
+    
+    // Check if current time is within business hours
+    let isOpen = false;
+    
+    if (closeMinutes > openMinutes) {
+      // Normal case: open and close on same day (e.g., 9:00 AM to 6:00 PM)
+      // Current time must be >= open time AND < close time (not <=, because at close time you're closed)
+      isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+      console.log('⏰ MapScreen: Normal day hours - checking if', currentMinutes, 'is between', openMinutes, 'and', closeMinutes);
+      console.log('⏰ MapScreen:   Is current >= open?', currentMinutes >= openMinutes);
+      console.log('⏰ MapScreen:   Is current < close?', currentMinutes < closeMinutes);
+      console.log('⏰ MapScreen:   Final result: OPEN =', isOpen);
+    } else {
+      // Overnight case: close time is next day (e.g., 10:00 PM to 2:00 AM)
+      isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+      console.log('⏰ MapScreen: Overnight hours - checking if', currentMinutes, 'is after', openMinutes, 'OR before', closeMinutes);
+      console.log('⏰ MapScreen:   Is current >= open?', currentMinutes >= openMinutes);
+      console.log('⏰ MapScreen:   Is current < close?', currentMinutes < closeMinutes);
+      console.log('⏰ MapScreen:   Final result: OPEN =', isOpen);
+    }
+    
+    if (isOpen) {
+      console.log('✅ MapScreen: Truck is OPEN');
+      return 'open';
+    } else {
+      console.log('❌ MapScreen: Truck is CLOSED (outside business hours)');
+      return 'closed';
+    }
+  };
   const [claimMessage, setClaimMessage] = useState("");
   const [userClaims, setUserClaims] = useState([]);
   const [claimCode, setClaimCode] = useState("");
@@ -63,9 +256,13 @@ export default function MapScreen() {
   const [showClaimCodesModal, setShowClaimCodesModal] = useState(false); // Force closed
   const [claimCodes, setClaimCodes] = useState([]);
   const [loadingClaimCodes, setLoadingClaimCodes] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger for business hours updates
   
   const { userRole, userData, userPlan, user } = useAuth();
+  const navigation = useNavigation();
   const webViewRef = useRef(null);
+  const modalScrollViewRef = useRef(null);
+  const menuSectionRef = useRef(null);
 
   // Available cuisine types for filtering
   const cuisineTypes = [
@@ -143,6 +340,14 @@ export default function MapScreen() {
       setSessionId(null);
     }
   }, [user, sessionId]);
+
+  // Refresh truck data when returning to MapScreen (e.g., after updating business hours)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 MapScreen: Screen focused - triggering data refresh for business hours updates');
+      setRefreshTrigger(prev => prev + 1);
+    }, [])
+  );
 
   // Fetch owner data for current user
   useEffect(() => {
@@ -330,46 +535,8 @@ export default function MapScreen() {
       
       if (menuSnapshot.empty) {
         console.log("📭 No menu items found in Firestore for this truck owner");
-        
-        // Fallback: Create sample menu items for testing
-        console.log("🔄 Using fallback sample menu items for testing");
-        const sampleMenuItems = [
-          {
-            id: `sample_1_${truckOwnerId}`,
-            name: "Classic Burger",
-            description: "Juicy beef patty with lettuce, tomato, and our special sauce",
-            price: 12.99,
-            image: "https://via.placeholder.com/150/FF6B35/FFFFFF?text=Burger",
-            category: "Burgers"
-          },
-          {
-            id: `sample_2_${truckOwnerId}`,
-            name: "Cheese Fries", 
-            description: "Golden crispy fries topped with melted cheddar cheese",
-            price: 8.50,
-            image: "https://via.placeholder.com/150/4ECDC4/FFFFFF?text=Fries",
-            category: "Sides"
-          },
-          {
-            id: `sample_3_${truckOwnerId}`,
-            name: "Chicken Tacos",
-            description: "Three soft tacos with grilled chicken, salsa, and fresh cilantro",
-            price: 10.75,
-            image: "https://via.placeholder.com/150/45B7D1/FFFFFF?text=Tacos",
-            category: "Mexican"
-          },
-          {
-            id: `sample_4_${truckOwnerId}`,
-            name: "Chocolate Shake",
-            description: "Rich and creamy chocolate milkshake topped with whipped cream",
-            price: 5.99,
-            image: "https://via.placeholder.com/150/8E44AD/FFFFFF?text=Shake",
-            category: "Beverages"
-          }
-        ];
-        
-        setMenuItems(sampleMenuItems);
-        console.log("✅ Loaded fallback menu items:", sampleMenuItems.length, "items");
+        console.log("🍽️ This food truck hasn't added any menu items yet");
+        setMenuItems([]); // Show empty menu instead of fallback samples
       } else {
         // Process real menu items from Firestore
         const items = [];
@@ -1093,6 +1260,68 @@ export default function MapScreen() {
     }
   };
 
+  // Menu image functionality
+  const openFullScreenMenu = () => {
+    if (!selectedTruck?.menuUrl) return;
+    
+    Alert.alert(
+      '📋 Full Menu',
+      'Opening full-size menu image...',
+      [
+        {
+          text: 'Open in Browser',
+          onPress: () => {
+            if (selectedTruck.menuUrl) {
+              Linking.openURL(selectedTruck.menuUrl);
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  // Scroll to menu section function
+  const scrollToMenuSection = () => {
+    if (menuSectionRef.current && modalScrollViewRef.current) {
+      menuSectionRef.current.measure((x, y, width, height, pageX, pageY) => {
+        modalScrollViewRef.current.scrollTo({
+          y: pageY - 100, // Offset a bit from the top for better visibility
+          animated: true
+        });
+      });
+    }
+  };
+
+  const shareMenu = async () => {
+    if (!selectedTruck?.menuUrl || !selectedTruck?.name) return;
+    
+    try {
+      // For now, we'll share the URL. In a full implementation, you might want to
+      // use react-native-share to share the actual image
+      const shareText = `Check out the menu for ${selectedTruck.name}! 🍽️\n\n${selectedTruck.menuUrl}`;
+      
+      // Simple sharing approach - you can enhance this with react-native-share
+      Alert.alert(
+        '📤 Share Menu',
+        shareText,
+        [
+          {
+            text: 'Copy Link',
+            onPress: () => {
+              // In a full implementation, you'd copy to clipboard
+              Alert.alert('Link copied!', 'Menu link has been copied to clipboard');
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    } catch (error) {
+      console.error('Error sharing menu:', error);
+      Alert.alert('Error', 'Unable to share menu');
+    }
+  };
+
   // Fetch claim codes for a specific drop (owner only)
   const fetchClaimCodes = async (dropId) => {
     if (!user || userRole !== 'owner') return;
@@ -1314,6 +1543,113 @@ export default function MapScreen() {
     }
   };
 
+  // Handle catering form submission
+  const handleCateringSubmit = async () => {
+    // Validate required fields
+    const { customerName, customerEmail, customerPhone, eventDate, eventTime, eventLocation, guestCount } = cateringFormData;
+    
+    if (!customerName || !customerEmail || !customerPhone) {
+      Alert.alert('Required Fields', 'Please fill in your name, email, and phone number.');
+      return;
+    }
+
+    if (!eventDate || !eventTime || !eventLocation || !guestCount) {
+      Alert.alert('Event Details Required', 'Please provide event date, time, location, and estimated guest count.');
+      return;
+    }
+
+    setSubmittingCateringForm(true);
+
+    try {
+      console.log('📧 Submitting catering request for truck:', selectedTruck?.name);
+      
+      // Check if we have the required truck owner ID
+      if (!selectedTruck?.ownerId) {
+        Alert.alert('Error', 'Unable to find truck owner information. Please try again later.');
+        setSubmittingCateringForm(false);
+        return;
+      }
+
+      // Create catering request object for Firestore
+      const cateringRequest = {
+        customerName,
+        customerEmail,
+        customerPhone,
+        eventDate,
+        eventTime,
+        eventLocation,
+        guestCount,
+        specialRequests: cateringFormData.specialRequests || 'None',
+        truckName: selectedTruck?.name,
+        truckOwnerId: selectedTruck?.ownerId,
+        requestedAt: new Date().toISOString(),
+        userId: user.uid,
+        userEmail: user.email,
+        status: 'pending'
+      };
+
+      // Save to Firestore for record keeping
+      await addDoc(collection(db, 'cateringRequests'), cateringRequest);
+
+      // Send email to truck owner using Firebase Function with SendGrid
+      console.log('📧 Calling Firebase Function to send catering email');
+      
+      const functions = getFunctions();
+      const sendCateringRequest = httpsCallable(functions, 'sendCateringRequest');
+      
+      const functionData = {
+        customerName,
+        customerEmail,
+        customerPhone,
+        eventDate,
+        eventTime,
+        eventLocation,
+        guestCount,
+        specialRequests: cateringFormData.specialRequests || 'None',
+        truckName: selectedTruck?.name,
+        ownerId: selectedTruck?.ownerId // Pass owner ID - function will fetch email server-side
+      };
+
+      console.log('📧 Sending catering request data:', functionData);
+
+      const result = await sendCateringRequest(functionData);
+      
+      console.log('📧 Firebase Function result:', result.data);
+
+      if (result.data.success) {
+        Alert.alert(
+          'Catering Request Sent! 🎉',
+          `Your catering request has been sent to ${selectedTruck?.name}. They will contact you directly at ${customerEmail} to discuss pricing, menu options, and availability.`,
+          [{ text: 'Great!' }]
+        );
+        
+        // Reset form and close modal
+        setCateringFormData({
+          customerName: '',
+          customerEmail: '',
+          customerPhone: '',
+          eventDate: '',
+          eventTime: '',
+          eventLocation: '',
+          guestCount: '',
+          specialRequests: '',
+        });
+        setShowCateringModal(false);
+      } else {
+        throw new Error(result.data.message || 'Failed to send catering request');
+      }
+
+    } catch (error) {
+      console.error('❌ Catering request error:', error);
+      Alert.alert(
+        'Error',
+        'Failed to send catering request. Please try contacting the food truck directly or try again later.'
+      );
+    } finally {
+      setSubmittingCateringForm(false);
+    }
+  };
+
   // Load real-time data from Firebase
   useEffect(() => {
     if (!user) return;
@@ -1376,7 +1712,9 @@ export default function MapScreen() {
               facebook: ownerData.facebook,
               twitter: ownerData.twitter,
               tiktok: ownerData.tiktok,
-              kitchenType: ownerData.kitchenType || truckData.kitchenType || 'truck'
+              email: ownerData.email, // Add email for catering requests
+              kitchenType: ownerData.kitchenType || truckData.kitchenType || 'truck',
+              businessHours: ownerData.businessHours // Add business hours for status calculation
             });
           } else {
             console.log('⚠️ No owner data found for truck:', truckData.id);
@@ -1482,7 +1820,7 @@ export default function MapScreen() {
       if (unsubscribePings) unsubscribePings();
       if (unsubscribeEvents) unsubscribeEvents();
     };
-  }, [user, userPlan]);
+  }, [user, userPlan, refreshTrigger]); // Add refreshTrigger to force reload when business hours change
 
   // Handle geolocation based on user plan and role
   useEffect(() => {
@@ -1957,6 +2295,7 @@ export default function MapScreen() {
         <div class="controls">
             <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
+            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">🟢 Hide Closed</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
@@ -2053,6 +2392,7 @@ export default function MapScreen() {
         <div class="controls">
             <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
+            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">🟢 Hide Closed</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
@@ -2130,6 +2470,183 @@ export default function MapScreen() {
                 .addTo(map)
                 .bindPopup('<div class="truck-popup"><div class="truck-name">📍 Your Location</div></div>');
 
+            // Business hours status checking function
+            function checkTruckOpenStatus(businessHours) {
+                if (!businessHours) return 'open'; // Default to open if no hours set
+                
+                const now = new Date();
+                const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
+                const currentTime12 = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
+                
+                console.log('🕐 Checking status for', currentDay, 'at', currentTime12);
+                console.log('🕐 Full business hours object:', JSON.stringify(businessHours, null, 2));
+                
+                const dayHours = businessHours[currentDay];
+                if (!dayHours || dayHours.closed) {
+                    console.log('🔴 Truck is closed today (no hours or marked as closed)');
+                    return 'closed';
+                }
+                
+                console.log('🕐 Business hours for', currentDay, ':', dayHours.open, '-', dayHours.close);
+                console.log('� Current time:', currentTime12);
+                
+                // Helper function to convert AM/PM time to minutes since midnight for easy comparison
+                const timeToMinutes = (timeStr) => {
+                    if (!timeStr) return 0;
+                    
+                    console.log('🔍 Converting to minutes:', timeStr);
+                    
+                    const timeStr_clean = timeStr.trim();
+                    
+                    // Check if it's already 24-hour format (no AM/PM)
+                    if (!timeStr_clean.includes('AM') && !timeStr_clean.includes('PM')) {
+                        // 24-hour format like "09:00" or "17:00"
+                        const timeParts = timeStr_clean.split(':');
+                        if (timeParts.length !== 2) {
+                            console.log('❌ Invalid 24-hour format - expected "HH:MM", got:', timeStr);
+                            return 0;
+                        }
+                        
+                        const hours = parseInt(timeParts[0], 10);
+                        const minutes = parseInt(timeParts[1], 10);
+                        
+                        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+                            console.log('❌ Invalid 24-hour time values - hours:', hours, 'minutes:', minutes);
+                            return 0;
+                        }
+                        
+                        const totalMinutes = hours * 60 + minutes;
+                        console.log('🔍 Converted 24-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+                        return totalMinutes;
+                    }
+                    
+                    // 12-hour format with AM/PM - handle various whitespace characters
+                    const parts = timeStr_clean.split(/\s+/); // Split on any whitespace (space, non-breaking space, etc.)
+                    console.log('🔍 Split parts:', parts, 'Length:', parts.length);
+                    console.log('🔍 Original string bytes:', Array.from(timeStr_clean).map(char => char.charCodeAt(0)));
+                    
+                    if (parts.length !== 2) {
+                        console.log('❌ Invalid time format - expected "H:MM AM/PM", got:', timeStr);
+                        console.log('❌ Split result:', parts);
+                        console.log('❌ Trying alternative parsing...');
+                        
+                        // Try alternative parsing for edge cases
+                        const ampmMatch = timeStr_clean.match(/(AM|PM)/i);
+                        if (ampmMatch) {
+                            const ampm = ampmMatch[0].toUpperCase();
+                            const timeOnly = timeStr_clean.replace(/(AM|PM)/i, '').trim();
+                            console.log('🔍 Alternative parsing - time:', timeOnly, 'period:', ampm);
+                            
+                            const timeParts = timeOnly.split(':');
+                            if (timeParts.length === 2) {
+                                let hours = parseInt(timeParts[0], 10);
+                                const minutes = parseInt(timeParts[1], 10);
+                                
+                                if (!isNaN(hours) && !isNaN(minutes) && hours >= 1 && hours <= 12 && minutes >= 0 && minutes <= 59) {
+                                    // Convert to 24-hour format
+                                    if (ampm === 'PM' && hours !== 12) {
+                                        hours = hours + 12;
+                                    } else if (ampm === 'AM' && hours === 12) {
+                                        hours = 0;
+                                    }
+                                    
+                                    const totalMinutes = hours * 60 + minutes;
+                                    console.log('✅ Alternative parsing successful:', timeStr, '→', totalMinutes, 'minutes');
+                                    return totalMinutes;
+                                }
+                            }
+                        }
+                        
+                        return 0;
+                    }
+                    
+                    const [time, period] = parts;
+                    console.log('🔍 Time part:', '"' + time + '"', 'Period part:', '"' + period + '"');
+                    
+                    const timeParts = time.split(':');
+                    console.log('🔍 Time split by colon:', timeParts, 'Length:', timeParts.length);
+                    
+                    if (timeParts.length !== 2) {
+                        console.log('❌ Invalid time part - expected "H:MM", got:', time);
+                        console.log('❌ Time parts:', timeParts);
+                        return 0;
+                    }
+                    
+                    let hours = parseInt(timeParts[0], 10);
+                    const minutes = parseInt(timeParts[1], 10);
+                    
+                    console.log('🔍 Raw parsing - hours string:', '"' + timeParts[0] + '"', 'minutes string:', '"' + timeParts[1] + '"');
+                    console.log('🔍 Parsed integers - hours:', hours, 'minutes:', minutes);
+                    console.log('🔍 Type check - hours type:', typeof hours, 'minutes type:', typeof minutes);
+                    console.log('🔍 NaN check - isNaN(hours):', isNaN(hours), 'isNaN(minutes):', isNaN(minutes));
+                    
+                    if (isNaN(hours) || isNaN(minutes)) {
+                        console.log('❌ Failed to parse time:', time, '-> hours:', hours, 'minutes:', minutes);
+                        return 0;
+                    }
+                    
+                    // Validate ranges for 12-hour format
+                    console.log('🔍 Range validation - hours >= 1:', hours >= 1, 'hours <= 12:', hours <= 12, 'minutes >= 0:', minutes >= 0, 'minutes <= 59:', minutes <= 59);
+                    if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+                        console.log('❌ Invalid 12-hour time values - hours:', hours, 'minutes:', minutes);
+                        console.log('❌ Range check failed: hours range (1-12):', (hours >= 1 && hours <= 12), 'minutes range (0-59):', (minutes >= 0 && minutes <= 59));
+                        return 0;
+                    }
+                    
+                    // Convert to 24-hour format for calculation
+                    if (period.toUpperCase() === 'PM' && hours !== 12) {
+                        hours = hours + 12;
+                    } else if (period.toUpperCase() === 'AM' && hours === 12) {
+                        hours = 0;
+                    }
+                    
+                    const totalMinutes = hours * 60 + minutes;
+                    console.log('🔍 Converted 12-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+                    return totalMinutes;
+                };
+                
+                // Convert all times to minutes since midnight for comparison
+                const currentMinutes = timeToMinutes(currentTime12);
+                const openMinutes = timeToMinutes(dayHours.open);
+                const closeMinutes = timeToMinutes(dayHours.close);
+                
+                console.log('🕐 === DETAILED TIME ANALYSIS ===');
+                console.log('🕐 Day of week:', currentDay);
+                console.log('🕐 Raw business hours for', currentDay, ':', JSON.stringify(dayHours, null, 2));
+                console.log('🕐 Time comparison (minutes since midnight):');
+                console.log('🕐   Open:', openMinutes, '(' + dayHours.open + ')');
+                console.log('🕐   Current:', currentMinutes, '(' + currentTime12 + ')');
+                console.log('🕐   Close:', closeMinutes, '(' + dayHours.close + ')');
+                
+                // Check if current time is within business hours
+                let isOpen = false;
+                
+                if (closeMinutes > openMinutes) {
+                    // Normal case: open and close on same day (e.g., 9:00 AM to 6:00 PM)
+                    // Current time must be >= open time AND < close time (not <=, because at close time you're closed)
+                    isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+                    console.log('🕐 Normal day hours - checking if', currentMinutes, 'is between', openMinutes, 'and', closeMinutes);
+                    console.log('🕐   Is current >= open?', currentMinutes >= openMinutes);
+                    console.log('🕐   Is current < close?', currentMinutes < closeMinutes);
+                    console.log('🕐   Final result: OPEN =', isOpen);
+                } else {
+                    // Overnight case: close time is next day (e.g., 10:00 PM to 2:00 AM)
+                    isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+                    console.log('🕐 Overnight hours - checking if', currentMinutes, 'is after', openMinutes, 'OR before', closeMinutes);
+                    console.log('🕐   Is current >= open?', currentMinutes >= openMinutes);
+                    console.log('🕐   Is current < close?', currentMinutes < closeMinutes);
+                    console.log('🕐   Final result: OPEN =', isOpen);
+                }
+                
+                if (isOpen) {
+                    console.log('🟢 Truck is OPEN');
+                    return 'open';
+                } else {
+                    console.log('🔴 Truck is CLOSED (outside business hours)');
+                    return 'closed';
+                }
+            }
+
             // Food truck data with pre-processed icons
             const foodTrucks = ${JSON.stringify(processedTrucks)};
             
@@ -2165,6 +2682,10 @@ export default function MapScreen() {
             let eventMarkers = [];
             let heatmapLayer = null;
             let showHeatmap = false;
+            
+            // Truck status filtering variables
+            let showClosedTrucks = true; // Show closed trucks by default
+            let showOpenTrucks = true;   // Show open trucks by default
 
             // Create circular icon using canvas (SIMPLIFIED for Leaflet WebView)
             const createCircularIcon = (imageUrl, size = 40) => {
@@ -2349,8 +2870,14 @@ export default function MapScreen() {
                 truckMarkers = [];
 
                 for (const truck of trucks) {
-                    const statusClass = 'status-' + (truck.status || 'open');
-                    const statusEmoji = truck.status === 'open' ? '🟢' : truck.status === 'busy' ? '🟡' : '🔴';
+                    // Determine status based on business hours if available
+                    let truckStatus = truck.status || 'open';
+                    if (truck.businessHours) {
+                      truckStatus = checkTruckOpenStatus(truck.businessHours);
+                    }
+                    
+                    const statusClass = 'status-' + truckStatus;
+                    const statusEmoji = truckStatus === 'open' ? '🟢' : truckStatus === 'busy' ? '🟡' : '🔴';
                     
                     // Get the truck name and details
                     const truckName = truck.truckName || truck.name || 'Food Truck';
@@ -2385,7 +2912,10 @@ export default function MapScreen() {
                         continue;
                     }
 
-                    const marker = L.marker([lat, lng], { icon: truckIcon })
+                    const marker = L.marker([lat, lng], { 
+                        icon: truckIcon,
+                        truckData: truck  // Store truck data with marker for auto-updates
+                    })
                         .addTo(map)
                         .bindPopup(\`
                             <div class="truck-popup">
@@ -2393,7 +2923,7 @@ export default function MapScreen() {
                                     \${truck.base64CoverImage ? \`<img src="\${truck.base64CoverImage}" class="truck-cover-image" />\` : truck.coverUrl ? \`<img src="\${truck.coverUrl}" class="truck-cover-image" onerror="this.style.display='none'" />\` : ''}
                                     <div class="truck-name">\${truckName}</div>
                                 </div>
-                                <div class="truck-status \${statusClass}">\${statusEmoji} \${(truck.status || 'OPEN').toUpperCase()}</div>
+                                <div class="truck-status \${statusClass}">\${statusEmoji} \${truckStatus.toUpperCase()}</div>
                                 <div class="truck-details">🍽️ \${(truck.cuisineType || truck.type || 'Food').charAt(0).toUpperCase() + (truck.cuisineType || truck.type || 'Food').slice(1)}</div>
                                 <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                 \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
@@ -2657,6 +3187,97 @@ export default function MapScreen() {
                 }
             }
 
+            // Toggle truck status visibility
+            function toggleTruckStatus() {
+                console.log('🚛 toggleTruckStatus() called');
+                console.log('🚛 Current state - showClosedTrucks:', showClosedTrucks, 'showOpenTrucks:', showOpenTrucks);
+                
+                if (showClosedTrucks && showOpenTrucks) {
+                    // Currently showing all - hide closed trucks
+                    showClosedTrucks = false;
+                    showOpenTrucks = true;
+                    console.log('🚛 Hiding closed trucks');
+                } else if (!showClosedTrucks && showOpenTrucks) {
+                    // Currently hiding closed - hide open trucks instead
+                    showClosedTrucks = true;
+                    showOpenTrucks = false;
+                    console.log('🚛 Hiding open trucks');
+                } else if (showClosedTrucks && !showOpenTrucks) {
+                    // Currently hiding open - Show All trucks
+                    showClosedTrucks = true;
+                    showOpenTrucks = true;
+                    console.log('🚛 Showing all trucks');
+                }
+                
+                // Update button text based on current state
+                let buttonText = '';
+                
+                if (showClosedTrucks && showOpenTrucks) {
+                    buttonText = '🟢 Hide Closed';
+                } else if (!showClosedTrucks && showOpenTrucks) {
+                    buttonText = '🔴 Hide Open';
+                } else if (showClosedTrucks && !showOpenTrucks) {
+                    buttonText = '🟡 Show All';
+                }
+                
+                // Update all toggle buttons (handle both the main and secondary control panels)
+                const statusButtons = document.querySelectorAll('button[onclick="toggleTruckStatus()"]');
+                statusButtons.forEach(button => {
+                    if (button) {
+                        button.innerHTML = buttonText;
+                    }
+                });
+                
+                // Apply the filter by recreating truck markers
+                applyTruckStatusFilter();
+            }
+            
+            // Apply truck status filtering
+            function applyTruckStatusFilter() {
+                console.log('🚛 Applying truck status filter...');
+                console.log('🚛 Filter state - showOpen:', showOpenTrucks, 'showClosed:', showClosedTrucks);
+                
+                // Get currently filtered trucks (considering cuisine filters)
+                let filtered = foodTrucks;
+                
+                // Apply cuisine filter first if active
+                if (selectedCuisineType.length > 0) {
+                    filtered = foodTrucks.filter(truck => {
+                        const truckCuisine = (
+                            truck.cuisineType || 
+                            truck.cuisine || 
+                            truck.type || 
+                            truck.cuisinetype ||
+                            'food'
+                        ).toLowerCase().trim();
+                        
+                        const shouldExclude = isCuisineExcluded(truckCuisine, selectedCuisineType);
+                        return !shouldExclude;
+                    });
+                }
+                
+                // Apply status filter
+                filtered = filtered.filter(truck => {
+                    let truckStatus = truck.status || 'open';
+                    if (truck.businessHours) {
+                        truckStatus = checkTruckOpenStatus(truck.businessHours);
+                    }
+                    
+                    console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus);
+                    
+                    if (truckStatus === 'open' || truckStatus === 'busy') {
+                        return showOpenTrucks;
+                    } else if (truckStatus === 'closed') {
+                        return showClosedTrucks;
+                    }
+                    
+                    return true; // Show trucks with unknown status by default
+                });
+                
+                console.log('🚛 Filtered', filtered.length, 'trucks after status filter');
+                createTruckMarkers(filtered);
+            }
+
             function centerOnUser() {
                 map.setView([${userLat}, ${userLng}], 15);
             }
@@ -2664,12 +3285,35 @@ export default function MapScreen() {
             function filterTrucks(filter) {
                 let filtered = foodTrucks;
                 if (filter === 'open') {
-                    filtered = foodTrucks.filter(truck => (truck.status || 'open') === 'open');
+                    filtered = foodTrucks.filter(truck => {
+                        let truckStatus = truck.status || 'open';
+                        if (truck.businessHours) {
+                            truckStatus = checkTruckOpenStatus(truck.businessHours);
+                        }
+                        return truckStatus === 'open' || truckStatus === 'busy';
+                    });
                 } else if (filter === 'cuisine') {
                     // This will be called from applyCuisineFilter with selected cuisine
                     return;
                 }
-                createTruckMarkers(filtered);
+                
+                // Apply additional status filter
+                const statusFiltered = filtered.filter(truck => {
+                    let truckStatus = truck.status || 'open';
+                    if (truck.businessHours) {
+                        truckStatus = checkTruckOpenStatus(truck.businessHours);
+                    }
+                    
+                    if (truckStatus === 'open' || truckStatus === 'busy') {
+                        return showOpenTrucks;
+                    } else if (truckStatus === 'closed') {
+                        return showClosedTrucks;
+                    }
+                    
+                    return true; // Show trucks with unknown status by default
+                });
+                
+                createTruckMarkers(statusFiltered);
             }
 
             // Cuisine filtering variables
@@ -2824,9 +3468,27 @@ export default function MapScreen() {
                         name: t.truckName || t.name,
                         cuisine: t.cuisineType || t.cuisine || t.type || 'unknown'
                     })));
-                    createTruckMarkers(filtered);
                     
-                    // Also filter events (events don't typically have cuisine types, so show all for now)
+                    // Apply additional truck status filter
+                    const statusFiltered = filtered.filter(truck => {
+                        let truckStatus = truck.status || 'open';
+                        if (truck.businessHours) {
+                            truckStatus = checkTruckOpenStatus(truck.businessHours);
+                        }
+                        
+                        if (truckStatus === 'open' || truckStatus === 'busy') {
+                            return showOpenTrucks;
+                        } else if (truckStatus === 'closed') {
+                            return showClosedTrucks;
+                        }
+                        
+                        return true; // Show trucks with unknown status by default
+                    });
+                    
+                    console.log('🚛 Applied status filter: showing', statusFiltered.length, 'of', filtered.length, 'trucks');
+                    createTruckMarkers(statusFiltered);
+                    
+                    // Also filter events (events don't typically have cuisine types, so Show All for now)
                     console.log('🎪 Applying filter to events (showing all events regardless of cuisine filter)');
                     createEventMarkers(events);
                     
@@ -2937,6 +3599,81 @@ export default function MapScreen() {
                 
                 console.log('✅ Finished adding individual ping markers for basic user');
             }
+
+            // Real-time status update system
+            function updateTruckStatuses() {
+                console.log('🕐 Checking truck statuses for real-time updates...');
+                let statusChanged = false;
+                
+                // Update each truck marker with current status
+                truckMarkers.forEach((marker) => {
+                    // Get truck data stored in marker options
+                    const truck = marker.options.truckData;
+                    if (truck && truck.businessHours) {
+                        const currentStatus = checkTruckOpenStatus(truck.businessHours);
+                        const previousStatus = truck.status || 'open';
+                        
+                        if (currentStatus !== previousStatus) {
+                            console.log('🔄 Status changed for', truck.truckName || truck.name, ':', previousStatus, '→', currentStatus);
+                            
+                            // Update truck object status
+                            truck.status = currentStatus;
+                            
+                            // Also update the original truck object in the foodTrucks array
+                            const originalTruck = foodTrucks.find(t => t.id === truck.id);
+                            if (originalTruck) {
+                                originalTruck.status = currentStatus;
+                            }
+                            
+                            statusChanged = true;
+                            
+                            // Update popup content with new status
+                            const statusClass = 'status-' + currentStatus;
+                            const statusEmoji = currentStatus === 'open' ? '🟢' : currentStatus === 'busy' ? '🟡' : '🔴';
+                            const truckName = truck.truckName || truck.name || 'Food Truck';
+                            const kitchenType = truck.kitchenType || 'truck';
+                            
+                            const updatedPopupContent = \`
+                                <div class="truck-popup">
+                                    <div class="truck-header">
+                                        \${truck.base64CoverImage ? \`<img src="\${truck.base64CoverImage}" class="truck-cover-image" />\` : truck.coverUrl ? \`<img src="\${truck.coverUrl}" class="truck-cover-image" onerror="this.style.display='none'" />\` : ''}
+                                        <div class="truck-name">\${truckName}</div>
+                                    </div>
+                                    <div class="truck-status \${statusClass}">\${statusEmoji} \${currentStatus.toUpperCase()}</div>
+                                    <div class="truck-details">🍽️ \${(truck.cuisineType || truck.type || 'Food').charAt(0).toUpperCase() + (truck.cuisineType || truck.type || 'Food').slice(1)}</div>
+                                    <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
+                                    \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
+                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisineType || truck.type || 'Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                        📋 View Full Details
+                                    </button>
+                                </div>
+                            \`;
+                            
+                            // Update the marker's popup content
+                            marker.setPopupContent(updatedPopupContent);
+                        }
+                    }
+                });
+                
+                if (statusChanged) {
+                    console.log('✅ Truck statuses updated successfully');
+                    
+                    // Notify React Native about status changes
+                    if (window.ReactNativeWebView) {
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'TRUCK_STATUS_UPDATED',
+                            message: 'One or more truck statuses have been updated based on current time'
+                        }));
+                    }
+                }
+            }
+            
+            // Set up automatic status checking every minute
+            console.log('⏰ Setting up automatic truck status updates (every 60 seconds)');
+            setInterval(updateTruckStatuses, 60000); // Check every minute
+            
+            // Also check immediately after 30 seconds to catch recent changes
+            setTimeout(updateTruckStatuses, 30000);
 
             // Add click handler for setting truck location (owners only)
         </script>
@@ -3184,7 +3921,10 @@ export default function MapScreen() {
         visible={showMenuModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowMenuModal(false)}
+        onRequestClose={() => {
+          setShowMenuModal(false);
+          setShowCateringModal(false); // Reset catering modal when truck modal closes
+        }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -3194,6 +3934,7 @@ export default function MapScreen() {
                 console.log('Close button pressed!');
                 setShowMenuModal(false);
                 setTruckDrops([]); // Clear drops when modal closes
+                setShowCateringModal(false); // Reset catering modal when truck modal closes
               }}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -3208,40 +3949,77 @@ export default function MapScreen() {
                 {selectedTruck?.cuisine} Cuisine
               </Text>
             </View>
-            <TouchableOpacity 
-              style={[
-                styles.cartButton,
-                getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive
-              ]}
-              onPress={() => {
-                console.log('🛒 Cart button pressed! Current cart items:', cart.length);
-                console.log('🛒 Opening cart modal...');
-                setShowCartModal(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cartButtonContent}>
-                <Ionicons 
-                  name="cart" 
-                  size={22} 
-                  color="#fff" 
-                  style={styles.cartIcon}
-                />
-                {getTotalItems() > 0 && (
-                  <View style={styles.cartBadge}>
-                    <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
-                  </View>
-                )}
-              </View>
-              {getTotalItems() > 0 && (
-                <Text style={styles.cartButtonLabel}>
-                  ${getFinalTotal()}
-                </Text>
+            
+            <View style={styles.headerButtonsContainer}>
+              {/* Quick Menu Button */}
+              {selectedTruck?.menuUrl && (
+                <TouchableOpacity 
+                  style={styles.quickMenuButton}
+                  onPress={() => scrollToMenuSection()}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="restaurant" 
+                    size={20} 
+                    color="#2c6f57" 
+                  />
+                  <Text style={styles.quickMenuButtonText}>Menu</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+              
+              {/* Cart Button */}
+              <TouchableOpacity 
+                style={[
+                  styles.cartButton,
+                  getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive
+                ]}
+                onPress={() => {
+                  console.log('🛒 Cart button pressed! Current cart items:', cart.length);
+                  console.log('🛒 Opening cart modal...');
+                  setShowCartModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cartButtonContent}>
+                  <View style={styles.cartIconContainer}>
+                    <Ionicons 
+                      name="cart" 
+                      size={22} 
+                      color="#fff" 
+                      style={styles.cartIcon}
+                    />
+                    {getTotalItems() > 0 && (
+                      <View style={styles.cartBadge}>
+                        <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.cartButtonText}>Pre-order Cart</Text>
+                </View>
+              </TouchableOpacity>
+              
+              {/* Book Truck for Catering Button */}
+              {selectedTruck?.ownerId !== user?.uid && ( // Only show for non-owners
+                <TouchableOpacity 
+                  style={styles.cateringButton}
+                  onPress={() => {
+                    console.log('🎉 Catering button pressed for truck:', selectedTruck?.name);
+                    setShowCateringModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="calendar" 
+                    size={20} 
+                    color="#2c6f57" 
+                  />
+                  <Text style={styles.cateringButtonText}>Book Catering</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView ref={modalScrollViewRef} style={styles.modalContent}>
             {/* Truck Info Section */}
             <View style={styles.truckInfoSection}>
               {selectedTruck?.coverUrl && (
@@ -3273,6 +4051,41 @@ export default function MapScreen() {
                       onLoad={() => console.log('✅ Cover image loaded successfully')}
                     />
                   </View>
+                </View>
+              )}
+              
+              {/* Menu Image Section */}
+              {selectedTruck?.menuUrl && (
+                <View style={styles.menuImageSection}>
+                  <Text style={styles.sectionTitle}>📋 Menu</Text>
+                  <TouchableOpacity 
+                    style={styles.menuImageContainer}
+                    onPress={() => {
+                      // Open full-screen menu viewer
+                      Alert.alert(
+                        'Menu Options',
+                        'What would you like to do?',
+                        [
+                          { text: 'View Full Size', onPress: () => openFullScreenMenu() },
+                          { text: 'Share Menu', onPress: () => shareMenu() },
+                          { text: 'Cancel', style: 'cancel' }
+                        ]
+                      );
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Image 
+                      source={{ uri: selectedTruck.menuUrl }} 
+                      style={styles.menuImage}
+                      resizeMode="contain"
+                      onError={(error) => console.log('Menu image load error:', error)}
+                      onLoad={() => console.log('✅ Menu image loaded successfully')}
+                    />
+                    <View style={styles.menuImageOverlay}>
+                      <Ionicons name="expand" size={24} color="#fff" />
+                      <Text style={styles.menuImageOverlayText}>Tap to view full menu</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               )}
               
@@ -3585,7 +4398,7 @@ export default function MapScreen() {
             )}
 
             {/* Menu Section */}
-            <View style={styles.menuSection}>
+            <View ref={menuSectionRef} style={styles.menuSection}>
               <View style={styles.menuHeader}>
                 <Text style={styles.sectionTitle}>📋 Menu</Text>
                 {loadingMenu && (
@@ -3628,12 +4441,29 @@ export default function MapScreen() {
 
               {!loadingMenu && menuItems.length === 0 && selectedTruck?.ownerId && (
                 <View style={styles.emptyMenuContainer}>
+                  <Text style={styles.emptyMenuIcon}>🍽️</Text>
                   <Text style={styles.emptyMenuText}>
-                    {selectedTruck.menuUrl ? 
-                      'No menu items available at this time.' : 
-                      'This food truck has not uploaded a menu yet.'
+                    {selectedTruck.ownerId === user?.uid ? 
+                      'You haven\'t added any menu items yet!' : 
+                      'This food truck hasn\'t added menu items yet.'
                     }
                   </Text>
+                  {selectedTruck.ownerId === user?.uid && (
+                    <TouchableOpacity 
+                      style={styles.addMenuButton}
+                      onPress={() => {
+                        setShowMenuModal(false);
+                        navigation.navigate('MenuManagement');
+                      }}
+                    >
+                      <Text style={styles.addMenuButtonText}>+ Add Menu Items</Text>
+                    </TouchableOpacity>
+                  )}
+                  {selectedTruck.ownerId !== user?.uid && (
+                    <Text style={styles.emptyMenuSubtext}>
+                      Check back later for delicious menu options!
+                    </Text>
+                  )}
                 </View>
               )}
             </View>
@@ -3885,6 +4715,304 @@ export default function MapScreen() {
                   </View>
                 )}
               </View>
+            </View>
+          )}
+
+          {/* Catering Booking Modal - Inside Truck Modal */}
+          {showCateringModal && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 9999,
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              paddingHorizontal: 15,
+              paddingTop: 50,
+              paddingBottom: 20,
+            }}>
+              <KeyboardAvoidingView 
+                style={{
+                  width: '100%',
+                  flex: 1,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+              >
+              <View style={{
+                paddingHorizontal: 20,
+                paddingTop: 25,
+                paddingBottom: Platform.OS === 'ios' ? 25 : 20,
+                height: '100%',
+                flex: 1,
+              }}>
+                {/* Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  paddingBottom: 15,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#eee',
+                }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: '#2c6f57',
+                    flex: 1,
+                  }}>
+                    🎉 Book {selectedTruck?.name} for Catering
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowCateringModal(false)}
+                    style={{
+                      padding: 8,
+                      borderRadius: 20,
+                      backgroundColor: '#f5f5f5',
+                    }}
+                  >
+                    <Ionicons name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Form - Wrapped in ScrollView with proper padding */}
+                <ScrollView 
+                  style={{ flex: 1, minHeight: 400 }} 
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+                >
+                  {/* Customer Name */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Your Name *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.customerName}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerName: text }))}
+                      placeholder="Enter your full name"
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Email */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Email Address *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.customerEmail}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerEmail: text }))}
+                      placeholder="your.email@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Phone */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Phone Number *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.customerPhone}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerPhone: text }))}
+                      placeholder="(555) 123-4567"
+                      keyboardType="phone-pad"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Event Date */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Event Date *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.eventDate}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventDate: text }))}
+                      placeholder="MM/DD/YYYY"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Event Time */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Event Time *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.eventTime}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventTime: text }))}
+                      placeholder="e.g., 12:00 PM - 3:00 PM"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Event Location */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Event Location *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                        minHeight: 50,
+                        textAlignVertical: 'top',
+                      }}
+                      value={cateringFormData.eventLocation}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventLocation: text }))}
+                      placeholder="Full address or venue name"
+                      multiline={true}
+                      numberOfLines={2}
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Guest Count */}
+                  <View style={{ marginBottom: 15 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Estimated Guest Count *
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                      }}
+                      value={cateringFormData.guestCount}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, guestCount: text }))}
+                      placeholder="e.g., 50-75 people"
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Special Requests */}
+                  <View style={{ marginBottom: 25 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                      Special Requests or Details
+                    </Text>
+                    <TextInput
+                      style={{
+                        borderWidth: 1,
+                        borderColor: '#ddd',
+                        borderRadius: 8,
+                        padding: 12,
+                        fontSize: 16,
+                        backgroundColor: '#fff',
+                        minHeight: 100,
+                        textAlignVertical: 'top',
+                      }}
+                      value={cateringFormData.specialRequests}
+                      onChangeText={(text) => setCateringFormData(prev => ({ ...prev, specialRequests: text }))}
+                      placeholder="Any dietary restrictions, special menu requests, or other details..."
+                      multiline={true}
+                      numberOfLines={4}
+                      returnKeyType="done"
+                    />
+                  </View>
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: submittingCateringForm ? '#ccc' : '#2c6f57',
+                      padding: 15,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      marginBottom: 15,
+                    }}
+                    onPress={() => handleCateringSubmit()}
+                    disabled={submittingCateringForm || !cateringFormData.customerName || !cateringFormData.customerEmail || !cateringFormData.customerPhone}
+                    activeOpacity={0.8}
+                  >
+                    {submittingCateringForm ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                      }}>
+                        📧 Send Catering Request
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Info Text */}
+                  <Text style={{
+                    fontSize: 12,
+                    color: '#666',
+                    textAlign: 'center',
+                    lineHeight: 16,
+                    marginBottom: 10,
+                  }}>
+                    Your catering request will be sent directly to {selectedTruck?.name}. They will contact you to discuss pricing, menu options, and availability.
+                  </Text>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
             </View>
           )}
 
@@ -4218,9 +5346,9 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     backgroundColor: '#2c6f57', // Green header
-    padding: 20,
-    paddingTop: 60,
-    paddingRight: 70,
+    padding: 15,
+    paddingTop: 50,
+    paddingRight: 60,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     position: 'relative',
@@ -4306,6 +5434,41 @@ const styles = StyleSheet.create({
   imageLoadingIndicator: {
     position: 'absolute',
     zIndex: 1,
+  },
+  menuImageSection: {
+    marginBottom: 20,
+  },
+  menuImageContainer: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+    position: 'relative',
+    minHeight: 250,
+    maxHeight: 400,
+  },
+  menuImage: {
+    width: '100%',
+    height: '100%',
+    minHeight: 250,
+    borderRadius: 10,
+  },
+  menuImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuImageOverlayText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   socialSection: {
     marginBottom: 20,
@@ -4658,6 +5821,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontStyle: 'italic',
   },
+  emptyMenuIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyMenuSubtext: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginTop: 10,
+  },
+  addMenuButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  addMenuButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   // Cuisine Modal Styles
   cuisineModalContent: {
     backgroundColor: 'white',
@@ -4847,9 +6034,9 @@ const styles = StyleSheet.create({
   },
   cartButton: {
     borderRadius: 25,
-    padding: 12,
+    padding: 10,
     position: 'relative',
-    minWidth: 50,
+    minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -4873,6 +6060,7 @@ const styles = StyleSheet.create({
   },
   cartButtonContent: {
     position: 'relative',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4881,11 +6069,23 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  cartIconContainer: {
+    position: 'relative',
+  },
   cartButtonLabel: {
     color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
     marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
+  cartButtonText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 6,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
@@ -4898,18 +6098,66 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 24,
     height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  headerButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 5,
+  },
+  quickMenuButton: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 2,
+    borderColor: '#2c6f57',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 4,
+  },
+  quickMenuButtonText: {
+    color: '#2c6f57',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cateringButton: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 2,
+    borderColor: '#2c6f57',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  cateringButtonText: {
+    color: '#2c6f57',
+    fontSize: 12,
+    fontWeight: '600',
   },
   cartBadgeText: {
     color: '#fff',

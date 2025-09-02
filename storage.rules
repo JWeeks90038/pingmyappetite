@@ -14,6 +14,12 @@ service firebase.storage {
     }
     
     // Allow authenticated users to upload menu item photos (organized by user ID)
+    match /menuItems/{userId}/{filename} {
+      allow read: if true; // Allow public read for menu display
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to upload menu item photos (legacy path with hyphen)
     match /menu-items/{userId}/{filename} {
       allow read: if true; // Allow public read for menu display
       allow write: if request.auth != null && request.auth.uid == userId;

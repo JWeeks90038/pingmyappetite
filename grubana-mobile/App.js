@@ -324,8 +324,15 @@ export default function App() {
   // Use the same Stripe publishable key from your web app
   const stripePublishableKey = 'pk_live_51RSgWMRsRfaVTYCjJJtygE6gtMfcv5Gi0EIK4GGB2IefhoK4gVgf6NxwQSXgJbc8zu1VskfzN3ghavd3awwRafXk00FjrvGznT';
   
+  const stripeConfig = {
+    publishableKey: stripePublishableKey,
+    merchantIdentifier: 'merchant.com.pingmyappetite.grubana',
+    urlScheme: 'grubana',
+    setReturnUrlSchemeOnAndroid: true,
+  };
+
   return (
-    <StripeProvider publishableKey={stripePublishableKey}>
+    <StripeProvider {...stripeConfig}>
       <AuthContextProvider>
         <AppContent />
       </AuthContextProvider>

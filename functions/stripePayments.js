@@ -84,35 +84,100 @@ export const createPaymentIntent = onRequest({
       }
     }
 
-    // Apply discount for valid referral
+    // Apply discount or trial for valid referral
     let finalAmount = amount;
+    let hasFreeTrial = false;
+    
     if (hasValidReferral && referralCode?.toLowerCase() === "arayaki_hibachi") {
-      finalAmount = Math.round(amount * 0.8); // 20% discount
+      // 30-day free trial - use Setup Intent instead of Payment Intent
+      hasFreeTrial = true;
     }
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: finalAmount,
-      currency: currency,
-      customer: customer.id,
-      metadata: {
-        firebaseUserId: userId,
-        planType: planType,
-        originalAmount: amount.toString(),
-        discountApplied: hasValidReferral ? "true" : "false",
-        referralCode: referralCode || "",
-      },
-      description: `Grubana ${planType} plan subscription`,
-    });
+    if (hasFreeTrial) {
+      // For free trials, create a Setup Intent to save payment method
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customer.id,
+        usage: 'off_session',
+        payment_method_types: ['card'],
+        metadata: {
+          firebaseUserId: userId,
+          planType: planType,
+          hasFreeTrial: "true",
+          referralCode: referralCode || "",
+          originalAmount: amount.toString(),
+        },
+      });
 
-    res.set(corsHeaders);
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-      customerId: customer.id,
-      amount: finalAmount,
-      originalAmount: amount,
-      discountApplied: hasValidReferral,
-    });
+      // Create a product first
+      const product = await stripe.products.create({
+        name: `Grubana ${planType.charAt(0).toUpperCase() + planType.slice(1)} Plan`,
+      });
+
+      // Create a price for the product
+      const price = await stripe.prices.create({
+        unit_amount: amount,
+        currency: currency,
+        recurring: { interval: 'month' },
+        product: product.id,
+      });
+
+      // Create subscription with trial period
+      const subscription = await stripe.subscriptions.create({
+        customer: customer.id,
+        items: [{ price: price.id }],
+        trial_period_days: 30,
+        metadata: {
+          firebaseUserId: userId,
+          planType: planType,
+          referralCode: referralCode || "",
+        },
+      });
+
+      // Update user document with subscription info
+      await db.collection("users").doc(userId).update({
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: 'trialing',
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      });
+
+      res.set(corsHeaders);
+      res.status(200).json({
+        clientSecret: setupIntent.client_secret,
+        customerId: customer.id,
+        amount: 0,
+        originalAmount: amount,
+        discountApplied: hasValidReferral,
+        hasFreeTrial: true,
+        subscriptionId: subscription.id,
+        isSetupIntent: true, // Flag to indicate this is a setup intent, not payment intent
+      });
+    } else {
+      // Regular payment intent for non-trial users
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: finalAmount,
+        currency: currency,
+        customer: customer.id,
+        metadata: {
+          firebaseUserId: userId,
+          planType: planType,
+          hasFreeTrial: "false",
+          referralCode: referralCode || "",
+          originalAmount: amount.toString(),
+        },
+        description: `Grubana ${planType} plan subscription`,
+      });
+
+      res.set(corsHeaders);
+      res.status(200).json({
+        clientSecret: paymentIntent.client_secret,
+        customerId: customer.id,
+        amount: finalAmount,
+        originalAmount: amount,
+        discountApplied: hasValidReferral,
+        hasFreeTrial: false,
+        isSetupIntent: false,
+      });
+    }
 
   } catch (error) {
     console.error("Error creating payment intent:", error);

@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "grubana",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -18,7 +19,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings."
-      }
+      },
+      "merchantId": "merchant.com.pingmyappetite.grubana"
     },
     "android": {
       "adaptiveIcon": {

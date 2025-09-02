@@ -17,7 +17,7 @@ import { useStripe } from '@stripe/stripe-react-native';
 export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(route.params?.plan || 'pro');
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   
   const { hasValidReferral, referralCode, userId } = route.params || {};
@@ -53,9 +53,11 @@ export default function PaymentScreen({ navigation, route }) {
   };
 
   const handlePayment = async () => {
+    console.log('🔍 handlePayment started');
     setLoading(true);
     
     try {
+      console.log('🔍 Creating payment intent...');
       // Create payment intent using Firebase Functions
       const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createPaymentIntent', {
         method: 'POST',
@@ -74,6 +76,7 @@ export default function PaymentScreen({ navigation, route }) {
       });
 
       const result = await response.json();
+      console.log('🔍 Payment intent response:', result);
 
       if (!response.ok || result.error) {
         Alert.alert('Error', result.error || 'Failed to create payment');
@@ -81,31 +84,67 @@ export default function PaymentScreen({ navigation, route }) {
         return;
       }
 
-      // Initialize payment sheet
-      const initResponse = await initPaymentSheet({
-        paymentIntentClientSecret: result.clientSecret,
-        merchantDisplayName: 'Grubana',
-        applePay: {
-          merchantId: 'merchant.com.grubana.app', // Replace with your actual Apple Pay merchant ID
-        },
-        googlePay: {
-          merchantId: 'merchant.com.grubana', // Replace with your actual Google Pay merchant ID
-          testEnvironment: false, // Set to false for production
-        },
-        returnURL: 'grubana://payment-return',
-        defaultBillingDetails: {
-          email: user.email,
-        },
-      });
+      console.log('🔍 Initializing payment sheet...');
+      
+      let initResponse;
+      if (result.isSetupIntent) {
+        // For free trials, use Setup Intent
+        initResponse = await initPaymentSheet({
+          setupIntentClientSecret: result.clientSecret,
+          merchantDisplayName: 'Grubana',
+          countryCode: 'US',
+          currencyCode: 'USD',
+          applePay: {
+            merchantId: 'merchant.com.pingmyappetite.grubana',
+            merchantCountryCode: 'US',
+          },
+          googlePay: {
+            merchantId: 'merchant.com.pingmyappetite.grubana',
+            merchantCountryCode: 'US',
+            testEnvironment: false,
+          },
+          returnURL: 'grubana://payment-return',
+          defaultBillingDetails: {
+            email: user.email,
+          },
+        });
+      } else {
+        // For regular payments, use Payment Intent
+        initResponse = await initPaymentSheet({
+          paymentIntentClientSecret: result.clientSecret,
+          merchantDisplayName: 'Grubana',
+          countryCode: 'US',
+          currencyCode: 'USD',
+          applePay: {
+            merchantId: 'merchant.com.pingmyappetite.grubana',
+            merchantCountryCode: 'US',
+          },
+          googlePay: {
+            merchantId: 'merchant.com.pingmyappetite.grubana',
+            merchantCountryCode: 'US',
+            testEnvironment: false,
+          },
+          returnURL: 'grubana://payment-return',
+          defaultBillingDetails: {
+            email: user.email,
+          },
+        });
+      }
+
+      console.log('🔍 Payment sheet init response:', initResponse);
 
       if (initResponse.error) {
+        console.error('🔍 Payment sheet init error:', initResponse.error);
         Alert.alert('Error', initResponse.error.message);
         setLoading(false);
         return;
       }
 
+      console.log('🔍 Presenting payment sheet...');
       // Present payment sheet
       const paymentResponse = await presentPaymentSheet();
+
+      console.log('🔍 Payment response:', paymentResponse);
 
       if (paymentResponse.error) {
         if (paymentResponse.error.code !== 'Canceled') {
@@ -118,27 +157,40 @@ export default function PaymentScreen({ navigation, route }) {
       // Payment successful - update user's subscription status locally
       // The webhook will also update this, but we do it here for immediate UI feedback
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        subscriptionStatus: 'active',
+      const updateData = {
         plan: selectedPlan,
         paymentCompleted: true,
-        subscriptionStartDate: new Date(),
         stripeCustomerId: result.customerId,
-      });
+      };
 
-      // Show success message with discount info if applicable
-      let successMessage = `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`;
-      if (result.discountApplied) {
+      // Handle free trial vs regular payment
+      if (result.hasFreeTrial) {
+        updateData.subscriptionStatus = 'trialing';
+        updateData.trialStartDate = new Date();
+      } else {
+        updateData.subscriptionStatus = 'active';
+        updateData.subscriptionStartDate = new Date();
+      }
+
+      await updateDoc(userRef, updateData);
+
+      // Show success message with appropriate info
+      let successMessage;
+      if (result.hasFreeTrial) {
+        successMessage = `🎉 Welcome to ${plans[selectedPlan].name}!\n\nYour 30-day FREE trial has started! You'll be charged ${plans[selectedPlan].price}/month after the trial period ends.`;
+      } else if (result.discountApplied) {
         const savings = ((result.originalAmount - result.amount) / 100).toFixed(2);
-        successMessage += `\n\nReferral discount applied! You saved $${savings}.`;
+        successMessage = `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.\n\nReferral discount applied! You saved $${savings}.`;
+      } else {
+        successMessage = `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`;
       }
 
       Alert.alert(
-        'Payment Successful!',
+        result.hasFreeTrial ? 'Free Trial Started!' : 'Payment Successful!',
         successMessage,
         [{ text: 'Continue', onPress: () => {
           // Navigation will automatically switch to owner dashboard
-          // since subscriptionStatus is now 'active'
+          // since subscriptionStatus is now 'active' or 'trialing'
         }}]
       );
 
@@ -238,9 +290,18 @@ export default function PaymentScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
         
-        <TouchableOpacity
+                <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            Alert.alert(
+              'Go Back',
+              'Would you like to sign out and return to the login screen?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign Out', onPress: logout }
+              ]
+            );
+          }}
         >
           <Text style={styles.backText}>Go Back</Text>
         </TouchableOpacity>

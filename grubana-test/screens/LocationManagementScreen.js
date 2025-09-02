@@ -42,13 +42,13 @@ export default function LocationManagementScreen({ navigation }) {
   const [manualAddress, setManualAddress] = useState('');
   const [locationSubscription, setLocationSubscription] = useState(null);
   const [businessHours, setBusinessHours] = useState({
-    monday: { open: '09:00', close: '17:00', closed: false },
-    tuesday: { open: '09:00', close: '17:00', closed: false },
-    wednesday: { open: '09:00', close: '17:00', closed: false },
-    thursday: { open: '09:00', close: '17:00', closed: false },
-    friday: { open: '09:00', close: '17:00', closed: false },
-    saturday: { open: '10:00', close: '18:00', closed: false },
-    sunday: { open: '10:00', close: '16:00', closed: false },
+    monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+    saturday: { open: '10:00 AM', close: '6:00 PM', closed: false },
+    sunday: { open: '10:00 AM', close: '4:00 PM', closed: false },
   });
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false);
   const [showTimePickerModal, setShowTimePickerModal] = useState(false);
@@ -94,7 +94,10 @@ export default function LocationManagementScreen({ navigation }) {
         setAutoLocationEnabled(userData.autoLocationEnabled || false);
         setLocationAlertsEnabled(userData.locationAlertsEnabled || false);
         setManualAddress(userData.currentAddress || '');
-        setBusinessHours(userData.businessHours || businessHours);
+        // Load and normalize business hours to AM/PM format
+        const loadedBusinessHours = userData.businessHours || businessHours;
+        const normalizedBusinessHours = normalizeBusinessHoursToAMPM(loadedBusinessHours);
+        setBusinessHours(normalizedBusinessHours);
         
         if (userData.currentLocation) {
           setCurrentLocation(userData.currentLocation);
@@ -316,6 +319,65 @@ export default function LocationManagementScreen({ navigation }) {
     return `${Math.floor(diffHours / 24)} days ago`;
   };
 
+  // Function to normalize business hours to AM/PM format
+  const normalizeBusinessHoursToAMPM = (hours) => {
+    const normalizedHours = {};
+    
+    Object.keys(hours).forEach(day => {
+      const dayHours = hours[day];
+      normalizedHours[day] = {
+        ...dayHours,
+        open: convertTo12HourFormat(dayHours.open),
+        close: convertTo12HourFormat(dayHours.close)
+      };
+    });
+    
+    return normalizedHours;
+  };
+
+  // Function to convert time string to 12-hour AM/PM format
+  const convertTo12HourFormat = (timeStr) => {
+    if (!timeStr) return '9:00 AM';
+    
+    // If already in 12-hour format, return as is
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      return timeStr;
+    }
+    
+    // Convert from 24-hour format to 12-hour format
+    try {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes)) {
+        console.log('⚠️ Invalid time format:', timeStr, '- using default');
+        return '9:00 AM';
+      }
+      
+      let hour12 = hours;
+      let period = 'AM';
+      
+      if (hours === 0) {
+        hour12 = 12;
+        period = 'AM';
+      } else if (hours === 12) {
+        hour12 = 12;
+        period = 'PM';
+      } else if (hours > 12) {
+        hour12 = hours - 12;
+        period = 'PM';
+      }
+      
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      const converted = `${hour12}:${formattedMinutes} ${period}`;
+      
+      console.log('🕐 LocationManagement - Converted', timeStr, '→', converted);
+      return converted;
+    } catch (error) {
+      console.error('Error converting time format:', error);
+      return '9:00 AM';
+    }
+  };
+
   // Business Hours Functions
   const openBusinessHoursModal = () => {
     setShowBusinessHoursModal(true);
@@ -329,13 +391,30 @@ export default function LocationManagementScreen({ navigation }) {
     setSelectedDay(day);
     setSelectedTimeType(timeType);
     
-    // Convert time string to Date object
     const timeStr = businessHours[day][timeType];
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    setTempTime(date);
+    let date = new Date();
     
+    // Handle both 12-hour (9:00 AM) and 24-hour (09:00) formats
+    if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      // 12-hour format
+      const [time, period] = timeStr.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      let hour24 = hours;
+      
+      if (period === 'PM' && hours !== 12) {
+        hour24 = hours + 12;
+      } else if (period === 'AM' && hours === 12) {
+        hour24 = 0;
+      }
+      
+      date.setHours(hour24, minutes, 0, 0);
+    } else {
+      // 24-hour format (legacy support)
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      date.setHours(hours, minutes, 0, 0);
+    }
+    
+    setTempTime(date);
     setShowTimePickerModal(true);
   };
 
@@ -358,10 +437,12 @@ export default function LocationManagementScreen({ navigation }) {
 
   const updateBusinessHours = (time) => {
     const timeStr = time.toLocaleTimeString('en-US', { 
-      hour12: false, 
-      hour: '2-digit', 
+      hour12: true, 
+      hour: 'numeric', 
       minute: '2-digit' 
     });
+
+    console.log('⏰ LocationManagementScreen: Setting business hours to 12-hour format:', timeStr);
 
     setBusinessHours(prev => ({
       ...prev,

@@ -4,6 +4,9 @@ export * from "./stripePayments.js";
 // Export webhook handler
 export * from "./stripeWebhook.js";
 
+// Export customer portal
+export * from "./customerPortal.js";
+
 // Export scheduled tasks
 export * from "./scheduled-tasks.js";
 
@@ -18,3 +21,6 @@ export * from "./smsService.js";
 
 // Export welcome email functions
 export * from "./welcomeEmailTriggers.js";
+
+// Export catering email functions
+export * from "./cateringTriggers.js";
