@@ -150,10 +150,47 @@ const AuthStack = () => {
 
 // Main App Navigator
 const AppNavigator = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, userData } = useAuth();
 
   if (!user) {
     return <AuthStack />;
+  }
+
+  // Check if user needs to complete payment
+  const needsPayment = userData && 
+    (userData.plan === 'pro' || userData.plan === 'all-access') && 
+    (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus);
+
+  // If user needs payment, show payment in a stack
+  if (needsPayment) {
+    return (
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#2c6f57',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Payment" 
+          component={PaymentScreen}
+          options={{ 
+            title: 'Complete Payment',
+            headerLeft: null, // Prevent going back
+          }}
+          initialParams={{
+            plan: userData.plan,
+            hasValidReferral: userData.hasValidReferral,
+            referralCode: userData.referralCode,
+            userId: user.uid
+          }}
+        />
+      </Stack.Navigator>
+    );
   }
 
   // Return different navigators based on user role

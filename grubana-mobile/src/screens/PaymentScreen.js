@@ -9,10 +9,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../components/AuthContext';
 
 export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(route.params?.plan || 'pro');
+  const { user } = useAuth();
   
   const { hasValidReferral, referralCode, userId } = route.params || {};
 
@@ -50,30 +54,49 @@ export default function PaymentScreen({ navigation, route }) {
     setLoading(true);
     
     try {
-      // For now, we'll show a message about Stripe integration
+      // For now, simulate payment completion
       Alert.alert(
-        'Payment Integration',
-        `Setting up ${plans[selectedPlan].name} (${plans[selectedPlan].price}/month).\n\nStripe payment integration will be implemented here.`,
+        'Payment Simulation',
+        `This would process payment for ${plans[selectedPlan].name} (${plans[selectedPlan].price}/month).\n\nFor testing, we'll mark payment as completed.`,
         [
           {
-            text: 'Skip for Now',
-            onPress: () => {
-              // Navigate to owner dashboard for testing
-              navigation.navigate('Login');
-            }
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => setLoading(false)
           },
           {
-            text: 'OK',
-            onPress: () => {
-              // For now, just go back to login
-              navigation.navigate('Login');
+            text: 'Simulate Payment',
+            onPress: async () => {
+              try {
+                // Update user's subscription status in Firestore
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                  subscriptionStatus: 'active',
+                  plan: selectedPlan,
+                  paymentCompleted: true,
+                  subscriptionStartDate: new Date(),
+                });
+                
+                Alert.alert(
+                  'Payment Successful!',
+                  `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`,
+                  [{ text: 'Continue', onPress: () => {
+                    // Navigation will automatically switch to owner dashboard
+                    // since subscriptionStatus is now 'active'
+                  }}]
+                );
+              } catch (error) {
+                console.error('Error updating subscription:', error);
+                Alert.alert('Error', 'Failed to complete payment. Please try again.');
+              } finally {
+                setLoading(false);
+              }
             }
           }
         ]
       );
     } catch (error) {
       Alert.alert('Error', 'Payment failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

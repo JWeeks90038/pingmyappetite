@@ -53,21 +53,21 @@ export default function OwnerSignupScreen({ navigation }) {
   const planOptions = [
     { 
       id: 'basic', 
-      name: 'Basic Plan', 
+      name: 'Starter Plan', 
       price: 'Free',
-      features: ['Basic location tracking', 'Simple menu display', 'Customer notifications']
+      features: ['Update locations manually via live map', 'Custom menu display', 'Customer Pre-order engagement']
     },
     { 
       id: 'pro', 
       name: 'Pro Plan', 
-      price: '$29/month',
-      features: ['Real-time GPS tracking', 'Menu display on map', 'Heat maps', 'Priority placement']
+      price: '$9/month',
+      features: ['Everything in Starter', 'Real-time GPS tracking', 'Heat maps showing customer demand', 'Pre-order engagement', 'Create Drops providing exclusive deals']
     },
     { 
       id: 'all-access', 
       name: 'All-Access Plan', 
-      price: '$49/month',
-      features: ['Everything in Pro', 'Advanced analytics', 'Event management', 'Premium support']
+      price: '$19/month',
+      features: ['Everything in Pro', 'Advanced analytics', 'Event management']
     },
   ];
 
@@ -210,21 +210,13 @@ export default function OwnerSignupScreen({ navigation }) {
         Alert.alert(
           'Success!', 
           'Account created successfully! Welcome to Grubana Basic.',
-          [{ text: 'OK', onPress: () => navigation.replace('OwnerDashboard') }]
+          [{ text: 'OK' }] // Let navigation handle automatically
         );
       } else {
         Alert.alert(
           'Almost Done!', 
-          `Account created! Please complete payment for your ${formData.plan} plan.`,
-          [{ text: 'Continue to Payment', onPress: () => {
-            // Navigate to payment screen with plan info
-            navigation.navigate('Payment', {
-              plan: formData.plan,
-              hasValidReferral: isValidReferral,
-              referralCode: formData.referralCode,
-              userId: user.uid
-            });
-          }}]
+          `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`,
+          [{ text: 'Continue' }] // Let navigation handle automatically
         );
       }
 
