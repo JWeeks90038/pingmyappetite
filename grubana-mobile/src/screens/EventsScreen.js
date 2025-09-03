@@ -10,7 +10,9 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Platform
+  Platform,
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import { 
@@ -27,9 +29,11 @@ import {
   serverTimestamp,
   Timestamp 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 
@@ -75,6 +79,9 @@ const EventsScreen = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showRecurrenceEndDatePicker, setShowRecurrenceEndDatePicker] = useState(false);
+
+  // Logo upload states
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   console.log('🎪 EventsScreen: Component rendering with userRole:', userRole);
 
@@ -130,6 +137,9 @@ const EventsScreen = () => {
     }
   };
 
+  // Debounced geocoding to prevent API rate limiting
+  const [geocodingTimeout, setGeocodingTimeout] = useState(null);
+
   // Geocoding function to convert address to coordinates
   const geocodeAddress = async (address) => {
     console.log('🗺️ EventsScreen: geocodeAddress called with:', address);
@@ -142,16 +152,23 @@ const EventsScreen = () => {
     try {
       console.log('🗺️ EventsScreen: Starting geocoding for address:', address);
       
-      // Use a free geocoding service (Nominatim - OpenStreetMap)
+      // Add User-Agent header and delay to respect rate limits
       const encodedAddress = encodeURIComponent(address.trim());
       const geocodingUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
       console.log('🗺️ EventsScreen: Geocoding URL:', geocodingUrl);
       
-      const response = await fetch(geocodingUrl);
+      const response = await fetch(geocodingUrl, {
+        headers: {
+          'User-Agent': 'FoodTruckFinder/1.0 (events@foodtruckfinder.com)'
+        }
+      });
       console.log('🗺️ EventsScreen: Geocoding response status:', response.status);
       
       if (!response.ok) {
         console.log('❌ EventsScreen: Geocoding service response not ok:', response.status);
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded - please wait before trying again');
+        }
         throw new Error('Geocoding service unavailable');
       }
       
@@ -184,37 +201,48 @@ const EventsScreen = () => {
     }
   };
 
-  // Handle address change with geocoding
-  const handleAddressChange = async (text) => {
+  // Debounced address change handler to prevent excessive API calls
+  const handleAddressChange = (text) => {
     console.log('🗺️ EventsScreen: handleAddressChange called with:', text);
     console.log('🗺️ EventsScreen: Text length:', text ? text.length : 0);
     
+    // Update form immediately for UI responsiveness
     setEventForm(prev => ({ ...prev, address: text }));
     
-    // Only geocode if address is substantial enough
+    // Clear existing timeout
+    if (geocodingTimeout) {
+      clearTimeout(geocodingTimeout);
+    }
+    
+    // Only geocode if address is substantial enough - debounced by 1.5 seconds
     if (text && text.trim().length > 10) {
-      console.log('🗺️ EventsScreen: Address substantial enough, starting geocoding...');
+      console.log('🗺️ EventsScreen: Setting up debounced geocoding...');
       
-      const coordinates = await geocodeAddress(text);
-      console.log('🗺️ EventsScreen: Geocoding completed, result:', coordinates);
+      const newTimeout = setTimeout(async () => {
+        console.log('🗺️ EventsScreen: Executing debounced geocoding for:', text);
+        const coordinates = await geocodeAddress(text);
+        console.log('🗺️ EventsScreen: Geocoding completed, result:', coordinates);
+        
+        if (coordinates && coordinates.latitude && coordinates.longitude) {
+          console.log('✅ EventsScreen: Updating form with new coordinates...');
+          setEventForm(prev => ({ 
+            ...prev, 
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude 
+          }));
+          console.log('✅ EventsScreen: Form coordinates updated successfully');
+        } else {
+          console.log('❌ EventsScreen: Invalid or null coordinates from geocoding');
+          // Clear coordinates if geocoding failed
+          setEventForm(prev => ({ 
+            ...prev, 
+            latitude: null,
+            longitude: null 
+          }));
+        }
+      }, 1500); // 1.5 second delay
       
-      if (coordinates && coordinates.latitude && coordinates.longitude) {
-        console.log('✅ EventsScreen: Updating form with new coordinates...');
-        setEventForm(prev => ({ 
-          ...prev, 
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude 
-        }));
-        console.log('✅ EventsScreen: Form coordinates updated successfully');
-      } else {
-        console.log('❌ EventsScreen: Invalid or null coordinates from geocoding');
-        // Clear coordinates if geocoding failed
-        setEventForm(prev => ({ 
-          ...prev, 
-          latitude: null,
-          longitude: null 
-        }));
-      }
+      setGeocodingTimeout(newTimeout);
     } else {
       console.log('🗺️ EventsScreen: Address too short, clearing coordinates');
       // Clear coordinates if address is too short
@@ -265,6 +293,80 @@ const EventsScreen = () => {
       setSelectedMinute(minute);
       setSelectedPeriod(period);
     }
+  };
+
+  // Logo image upload functions
+  const pickEventLogo = async () => {
+    try {
+      // Request permission to access media library
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Configure image picker options
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for logos
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadEventLogo(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('Error picking logo image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const uploadEventLogo = async (imageAsset) => {
+    setUploadingLogo(true);
+    try {
+      const { uri } = imageAsset;
+      
+      // Create a blob from the image URI
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Create a unique filename
+      const timestamp = Date.now();
+      const fileExtension = uri.split('.').pop() || 'jpg';
+      const fileName = `event-logo-${timestamp}.${fileExtension}`;
+      
+      // Create storage reference for event logos
+      const storagePath = `uploads/event-organizers/${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      
+      console.log('🔄 Uploading event logo to Firebase Storage...');
+      
+      // Upload the blob
+      await uploadBytes(storageRef, blob);
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      console.log('✅ Event logo uploaded successfully:', downloadURL);
+      
+      // Update the event form with the new logo URL
+      setEventForm(prev => ({ ...prev, organizerLogoUrl: downloadURL }));
+      
+      Alert.alert('Success', 'Event logo uploaded successfully!');
+      
+    } catch (error) {
+      console.error('Error uploading event logo:', error);
+      Alert.alert('Error', 'Failed to upload logo. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const removeEventLogo = () => {
+    setEventForm(prev => ({ ...prev, organizerLogoUrl: '' }));
   };
 
   // Fetch events from Firebase
@@ -369,6 +471,15 @@ const EventsScreen = () => {
 
     return unsubscribe;
   }, [user]);
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (geocodingTimeout) {
+        clearTimeout(geocodingTimeout);
+      }
+    };
+  }, [geocodingTimeout]);
 
   // Check if user can manage events
   const canManageEvents = () => {
@@ -964,17 +1075,55 @@ const EventsScreen = () => {
               />
             </View>
 
-            {/* Organizer Logo URL */}
+            {/* Event Logo */}
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Organizer Logo URL</Text>
-              <TextInput
-                style={styles.formInput}
-                value={eventForm.organizerLogoUrl}
-                onChangeText={(text) => setEventForm(prev => ({ ...prev, organizerLogoUrl: text }))}
-                placeholder="Enter logo URL (optional)"
-                placeholderTextColor="#999"
-                autoCapitalize="none"
-              />
+              <Text style={styles.formLabel}>Event Logo</Text>
+              
+              {eventForm.organizerLogoUrl ? (
+                <View style={styles.logoContainer}>
+                  <Image 
+                    source={{ uri: eventForm.organizerLogoUrl }} 
+                    style={styles.logoPreview}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.logoActions}>
+                    <TouchableOpacity 
+                      style={styles.changeLogo} 
+                      onPress={pickEventLogo}
+                      disabled={uploadingLogo}
+                    >
+                      <Ionicons name="camera" size={16} color="#007AFF" />
+                      <Text style={styles.changeLogoText}>Change Logo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.removeLogo} 
+                      onPress={removeEventLogo}
+                      disabled={uploadingLogo}
+                    >
+                      <Ionicons name="trash" size={16} color="#FF3B30" />
+                      <Text style={styles.removeLogoText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.logoUploadButton} 
+                  onPress={pickEventLogo}
+                  disabled={uploadingLogo}
+                >
+                  {uploadingLogo ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                  ) : (
+                    <Ionicons name="camera" size={24} color="#007AFF" />
+                  )}
+                  <Text style={styles.logoUploadText}>
+                    {uploadingLogo ? 'Uploading...' : 'Upload Event Logo'}
+                  </Text>
+                  <Text style={styles.logoUploadSubtext}>
+                    This logo will appear on your event markers
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Event Status */}
@@ -2526,6 +2675,79 @@ const styles = StyleSheet.create({
     color: '#10b981',
     marginTop: 4,
     fontWeight: '500',
+  },
+  // Logo upload styles
+  logoContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  logoPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+  },
+  logoActions: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  changeLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  changeLogoText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  removeLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff5f5',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  removeLogoText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  logoUploadButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    backgroundColor: '#f8fbff',
+    marginVertical: 10,
+  },
+  logoUploadText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginTop: 8,
+  },
+  logoUploadSubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 

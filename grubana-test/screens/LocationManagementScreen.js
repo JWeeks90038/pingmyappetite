@@ -115,18 +115,8 @@ export default function LocationManagementScreen({ navigation }) {
   };
 
   const startLocationTracking = async () => {
-    if (userPlan === 'basic') {
-      Alert.alert(
-        'Upgrade Required',
-        'Real-time GPS tracking is available with Pro and All Access plans.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => navigation.navigate('Upgrade') }
-        ]
-      );
-      return;
-    }
-
+    // Removed Basic plan restriction - all plans now get automatic GPS tracking
+    
     try {
       console.log('LocationManagementScreen: Starting location tracking...');
       

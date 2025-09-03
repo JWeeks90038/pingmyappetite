@@ -18,10 +18,11 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { signOut, sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
 import ContactFormModal from '../components/ContactFormModal';
-import { auth, db, storage } from '../firebase';
+import { auth, db, storage, functions } from '../firebase';
 import { useStripe, CardField, usePaymentSheet } from '@stripe/stripe-react-native';
 
 export default function ProfileScreen() {
@@ -41,6 +42,7 @@ export default function ProfileScreen() {
     description: userData?.description || '',
     menuUrl: userData?.menuUrl || '',
     coverUrl: userData?.coverUrl || '',
+    logoUrl: userData?.logoUrl || '',
   });
   const [socialLinks, setSocialLinks] = useState({
     instagram: userData?.instagram || '',
@@ -101,6 +103,7 @@ export default function ProfileScreen() {
         description: userData.description || '',
         menuUrl: userData.menuUrl || '',
         coverUrl: userData.coverUrl || '',
+        logoUrl: userData.logoUrl || '',
       });
       setSocialLinks({
         instagram: userData.instagram || '',
@@ -142,6 +145,7 @@ export default function ProfileScreen() {
           description: freshUserData.description || '',
           menuUrl: freshUserData.menuUrl || '',
           coverUrl: freshUserData.coverUrl || '',
+          logoUrl: freshUserData.logoUrl || '',
         });
         
         setSocialLinks({
@@ -377,7 +381,7 @@ export default function ProfileScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: imageType === 'coverUrl' ? [16, 9] : [1, 1], // Different aspect ratios
+        aspect: imageType === 'coverUrl' ? [16, 9] : [1, 1], // Square for logos and menus, 16:9 for covers
         quality: 0.8,
         base64: false,
       });
@@ -405,8 +409,9 @@ export default function ProfileScreen() {
       const fileExtension = uri.split('.').pop() || 'jpg';
       const fileName = `${imageType}-${timestamp}.${fileExtension}`;
       
-      // Create storage reference
-      const storageRef = ref(storage, `uploads/${fileName}`);
+      // Create storage reference with specific path for event organizer logos
+      const storagePath = imageType === 'logoUrl' ? `uploads/event-organizers/${fileName}` : `uploads/${fileName}`;
+      const storageRef = ref(storage, storagePath);
       
       console.log('🔄 Uploading image to Firebase Storage...');
       
@@ -422,10 +427,13 @@ export default function ProfileScreen() {
       await updateDoc(doc(db, 'users', user.uid), { [imageType]: downloadURL });
       setUserProfile(prev => ({ ...prev, [imageType]: downloadURL }));
       
-      Alert.alert(
-        'Success', 
-        `${imageType === 'coverUrl' ? 'Cover image' : 'Menu image'} uploaded successfully!`
-      );
+      // Get the appropriate success message
+      let successMessage = 'Image uploaded successfully!';
+      if (imageType === 'coverUrl') successMessage = 'Cover image uploaded successfully!';
+      else if (imageType === 'menuUrl') successMessage = 'Menu image uploaded successfully!';
+      else if (imageType === 'logoUrl') successMessage = 'Organization logo uploaded successfully!';
+      
+      Alert.alert('Success', successMessage);
       
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -436,7 +444,10 @@ export default function ProfileScreen() {
   };
 
   const handleImageFieldEdit = (field) => {
-    const fieldLabel = field === 'coverUrl' ? 'Cover Image' : 'Menu Image';
+    let fieldLabel = 'Image';
+    if (field === 'coverUrl') fieldLabel = 'Cover Image';
+    else if (field === 'menuUrl') fieldLabel = 'Menu Image';
+    else if (field === 'logoUrl') fieldLabel = 'Organization Logo';
     
     Alert.alert(
       `Update ${fieldLabel}`,
@@ -512,10 +523,16 @@ export default function ProfileScreen() {
   const handleChangePassword = async () => {
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, auth.currentUser.email);
+      // Use custom password reset function with SendGrid
+      const sendCustomPasswordReset = httpsCallable(functions, 'sendCustomPasswordReset');
+      
+      await sendCustomPasswordReset({ 
+        email: auth.currentUser.email 
+      });
+      
       Alert.alert(
         'Password Reset',
-        'Password reset email sent! Please check your inbox.'
+        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.'
       );
     } catch (error) {
       console.error('Error sending reset email:', error);
@@ -1043,6 +1060,58 @@ export default function ProfileScreen() {
               {loading ? 'Loading...' : 'Manage Subscription'}
             </Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Event Organizer Logo Section (Event Organizer Only) */}
+      {userRole === 'event-organizer' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📸 Organization Logo</Text>
+          <Text style={styles.sectionSubtitle}>
+            Upload your organization's logo to display in event markers on the map
+          </Text>
+          
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Organization Logo</Text>
+            
+            <View style={styles.imageFieldContainer}>
+              {userProfile.logoUrl ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image 
+                    source={{ uri: userProfile.logoUrl }} 
+                    style={styles.logoImagePreview}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.logoPreviewLabel}>
+                    This logo will appear in your event markers on the map
+                  </Text>
+                  <View style={styles.imageActions}>
+                    <TouchableOpacity 
+                      style={styles.imageActionButton}
+                      onPress={() => handleImageFieldEdit('logoUrl')}
+                      disabled={loading}
+                    >
+                      <Text style={styles.imageActionText}>Change Logo</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.noImageContainer}>
+                  <Text style={styles.noImageText}>No organization logo set</Text>
+                  <Text style={styles.noImageSubtext}>
+                    Upload a logo to help attendees identify your events on the map
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.addImageButton}
+                    onPress={() => handleImageFieldEdit('logoUrl')}
+                    disabled={loading}
+                  >
+                    <Text style={styles.addImageText}>+ Upload Logo</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
       )}
 
@@ -1833,5 +1902,33 @@ const styles = StyleSheet.create({
     color: '#000000',
     width: '100%',
     height: Platform.OS === 'ios' ? 200 : 50,
+  },
+  // Logo Section Styles
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  logoImagePreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+  },
+  logoPreviewLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  noImageSubtext: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 12,
   },
 });

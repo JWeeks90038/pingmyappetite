@@ -300,7 +300,7 @@ const createCustomMarker = (position, content, map) => {
               lat: latitude,
               lng: longitude,
               isLive: true,
-              visible: true,
+              visible: isVisible !== false, // Respect current visibility setting, default to true if null
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
               sessionId: sessionId,
@@ -317,11 +317,11 @@ const createCustomMarker = (position, content, map) => {
     }
   }, [userPlan, userRole, user, previousPlan]);
 
-  // Geolocation for Pro and All Access Plans
+  // Geolocation for all food truck owners (Basic, Pro, All Access Plans)
   useEffect(() => {
     console.log('🌍 Geolocation useEffect running for:', userPlan);
-    if (userRole === "owner" && (userPlan === "pro" || userPlan === "all-access")) {
-      console.log('🌍 Requesting geolocation for paid plan user...');
+    if (userRole === "owner") {
+      console.log('🌍 Requesting geolocation for food truck owner...');
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           console.log('🌍 Geolocation success:', position.coords);
@@ -340,7 +340,7 @@ const createCustomMarker = (position, content, map) => {
                 lat: latitude,
                 lng: longitude,
                 isLive: true,
-                visible: true,
+                visible: isVisible !== false, // Respect current visibility setting, default to true if null
                 updatedAt: serverTimestamp(),
                 lastActive: Date.now(),
                 sessionId: sessionId,
@@ -410,7 +410,7 @@ const createCustomMarker = (position, content, map) => {
             lng: lng(),
             updatedAt: new Date(),
             isLive: true,
-            visible: true,
+            visible: isVisible !== false, // Respect current visibility setting, default to true if null
             lastActive: Date.now(),
             sessionId: sessionId,
             loginTime: Date.now(),
@@ -1338,54 +1338,12 @@ useEffect(() => {
   </div>
 )}
 
-      {/* Location Section - Feature Gated by Plan */}
-      {userPlan === "basic" ? (
-        <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
-          <h3>📍 Manual Location Entry</h3>
-          <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-            Basic plan allows manual location updates. Upgrade for real-time GPS tracking!
-          </p>
-          
-          <ManualLocationIndicator 
-            lastUpdate={ownerData?.lastLocationUpdate}
-            onUpgradeClick={() => window.location.href = '/pricing'}
-          />
-          
-          <form onSubmit={handleSubmit}>
-            <label>Enter your truck's location:</label>
-            <input
-              type="text"
-              value={manualLocation}
-              onChange={handleLocationChange}
-              placeholder="Enter address or coordinates"
-              required
-              style={{ 
-                width: "100%", 
-                padding: "8px", 
-                margin: "8px 0",
-                borderRadius: "4px",
-                border: "1px solid #ddd"
-              }}
-            />
-            <button 
-              type="submit"
-              style={{
-                padding: "8px 16px",
-                background: "#28a745",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer"
-              }}
-            >
-              Save Location
-            </button>
-          </form>
-        </div>
-      ) : userPlan === "pro" || userPlan === "all-access" ? (
+      {/* Location Section - Now automatic GPS for all plans */}
+      {userRole === "owner" ? (
         <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#e8f5e8", borderRadius: "8px" }}>
+          <h3>📍 Automatic GPS Location</h3>
           <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
-            Your location is automatic and updated in real-time, unless you hide from map.
+            Your location is automatic and updated in real-time{userPlan === "basic" ? " (now available for all plans!)" : ""}.
           </p>
           {location ? (
             <p style={{ color: "#28a745" }}>
@@ -1394,6 +1352,40 @@ useEffect(() => {
           ) : (
             <p>Loading location...</p>
           )}
+          
+          {/* Optional manual override for all plans */}
+          <details style={{ marginTop: "10px" }}>
+            <summary style={{ cursor: "pointer", color: "#007bff" }}>Manual location override (optional)</summary>
+            <form onSubmit={handleSubmit} style={{ marginTop: "10px" }}>
+              <label>Enter your truck's location:</label>
+              <input
+                type="text"
+                value={manualLocation}
+                onChange={handleLocationChange}
+                placeholder="Enter address or coordinates"
+                style={{ 
+                  width: "100%", 
+                  padding: "8px", 
+                  margin: "8px 0",
+                  borderRadius: "4px",
+                  border: "1px solid #ddd"
+                }}
+              />
+              <button 
+                type="submit"
+                style={{
+                  padding: "8px 16px",
+                  background: "#28a745",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer"
+                }}
+              >
+                Override Location
+              </button>
+            </form>
+          </details>
         </div>
       ) : (
         <div style={{ margin: "20px 0", padding: "15px", backgroundColor: "#fff3cd", borderRadius: "8px" }}>
@@ -1459,7 +1451,7 @@ useEffect(() => {
         <p>
           Customers can click on your truck icon to see basic information. 
           <br />
-          The heat map below shows where customers are requesting mobile vendors in real time.
+          Your location is now automatically tracked with GPS! The heat map below shows where customers are requesting mobile vendors in real time.
           <br />
           <span style={{ color: "#666", fontStyle: "italic" }}>
             Upgrade to Pro for real-time menu display and citywide heat maps, or All Access for advanced analytics!
@@ -1474,10 +1466,9 @@ useEffect(() => {
       )}
       <HeatMap isLoaded={isLoaded} onMapLoad={setMapRef} userPlan={userPlan} onTruckMarkerClick={handleTruckMarkerClick} />
 
-      {/* Pro Feature Callouts for Basic Plan Users */}
+      {/* Pro Feature Callouts for Basic Plan Users - GPS tracking now available for all */}
       {userPlan === "basic" && (
         <div style={{ margin: "20px 0" }}>
-          <GPSTrackingCallout />
           <div style={{ margin: "15px 0" }}>
             <HeatMapCallout />
           </div>

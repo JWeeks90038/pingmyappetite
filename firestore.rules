@@ -19,7 +19,9 @@ service cloud.firestore {
       // Allow authenticated users to read public truck information from other users
       // This is needed for displaying truck details when clicking map markers
       allow read: if request.auth != null && 
-        resource.data.role == 'owner';
+        (resource.data.role == 'owner' || 
+         resource.data.role == 'truck_owner' ||
+         resource.data.kitchenType != null);
         
       // Allow authenticated users to read event organizer information for logo display
       // This is needed for displaying organization logos on event markers
@@ -55,7 +57,7 @@ service cloud.firestore {
       // Allow creation if the ownerUid matches the authenticated user (backward compatibility)
       allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerUid;
       
-      // Allow all authenticated users to read truck locations (for map display)
+      // Allow all authenticated users to read truck locations (privacy filtering done in app code)
       allow read: if request.auth != null;
     }
     
@@ -73,7 +75,7 @@ service cloud.firestore {
       // Allow creation if the ownerUid matches the authenticated user (backward compatibility)
       allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerUid;
       
-      // Allow all authenticated users to read truck data (for map display and discovery)
+      // Allow all authenticated users to read truck data (privacy filtering done in app code)
       allow read: if request.auth != null;
     }
     
@@ -243,6 +245,27 @@ service cloud.firestore {
         request.auth.uid == resource.data.truckOwnerId;
       
       // Allow truck owners to update status of catering requests for their truck
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.truckOwnerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'response', 'updatedAt']);
+    }
+    
+    // Festival booking requests collection - allow event organizers to create festival booking requests
+    match /festivalBookingRequests/{requestId} {
+      // Allow event organizers to create festival booking requests
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.organizerId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'event-organizer';
+      
+      // Allow event organizers to read their own festival booking requests
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.organizerId;
+      
+      // Allow truck owners to read festival booking requests for their truck
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.truckOwnerId;
+      
+      // Allow truck owners to update status of festival booking requests for their truck
       allow update: if request.auth != null && 
         request.auth.uid == resource.data.truckOwnerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'response', 'updatedAt']);

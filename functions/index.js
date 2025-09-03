@@ -24,3 +24,9 @@ export * from "./welcomeEmailTriggers.js";
 
 // Export catering email functions
 export * from "./cateringTriggers.js";
+
+// Export festival email functions
+export * from "./festivalTriggers.js";
+
+// Export password reset functions
+export * from "./passwordResetService.js";

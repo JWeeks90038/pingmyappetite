@@ -7,26 +7,32 @@ export const logoutUser = async () => {
   const user = auth.currentUser;
   
   try {
-    // Hide truck from map before logging out
+    // Update truck status on logout - set offline but PRESERVE user's visibility choice
     if (user?.uid) {
-      console.log('🚪 FirebaseUtils: Hiding truck from map before logout for user:', user.uid);
+      console.log('🚪 FirebaseUtils: Setting truck offline on logout for user:', user.uid);
       const truckDocRef = doc(db, "truckLocations", user.uid);
       
       try {
-        // Try to update existing document
+        // Get current visibility setting to preserve it
+        const currentDoc = await getDoc(truckDocRef);
+        const currentVisible = currentDoc.exists() ? currentDoc.data().visible : true;
+        
+        console.log('🔒 PRIVACY: Preserving user visibility choice during logout:', currentVisible);
+        
+        // Update existing document - preserve visibility, just set offline
         await updateDoc(truckDocRef, {
           isLive: false,
-          visible: false,
+          // DO NOT MODIFY visible field - preserve user's Hide Truck choice
           lastActive: Date.now(),
         });
-        console.log('🚪 FirebaseUtils: Truck location updated successfully');
+        console.log('🚪 FirebaseUtils: Truck set offline, visibility choice preserved');
       } catch (updateError) {
-        // If document doesn't exist, create it with offline status
+        // If document doesn't exist, create it with default visibility
         console.log('🚪 FirebaseUtils: Document may not exist, creating with offline status');
         await setDoc(truckDocRef, {
           ownerUid: user.uid,
           isLive: false,
-          visible: false,
+          visible: true, // Default for new documents only
           lastActive: Date.now(),
           updatedAt: new Date(),
         }, { merge: true });
@@ -34,7 +40,7 @@ export const logoutUser = async () => {
       }
     }
   } catch (error) {
-    console.error('🚪 FirebaseUtils: Error hiding truck during logout:', error);
+    console.error('🚪 FirebaseUtils: Error updating truck during logout:', error);
     // Continue with logout even if truck update fails
   }
   

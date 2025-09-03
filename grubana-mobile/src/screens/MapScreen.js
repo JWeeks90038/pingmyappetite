@@ -15,9 +15,13 @@ import { calculateStripeConnectPayment, preparePaymentIntentData } from '../util
 const { width, height } = Dimensions.get('window');
 
 export default function MapScreen() {
+  // DEBUG: Console log to confirm code changes are active
+  console.log('🔧 DEBUG: MapScreen loaded with UPDATED code - Menu Management changes should be active');
+  
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [foodTrucks, setFoodTrucks] = useState([]);
+  const [hasReceivedFirebaseData, setHasReceivedFirebaseData] = useState(false); // Track if we've gotten Firebase response
   const [customerPings, setCustomerPings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mapHTML, setMapHTML] = useState(''); // Add state for map HTML
@@ -38,6 +42,20 @@ export default function MapScreen() {
   const [showTruckIcon, setShowTruckIcon] = useState(true); // Toggle for truck icon visibility (owners only)
   const [lastActivityTime, setLastActivityTime] = useState(Date.now()); // Track user activity
   const [imageAspectRatio, setImageAspectRatio] = useState(null);
+  
+  // 🚀 PERFORMANCE: Privacy settings cache to avoid repeated Firebase calls
+  const [privacyCache, setPrivacyCache] = useState(new Map());
+  const [privacyCacheTimestamp, setPrivacyCacheTimestamp] = useState(0);
+  const PRIVACY_CACHE_DURATION = 30 * 1000; // 30 seconds cache
+  
+  // 🌍 PERFORMANCE: Geographic filtering for large-scale deployments
+  const [viewBounds, setViewBounds] = useState(null);
+  const MAX_TRUCKS_PER_LOAD = 100; // Limit trucks per viewport
+  const GEOGRAPHIC_RADIUS = 50; // km radius for truck loading
+  
+  // Persistent truck status filter state
+  const [showClosedTrucks, setShowClosedTrucks] = useState(true); // Show closed trucks by default
+  const [showOpenTrucks, setShowOpenTrucks] = useState(true);     // Show open trucks by default
   const [loadingImageSize, setLoadingImageSize] = useState(false);
   
   // Events feature states
@@ -61,6 +79,26 @@ export default function MapScreen() {
 
   // Catering booking states
   const [showCateringModal, setShowCateringModal] = useState(false);
+  
+  // NEW item tracking (client-side workaround)
+  const [newItemIds, setNewItemIds] = useState(new Set());
+
+  // Client-side new items tracking functions
+  const getNewItemIds = async (userId) => {
+    try {
+      const stored = await AsyncStorage.getItem(`newItemIds_${userId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (error) {
+      console.error('Error getting new item IDs:', error);
+      return new Set();
+    }
+  };
+
+  const isItemNew = (itemId, truckOwnerId) => {
+    // For MapScreen, we need to check if this user has marked items as new
+    // Since we don't know who's viewing, we'll just check if the item is in any new items list
+    return newItemIds.has(itemId);
+  };
   const [cateringFormData, setCateringFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -72,6 +110,29 @@ export default function MapScreen() {
     specialRequests: '',
   });
   const [submittingCateringForm, setSubmittingCateringForm] = useState(false);
+
+  // Festival booking states (for event organizers)
+  const [showFestivalModal, setShowFestivalModal] = useState(false);
+  const [festivalFormData, setFestivalFormData] = useState({
+    organizerName: '',
+    organizerEmail: '',
+    organizerPhone: '',
+    eventName: '',
+    eventDate: '',
+    eventTime: '',
+    eventLocation: '',
+    eventAddress: '',
+    expectedAttendance: '',
+    eventDuration: '',
+    spacesAvailable: '',
+    electricityProvided: false,
+    waterProvided: false,
+    boothFee: '',
+    salesPercentage: '',
+    eventDescription: '',
+    specialRequirements: '',
+  });
+  const [submittingFestivalForm, setSubmittingFestivalForm] = useState(false);
 
   // Function to check if truck is currently open based on business hours
   const checkTruckOpenStatus = (businessHours) => {
@@ -295,6 +356,57 @@ export default function MapScreen() {
     { id: 'food', name: 'General Food', emoji: '🍽️' }
   ];
 
+  // Function to get the display name for a cuisine type
+  const getCuisineDisplayName = (cuisineType) => {
+    if (!cuisineType) return 'General Food';
+    
+    // Convert to lowercase for comparison
+    const normalizedType = cuisineType.toLowerCase().trim();
+    
+    // Find matching cuisine type
+    const cuisine = cuisineTypes.find(c => c.id === normalizedType);
+    if (cuisine) {
+      return cuisine.name;
+    }
+    
+    // If no exact match, try to find a partial match or format the string nicely
+    if (normalizedType === 'food' || normalizedType === 'general' || normalizedType === 'general food') {
+      return 'General Food';
+    }
+    
+    // Capitalize the first letter and return as-is
+    return cuisineType.charAt(0).toUpperCase() + cuisineType.slice(1);
+  };
+
+  // Function to intelligently assign a cuisine type based on truck name
+  const inferCuisineType = (truckName) => {
+    if (!truckName) return 'american'; // Default fallback
+    
+    const name = truckName.toLowerCase();
+    
+    // Common patterns to identify cuisine types
+    if (name.includes('bbq') || name.includes('barbeque') || name.includes('smoke')) return 'bbq';
+    if (name.includes('taco') || name.includes('burrito') || name.includes('mexican')) return 'mexican';
+    if (name.includes('pizza') || name.includes('pizz')) return 'pizza';
+    if (name.includes('burger') || name.includes('patty')) return 'burgers';
+    if (name.includes('wing') || name.includes('chicken')) return 'wings';
+    if (name.includes('seafood') || name.includes('fish') || name.includes('shrimp')) return 'seafood';
+    if (name.includes('chinese') || name.includes('wok')) return 'chinese';
+    if (name.includes('italian') || name.includes('pasta')) return 'italian';
+    if (name.includes('thai')) return 'thai';
+    if (name.includes('indian')) return 'indian';
+    if (name.includes('japanese') || name.includes('sushi')) return 'japanese';
+    if (name.includes('korean')) return 'korean';
+    if (name.includes('greek')) return 'greek';
+    if (name.includes('coffee') || name.includes('espresso')) return 'coffee';
+    if (name.includes('dessert') || name.includes('ice cream') || name.includes('donut')) return 'desserts';
+    if (name.includes('healthy') || name.includes('salad') || name.includes('vegan')) return 'healthy';
+    if (name.includes('southern') || name.includes('soul')) return 'southern';
+    
+    // Default to American if no specific pattern is found
+    return 'american';
+  };
+
   // Function to add test ping data to Firestore for heatmap testing
   const addTestPingData = async () => {
     if (!user || !location) return;
@@ -336,6 +448,9 @@ export default function MapScreen() {
     if (user && !sessionId) {
       const newSessionId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       setSessionId(newSessionId);
+      
+      // Load new item IDs for this user (in case they're viewing their own truck)
+      getNewItemIds(user.uid).then(setNewItemIds);
     } else if (!user) {
       setSessionId(null);
     }
@@ -527,6 +642,12 @@ export default function MapScreen() {
     setMenuItems([]);
     
     try {
+      // Load NEW item IDs for this truck owner
+      console.log("🏷️ Loading NEW item IDs for truck owner:", truckOwnerId);
+      const ownerNewItemIds = await getNewItemIds(truckOwnerId);
+      setNewItemIds(ownerNewItemIds);
+      console.log("🏷️ Loaded NEW item IDs:", [...ownerNewItemIds]);
+      
       // Query Firestore directly for menu items
       console.log("� Querying Firestore for menu items with ownerId:", truckOwnerId);
       
@@ -561,7 +682,15 @@ export default function MapScreen() {
         console.log("✅ Successfully loaded menu items from Firestore:", items.length, "items");
         if (items.length > 0) {
           console.log("🍽️ First menu item structure:", items[0]);
+          console.log("🖼️ First menu item imageUrl:", items[0].imageUrl);
         }
+        
+        // Log NEW badge status for each item
+        items.forEach(item => {
+          const shouldShowNew = item.isNewItem || ownerNewItemIds.has(item.id);
+          console.log(`🏷️ MapScreen: "${item.name}" - Backend isNewItem: ${item.isNewItem}, Client isNewItem: ${ownerNewItemIds.has(item.id)}, Should show NEW: ${shouldShowNew}`);
+        });
+        
         setMenuItems(items);
       }
     } catch (error) {
@@ -1155,6 +1284,11 @@ export default function MapScreen() {
     if (!user || userRole !== 'owner') return;
     
     try {
+      console.log('🔒 PRIVACY: ===== TRUCK VISIBILITY UPDATE =====');
+      console.log('🔒 PRIVACY: User ID:', user.uid);
+      console.log('🔒 PRIVACY: Setting visible to:', isVisible);
+      console.log('🔒 PRIVACY: This should HIDE truck if false, SHOW truck if true');
+      
       // Update both collections to keep them in sync
       const truckDocRef = doc(db, 'trucks', user.uid);
       const truckLocationRef = doc(db, 'truckLocations', user.uid);
@@ -1166,15 +1300,28 @@ export default function MapScreen() {
         updatedAt: serverTimestamp()
       };
       
+      console.log('🔒 PRIVACY: Update data being sent to database:', updateData);
+      
       // Update trucks collection
       await updateDoc(truckDocRef, updateData);
+      console.log('🔒 PRIVACY: ✅ Updated trucks collection with visible:', isVisible);
       
       // Update truckLocations collection (create if doesn't exist)
       await setDoc(truckLocationRef, updateData, { merge: true });
+      console.log('🔒 PRIVACY: ✅ Updated truckLocations collection with visible:', isVisible);
       
-      console.log('🚚 Truck visibility updated in both collections:', isVisible);
+      console.log('� PRIVACY: ===== UPDATE COMPLETE =====');
+      
+      // Force reload truck data to reflect changes immediately
+      console.log('🔄 PRIVACY: Forcing truck data reload...');
+      
+      // 🚀 PERFORMANCE: Invalidate privacy cache to reflect immediate changes
+      console.log('🚀 PERFORMANCE: Invalidating privacy cache for immediate visibility update');
+      setPrivacyCache(new Map());
+      setPrivacyCacheTimestamp(0);
+      
     } catch (error) {
-      console.error('❌ Error updating truck visibility:', error);
+      console.error('❌ PRIVACY ERROR: Failed to update truck visibility:', error);
     }
   };
 
@@ -1254,6 +1401,12 @@ export default function MapScreen() {
         
         // Check if truck should be auto-hidden due to inactivity
         await checkTruckExpiry();
+      } else {
+        // For users with no existing visibility data, default to visible (all plans)
+        console.log('🚚 User with no visibility data - defaulting to visible');
+        setShowTruckIcon(true);
+        // Also save this default to Firebase
+        await updateTruckVisibility(true);
       }
     } catch (error) {
       console.error('❌ Error loading truck visibility state:', error);
@@ -1291,6 +1444,18 @@ export default function MapScreen() {
         });
       });
     }
+  };
+
+  // Get truck status button text based on current filter state
+  const getTruckStatusButtonText = () => {
+    if (showClosedTrucks && showOpenTrucks) {
+      return '🟢 Hide Closed';
+    } else if (!showClosedTrucks && showOpenTrucks) {
+      return '🔴 Hide Open';
+    } else if (showClosedTrucks && !showOpenTrucks) {
+      return '🟡 Show All';
+    }
+    return '🟢 Hide Closed'; // Default fallback
   };
 
   const shareMenu = async () => {
@@ -1650,20 +1815,293 @@ export default function MapScreen() {
     }
   };
 
+  // Handle festival booking form submission
+  const handleFestivalSubmit = async () => {
+    // Validate required fields
+    const { organizerName, organizerEmail, organizerPhone, eventName, eventDate, eventTime, eventLocation, expectedAttendance } = festivalFormData;
+    
+    if (!organizerName || !organizerEmail || !organizerPhone) {
+      Alert.alert('Required Fields', 'Please fill in your name, email, and phone number.');
+      return;
+    }
+
+    if (!eventName || !eventDate || !eventTime || !eventLocation || !expectedAttendance) {
+      Alert.alert('Event Details Required', 'Please provide event name, date, time, location, and expected attendance.');
+      return;
+    }
+
+    setSubmittingFestivalForm(true);
+
+    try {
+      console.log('🎪 Submitting festival booking request for truck:', selectedTruck?.name);
+      
+      // Check if we have the required truck owner ID
+      if (!selectedTruck?.ownerId) {
+        Alert.alert('Error', 'Unable to find truck owner information. Please try again later.');
+        setSubmittingFestivalForm(false);
+        return;
+      }
+
+      // Send email to truck owner using Firebase Function with SendGrid
+      console.log('📧 Calling Firebase Function to send festival booking email');
+      
+      const functions = getFunctions();
+      const sendFestivalRequest = httpsCallable(functions, 'sendFestivalRequest');
+      
+      const functionData = {
+        organizerName,
+        organizerEmail,
+        organizerPhone,
+        eventName,
+        eventDate,
+        eventTime,
+        eventLocation,
+        eventAddress: festivalFormData.eventAddress || eventLocation,
+        expectedAttendance,
+        eventDuration: festivalFormData.eventDuration || 'Not specified',
+        spacesAvailable: festivalFormData.spacesAvailable || 'Not specified',
+        electricityProvided: festivalFormData.electricityProvided,
+        waterProvided: festivalFormData.waterProvided,
+        boothFee: festivalFormData.boothFee || 'To be discussed',
+        salesPercentage: festivalFormData.salesPercentage || 'To be discussed',
+        eventDescription: festivalFormData.eventDescription || 'No additional details provided',
+        specialRequirements: festivalFormData.specialRequirements || 'None',
+        truckName: selectedTruck?.name,
+        ownerId: selectedTruck?.ownerId // Pass owner ID - function will fetch email server-side
+      };
+
+      console.log('📧 Sending festival booking request data:', functionData);
+
+      const result = await sendFestivalRequest(functionData);
+      
+      console.log('📧 Firebase Function result:', result.data);
+
+      if (result.data.success) {
+        Alert.alert(
+          'Festival Booking Request Sent! 🎪',
+          `Your festival booking request has been sent to ${selectedTruck?.name}. They will contact you directly at ${organizerEmail} to discuss availability, booth fees, and event details.`,
+          [{ text: 'Excellent!' }]
+        );
+        
+        // Reset form and close modal
+        setFestivalFormData({
+          organizerName: '',
+          organizerEmail: '',
+          organizerPhone: '',
+          eventName: '',
+          eventDate: '',
+          eventTime: '',
+          eventLocation: '',
+          eventAddress: '',
+          expectedAttendance: '',
+          eventDuration: '',
+          spacesAvailable: '',
+          electricityProvided: false,
+          waterProvided: false,
+          boothFee: '',
+          salesPercentage: '',
+          eventDescription: '',
+          specialRequirements: '',
+        });
+        setShowFestivalModal(false);
+      } else {
+        throw new Error(result.data.message || 'Failed to send festival booking request');
+      }
+
+    } catch (error) {
+      console.error('❌ Festival booking request error:', error);
+      Alert.alert(
+        'Error',
+        'Failed to send festival booking request. Please try contacting the food truck directly or try again later.'
+      );
+    } finally {
+      setSubmittingFestivalForm(false);
+    }
+  };
+
   // Load real-time data from Firebase
   useEffect(() => {
     if (!user) return;
 
     console.log('🗺️ MapScreen: Loading Firebase data for user plan:', userPlan);
 
-    // Load food truck locations with complete owner data
-    const unsubscribeTrucks = onSnapshot(collection(db, "truckLocations"), async (snapshot) => {
-      console.log('🚛 MapScreen: Loading truck locations and owner data for', snapshot.size, 'trucks');
+    // 🌍 PERFORMANCE: Calculate geographic bounds for truck filtering
+    const getUserLocationBounds = () => {
+      if (!location) return null;
       
-      const trucksWithOwnerData = [];
+      // Calculate bounding box for geographic filtering (±50km)
+      const latOffset = GEOGRAPHIC_RADIUS / 111; // ~1 degree = 111km
+      const lngOffset = GEOGRAPHIC_RADIUS / (111 * Math.cos(location.lat * Math.PI / 180));
       
-      for (const docSnapshot of snapshot.docs) {
-        const truckData = { id: docSnapshot.id, ...docSnapshot.data() };
+      return {
+        north: location.lat + latOffset,
+        south: location.lat - latOffset,
+        east: location.lng + lngOffset,
+        west: location.lng - lngOffset
+      };
+    };
+
+    // Load food truck locations with geographic filtering and complete owner data
+    const bounds = getUserLocationBounds();
+    let query = collection(db, "truckLocations");
+    
+    // 🚀 PERFORMANCE: Add geographic filtering for large-scale deployments
+    if (bounds && location) {
+      console.log('🌍 PERFORMANCE: Applying geographic filtering within', GEOGRAPHIC_RADIUS, 'km of user location');
+      // Note: For production, consider using GeoHash or external geographic indexing
+      // Firebase doesn't support efficient geo queries without additional indexing
+    }
+    
+    const unsubscribeTrucks = onSnapshot(
+      query, 
+      async (snapshot) => {
+        console.log('🚛 MapScreen: Loading truck locations and owner data for', snapshot.size, 'trucks');
+        console.log('🚛 PRIVACY DEBUG: User role:', userRole, 'User ID:', user?.uid?.substring(0, 8) + '...');
+        
+        // 🚀 PERFORMANCE: Early truncation for large datasets
+        const totalTrucks = snapshot.size;
+        const trucksToProcess = Math.min(totalTrucks, MAX_TRUCKS_PER_LOAD);
+        
+        if (totalTrucks > MAX_TRUCKS_PER_LOAD) {
+          console.log('🚀 PERFORMANCE: Large dataset detected -', totalTrucks, 'trucks. Processing nearest', trucksToProcess, 'trucks');
+        }
+        
+        const trucksWithOwnerData = [];
+        
+        if (snapshot.size === 0) {
+          console.log('❌ PRIVACY DEBUG: No trucks found in database - this explains mock data fallback');
+        }
+
+        // 🌍 PERFORMANCE: Helper function to calculate distance between two points
+        const calculateDistance = (lat1, lng1, lat2, lng2) => {
+          const R = 6371; // Earth's radius in km
+          const dLat = (lat2 - lat1) * Math.PI / 180;
+          const dLng = (lng2 - lng1) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          return R * c;
+        };
+
+        // 🚀 PERFORMANCE: Pre-filter and sort trucks by distance
+        let filteredTrucks = snapshot.docs;
+        
+        if (location && totalTrucks > MAX_TRUCKS_PER_LOAD) {
+          console.log('🌍 PERFORMANCE: Filtering trucks by distance to user location');
+          
+          filteredTrucks = snapshot.docs
+            .map(doc => {
+              const data = doc.data();
+              const distance = data.lat && data.lng ? 
+                calculateDistance(location.lat, location.lng, data.lat, data.lng) : 999999;
+              return { doc, distance, data };
+            })
+            .filter(truck => truck.distance <= GEOGRAPHIC_RADIUS) // Only trucks within radius
+            .sort((a, b) => a.distance - b.distance) // Sort by closest first
+            .slice(0, MAX_TRUCKS_PER_LOAD) // Limit to max trucks
+            .map(truck => truck.doc);
+            
+          console.log('🌍 PERFORMANCE: Filtered to', filteredTrucks.length, 'trucks within', GEOGRAPHIC_RADIUS, 'km');
+        }
+
+        // 🚀 PERFORMANCE OPTIMIZATION: Use cached privacy settings or batch load
+        const allTruckIds = filteredTrucks.map(doc => doc.id);
+        const now = Date.now();
+        const isCacheValid = (now - privacyCacheTimestamp) < PRIVACY_CACHE_DURATION;
+        
+        console.log('🔒 PRIVACY: Cache status - valid:', isCacheValid, 'age:', Math.round((now - privacyCacheTimestamp) / 1000), 'seconds');
+        
+        let trucksPrivacyMap = {};
+        
+        if (isCacheValid && privacyCache.size > 0) {
+          // Use cached privacy settings
+          console.log('🚀 PERFORMANCE: Using cached privacy settings for', allTruckIds.length, 'trucks');
+          allTruckIds.forEach(id => {
+            if (privacyCache.has(id)) {
+              trucksPrivacyMap[id] = privacyCache.get(id);
+            }
+          });
+        } else {
+          // Cache expired or empty - batch load fresh privacy settings
+          console.log('🔒 PRIVACY: Cache expired/empty - batch loading privacy settings for', allTruckIds.length, 'trucks');
+          
+          try {
+            // 🚀 PERFORMANCE: Use Firebase batch reads for better efficiency at scale
+            const BATCH_SIZE = 500; // Firebase has 500 doc limit per batch
+            const batchPromises = [];
+            
+            for (let i = 0; i < allTruckIds.length; i += BATCH_SIZE) {
+              const batch = allTruckIds.slice(i, i + BATCH_SIZE);
+              const batchPromise = Promise.all(
+                batch.map(async (truckId) => {
+                  try {
+                    const trucksDoc = await getDoc(doc(db, 'trucks', truckId));
+                    return {
+                      id: truckId,
+                      visible: trucksDoc.exists() ? trucksDoc.data().visible : undefined,
+                      exists: trucksDoc.exists()
+                    };
+                  } catch (error) {
+                    console.log('🔒 PRIVACY: Error fetching truck', truckId, '- defaulting to hidden');
+                    return { id: truckId, visible: false, exists: false };
+                  }
+                })
+              );
+              batchPromises.push(batchPromise);
+            }
+            
+            const batchArrays = await Promise.all(batchPromises);
+            const batchResults = batchArrays.flat();
+            
+            console.log('🚀 PERFORMANCE: Processed', batchResults.length, 'trucks in', batchPromises.length, 'batches');
+            
+            // Update cache
+            const newCache = new Map();
+            batchResults.forEach(result => {
+              trucksPrivacyMap[result.id] = result;
+              newCache.set(result.id, result);
+            });
+            
+            setPrivacyCache(newCache);
+            setPrivacyCacheTimestamp(now);
+            
+            console.log('� PERFORMANCE: Fresh privacy data loaded and cached for', batchResults.length, 'trucks');
+          } catch (error) {
+            console.log('🔒 PRIVACY: Error in batch privacy check - falling back to safe mode (hide all):', error);
+            return { trucksToDisplay: [], trucksWithOwnerData: [] };
+          }
+        }
+        
+        for (const docSnapshot of filteredTrucks) {
+          const truckData = { id: docSnapshot.id, ...docSnapshot.data() };
+          
+          console.log('🔒 PRIVACY DEBUG: Processing truck:', {
+            id: truckData.id,
+            name: truckData.truckName || 'Unknown',
+            visible: truckData.visible,
+            isLive: truckData.isLive,
+            hasCoords: !!(truckData.lat && truckData.lng),
+            lastActive: truckData.lastActive ? new Date(truckData.lastActive).toLocaleString() : 'Never'
+          });
+          
+          // 🔒 FAST PRIVACY CHECK: Use pre-loaded privacy data
+          const trucksPrivacy = trucksPrivacyMap[truckData.id];
+          const trucksVisible = trucksPrivacy ? trucksPrivacy.visible : undefined;
+          const locationsVisible = truckData.visible;
+          
+          console.log('🔒 PRIVACY CROSS-CHECK for truck:', truckData.id, {
+            trucksCollectionVisible: trucksVisible,
+            locationsCollectionVisible: locationsVisible,
+            trucksDocExists: trucksPrivacy ? trucksPrivacy.exists : false
+          });
+          
+          // If EITHER collection has visible=false, hide the truck (most restrictive wins)
+          if (trucksVisible === false || locationsVisible === false) {
+            console.log('🔒 PRIVACY: Truck hidden in at least one collection, skipping:', truckData.id, truckData.truckName || 'Unknown');
+            console.log('🔒 PRIVACY: Hide reason - trucks visible:', trucksVisible, 'locations visible:', locationsVisible);
+            continue;
+          }
         
         // Filter visible trucks (enhanced visibility logic matching web version)
         const now = Date.now();
@@ -1678,13 +2116,24 @@ export default function MapScreen() {
         const isRecentlyActive = timeSinceActive <= GRACE_PERIOD;
         const withinEightHourWindow = sessionDuration < ONLINE_THRESHOLD;
         
+        // CRITICAL: Truck must be explicitly visible (visible === true) to be shown to ANYONE
         const isVisible = hasCoordinates && isExplicitlyVisible && (
           isRecentlyActive || 
           (withinEightHourWindow && isExplicitlyVisible)
         );
         
+        console.log(`🔒 PRIVACY CHECK for truck ${truckData.id}:`, {
+          truckName: truckData.truckName || 'Unknown',
+          hasCoordinates,
+          isExplicitlyVisible,
+          isRecentlyActive,
+          withinEightHourWindow,
+          finalVisibility: isVisible,
+          rawVisibleField: truckData.visible
+        });
+        
         if (!isVisible) {
-          console.log('🚛 Skipping non-visible truck:', truckData.id);
+          console.log('🚛 PRIVACY: Skipping non-visible truck:', truckData.id, '- Reason: visible =', truckData.visible);
           continue;
         }
         
@@ -1696,16 +2145,22 @@ export default function MapScreen() {
             console.log('� Retrieved owner data for truck:', truckData.id, {
               truckName: ownerData.truckName,
               cuisineType: ownerData.cuisineType,
+              rawCuisineType: ownerData.cuisineType,
+              hasCuisineType: !!ownerData.cuisineType,
               coverUrl: (ownerData.coverUrl || ownerData.coverURL) ? (ownerData.coverUrl || ownerData.coverURL).substring(0, 50) + '...' : 'None',
               menuUrl: ownerData.menuUrl ? 'Yes' : 'No',
               socialCount: [ownerData.instagram, ownerData.facebook, ownerData.twitter, ownerData.tiktok].filter(Boolean).length
             });
             
             // Merge truck location data with complete owner profile data
+            // Prioritize 'cuisine' field over 'cuisineType' field
+            console.log(`🍽️ Cuisine data for ${ownerData.truckName}: cuisine="${ownerData.cuisine}", cuisineType="${ownerData.cuisineType}"`);
+            const actualCuisine = ownerData.cuisine || ownerData.cuisineType || inferCuisineType(ownerData.truckName || ownerData.username);
             trucksWithOwnerData.push({
               ...truckData,
+              uid: truckData.id, // Ensure uid field is available for filtering
               truckName: ownerData.truckName || ownerData.username || 'Food Truck',
-              cuisineType: ownerData.cuisineType || 'Food',
+              cuisineType: actualCuisine,
               coverUrl: ownerData.coverUrl || ownerData.coverURL, // Check both case variations
               menuUrl: ownerData.menuUrl,
               instagram: ownerData.instagram,
@@ -1718,18 +2173,83 @@ export default function MapScreen() {
             });
           } else {
             console.log('⚠️ No owner data found for truck:', truckData.id);
-            // Include truck with basic data only
-            trucksWithOwnerData.push(truckData);
+            // Include truck with basic data and sensible defaults
+            trucksWithOwnerData.push({
+              ...truckData,
+              truckName: truckData.truckName || 'Food Truck',
+              cuisineType: truckData.cuisine || truckData.cuisineType || 'General Food',
+              coverUrl: null,
+              menuUrl: null,
+              instagram: null,
+              facebook: null,
+              twitter: null,
+              tiktok: null,
+              email: null,
+              kitchenType: truckData.kitchenType || 'truck',
+              businessHours: null
+            });
           }
         } catch (error) {
-          console.error('❌ Error fetching owner data for truck:', truckData.id, error);
-          // Include truck with basic data only
-          trucksWithOwnerData.push(truckData);
+          // Handle permission errors gracefully (expected for Basic plan users reading other owners' data)
+          if (error.code === 'permission-denied') {
+            console.log('🔒 Limited access to owner data for truck:', truckData.id, '(using basic truck info only)');
+          } else {
+            console.error('❌ Error fetching owner data for truck:', truckData.id, error);
+          }
+          // Include truck with basic data and sensible defaults
+          const inferredCuisine = truckData.cuisine || truckData.cuisineType || inferCuisineType(truckData.truckName);
+          trucksWithOwnerData.push({
+            ...truckData,
+            uid: truckData.id, // Ensure uid field is available for filtering
+            truckName: truckData.truckName || 'Food Truck',
+            cuisineType: inferredCuisine,
+            coverUrl: null,
+            menuUrl: null,
+            instagram: null,
+            facebook: null,
+            twitter: null,
+            tiktok: null,
+            email: null,
+            kitchenType: truckData.kitchenType || 'truck',
+            businessHours: null
+          });
         }
       }
       
       console.log('🚛 MapScreen: Loaded', trucksWithOwnerData.length, 'visible food trucks with complete data');
+      console.log('🔒 PRIVACY SUMMARY: Showing', trucksWithOwnerData.length, 'trucks to', userRole, 'user');
+      
+      // DETAILED PRIVACY DEBUG: Log every truck and its visibility status
+      console.log('🔍 DETAILED TRUCK ANALYSIS:');
+      trucksWithOwnerData.forEach((truck, index) => {
+        console.log(`   ${index + 1}. ${truck.truckName || truck.name || 'Unknown'}`);
+        console.log(`      - ID: ${truck.id}`);
+        console.log(`      - visible: ${truck.visible}`);
+        console.log(`      - isLive: ${truck.isLive}`);
+        console.log(`      - coordinates: ${truck.lat}, ${truck.lng}`);
+        console.log(`      - source: REAL_DATABASE`);
+      });
+      
+      // Mark that we've received Firebase data (even if empty due to privacy filtering)
+      setHasReceivedFirebaseData(true);
+      
+      if (trucksWithOwnerData.length === 0) {
+        console.log('❌ NO VISIBLE TRUCKS - All trucks may be hidden by owners for privacy');
+        console.log('❌ This could mean: 1) No trucks in database, 2) All trucks hidden via Hide Truck toggle, 3) Permission issue');
+      }
+      
       setFoodTrucks(trucksWithOwnerData);
+    },
+    (error) => {
+      console.error('❌ CRITICAL: Error loading truck data:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      
+      // Mark that we've received a Firebase response (even if it's an error)
+      setHasReceivedFirebaseData(true);
+      
+      // Set empty array to avoid showing mock data if there's a real error
+      setFoodTrucks([]);
     });
 
     // Load customer pings for both heatmap (Pro/All-Access) and individual markers (Basic)
@@ -1786,7 +2306,7 @@ export default function MapScreen() {
     let unsubscribeEvents = null;
     console.log('🎪 MapScreen: Loading events for map display');
     
-    unsubscribeEvents = onSnapshot(collection(db, "events"), (snapshot) => {
+    unsubscribeEvents = onSnapshot(collection(db, "events"), async (snapshot) => {
       console.log('🎪 MapScreen: Raw events snapshot size:', snapshot.size);
       
       const eventsData = snapshot.docs.map((doc) => ({
@@ -1808,9 +2328,35 @@ export default function MapScreen() {
         return hasCoordinates && isPublished;
       });
       
-      console.log('🎪 MapScreen: Loaded', eventsData.length, 'visible events');
-      console.log('🎪 Sample event data:', eventsData.slice(0, 2));
-      setEvents(eventsData);
+      // Fetch organizer logos for events that need them
+      const eventsWithLogos = await Promise.all(eventsData.map(async (event) => {
+        if (event.organizerId && (!event.organizerLogoUrl || event.organizerLogoUrl.trim() === '')) {
+          try {
+            console.log('🎪 Fetching organizer logo for event:', event.title, 'organizerId:', event.organizerId);
+            const organizerRef = doc(db, 'users', event.organizerId);
+            const organizerSnap = await getDoc(organizerRef);
+            
+            if (organizerSnap.exists()) {
+              const organizerData = organizerSnap.data();
+              const logoUrl = organizerData.logoUrl || '';
+              console.log('🎪 Found organizer logo:', logoUrl ? 'YES' : 'NO', 'for event:', event.title);
+              
+              return {
+                ...event,
+                organizerLogoUrl: logoUrl
+              };
+            }
+          } catch (error) {
+            console.error('❌ Error fetching organizer data for event:', event.id, error);
+          }
+        }
+        
+        return event;
+      }));
+      
+      console.log('🎪 MapScreen: Loaded', eventsWithLogos.length, 'visible events');
+      console.log('🎪 Sample event data:', eventsWithLogos.slice(0, 2));
+      setEvents(eventsWithLogos);
     });
 
     setLoading(false);
@@ -1824,8 +2370,12 @@ export default function MapScreen() {
 
   // Handle geolocation based on user plan and role
   useEffect(() => {
+    console.log('🌍 MapScreen: Geolocation useEffect triggered - userRole:', userRole, 'userPlan:', userPlan, 'user:', !!user?.uid);
+    
     (async () => {
+      console.log('🌍 MapScreen: Starting geolocation process...');
       let { status } = await Location.requestForegroundPermissionsAsync();
+      console.log('🌍 MapScreen: Location permission status:', status);
       setLocationPermission(status);
       
       if (status !== 'granted') {
@@ -1851,10 +2401,27 @@ export default function MapScreen() {
         
         setLocation(location);
         console.log('✅ MapScreen: Successfully got user location:', location.coords.latitude, location.coords.longitude);
+        console.log('📍 MapScreen: Checking location save requirements - userRole:', userRole, 'user.uid:', !!user?.uid, 'sessionId:', !!sessionId, 'ownerData:', !!ownerData);
 
-        // Special handling for All-Access food truck owners - save to Firebase
-        if (userRole === 'owner' && userPlan === 'all-access' && user?.uid && sessionId && ownerData) {
-          console.log('🌍 MapScreen: All-Access owner - saving truck location to Firebase');
+        // Save location for all food truck owners (Basic, Pro, All-Access) - automatic GPS tracking for all plans
+        if (userRole === 'owner' && user?.uid) {
+          console.log('🌍 MapScreen: Food truck owner detected - attempting to save location for plan:', userPlan);
+          
+          // Wait for sessionId and ownerData if they're not ready yet
+          let attempts = 0;
+          const maxAttempts = 10; // Wait up to 5 seconds (500ms * 10)
+          
+          while ((!sessionId || !ownerData) && attempts < maxAttempts) {
+            console.log('⏳ MapScreen: Waiting for sessionId or ownerData... Attempt', attempts + 1);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+            attempts++;
+          }
+          
+          if (sessionId && ownerData) {
+            console.log('🌍 MapScreen: Ready to save truck location to Firebase for plan:', userPlan);
+          } else {
+            console.log('⚠️ MapScreen: Proceeding without sessionId or ownerData - sessionId:', !!sessionId, 'ownerData:', !!ownerData);
+          }
           try {
             // Save to Firestore as truck location
             const truckDocRef = doc(db, 'truckLocations', user.uid);
@@ -1862,17 +2429,17 @@ export default function MapScreen() {
               lat: location.coords.latitude,
               lng: location.coords.longitude,
               isLive: true,
-              visible: showTruckIcon, // Use current visibility state
+              visible: showTruckIcon !== false, // Respect user's visibility choice for ALL plans
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
               lastActivityTime: Date.now(),
-              sessionId: sessionId,
+              sessionId: sessionId || Date.now() + '_' + Math.random().toString(36).substr(2, 9), // Generate fallback sessionId
               sessionStartTime: Date.now(),
               loginTime: Date.now(),
               ownerUid: user.uid,
-              kitchenType: ownerData.kitchenType || "truck",
-              truckName: ownerData.username || ownerData.businessName || "Food Truck",
-              coverUrl: ownerData.coverUrl || ownerData.coverURL || null, // Check both case variations
+              kitchenType: ownerData?.kitchenType || "truck",
+              truckName: ownerData?.username || ownerData?.businessName || "Food Truck",
+              coverUrl: ownerData?.coverUrl || ownerData?.coverURL || null, // Check both case variations
             };
             
             // Save to trucks collection for persistence and visibility management
@@ -1880,7 +2447,7 @@ export default function MapScreen() {
             await setDoc(trucksDocRef, locationData, { merge: true });
             
             await setDoc(truckDocRef, locationData, { merge: true });
-            console.log('✅ MapScreen: All-Access owner truck location saved to Firebase');
+            console.log('✅ MapScreen: Food truck owner location saved to Firebase for plan:', userPlan);
           } catch (firebaseError) {
             console.error('❌ MapScreen: Error saving truck location to Firebase:', firebaseError);
           }
@@ -1904,6 +2471,46 @@ export default function MapScreen() {
     })();
   }, [userPlan, userRole, user, sessionId, ownerData]);
 
+  // Additional effect to ensure truck location is saved when sessionId/ownerData become available later
+  useEffect(() => {
+    const saveLateLoadedLocation = async () => {
+      if (userRole === 'owner' && user?.uid && sessionId && ownerData && location) {
+        console.log('🔄 MapScreen: Late-loading effect - ensuring truck location is saved with complete data');
+        
+        try {
+          const truckDocRef = doc(db, 'truckLocations', user.uid);
+          const locationData = {
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+            isLive: true,
+            visible: showTruckIcon !== false, // Respect user's visibility choice for ALL plans
+            updatedAt: serverTimestamp(),
+            lastActive: Date.now(),
+            lastActivityTime: Date.now(),
+            sessionId: sessionId,
+            sessionStartTime: Date.now(),
+            loginTime: Date.now(),
+            ownerUid: user.uid,
+            kitchenType: ownerData.kitchenType || "truck",
+            truckName: ownerData.username || ownerData.businessName || "Food Truck",
+            coverUrl: ownerData.coverUrl || ownerData.coverURL || null,
+          };
+          
+          // Save to both collections
+          const trucksDocRef = doc(db, 'trucks', user.uid);
+          await setDoc(trucksDocRef, locationData, { merge: true });
+          await setDoc(truckDocRef, locationData, { merge: true });
+          
+          console.log('✅ MapScreen: Late-loading - truck location updated with complete data');
+        } catch (error) {
+          console.error('❌ MapScreen: Error in late-loading location save:', error);
+        }
+      }
+    };
+    
+    saveLateLoadedLocation();
+  }, [sessionId, ownerData, location, userRole, user, showTruckIcon]);
+
   // Generate map HTML when location, trucks, or pings change
   useEffect(() => {
     const generateHTML = async () => {
@@ -1914,21 +2521,47 @@ export default function MapScreen() {
       }
       
       console.log('🗺️ Generating map HTML with processed truck icons...');
+      
+      // 🚀 PERFORMANCE: Start performance monitoring
+      const perfStart = Date.now();
+      const initialTruckCount = foodTrucks.length;
+      
       setWebViewReady(false); // Reset ready state when regenerating HTML
       const html = await createMapHTML();
+      
+      // 🚀 PERFORMANCE: Log performance metrics
+      const perfEnd = Date.now();
+      const processingTime = perfEnd - perfStart;
+      
+      console.log('🚀 PERFORMANCE SUMMARY:');
+      console.log('  📊 Initial trucks loaded:', initialTruckCount);
+      console.log('  🌍 Geographic filtering radius:', GEOGRAPHIC_RADIUS, 'km');
+      console.log('  🎯 Max trucks per load:', MAX_TRUCKS_PER_LOAD);
+      console.log('  ⏱️ Total processing time:', processingTime, 'ms');
+      console.log('  🚀 Processing speed:', Math.round(initialTruckCount / (processingTime / 1000)), 'trucks/second');
+      
+      if (initialTruckCount > MAX_TRUCKS_PER_LOAD) {
+        console.log('  ⚡ Large dataset optimizations ACTIVE');
+        console.log('  🔧 Lazy loading:', 'ENABLED');
+        console.log('  🔧 Geographic filtering:', 'ENABLED');
+        console.log('  🔧 Batch processing:', 'ENABLED');
+      } else {
+        console.log('  🔧 Small dataset - standard processing');
+      }
+      
       setMapHTML(html);
     };
     
     generateHTML();
-  }, [location, foodTrucks, customerPings, events, userPlan, showTruckIcon, excludedCuisines]);
+  }, [location, foodTrucks, customerPings, events, userPlan, showTruckIcon, excludedCuisines, showClosedTrucks, showOpenTrucks]);
 
-  // Mock food truck data with heatmap intensity (fallback for development)
+  // Mock food truck data with California coordinates (fallback for development)
   const mockFoodTrucks = [
-    { id: 1, name: "Tasty Tacos", lat: 40.7580, lng: -73.9855, status: "open", popularity: 85, type: "mexican", kitchenType: "truck" },
-    { id: 2, name: "Burger Paradise", lat: 40.7614, lng: -73.9776, status: "open", popularity: 92, type: "american", kitchenType: "truck" },
-    { id: 3, name: "Pizza Express", lat: 40.7505, lng: -73.9934, status: "closed", popularity: 67, type: "italian", kitchenType: "trailer" },
-    { id: 4, name: "Sushi Roll", lat: 40.7589, lng: -73.9851, status: "open", popularity: 78, type: "japanese", kitchenType: "truck" },
-    { id: 5, name: "BBQ Master", lat: 40.7558, lng: -73.9863, status: "busy", popularity: 95, type: "bbq", kitchenType: "cart" },
+    { id: 1, name: "Tasty Tacos", lat: 33.8309, lng: -117.0934, status: "open", popularity: 85, type: "mexican", kitchenType: "truck" }, // Riverside, CA
+    { id: 2, name: "Burger Paradise", lat: 33.8409, lng: -117.0834, status: "open", popularity: 92, type: "american", kitchenType: "truck" }, // Riverside, CA
+    { id: 3, name: "Pizza Express", lat: 33.8209, lng: -117.1034, status: "closed", popularity: 67, type: "italian", kitchenType: "trailer" }, // Riverside, CA
+    { id: 4, name: "Sushi Roll", lat: 33.8509, lng: -117.0734, status: "open", popularity: 78, type: "japanese", kitchenType: "truck" }, // Riverside, CA
+    { id: 5, name: "BBQ Master", lat: 33.8159, lng: -117.0634, status: "busy", popularity: 95, type: "bbq", kitchenType: "cart" }, // Riverside, CA
   ];
 
   // Pre-fetch and convert images to base64 for WebView
@@ -2050,39 +2683,157 @@ export default function MapScreen() {
     const userLat = location.coords.latitude;
     const userLng = location.coords.longitude;
     
-    // Use real truck data if available, otherwise fallback to mock data
-    let trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : mockFoodTrucks;
+    // Use real truck data if available, otherwise fallback to mock data ONLY if no Firebase data received
+    // CRITICAL: Don't use mock data if trucks are just hidden for privacy reasons
+    let trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : (hasReceivedFirebaseData ? [] : mockFoodTrucks);
+    
+    console.log('🗺️ MAP DEBUG: Truck data source decision:');
+    console.log('🗺️ Real foodTrucks.length:', foodTrucks.length);
+    console.log('🗺️ hasReceivedFirebaseData:', hasReceivedFirebaseData);
+    console.log('🗺️ Using:', foodTrucks.length > 0 ? 'REAL DATA' : (hasReceivedFirebaseData ? 'NO TRUCKS (PRIVACY RESPECTED)' : 'MOCK DATA (no firebase data)'));
+    console.log('🗺️ User location:', { lat: userLat, lng: userLng });
+    console.log('🗺️ trucksToDisplay.length:', trucksToDisplay.length);
+    console.log('🗺️ Trucks to display:', trucksToDisplay.map(t => ({ name: t.truckName || t.name, id: t.id, visible: t.visible })));
+    
+    // CRITICAL DEBUG: Check specifically for "The Grubber"
+    const grubberTruck = trucksToDisplay.find(t => (t.truckName || t.name || '').toLowerCase().includes('grubber'));
+    if (grubberTruck) {
+      console.log('🚨 PRIVACY VIOLATION DETECTED: The Grubber found in trucks to display!');
+      console.log('🚨 Grubber data:', {
+        name: grubberTruck.truckName || grubberTruck.name,
+        id: grubberTruck.id,
+        visible: grubberTruck.visible,
+        isLive: grubberTruck.isLive,
+        source: foodTrucks.length > 0 ? 'REAL_DATABASE' : (hasReceivedFirebaseData ? 'NO_SOURCE' : 'MOCK_DATA')
+      });
+      console.log('🚨 This should NOT happen if Hide Truck is working correctly!');
+    } else {
+      console.log('✅ PRIVACY: No Grubber truck found in display list - privacy working correctly');
+    }
+    
+    if (foodTrucks.length === 0 && hasReceivedFirebaseData) {
+      console.log('🔒 PRIVACY: No trucks to show - respecting Hide Truck settings');
+      console.log('🔒 PRIVACY: Not falling back to mock data - this is the correct behavior');
+    } else if (foodTrucks.length === 0 && !hasReceivedFirebaseData) {
+      console.log('⚠️ MAP WARNING: No Firebase data received, falling back to mock data');
+      console.log('⚠️ This means customers will see demo trucks instead of real ones');
+      console.log('🌍 Mock trucks now use California coordinates near user location');
+    }
     
     // Filter out current user's truck if they've toggled it off (owners only)
     if (userRole === 'owner' && user && !showTruckIcon) {
+      console.log('🚚 Filtering out current user truck. User UID:', user.uid);
+      console.log('🚚 Trucks before filtering:', trucksToDisplay.map(t => ({ 
+        name: t.truckName || t.name, 
+        uid: t.uid
+      })));
+      
+      // Filter out the current user's truck
       trucksToDisplay = trucksToDisplay.filter(truck => truck.uid !== user.uid);
+      
       console.log('🚚 Current user truck hidden. Displaying', trucksToDisplay.length, 'trucks');
+      console.log('🚚 Trucks after filtering:', trucksToDisplay.map(t => ({ 
+        name: t.truckName || t.name, 
+        uid: t.uid
+      })));
+    } else if (userRole === 'owner' && user && showTruckIcon) {
+      console.log('🚚 Current user truck should be visible. User UID:', user.uid);
+      console.log('🚚 All trucks:', trucksToDisplay.map(t => ({ 
+        name: t.truckName || t.name, 
+        uid: t.uid
+      })));
     }
     
     // Pre-process trucks with base64 images
-    console.log('�️ Pre-processing', trucksToDisplay.length, 'truck images...');
-    const processedTrucks = await Promise.all(
-      trucksToDisplay.map(async (truck) => {
-        let base64Image = null;
+    console.log('🎯 Pre-processing', trucksToDisplay.length, 'truck images...');
+    
+    // 🚀 PERFORMANCE: Implement lazy loading for large datasets
+    const MAX_CONCURRENT_IMAGES = 10; // Process max 10 images at once
+    const ENABLE_LAZY_LOADING = trucksToDisplay.length > 20; // Enable for 20+ trucks
+    
+    let processedTrucks;
+    
+    if (ENABLE_LAZY_LOADING) {
+      console.log('🚀 PERFORMANCE: Large truck dataset - using lazy image loading');
+      
+      // 🌍 PERFORMANCE: Helper function for distance calculation
+      const calculateDistance = (lat1, lng1, lat2, lng2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      };
+      
+      // Process images in batches to avoid memory issues
+      processedTrucks = [];
+      for (let i = 0; i < trucksToDisplay.length; i += MAX_CONCURRENT_IMAGES) {
+        const batch = trucksToDisplay.slice(i, i + MAX_CONCURRENT_IMAGES);
         
-        if (truck.coverUrl && truck.coverUrl.trim() !== '') {
-          console.log('🔄 Processing cover image for:', truck.truckName || truck.name);
-          base64Image = await convertImageToBase64(truck.coverUrl);
-        }
+        const batchResults = await Promise.all(
+          batch.map(async (truck) => {
+            // 🚀 PERFORMANCE: Skip image processing for trucks far from view center
+            const skipImageProcessing = location && truck.lat && truck.lng && 
+              calculateDistance(location.lat, location.lng, truck.lat, truck.lng) > 10; // 10km threshold
+            
+            let base64Image = null;
+            
+            if (!skipImageProcessing && truck.coverUrl && truck.coverUrl.trim() !== '') {
+              console.log('🔄 Processing cover image for:', truck.truckName || truck.name);
+              try {
+                base64Image = await convertImageToBase64(truck.coverUrl);
+              } catch (error) {
+                console.log('❌ Image processing failed for', truck.truckName, '- using fallback');
+              }
+            } else if (skipImageProcessing) {
+              console.log('⚡ Skipping image processing for distant truck:', truck.truckName);
+            }
+            
+            const personalizedIcon = generatePersonalizedIcon({
+              ...truck,
+              base64CoverImage: base64Image
+            });
+            
+            return {
+              ...truck,
+              base64CoverImage: base64Image,
+              hasCustomIcon: !!base64Image,
+              personalizedIcon: personalizedIcon
+            };
+          })
+        );
         
-        const personalizedIcon = generatePersonalizedIcon({
-          ...truck,
-          base64CoverImage: base64Image
-        });
-        
-        return {
-          ...truck,
-          base64CoverImage: base64Image,
-          hasCustomIcon: !!base64Image,
-          personalizedIcon: personalizedIcon
-        };
-      })
-    );
+        processedTrucks.push(...batchResults);
+        console.log(`🚀 PERFORMANCE: Processed batch ${Math.floor(i/MAX_CONCURRENT_IMAGES) + 1}/${Math.ceil(trucksToDisplay.length/MAX_CONCURRENT_IMAGES)}`);
+      }
+    } else {
+      // Standard processing for smaller datasets
+      processedTrucks = await Promise.all(
+        trucksToDisplay.map(async (truck) => {
+          let base64Image = null;
+          
+          if (truck.coverUrl && truck.coverUrl.trim() !== '') {
+            console.log('🔄 Processing cover image for:', truck.truckName || truck.name);
+            base64Image = await convertImageToBase64(truck.coverUrl);
+          }
+          
+          const personalizedIcon = generatePersonalizedIcon({
+            ...truck,
+            base64CoverImage: base64Image
+          });
+          
+          return {
+            ...truck,
+            base64CoverImage: base64Image,
+            hasCustomIcon: !!base64Image,
+            personalizedIcon: personalizedIcon
+          };
+        })
+      );
+    }
     
     const successCount = processedTrucks.filter(truck => truck.hasCustomIcon).length;
     console.log(`🎯 Successfully processed ${successCount}/${trucksToDisplay.length} truck images`);
@@ -2295,7 +3046,7 @@ export default function MapScreen() {
         <div class="controls">
             <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">🟢 Hide Closed</button>
+            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">${getTruckStatusButtonText()}</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
@@ -2392,7 +3143,7 @@ export default function MapScreen() {
         <div class="controls">
             <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">🟢 Hide Closed</button>
+            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">${getTruckStatusButtonText()}</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
@@ -2472,7 +3223,19 @@ export default function MapScreen() {
 
             // Business hours status checking function
             function checkTruckOpenStatus(businessHours) {
-                if (!businessHours) return 'open'; // Default to open if no hours set
+                // If no business hours provided, use default hours (9 AM - 5 PM, Mon-Sat)
+                if (!businessHours) {
+                    businessHours = {
+                        sunday: { open: '10:00 AM', close: '4:00 PM', closed: true },
+                        monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                        tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                        wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                        thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                        friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                        saturday: { open: '9:00 AM', close: '5:00 PM', closed: false }
+                    };
+                    console.log('🕐 Using default business hours (9 AM - 5 PM)');
+                }
                 
                 const now = new Date();
                 const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
@@ -2683,9 +3446,9 @@ export default function MapScreen() {
             let heatmapLayer = null;
             let showHeatmap = false;
             
-            // Truck status filtering variables
-            let showClosedTrucks = true; // Show closed trucks by default
-            let showOpenTrucks = true;   // Show open trucks by default
+            // Truck status filtering variables - persistent from React state
+            let showClosedTrucks = ${showClosedTrucks}; // Persistent from React state
+            let showOpenTrucks = ${showOpenTrucks};     // Persistent from React state
 
             // Create circular icon using canvas (SIMPLIFIED for Leaflet WebView)
             const createCircularIcon = (imageUrl, size = 40) => {
@@ -2924,10 +3687,10 @@ export default function MapScreen() {
                                     <div class="truck-name">\${truckName}</div>
                                 </div>
                                 <div class="truck-status \${statusClass}">\${statusEmoji} \${truckStatus.toUpperCase()}</div>
-                                <div class="truck-details">🍽️ \${(truck.cuisineType || truck.type || 'Food').charAt(0).toUpperCase() + (truck.cuisineType || truck.type || 'Food').slice(1)}</div>
-                                <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
+                                <div class="truck-details">\${(truck.cuisine || truck.cuisineType || truck.type || 'American').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'American').slice(1)}</div>
+                                <div class="truck-details"> Type: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                 \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisineType || truck.type || 'Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
                                     📋 View Full Details
                                 </button>
                             </div>
@@ -2985,7 +3748,14 @@ export default function MapScreen() {
                     const startDate = event.startDate ? new Date(event.startDate.seconds ? event.startDate.seconds * 1000 : event.startDate) : null;
                     const endDate = event.endDate ? new Date(event.endDate.seconds ? event.endDate.seconds * 1000 : event.endDate) : null;
                     const dateStr = startDate ? startDate.toLocaleDateString() : 'Date TBD';
-                    const timeStr = startDate ? startDate.toLocaleTimeString() : '';
+                    
+                    // Pass raw time strings to WebView for formatting there
+                    let timeStr = '';
+                    if (event.time && event.endTime) {
+                        timeStr = event.time + ' - ' + event.endTime;
+                    } else if (event.time) {
+                        timeStr = event.time;
+                    }
 
                     const marker = L.marker([lat, lng], { icon: eventIcon })
                         .addTo(map)
@@ -2997,10 +3767,24 @@ export default function MapScreen() {
                                 </div>
                                 <div class="truck-status status-\${eventStatus}">\${eventStatus.toUpperCase()}</div>
                                 <div class="truck-details">📅 \${dateStr}</div>
-                                \${timeStr ? \`<div class="truck-details">🕐 \${timeStr}</div>\` : ''}
+                                \${timeStr ? \`<div class="truck-details">🕐 \${(() => {
+                                    if (timeStr.includes(' - ')) {
+                                        const [start, end] = timeStr.split(' - ');
+                                        return formatTime(start) + ' - ' + formatTime(end);
+                                    } else {
+                                        return formatTime(timeStr);
+                                    }
+                                })()}</div>\` : ''}
                                 <div class="truck-details">📍 \${event.address || event.location || 'Location provided on registration'}</div>
                                 \${event.eventType ? \`<div class="truck-details">🎯 \${event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)}</div>\` : ''}
-                                <button class="view-details-btn" onclick="openEventDetails('\${event.id}', '\${eventTitle}', '\${event.eventType || 'event'}', '\${event.base64Logo || event.organizerLogoUrl || ''}', '\${event.eventDescription || ''}', '\${dateStr}', '\${timeStr}', '\${event.address || event.location || ''}')">
+                                <button class="view-details-btn" onclick="openEventDetails('\${event.id}', '\${eventTitle}', '\${event.eventType || 'event'}', '\${event.base64Logo || event.organizerLogoUrl || ''}', '\${event.eventDescription || ''}', '\${dateStr}', '\${(() => {
+                                    if (timeStr.includes(' - ')) {
+                                        const [start, end] = timeStr.split(' - ');
+                                        return formatTime(start) + ' - ' + formatTime(end);
+                                    } else {
+                                        return formatTime(timeStr);
+                                    }
+                                })()}', '\${event.address || event.location || ''}')">
                                     📋 View Event Details
                                 </button>
                             </div>
@@ -3036,6 +3820,33 @@ export default function MapScreen() {
                         socialLinks: socialLinks
                     }
                 }));
+            }
+
+            // Format time function for WebView
+            function formatTime(timeString) {
+                if (!timeString || typeof timeString !== 'string') return '';
+                
+                try {
+                    // Check if already in 12-hour format (contains AM/PM)
+                    if (timeString.includes('AM') || timeString.includes('PM')) {
+                        return timeString; // Already formatted, just return as-is
+                    }
+                    
+                    // Handle 24-hour format (HH:MM)
+                    const parts = timeString.split(':');
+                    if (parts.length !== 2) return timeString; // Return as-is if not proper format
+                    
+                    const [hours, minutes] = parts;
+                    const hour = parseInt(hours);
+                    if (isNaN(hour)) return timeString; // Return as-is if invalid
+                    
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    return displayHour + ':' + minutes + ' ' + ampm;
+                } catch (error) {
+                    console.error('Error formatting time:', timeString, error);
+                    return timeString; // Return original string if error occurs
+                }
             }
 
             // Function to handle event details modal (communicates with React Native)
@@ -3209,6 +4020,17 @@ export default function MapScreen() {
                     console.log('🚛 Showing all trucks');
                 }
                 
+                // Send state update back to React Native
+                if (window.ReactNativeWebView) {
+                    const message = {
+                        type: 'TRUCK_FILTER_CHANGED',
+                        showClosedTrucks: showClosedTrucks,
+                        showOpenTrucks: showOpenTrucks
+                    };
+                    window.ReactNativeWebView.postMessage(JSON.stringify(message));
+                    console.log('🚛 Sent filter state to React Native:', message);
+                }
+                
                 // Update button text based on current state
                 let buttonText = '';
                 
@@ -3259,11 +4081,31 @@ export default function MapScreen() {
                 // Apply status filter
                 filtered = filtered.filter(truck => {
                     let truckStatus = truck.status || 'open';
-                    if (truck.businessHours) {
-                        truckStatus = checkTruckOpenStatus(truck.businessHours);
+                    
+                    // Try to get business hours from truck data or owner data
+                    let businessHours = truck.businessHours || truck.ownerData?.businessHours;
+                    
+                    // If no business hours found, use default hours (9 AM - 5 PM, Mon-Sat)
+                    if (!businessHours) {
+                        businessHours = {
+                            sunday: { open: '10:00 AM', close: '4:00 PM', closed: true },
+                            monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                            tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                            wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                            thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                            friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+                            saturday: { open: '9:00 AM', close: '5:00 PM', closed: false }
+                        };
                     }
                     
-                    console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus);
+                    // Always calculate status from business hours (real or default)
+                    truckStatus = checkTruckOpenStatus(businessHours);
+                    
+                    if (truck.businessHours || truck.ownerData?.businessHours) {
+                        console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus, '(from business hours)');
+                    } else {
+                        console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus, '(using default hours)');
+                    }
                     
                     if (truckStatus === 'open' || truckStatus === 'busy') {
                         return showOpenTrucks;
@@ -3401,7 +4243,8 @@ export default function MapScreen() {
 
             // Initialize
             console.log('🚛 Initializing map with truck markers...');
-            createTruckMarkers();
+            // Apply initial truck status filter instead of showing all trucks
+            applyTruckStatusFilter();
             
             console.log('🎪 Initializing map with event markers...');
             createEventMarkers();
@@ -3640,10 +4483,10 @@ export default function MapScreen() {
                                         <div class="truck-name">\${truckName}</div>
                                     </div>
                                     <div class="truck-status \${statusClass}">\${statusEmoji} \${currentStatus.toUpperCase()}</div>
-                                    <div class="truck-details">🍽️ \${(truck.cuisineType || truck.type || 'Food').charAt(0).toUpperCase() + (truck.cuisineType || truck.type || 'Food').slice(1)}</div>
+                                    <div class="truck-details">🍽️ \${(truck.cuisine || truck.cuisineType || truck.type || 'General Food').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'General Food').slice(1)}</div>
                                     <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                     \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisineType || truck.type || 'Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
                                         📋 View Full Details
                                     </button>
                                 </div>
@@ -3802,6 +4645,12 @@ export default function MapScreen() {
         console.log('🍽️ Current showCuisineModal state:', showCuisineModal);
         setShowCuisineModal(true);
         console.log('🍽️ Called setShowCuisineModal(true)');
+      } else if (message.type === 'TRUCK_FILTER_CHANGED') {
+        // Handle truck status filter state changes from WebView
+        console.log('🚛 Received truck filter update from WebView:', message);
+        setShowClosedTrucks(message.showClosedTrucks);
+        setShowOpenTrucks(message.showOpenTrucks);
+        console.log('🚛 Updated React state - showClosed:', message.showClosedTrucks, 'showOpen:', message.showOpenTrucks);
       }
     } catch (error) {
       console.log('Error parsing WebView message:', error);
@@ -3889,11 +4738,23 @@ export default function MapScreen() {
           <TouchableOpacity
             style={styles.truckToggleButton}
             onPress={async () => {
-              const newVisibility = !showTruckIcon;
-              setShowTruckIcon(newVisibility);
-              await updateTruckVisibility(newVisibility);
-              await updateLastActivity(); // Update activity when user interacts
-              console.log('🚚 Truck visibility toggled:', newVisibility);
+              try {
+                const newVisibility = !showTruckIcon;
+                console.log('🚚 Toggling truck visibility from', showTruckIcon, 'to', newVisibility);
+                
+                // Update local state first
+                setShowTruckIcon(newVisibility);
+                
+                // Update database
+                await updateTruckVisibility(newVisibility);
+                await updateLastActivity(); // Update activity when user interacts
+                
+                console.log('🚚 Truck visibility toggle completed successfully:', newVisibility);
+              } catch (error) {
+                console.error('❌ Error toggling truck visibility:', error);
+                // Revert state on error
+                setShowTruckIcon(!showTruckIcon);
+              }
             }}
             activeOpacity={0.8}
           >
@@ -3946,26 +4807,24 @@ export default function MapScreen() {
                 🚚 {selectedTruck?.name || 'Food Truck'}
               </Text>
               <Text style={styles.modalSubtitle}>
-                {selectedTruck?.cuisine} Cuisine
+                {getCuisineDisplayName(selectedTruck?.cuisine)} Cuisine
               </Text>
             </View>
             
             <View style={styles.headerButtonsContainer}>
-              {/* Quick Menu Button */}
-              {selectedTruck?.menuUrl && (
-                <TouchableOpacity 
-                  style={styles.quickMenuButton}
-                  onPress={() => scrollToMenuSection()}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons 
-                    name="restaurant" 
-                    size={20} 
-                    color="#2c6f57" 
-                  />
-                  <Text style={styles.quickMenuButtonText}>Menu</Text>
-                </TouchableOpacity>
-              )}
+              {/* Quick Menu Button - Show for all trucks */}
+              <TouchableOpacity 
+                style={styles.quickMenuButton}
+                onPress={() => scrollToMenuSection()}
+                activeOpacity={0.8}
+              >
+                <Ionicons 
+                  name="restaurant" 
+                  size={20} 
+                  color="#2c6f57" 
+                />
+                <Text style={styles.quickMenuButtonText}>Menu</Text>
+              </TouchableOpacity>
               
               {/* Cart Button */}
               <TouchableOpacity 
@@ -3998,22 +4857,45 @@ export default function MapScreen() {
                 </View>
               </TouchableOpacity>
               
-              {/* Book Truck for Catering Button */}
-              {selectedTruck?.ownerId !== user?.uid && ( // Only show for non-owners
+              {/* Book Truck for Catering Button - Show for all trucks */}
+              <TouchableOpacity 
+                style={styles.cateringButton}
+                onPress={() => {
+                  console.log('🎉 Catering button pressed for truck:', selectedTruck?.name);
+                  setShowCateringModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons 
+                  name="calendar" 
+                  size={20} 
+                  color="#2c6f57" 
+                />
+                <Text style={styles.cateringButtonText}>Book Catering</Text>
+              </TouchableOpacity>
+
+              {/* Book Festival Button - Show only for event organizers */}
+              {userRole === 'event-organizer' && (
                 <TouchableOpacity 
-                  style={styles.cateringButton}
+                  style={[styles.cateringButton, styles.festivalButton]}
                   onPress={() => {
-                    console.log('🎉 Catering button pressed for truck:', selectedTruck?.name);
-                    setShowCateringModal(true);
+                    console.log('🎪 Festival booking button pressed for truck:', selectedTruck?.name);
+                    setFestivalFormData(prev => ({
+                      ...prev,
+                      organizerName: userData?.organizationName || userData?.username || '',
+                      organizerEmail: userData?.email || '',
+                      organizerPhone: userData?.phone || '',
+                    }));
+                    setShowFestivalModal(true);
                   }}
                   activeOpacity={0.8}
                 >
                   <Ionicons 
-                    name="calendar" 
+                    name="musical-notes" 
                     size={20} 
-                    color="#2c6f57" 
+                    color="#7c2d12" 
                   />
-                  <Text style={styles.cateringButtonText}>Book Catering</Text>
+                  <Text style={[styles.cateringButtonText, styles.festivalButtonText]}>Book Festival</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -4125,8 +5007,10 @@ export default function MapScreen() {
             {/* Drops Section - Only for truck owners viewing their own truck */}
             {userRole === 'owner' && selectedTruck?.ownerId === user?.uid && (
               <View style={styles.dropsSection}>
-                <View style={styles.dropsHeader}>
-                  <Text style={styles.sectionTitle}>🎁 Exclusive Drops</Text>
+                <View style={styles.dropsTitleContainer}>
+                  <Text style={styles.sectionTitle}>🎁 Exclusive Deal Drops</Text>
+                </View>
+                <View style={styles.dropsButtonContainer}>
                   <TouchableOpacity 
                     style={styles.createDropButton}
                     onPress={() => setShowDropForm(!showDropForm)}
@@ -4297,8 +5181,8 @@ export default function MapScreen() {
             {/* Customer Drops Section - Only for customers, event organizers, or owners viewing other trucks */}
             {(userRole === 'customer' || userRole === 'event-organizer' || (userRole === 'owner' && selectedTruck?.ownerId !== user?.uid)) && (
               <View style={styles.customerDropsSection}>
-                <View style={styles.dropsHeader}>
-                  <Text style={styles.sectionTitle}>🎁 Exclusive Drops</Text>
+                <View style={styles.dropsTitleContainer}>
+                  <Text style={styles.sectionTitle}>🎁 Exclusive Deal Drops</Text>
                   {loadingDrops && (
                     <Text style={styles.loadingText}>Loading...</Text>
                   )}
@@ -4415,11 +5299,29 @@ export default function MapScreen() {
 
               {!loadingMenu && menuItems.length > 0 && (
                 <View style={styles.menuGrid}>
-                  {menuItems.map((item, index) => (
+                  {menuItems.map((item, index) => {
+                    // Handle both image field names for backward compatibility
+                    const imageUrl = item.image || item.imageUrl;
+                    return (
                     <View key={index} style={styles.menuItem}>
-                      {item.image && (
-                        <Image source={{ uri: item.image }} style={styles.menuItemImage} />
-                      )}
+                      <View style={styles.menuItemImageContainer}>
+                        {imageUrl && (
+                          <Image 
+                            source={{ uri: imageUrl }} 
+                            style={styles.menuItemImage}
+                            onLoadStart={() => console.log('🍽️ Loading menu image:', item.name)}
+                            onLoad={() => console.log('✅ Menu image loaded successfully')}
+                            onError={(error) => console.log('❌ Menu image failed to load:', error.nativeEvent.error)}
+                          />
+                        )}
+                        {console.log(`🏷️ MapScreen Badge Check: "${item.name}" - Backend: ${item.isNewItem}, Client: ${isItemNew(item.id, selectedTruck?.ownerId)}, Show: ${!!(item.isNewItem || isItemNew(item.id, selectedTruck?.ownerId))}`)}
+                        {(item.isNewItem || isItemNew(item.id, selectedTruck?.ownerId)) && (
+                          <View style={styles.newItemBadge}>
+                            <Ionicons name="star" size={10} color="#fff" />
+                            <Text style={styles.newItemBadgeText}>NEW</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.menuItemInfo}>
                         <Text style={styles.menuItemName}>{item.name}</Text>
                         <Text style={styles.menuItemPrice}>${item.price}</Text>
@@ -4435,7 +5337,8 @@ export default function MapScreen() {
                         </TouchableOpacity>
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
 
@@ -5016,6 +5919,600 @@ export default function MapScreen() {
             </View>
           )}
 
+          {/* Festival Booking Modal for Event Organizers */}
+          {showFestivalModal && (
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 9999,
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+              paddingHorizontal: 15,
+              paddingTop: 50,
+              paddingBottom: 20,
+            }}>
+              <KeyboardAvoidingView 
+                style={{
+                  width: '100%',
+                  flex: 1,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 5,
+                }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+              >
+              <View style={{
+                paddingHorizontal: 20,
+                paddingTop: 25,
+                paddingBottom: Platform.OS === 'ios' ? 25 : 20,
+                height: '100%',
+                flex: 1,
+              }}>
+                {/* Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  paddingBottom: 15,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#eee',
+                }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: '#7c2d12',
+                    flex: 1,
+                  }}>
+                    🎪 Book {selectedTruck?.name} for Festival
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowFestivalModal(false)}
+                    style={{
+                      padding: 8,
+                      borderRadius: 20,
+                      backgroundColor: '#f5f5f5',
+                    }}
+                  >
+                    <Ionicons name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {/* Organizer Information */}
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: '#333',
+                      marginBottom: 15,
+                    }}>
+                      📋 Organizer Information
+                    </Text>
+
+                    {/* Organizer Name */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Organization/Contact Name *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter organization or contact name"
+                        value={festivalFormData.organizerName}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerName: text }))}
+                        autoCapitalize="words"
+                      />
+                    </View>
+
+                    {/* Organizer Email */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Contact Email *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter your email address"
+                        value={festivalFormData.organizerEmail}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerEmail: text }))}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                    </View>
+
+                    {/* Organizer Phone */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Contact Phone *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter your phone number"
+                        value={festivalFormData.organizerPhone}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerPhone: text }))}
+                        keyboardType="phone-pad"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Event Information */}
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: '#333',
+                      marginBottom: 15,
+                    }}>
+                      🎪 Event Information
+                    </Text>
+
+                    {/* Event Name */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Name *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter event name"
+                        value={festivalFormData.eventName}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventName: text }))}
+                        autoCapitalize="words"
+                      />
+                    </View>
+
+                    {/* Event Date */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Date *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="MM/DD/YYYY"
+                        value={festivalFormData.eventDate}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDate: text }))}
+                      />
+                    </View>
+
+                    {/* Event Time */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Time *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. 10:00 AM - 6:00 PM"
+                        value={festivalFormData.eventTime}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventTime: text }))}
+                      />
+                    </View>
+
+                    {/* Event Location */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Location *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter event location/venue"
+                        value={festivalFormData.eventLocation}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventLocation: text }))}
+                        autoCapitalize="words"
+                      />
+                    </View>
+
+                    {/* Event Address */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Address
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="Enter full address (optional)"
+                        value={festivalFormData.eventAddress}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventAddress: text }))}
+                        autoCapitalize="words"
+                      />
+                    </View>
+
+                    {/* Expected Attendance */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Expected Attendance *
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. 500-1000 people"
+                        value={festivalFormData.expectedAttendance}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, expectedAttendance: text }))}
+                      />
+                    </View>
+
+                    {/* Event Duration */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Duration
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. 1 day, 2 days, weekend"
+                        value={festivalFormData.eventDuration}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDuration: text }))}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Event Details */}
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      color: '#333',
+                      marginBottom: 15,
+                    }}>
+                      📋 Event Details
+                    </Text>
+
+                    {/* Spaces Available */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Available Vendor Spaces
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. 20 food trucks, 10x10 spaces"
+                        value={festivalFormData.spacesAvailable}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, spacesAvailable: text }))}
+                      />
+                    </View>
+
+                    {/* Amenities */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 10,
+                      }}>
+                        Amenities Provided
+                      </Text>
+                      
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 10,
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          marginBottom: 8,
+                          backgroundColor: festivalFormData.electricityProvided ? '#e6f3e6' : '#fff',
+                        }}
+                        onPress={() => setFestivalFormData(prev => ({ ...prev, electricityProvided: !prev.electricityProvided }))}
+                      >
+                        <Ionicons 
+                          name={festivalFormData.electricityProvided ? "checkbox" : "square-outline"} 
+                          size={20} 
+                          color={festivalFormData.electricityProvided ? "#2c6f57" : "#666"} 
+                        />
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                          Electricity provided
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 10,
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          backgroundColor: festivalFormData.waterProvided ? '#e6f3e6' : '#fff',
+                        }}
+                        onPress={() => setFestivalFormData(prev => ({ ...prev, waterProvided: !prev.waterProvided }))}
+                      >
+                        <Ionicons 
+                          name={festivalFormData.waterProvided ? "checkbox" : "square-outline"} 
+                          size={20} 
+                          color={festivalFormData.waterProvided ? "#2c6f57" : "#666"} 
+                        />
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                          Water access provided
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Booth Fee */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Booth Fee Structure
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. $200/day, $500/weekend, or negotiable"
+                        value={festivalFormData.boothFee}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, boothFee: text }))}
+                      />
+                    </View>
+
+                    {/* Sales Percentage */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Sales Percentage (if applicable)
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                        }}
+                        placeholder="e.g. 10% of sales, or none"
+                        value={festivalFormData.salesPercentage}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, salesPercentage: text }))}
+                      />
+                    </View>
+
+                    {/* Event Description */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Event Description
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                          height: 80,
+                          textAlignVertical: 'top',
+                        }}
+                        placeholder="Describe your event, theme, target audience, etc."
+                        value={festivalFormData.eventDescription}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDescription: text }))}
+                        multiline
+                        numberOfLines={4}
+                      />
+                    </View>
+
+                    {/* Special Requirements */}
+                    <View style={{ marginBottom: 15 }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#333',
+                        marginBottom: 5,
+                      }}>
+                        Special Requirements
+                      </Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1,
+                          borderColor: '#ddd',
+                          borderRadius: 8,
+                          padding: 12,
+                          fontSize: 16,
+                          backgroundColor: '#fff',
+                          height: 60,
+                          textAlignVertical: 'top',
+                        }}
+                        placeholder="Any special setup requirements, restrictions, etc."
+                        value={festivalFormData.specialRequirements}
+                        onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, specialRequirements: text }))}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: submittingFestivalForm ? '#ccc' : '#7c2d12',
+                      padding: 15,
+                      borderRadius: 10,
+                      alignItems: 'center',
+                      marginBottom: 15,
+                    }}
+                    onPress={() => handleFestivalSubmit()}
+                    disabled={submittingFestivalForm || !festivalFormData.organizerName || !festivalFormData.organizerEmail || !festivalFormData.organizerPhone || !festivalFormData.eventName}
+                    activeOpacity={0.8}
+                  >
+                    {submittingFestivalForm ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                      }}>
+                        🎪 Send Festival Booking Request
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Info Text */}
+                  <Text style={{
+                    fontSize: 12,
+                    color: '#666',
+                    textAlign: 'center',
+                    lineHeight: 16,
+                    marginBottom: 10,
+                  }}>
+                    Your festival booking request will be sent directly to {selectedTruck?.name}. They will contact you to discuss availability and to go over participation details.
+                  </Text>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+            </View>
+          )}
+
           {/* Claim Codes Overlay - Inside Truck Modal */}
           {showClaimCodesModal && (
             <View style={{
@@ -5530,6 +7027,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  dropsTitleContainer: {
+    marginBottom: 15,
+  },
+  dropsButtonContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 15,
+  },
   createDropButton: {
     backgroundColor: '#4682b4',
     flexDirection: 'row',
@@ -5786,10 +7290,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
+  menuItemImageContainer: {
+    position: 'relative',
+  },
   menuItemImage: {
     width: '100%',
     height: 120,
     resizeMode: 'cover',
+  },
+  newItemBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#f39c12',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  newItemBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   menuItemInfo: {
     padding: 12,

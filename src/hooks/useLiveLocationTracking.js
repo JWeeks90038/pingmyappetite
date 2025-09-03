@@ -7,8 +7,8 @@ let watchId = null;
 
 const useLiveLocationTracking = (userPlan) => {
   useEffect(() => {
-    // Only enable live tracking for Pro and All Access plans
-    if (userPlan !== "pro" && userPlan !== "all-access") return;
+    // Enable live tracking for all food truck owners (Basic, Pro, and All Access plans)
+    // Removed plan restriction to allow automatic GPS for all plans
 
     const startLiveTracking = () => {
       if ("geolocation" in navigator) {

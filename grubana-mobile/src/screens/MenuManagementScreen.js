@@ -22,6 +22,11 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
 export default function MenuManagementScreen() {
+  console.log('🔧 DEBUG: MenuManagementScreen loaded - NEW ITEM feature should be visible!');
+  
+  // SUPER AGGRESSIVE DEBUG - This should be impossible to miss
+  alert('🚨 MENU MANAGEMENT SCREEN LOADED! 🚨\nThe New Item feature should be visible!');
+  
   const navigation = useNavigation();
   const { user, userData } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
@@ -30,11 +35,12 @@ export default function MenuManagementScreen() {
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     price: '',
     category: '',
+    description: '',
     image: null,
-    imageUrl: ''
+    imageUrl: '',
+    isNewItem: false
   });
   const [uploading, setUploading] = useState(false);
 
@@ -51,15 +57,15 @@ export default function MenuManagementScreen() {
     
     try {
       setLoading(true);
+      console.log('DEBUG: Loading menu items for user:', user.uid);
       const menuItemsRef = collection(db, 'menuItems');
       const menuSnapshot = await getDocs(query(menuItemsRef, where('ownerId', '==', user.uid)));
       
       const items = [];
       menuSnapshot.forEach(doc => {
-        items.push({
-          id: doc.id,
-          ...doc.data()
-        });
+        const itemData = { id: doc.id, ...doc.data() };
+        console.log('DEBUG: Menu item loaded:', itemData.name, 'ImageURL:', itemData.imageUrl, 'IsNew:', itemData.isNewItem);
+        items.push(itemData);
       });
 
       // Sort by category and then by name
@@ -70,6 +76,7 @@ export default function MenuManagementScreen() {
         return (a.name || '').localeCompare(b.name || '');
       });
 
+      console.log('DEBUG: Total menu items loaded:', items.length);
       setMenuItems(items);
     } catch (error) {
       console.error('Error loading menu items:', error);
@@ -86,7 +93,8 @@ export default function MenuManagementScreen() {
       price: '',
       category: '',
       image: null,
-      imageUrl: ''
+      imageUrl: '',
+      isNewItem: false
     });
     setEditingItem(null);
   };
@@ -103,7 +111,8 @@ export default function MenuManagementScreen() {
       price: item.price?.toString() || '',
       category: item.category || '',
       image: null,
-      imageUrl: item.imageUrl || ''
+      imageUrl: item.imageUrl || '',
+      isNewItem: item.isNewItem || false
     });
     setEditingItem(item);
     setShowAddModal(true);
@@ -164,6 +173,9 @@ export default function MenuManagementScreen() {
   };
 
   const saveMenuItem = async () => {
+    // DEBUG: Log the formData to see if isNewItem is recognized
+    console.log('DEBUG - Saving Menu Item with formData:', formData);
+    
     if (!formData.name.trim() || !formData.price.trim()) {
       Alert.alert('Missing Information', 'Please fill in the name and price');
       return;
@@ -191,6 +203,7 @@ export default function MenuManagementScreen() {
         price: price,
         category: formData.category || 'Uncategorized',
         imageUrl: imageUrl || '',
+        isNewItem: formData.isNewItem,
         ownerId: user.uid,
         updatedAt: serverTimestamp()
       };
@@ -248,9 +261,31 @@ export default function MenuManagementScreen() {
           <Text style={styles.menuItemCategory}>{item.category}</Text>
           <Text style={styles.menuItemPrice}>${item.price?.toFixed(2)}</Text>
         </View>
-        {item.imageUrl && (
-          <Image source={{ uri: item.imageUrl }} style={styles.menuItemImage} />
-        )}
+        <View style={styles.menuItemImageContainer}>
+          {item.imageUrl ? (
+            <Image 
+              source={{ uri: item.imageUrl }} 
+              style={styles.menuItemImage}
+              onError={(error) => {
+                console.log('DEBUG: Image load error for item:', item.name, 'URL:', item.imageUrl, 'Error:', error.nativeEvent.error);
+              }}
+              onLoad={() => {
+                console.log('DEBUG: Image loaded successfully for:', item.name, 'URL:', item.imageUrl);
+              }}
+            />
+          ) : (
+            <View style={[styles.menuItemImage, {backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}]}>
+              <Ionicons name="image-outline" size={32} color="#ccc" />
+              <Text style={{fontSize: 10, color: '#999'}}>No Image</Text>
+            </View>
+          )}
+          {item.isNewItem && (
+            <View style={styles.newItemBadge}>
+              <Ionicons name="star" size={12} color="#fff" />
+              <Text style={styles.newItemBadgeText}>NEW</Text>
+            </View>
+          )}
+        </View>
       </View>
       
       {item.description && (
@@ -288,6 +323,13 @@ export default function MenuManagementScreen() {
 
   return (
     <View style={styles.container}>
+      {/* DEBUG: Visual indicator that code changes are active */}
+      <View style={{backgroundColor: 'red', padding: 10, alignItems: 'center'}}>
+        <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>
+          🔧 CODE UPDATED - NEW ITEM FEATURE ACTIVE 🔧
+        </Text>
+      </View>
+      
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -392,28 +434,35 @@ export default function MenuManagementScreen() {
               />
             </View>
 
-            {/* Category */}
+            {/* SIMPLE NEW ITEM TOGGLE - VERY OBVIOUS */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                {categories.map(category => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryChip,
-                      formData.category === category && styles.categoryChipSelected
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, category }))}
-                  >
-                    <Text style={[
-                      styles.categoryChipText,
-                      formData.category === category && styles.categoryChipTextSelected
-                    ]}>
-                      {category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <Text style={styles.label}>⭐ MARK AS NEW ITEM ⭐</Text>
+              <TouchableOpacity 
+                style={{
+                  backgroundColor: formData.isNewItem ? '#ff6b35' : '#f0f0f0',
+                  padding: 20,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: formData.isNewItem ? '#ff6b35' : '#ddd',
+                  marginVertical: 10
+                }}
+                onPress={() => {
+                  console.log('🔥 NEW ITEM BUTTON PRESSED - Current value:', formData.isNewItem);
+                  const newValue = !formData.isNewItem;
+                  setFormData(prev => ({ ...prev, isNewItem: newValue }));
+                  console.log('🔥 NEW ITEM VALUE CHANGED TO:', newValue);
+                }}
+              >
+                <Text style={{
+                  color: formData.isNewItem ? 'white' : '#333',
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  textAlign: 'center'
+                }}>
+                  {formData.isNewItem ? '⭐ NEW ITEM ACTIVE ⭐\n(Will show badge)' : '❌ NOT NEW ITEM\nTAP TO MARK AS NEW'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Description */}
@@ -428,6 +477,39 @@ export default function MenuManagementScreen() {
                 numberOfLines={3}
                 maxLength={200}
               />
+            </View>
+
+            {/* New Item Button - Extra Prominent Design */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Mark as NEW Item?</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.newItemButton,
+                  formData.isNewItem ? styles.newItemButtonActive : styles.newItemButtonInactive
+                ]}
+                onPress={() => {
+                  setFormData(prev => ({ ...prev, isNewItem: !prev.isNewItem }));
+                  // Show feedback when pressed
+                  Alert.alert(
+                    formData.isNewItem ? "Item Unmarked" : "Item Marked as NEW", 
+                    formData.isNewItem 
+                      ? "This item will no longer display a NEW badge" 
+                      : "This item will display a NEW badge when saved"
+                  );
+                }}
+              >
+                <Ionicons 
+                  name={formData.isNewItem ? "star" : "star-outline"} 
+                  size={32} 
+                  color={formData.isNewItem ? "#fff" : "#f39c12"} 
+                />
+                <Text style={[
+                  styles.newItemButtonText,
+                  formData.isNewItem ? styles.newItemButtonTextActive : styles.newItemButtonTextInactive
+                ]}>
+                  {formData.isNewItem ? "NEW ITEM ★ (Badge Will Display)" : "TAP HERE TO MARK AS NEW ITEM"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Image */}
@@ -446,6 +528,35 @@ export default function MenuManagementScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+            </View>
+            
+            {/* Category - Fixed Placement */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Category</Text>
+              <View style={styles.categoryContainerFixed}>
+                <Text style={styles.selectedCategoryLabel}>
+                  {formData.category || 'Select a category'}
+                </Text>
+                <View style={styles.categoriesWrapper}>
+                  {categories.map(category => (
+                    <TouchableOpacity
+                      key={category}
+                      style={[
+                        styles.categoryChip,
+                        formData.category === category && styles.categoryChipSelected
+                      ]}
+                      onPress={() => setFormData(prev => ({ ...prev, category }))}
+                    >
+                      <Text style={[
+                        styles.categoryChipText,
+                        formData.category === category && styles.categoryChipTextSelected
+                      ]}>
+                        {category}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -570,11 +681,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#e67e22',
   },
+  menuItemImageContainer: {
+    position: 'relative',
+  },
   menuItemImage: {
     width: 80,
     height: 80,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
+  },
+  newItemBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#f39c12',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  newItemBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   menuItemDescription: {
     fontSize: 14,
@@ -700,8 +836,22 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  categoryScroll: {
-    marginTop: 5,
+  categoryContainerFixed: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+  },
+  selectedCategoryLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 10,
+    fontWeight: '500',
+  },
+  categoriesWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   categoryChip: {
     backgroundColor: '#f0f0f0',
@@ -709,6 +859,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 10,
+    marginBottom: 10,
   },
   categoryChipSelected: {
     backgroundColor: '#2c6f57',
@@ -743,5 +894,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: '#999',
     fontSize: 14,
+  },
+  newItemButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  newItemButtonActive: {
+    backgroundColor: '#f39c12',
+    borderColor: '#e67e22',
+  },
+  newItemButtonInactive: {
+    backgroundColor: '#fff',
+    borderColor: '#f39c12',
+    borderStyle: 'dashed',
+  },
+  newItemButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    textTransform: 'uppercase',
+  },
+  newItemButtonTextActive: {
+    color: '#fff',
+  },
+  newItemButtonTextInactive: {
+    color: '#f39c12',
   },
 });

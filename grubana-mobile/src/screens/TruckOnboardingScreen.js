@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
@@ -28,16 +29,64 @@ export default function TruckOnboardingScreen({ navigation }) {
     price: '',
     description: '',
     category: '',
-    image: null
+    image: null,
+    isNewItem: false
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageErrors, setImageErrors] = useState({});
+  const [newItemIds, setNewItemIds] = useState(new Set());
+
+  // Client-side new items tracking (temporary workaround)
+  const getNewItemIds = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(`newItemIds_${user?.uid}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (error) {
+      console.error('Error getting new item IDs:', error);
+      return new Set();
+    }
+  };
+
+  const saveNewItemIds = async (ids) => {
+    try {
+      await AsyncStorage.setItem(`newItemIds_${user?.uid}`, JSON.stringify([...ids]));
+      setNewItemIds(ids);
+    } catch (error) {
+      console.error('Error saving new item IDs:', error);
+    }
+  };
+
+  const addNewItemId = async (itemId) => {
+    const currentIds = await getNewItemIds();
+    currentIds.add(itemId);
+    await saveNewItemIds(currentIds);
+    console.log('✅ Added item to new items list:', itemId);
+  };
+
+  const isItemNew = (itemId) => {
+    return newItemIds.has(itemId);
+  };
+
+  const toggleNewItemStatus = async (itemId) => {
+    const currentIds = await getNewItemIds();
+    if (currentIds.has(itemId)) {
+      currentIds.delete(itemId);
+      console.log('🏷️ Removed item from new items list:', itemId);
+    } else {
+      currentIds.add(itemId);
+      console.log('🏷️ Added item to new items list:', itemId);
+    }
+    await saveNewItemIds(currentIds);
+  };
 
   useEffect(() => {
     if (user) {
       checkAccountStatus();
       loadMenuItems();
+      // Load stored new item IDs
+      getNewItemIds().then(setNewItemIds);
     }
   }, [user]);
 
@@ -76,7 +125,19 @@ export default function TruckOnboardingScreen({ navigation }) {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('🍽️ FULL API Response from backend:', JSON.stringify(data, null, 2));
+        console.log('🍽️ Loaded menu items:', data.items);
+        // Log all fields for each item to check what's missing
+        data.items?.forEach((item, index) => {
+          const imageUrl = item.image || item.imageUrl;
+          console.log(`🔍 FULL Item ${index} (${item.name}):`, JSON.stringify(item, null, 2));
+          console.log(`Item ${index}: ${item.name} - Image: ${imageUrl || 'No image'} - isNewItem: ${item.isNewItem}`);
+        });
         setMenuItems(data.items || []);
+      } else {
+        console.error('❌ Failed to load menu items. Status:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
       }
     } catch (error) {
       console.error('Error loading menu items:', error);
@@ -170,6 +231,14 @@ export default function TruckOnboardingScreen({ navigation }) {
         imageUrl = await uploadImageToFirebase(imageFile);
       }
 
+      const menuItemData = {
+        ...newMenuItem,
+        price: parseFloat(newMenuItem.price),
+        image: imageUrl
+      };
+
+      console.log('📤 Sending menu item data:', menuItemData);
+
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
         method: 'POST',
@@ -177,30 +246,38 @@ export default function TruckOnboardingScreen({ navigation }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${await user.getIdToken()}`
         },
-        body: JSON.stringify({
-          ...newMenuItem,
-          price: parseFloat(newMenuItem.price),
-          image: imageUrl
-        })
+        body: JSON.stringify(menuItemData)
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Backend add menu item response:', JSON.stringify(responseData, null, 2));
+        
+        // If this was marked as a new item, track it client-side
+        if (newMenuItem.isNewItem && responseData.item && responseData.item.id) {
+          await addNewItemId(responseData.item.id);
+          console.log('🏷️ Marked item as new (client-side):', responseData.item.id);
+        }
+        
         // Reset form
         setNewMenuItem({
           name: '',
           price: '',
           description: '',
           category: '',
-          image: null
+          image: null,
+          isNewItem: false
         });
         setImageFile(null);
         setImagePreview(null);
         
-        // Reload menu items
+        // Reload menu items to see what was actually saved
+        console.log('🔄 Reloading menu items to verify isNewItem was saved...');
         await loadMenuItems();
         Alert.alert('Success', 'Menu item added successfully!');
       } else {
         const errorData = await response.json();
+        console.error('❌ Backend error response:', JSON.stringify(errorData, null, 2));
         throw new Error(errorData.error || 'Failed to add menu item');
       }
     } catch (error) {
@@ -458,6 +535,7 @@ export default function TruckOnboardingScreen({ navigation }) {
               selectedValue={newMenuItem.category}
               onValueChange={(value) => setNewMenuItem(prev => ({ ...prev, category: value }))}
               style={styles.picker}
+              itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Select Category (optional)" value="" />
               <Picker.Item label="Appetizers" value="appetizers" />
@@ -468,6 +546,22 @@ export default function TruckOnboardingScreen({ navigation }) {
               <Picker.Item label="Daily Specials" value="specials" />
             </Picker>
           </View>
+
+          {/* New Item Checkbox - Simple */}
+          <TouchableOpacity
+            style={styles.newItemCheckbox}
+            onPress={() => {
+              console.log('New Item checkbox pressed - Current value:', newMenuItem.isNewItem);
+              const newValue = !newMenuItem.isNewItem;
+              setNewMenuItem(prev => ({ ...prev, isNewItem: newValue }));
+              console.log('New Item value changed to:', newValue);
+            }}
+          >
+            <View style={styles.checkbox}>
+              {newMenuItem.isNewItem && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>Mark as New Item</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[
@@ -496,11 +590,27 @@ export default function TruckOnboardingScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.menuGrid}>
-              {menuItems.map((item, index) => (
+              {menuItems.map((item, index) => {
+                const imageUrl = item.image || item.imageUrl;
+                return (
                 <View key={item.id || index} style={styles.menuItem}>
-                  {item.image && (
+                  {imageUrl && !imageErrors[item.id] ? (
                     <View style={styles.menuItemImageContainer}>
-                      <Image source={{ uri: item.image }} style={styles.menuItemImage} />
+                      <Image 
+                        source={{ uri: imageUrl }} 
+                        style={styles.menuItemImage}
+                        onError={(error) => {
+                          console.log(`❌ Image failed to load for ${item.name}:`, error.nativeEvent.error);
+                          setImageErrors(prev => ({ ...prev, [item.id]: true }));
+                        }}
+                        onLoad={() => console.log(`✅ Image loaded successfully for ${item.name}`)}
+                      />
+                      {(item.isNewItem || isItemNew(item.id)) && (
+                        <View style={styles.newItemBadge}>
+                          <Text style={styles.newItemBadgeText}>NEW</Text>
+                        </View>
+                      )}
+                      {console.log(`🏷️ Item "${item.name}" - Backend isNewItem: ${item.isNewItem} - Client isNewItem: ${isItemNew(item.id)} - Should show badge: ${!!(item.isNewItem || isItemNew(item.id))}`)}
                       <TouchableOpacity
                         style={styles.deleteButton}
                         onPress={() => deleteMenuItem(item.id)}
@@ -508,19 +618,52 @@ export default function TruckOnboardingScreen({ navigation }) {
                         <Text style={styles.deleteButtonText}>🗑️</Text>
                       </TouchableOpacity>
                     </View>
-                  )}
+                  ) : imageUrl && imageErrors[item.id] ? (
+                    <View style={styles.menuItemImageContainer}>
+                      <View style={styles.imagePlaceholder}>
+                        <Text style={styles.imagePlaceholderText}>🍽️</Text>
+                        <Text style={styles.imagePlaceholderSubtext}>Image unavailable</Text>
+                        <TouchableOpacity
+                          style={styles.retryButton}
+                          onPress={() => {
+                            setImageErrors(prev => ({ ...prev, [item.id]: false }));
+                          }}
+                        >
+                          <Text style={styles.retryButtonText}>🔄 Retry</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {(item.isNewItem || isItemNew(item.id)) && (
+                        <View style={styles.newItemBadge}>
+                          <Text style={styles.newItemBadgeText}>NEW</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => deleteMenuItem(item.id)}
+                      >
+                        <Text style={styles.deleteButtonText}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
 
                   <View style={styles.menuItemContent}>
                     <View style={styles.menuItemHeader}>
                       <Text style={styles.menuItemName}>{item.name}</Text>
-                      {!item.image && (
-                        <TouchableOpacity
-                          style={styles.smallDeleteButton}
-                          onPress={() => deleteMenuItem(item.id)}
-                        >
-                          <Text style={styles.smallDeleteButtonText}>🗑️</Text>
-                        </TouchableOpacity>
-                      )}
+                      <View style={styles.headerButtonsContainer}>
+                        {(item.isNewItem || isItemNew(item.id)) && !imageUrl && (
+                          <View style={styles.newItemTextBadge}>
+                            <Text style={styles.newItemTextBadgeText}>NEW</Text>
+                          </View>
+                        )}
+                        {!imageUrl && (
+                          <TouchableOpacity
+                            style={styles.smallDeleteButton}
+                            onPress={() => deleteMenuItem(item.id)}
+                          >
+                            <Text style={styles.smallDeleteButtonText}>🗑️</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                     
                     <Text style={styles.menuItemPrice}>${parseFloat(item.price).toFixed(2)}</Text>
@@ -536,7 +679,8 @@ export default function TruckOnboardingScreen({ navigation }) {
                     )}
                   </View>
                 </View>
-              ))}
+              );
+              })}
             </View>
           )}
         </View>
@@ -906,9 +1050,46 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 15,
     backgroundColor: '#fff',
+    height: 50,
+    justifyContent: 'center',
   },
   picker: {
     height: 50,
+    color: '#333',
+    fontSize: 16,
+    marginTop: -6,
+    marginBottom: -6,
+  },
+  pickerItem: {
+    height: 50,
+    color: '#333',
+    fontSize: 16,
+  },
+  newItemCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: -85,
+    paddingVertical: 0,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 3,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkmark: {
+    color: '#2c6f57',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: '#333',
   },
   menuListCard: {
     backgroundColor: '#fff',
@@ -973,6 +1154,56 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 14,
   },
+  newItemBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#ff6b35',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  newItemBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f8f9fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+  },
+  imagePlaceholderText: {
+    fontSize: 32,
+    marginBottom: 5,
+  },
+  imagePlaceholderSubtext: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   menuItemContent: {
     padding: 15,
   },
@@ -981,6 +1212,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 10,
+  },
+  headerButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newItemTextBadge: {
+    backgroundColor: '#ff6b35',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  newItemTextBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   menuItemName: {
     fontSize: 16,

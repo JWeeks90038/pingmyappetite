@@ -12,7 +12,8 @@ import {
   Image,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../services/firebase';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -34,6 +35,29 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert('Login Failed', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Email Required', 'Please enter your email address first');
+      return;
+    }
+
+    try {
+      const sendCustomPasswordReset = httpsCallable(functions, 'sendCustomPasswordReset');
+      await sendCustomPasswordReset({ 
+        email: email 
+      });
+      
+      Alert.alert(
+        'Password Reset Email Sent',
+        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Password reset error:', error);
+      Alert.alert('Error', 'Failed to send password reset email. Please try again.');
     }
   };
 
@@ -80,6 +104,13 @@ const LoginScreen = ({ navigation }) => {
               autoCapitalize="none"
             />
           </View>
+
+          <TouchableOpacity
+            style={styles.forgotPasswordContainer}
+            onPress={handleForgotPassword}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -233,6 +264,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontWeight: '600',
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
+    color: '#4682b4', // Steel blue text
+    fontSize: 14,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });
 
