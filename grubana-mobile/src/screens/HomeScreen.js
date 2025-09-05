@@ -25,6 +25,8 @@ const HomeScreen = () => {
         <Text style={styles.subtitle}>
           {userRole === 'owner' 
             ? 'Manage your food truck and connect with customers'
+            : userRole === 'event-organizer'
+            ? 'Plan amazing events and connect with food trucks'
             : 'Find amazing food trucks near you'
           }
         </Text>
@@ -41,10 +43,11 @@ const HomeScreen = () => {
 
         <View style={styles.featureSection}>
           <Text style={styles.sectionTitle}>
-            {userRole === 'owner' ? 'Owner Features' : 'Customer Features'}
+            {userRole === 'owner' ? 'Owner Features' : userRole === 'event-organizer' ? 'Event Organizer Features' : 'Customer Features'}
           </Text>
           
-                    {userRole === 'owner' ? (
+          
+          {userRole === 'owner' ? (
             <View>
               <View style={styles.featuresList}>
                 <View style={styles.featureItem}>
@@ -80,6 +83,45 @@ const HomeScreen = () => {
                 >
                   <Text style={styles.buttonText}>🚚 Manage Your Truck</Text>
                   <Text style={styles.buttonSubtext}>Payment Setup & Menu Management</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : userRole === 'event-organizer' ? (
+            <View>
+              <View style={styles.featuresList}>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🎪 Event Management</Text>
+                  <Text style={styles.featureDescription}>
+                    Create and manage amazing events with multiple food trucks. Set schedules, locations, and coordinate with vendors.
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🚚 Food Truck Coordination</Text>
+                  <Text style={styles.featureDescription}>
+                    Invite and manage food trucks for your events. Track RSVPs, coordinate setup times, and ensure smooth operations.
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>📊 Event Analytics</Text>
+                  <Text style={styles.featureDescription}>
+                    Monitor event performance, track attendance, and analyze food truck participation to optimize future events.
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureTitle}>🎯 Event Promotion</Text>
+                  <Text style={styles.featureDescription}>
+                    Promote your events to the community, allow customers to engage to show interest, and build excitement around your gatherings.
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.actionSection}>
+                <TouchableOpacity 
+                  style={styles.primaryButton}
+                  onPress={() => navigation.navigate('Events')}
+                >
+                  <Text style={styles.buttonText}>🎪 Manage Events</Text>
+                  <Text style={styles.buttonSubtext}>Create & coordinate amazing food truck events</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -122,10 +164,10 @@ const HomeScreen = () => {
         <View style={styles.aboutSection}>
           <Text style={styles.sectionTitle}>About Grubana</Text>
           <Text style={styles.aboutText}>
-            Grubana connects food truck lovers with their favorite mobile eateries. 
-            Whether you're looking for the perfect lunch spot or running a food truck business, 
-            Grubana helps you connect with your community through real-time location sharing 
-            and customer demand insights.
+            Grubana connects food truck lovers, truck owners, and event organizers in one amazing community. 
+            Whether you're searching for the perfect meal, running a mobile food business, or organizing 
+            incredible food truck events, Grubana helps you connect through real-time location sharing, 
+            event coordination, and community-driven food discovery.
           </Text>
         </View>
       </View>

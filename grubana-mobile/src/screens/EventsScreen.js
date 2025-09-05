@@ -1033,6 +1033,67 @@ const EventsScreen = () => {
     }
   };
 
+  // Get analytics data for event organizer
+  const getEventAnalytics = () => {
+    if (!canManageEvents()) return null;
+
+    const myEventsList = myEvents;
+    const totalEvents = myEventsList.length;
+    const upcomingEvents = myEventsList.filter(event => !isEventPast(event.startDate || event.date));
+    const pastEvents = myEventsList.filter(event => isEventPast(event.startDate || event.date));
+
+    // Calculate total attendance across all events
+    let totalAttendance = 0;
+    let totalInterested = 0;
+    let totalFoodTrucks = 0;
+    const attendanceByEvent = [];
+
+    myEventsList.forEach(event => {
+      const eventCounts = eventAttendanceCounts[event.id] || { attended: 0, attending: 0 };
+      const isPast = isEventPast(event.startDate || event.date);
+      
+      if (isPast) {
+        totalAttendance += eventCounts.attended;
+      } else {
+        totalInterested += eventCounts.attending;
+      }
+
+      // Count food truck participants (assuming attendance includes food trucks)
+      // You can modify this logic based on how food trucks are tracked
+      attendanceByEvent.push({
+        eventId: event.id,
+        eventTitle: event.title || event.eventName,
+        date: event.startDate || event.date,
+        attended: eventCounts.attended,
+        interested: eventCounts.attending,
+        isPast: isPast
+      });
+    });
+
+    // Calculate averages
+    const avgAttendancePerEvent = pastEvents.length > 0 ? (totalAttendance / pastEvents.length).toFixed(1) : 0;
+    const avgInterestPerEvent = upcomingEvents.length > 0 ? (totalInterested / upcomingEvents.length).toFixed(1) : 0;
+
+    // Most successful event
+    const mostSuccessfulEvent = attendanceByEvent.reduce((max, event) => {
+      const currentTotal = event.attended + event.interested;
+      const maxTotal = max.attended + max.interested;
+      return currentTotal > maxTotal ? event : max;
+    }, attendanceByEvent[0] || {});
+
+    return {
+      totalEvents,
+      upcomingEventsCount: upcomingEvents.length,
+      pastEventsCount: pastEvents.length,
+      totalAttendance,
+      totalInterested,
+      avgAttendancePerEvent,
+      avgInterestPerEvent,
+      mostSuccessfulEvent,
+      attendanceByEvent
+    };
+  };
+
   // Get available filter tabs based on user role
   const getFilterTabs = () => {
     const baseTabs = ['upcoming', 'past', 'attended', 'attending'];
@@ -2148,6 +2209,136 @@ const EventsScreen = () => {
               </TouchableOpacity>
             </View>
           )}
+        </View>
+      </View>
+    );
+  };
+
+  // Render analytics dashboard
+  const renderAnalyticsDashboard = () => {
+    const analytics = getEventAnalytics();
+    
+    if (!analytics || myEvents.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="bar-chart-outline" size={64} color="#ccc" />
+          <Text style={styles.emptyText}>No Analytics Available</Text>
+          <Text style={styles.emptySubtext}>
+            Create your first event to start tracking analytics
+          </Text>
+          <TouchableOpacity
+            style={styles.createFirstEventButton}
+            onPress={openCreateEventModal}
+          >
+            <Ionicons name="add-circle" size={20} color="#2c6f57" />
+            <Text style={styles.createFirstEventText}>Create Your First Event</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.analyticsContainer}>
+        {/* Overview Cards */}
+        <View style={styles.analyticsGrid}>
+          <View style={styles.analyticsCard}>
+            <View style={styles.analyticsCardHeader}>
+              <Ionicons name="calendar" size={24} color="#2c6f57" />
+              <Text style={styles.analyticsCardTitle}>Total Events</Text>
+            </View>
+            <Text style={styles.analyticsCardValue}>{analytics.totalEvents}</Text>
+            <Text style={styles.analyticsCardSubtext}>
+              {analytics.upcomingEventsCount} upcoming, {analytics.pastEventsCount} completed
+            </Text>
+          </View>
+
+          <View style={styles.analyticsCard}>
+            <View style={styles.analyticsCardHeader}>
+              <Ionicons name="people" size={24} color="#4CAF50" />
+              <Text style={styles.analyticsCardTitle}>Total Attendance</Text>
+            </View>
+            <Text style={styles.analyticsCardValue}>{analytics.totalAttendance}</Text>
+            <Text style={styles.analyticsCardSubtext}>
+              Avg {analytics.avgAttendancePerEvent} per event
+            </Text>
+          </View>
+
+          <View style={styles.analyticsCard}>
+            <View style={styles.analyticsCardHeader}>
+              <Ionicons name="heart" size={24} color="#8A2BE2" />
+              <Text style={styles.analyticsCardTitle}>Total Interest</Text>
+            </View>
+            <Text style={styles.analyticsCardValue}>{analytics.totalInterested}</Text>
+            <Text style={styles.analyticsCardSubtext}>
+              Avg {analytics.avgInterestPerEvent} per event
+            </Text>
+          </View>
+
+          <View style={styles.analyticsCard}>
+            <View style={styles.analyticsCardHeader}>
+              <Ionicons name="trophy" size={24} color="#FF9800" />
+              <Text style={styles.analyticsCardTitle}>Most Popular</Text>
+            </View>
+            <Text style={styles.analyticsCardValue}>
+              {analytics.mostSuccessfulEvent?.attended + analytics.mostSuccessfulEvent?.interested || 0}
+            </Text>
+            <Text style={styles.analyticsCardSubtext}>
+              {analytics.mostSuccessfulEvent?.eventTitle || 'No events yet'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Event Performance List */}
+        <View style={styles.analyticsSection}>
+          <Text style={styles.analyticsSectionTitle}>Event Performance</Text>
+          {analytics.attendanceByEvent.map((event, index) => (
+            <View key={event.eventId} style={styles.performanceCard}>
+              <View style={styles.performanceHeader}>
+                <Text style={styles.performanceTitle} numberOfLines={2}>
+                  {event.eventTitle}
+                </Text>
+                <Text style={styles.performanceDate}>
+                  {new Date(event.date?.toDate ? event.date.toDate() : event.date).toLocaleDateString()}
+                </Text>
+              </View>
+              <View style={styles.performanceStats}>
+                {event.isPast ? (
+                  <View style={styles.performanceStat}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.performanceStatText}>
+                      {event.attended} attended
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.performanceStat}>
+                    <Ionicons name="heart" size={16} color="#8A2BE2" />
+                    <Text style={styles.performanceStatText}>
+                      {event.interested} interested
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Tips Section */}
+        <View style={styles.analyticsSection}>
+          <Text style={styles.analyticsSectionTitle}>💡 Tips to Improve</Text>
+          <View style={styles.tipsContainer}>
+            <Text style={styles.tipText}>
+              • Host regular events to build a loyal following
+            </Text>
+            <Text style={styles.tipText}>
+              • Share event details early to increase interest
+            </Text>
+            <Text style={styles.tipText}>
+              • Engage with attendees after events for feedback
+            </Text>
+            <Text style={styles.tipText}>
+              • Coordinate with popular food trucks to boost attendance
+            </Text>
+          </View>
         </View>
       </View>
     );

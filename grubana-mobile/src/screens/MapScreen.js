@@ -3374,7 +3374,7 @@ export default function MapScreen() {
                 background: #fff;
             }
             .controls {
-                position: absolute;
+                position: fixed;
                 top: 10px;
                 right: 10px;
                 z-index: 1000;
@@ -3382,6 +3382,8 @@ export default function MapScreen() {
                 padding: 10px;
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                max-width: 150px;
+                pointer-events: auto;
             }
             .control-btn {
                 display: block;
@@ -3394,8 +3396,20 @@ export default function MapScreen() {
                 color: white;
                 cursor: pointer;
                 font-size: 12px;
+                transition: all 0.2s ease;
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: manipulation;
             }
             .control-btn:hover { background: #1e4a3a; }
+            .control-btn:active { 
+                background: #144034; 
+                transform: scale(0.95);
+            }
+            .control-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
             .plan-notice {
                 position: absolute;
                 bottom: 10px;
@@ -3427,11 +3441,11 @@ export default function MapScreen() {
     <body>
         <div id="map"></div>
         <div class="controls">
-            <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
-            <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            <button class="control-btn" onclick="toggleStatusFilter()" id="statusFilterBtn">📊 Show All</button>
+            <button class="control-btn" onclick="event.stopPropagation(); centerOnUser();">📍 My Location</button>
+            <button class="control-btn" onclick="event.stopPropagation(); showCuisineSelector();">🍽️ Cuisine Type</button>
+            <button class="control-btn" onclick="event.stopPropagation(); toggleStatusFilter();" id="statusFilterBtn">📊 Show All</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
-            <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
+            <button class="control-btn" onclick="event.stopPropagation(); toggleHeatmap();">🔥 Toggle Heatmap</button>
             ` : ''}
         </div>
 
@@ -4674,6 +4688,14 @@ export default function MapScreen() {
             
             // Apply truck status filtering
             function applyTruckStatusFilter() {
+                // Prevent rapid filtering operations
+                if (window.filteringInProgress) {
+                    console.log('🚛 Filtering already in progress - skipping');
+                    return;
+                }
+                
+                window.filteringInProgress = true;
+                
                 console.log('🚛 === applyTruckStatusFilter() START ===');
                 console.log('🚛 Applying truck status filter...');
                 console.log('🚛 Current statusFilter:', statusFilter);
@@ -4683,6 +4705,7 @@ export default function MapScreen() {
                 
                 if (!foodTrucks || !Array.isArray(foodTrucks)) {
                     console.error('🚛 ERROR: foodTrucks is not available or not an array:', typeof foodTrucks);
+                    window.filteringInProgress = false;
                     return;
                 }
                 
@@ -4752,6 +4775,9 @@ export default function MapScreen() {
                 console.log('🚛 About to call createTruckMarkers with', statusFilteredTrucks.length, 'trucks');
                 createTruckMarkers(statusFilteredTrucks);
                 console.log('🚛 === applyTruckStatusFilter() COMPLETE ===');
+                
+                // Reset the filtering flag
+                window.filteringInProgress = false;
             }
 
             function centerOnUser() {
@@ -4874,6 +4900,31 @@ export default function MapScreen() {
             }
 
             function toggleStatusFilter() {
+                // Get button reference first
+                const button = document.getElementById('statusFilterBtn');
+                
+                // Prevent rapid clicking - debounce function
+                if (window.statusFilterDebouncing) {
+                    console.log('📊 Status filter debouncing - ignoring rapid click');
+                    return;
+                }
+                
+                window.statusFilterDebouncing = true;
+                
+                // Disable button temporarily to prevent rapid clicks
+                if (button) {
+                    button.disabled = true;
+                    button.style.opacity = '0.7';
+                }
+                
+                setTimeout(() => {
+                    window.statusFilterDebouncing = false;
+                    if (button) {
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    }
+                }, 500); // 500ms debounce
+                
                 console.log('📊 Current status filter:', statusFilter);
                 
                 // Cycle through: 'all' -> 'hide-open' -> 'hide-closed' -> 'all'
@@ -4888,7 +4939,6 @@ export default function MapScreen() {
                 console.log('📊 New status filter:', statusFilter);
                 
                 // Update button text
-                const button = document.getElementById('statusFilterBtn');
                 if (button) {
                     if (statusFilter === 'all') {
                         button.textContent = '📊 Show All';
