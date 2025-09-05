@@ -167,8 +167,8 @@ const SignupScreen = ({ navigation }) => {
                 onValueChange={(value) => updateFormData('role', value)}
                 style={styles.picker}
               >
-                <Picker.Item label="Customer - Find Food Trucks" value="customer" />
-                <Picker.Item label="Food Truck Owner" value="owner" />
+                <Picker.Item label="Customer - Find Mobile Kitchen Businesses" value="customer" />
+                <Picker.Item label="Mobile Kitchen Business Owner" value="owner" />
                 <Picker.Item label="Event Organizer" value="event-organizer" />
               </Picker>
             </View>
@@ -186,7 +186,7 @@ const SignupScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.goBack()}
           >
             <Text style={styles.secondaryButtonText}>
               Already have an account? Sign In

@@ -21,7 +21,7 @@ export async function createTestEventOrganizer() {
       email: user.email,
       username: 'Test Event Organizer',
       role: 'event-organizer',
-      plan: 'event-starter',
+      plan: 'event-basic',
       subscriptionStatus: 'trial',
       contactPerson: 'John Doe',
       organizationName: 'Test Events Co',

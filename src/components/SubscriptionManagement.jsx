@@ -58,7 +58,7 @@ const SubscriptionManagement = () => {
       }
       
       // For paid plans, we would need to collect payment method
-      // For now, let's handle the basic (free) plan switch
+      // For now, let's handle the starter (free) plan switch
       if (newPlanId === 'basic') {
         const apiUrl = import.meta.env.VITE_API_URL || 'https://pingmyappetite-production.up.railway.app';
         const response = await fetch(`${apiUrl}/api/marketplace/subscription/${user.uid}`, {

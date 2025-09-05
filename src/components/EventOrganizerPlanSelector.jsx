@@ -5,10 +5,10 @@ import '../assets/EventOrganizerPlanSelector.css';
 const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
   const eventPlans = [
     {
-      id: 'event-starter',
+      id: 'event-basic',
       name: 'Event Starter',
-      price: '$29.99',
-      period: '/month',
+      price: 'Free',
+      period: 'forever',
       description: 'Perfect for getting started with event organizing',
       features: [
         'Up to 3 events per month',
@@ -18,15 +18,15 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'Email notifications',
         'Basic analytics'
       ],
-      buttonText: 'Get Started',
-      trialText: 'Free Trial Available*'
+      buttonText: 'Start Free',
+      trialText: 'Always Free'
     },
     {
-      id: 'event-pro',
-      name: 'Event Pro',
-      price: '$49.99',
+      id: 'event-premium',
+      name: 'Event Premium',
+      price: '$29.00',
       period: '/month',
-      description: 'Most popular choice for active event organizers',
+      description: 'Full-featured plan for professional event organizers',
       features: [
         'Unlimited events',
         'Enhanced event pages with photos',
@@ -35,20 +35,7 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'SMS and email notifications',
         'Detailed analytics dashboard',
         'Custom branding options',
-        'Social media integration'
-      ],
-      buttonText: 'Get Started',
-      popular: true,
-      trialText: 'Free Trial Available*'
-    },
-    {
-      id: 'event-premium',
-      name: 'Event Premium',
-      price: '$99.99',
-      period: '/month',
-      description: 'Full-featured plan for professional event organizers',
-      features: [
-        'Everything in Event Pro',
+        'Social media integration',
         'Featured map placement',
         'Custom event marketing tools',
         'White-label event pages',
@@ -58,7 +45,8 @@ const EventOrganizerPlanSelector = ({ selectedPlan, onPlanSelect }) => {
         'Multi-user team access',
         'Priority vendor recommendations'
       ],
-      buttonText: 'Get Started',
+      buttonText: 'Get Premium',
+      popular: true,
       trialText: 'Free Trial Available*'
     }
   ];

@@ -107,7 +107,7 @@ export const sendWelcomeEmail = async (userData, userType) => {
               </div>
               
               <div style="background-color: ${userData.plan === 'premium' ? '#fff3cd' : '#e8f5e8'}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${userData.plan === 'premium' ? '#ffc107' : '#28a745'};">
-                <h3 style="margin-top: 0; color: #333;">${userData.plan === 'premium' ? ' Premium Features Unlocked:' : ' Basic Plan Active:'}</h3>
+                <h3 style="margin-top: 0; color: #333;">${userData.plan === 'premium' ? ' Premium Features Unlocked:' : ' Starter Plan Active:'}</h3>
                 ${userData.plan === 'premium' ? 
                   `<ul style="color: #333; line-height: 1.6; margin: 10px 0; padding-left: 20px;">
                     <li>Advanced analytics and insights</li>

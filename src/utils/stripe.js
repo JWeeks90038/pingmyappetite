@@ -3,11 +3,9 @@
 export const STRIPE_CONFIG = {
   // Replace these with your actual Stripe Price IDs from your dashboard
   PRICE_IDS: {
-    pro: import.meta.env.VITE_STRIPE_PRO_PRICE_ID || 'price_YOUR_PRO_PLAN_PRICE_ID_HERE',
-    'all-access': import.meta.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID || 'price_YOUR_ALL_ACCESS_PRICE_ID_HERE',
-    'event-starter': import.meta.env.VITE_STRIPE_EVENT_STARTER_PRICE_ID || 'price_YOUR_EVENT_STARTER_PRICE_ID_HERE',
-    'event-pro': import.meta.env.VITE_STRIPE_EVENT_PRO_PRICE_ID || 'price_YOUR_EVENT_PRO_PRICE_ID_HERE',
-    'event-premium': import.meta.env.VITE_STRIPE_EVENT_PREMIUM_PRICE_ID || 'price_YOUR_EVENT_PREMIUM_PRICE_ID_HERE'
+    pro: import.meta.env.VITE_STRIPE_PRO_PRICE_ID || 'price_1S2yLyRsRfaVTYCjdOaclNNR',
+    'all-access': import.meta.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID || 'price_1S2yTYRsRfaVTYCjjkK7fUZS',
+    'event-premium': import.meta.env.VITE_STRIPE_EVENT_PREMIUM_PRICE_ID || 'price_1S3eeTRsRfaVTYCjli5ZRMVY'
   },
   
   // Stripe public key (safe to expose in client-side code)
@@ -16,49 +14,41 @@ export const STRIPE_CONFIG = {
   // Plan details for reference
   PLANS: {
     basic: {
-      name: 'Basic',
+      name: 'Starter Plan',
       price: 0,
       features: [
-        'Appear on discovery map',
-        'View demand pins',
-        'Access truck dashboard',
-        'Manual location updates'
+        'Personalized icons on discovery map',
+        'Real-time GPS tracking',
+        'Custom menu display',
+        'Customer pre-order engagement'
       ]
     },
     pro: {
-      name: 'Pro',
+      name: 'Pro Plan',
       price: 999, // in cents
-      priceId: 'price_1XXXXXXXXXXXXXXXXX',
+      priceId: 'price_1S2yLyRsRfaVTYCjdOaclNNR',
       features: [
-        'Everything in Basic',
-        'Real-time GPS tracking',
-        'Real-time menu display',
-        'Citywide heat maps',
-        'Basic engagement metrics'
+        'Everything in Starter',
+        'Heat maps showing customer demand',
+        'Create Drops providing exclusive deals'
       ]
     },
     'all-access': {
-      name: 'All Access',
+      name: 'All-Access Plan',
       price: 1999, // in cents
-      priceId: 'price_1YYYYYYYYYYYYYYYYY',
+      priceId: 'price_1S2yTYRsRfaVTYCjjkK7fUZS',
       features: [
-        'Everything in Basic & Pro',
-        'Advanced analytics dashboard',
-        'Create promotional drops',
-        'Featured placement',
-        'Trend alerts',
-        'Priority support',
-        'Custom branding',
-        'Export data',
-        'Multiple locations'
+        'Everything in Pro',
+        'Advanced analytics',
+        'Event management'
       ]
     },
-    'event-starter': {
+    'event-basic': {
       name: 'Event Starter',
-      price: 2999, // $29.99/month
-      priceId: 'price_1ZZZZZZZZZZZZZZZZZ',
+      price: 0, // Free
+      priceId: null,
       features: [
-        'List up to 3 events per month',
+        'Up to 3 events per month',
         'Basic event page with details',
         'Vendor application management',
         'Map location marker',
@@ -66,10 +56,10 @@ export const STRIPE_CONFIG = {
         'Basic analytics'
       ]
     },
-    'event-pro': {
-      name: 'Event Pro',
-      price: 4999, // $49.99/month
-      priceId: 'price_1AAAAAAAAAAAAAAAA',
+    'event-premium': {
+      name: 'Event Premium',
+      price: 2900, // $29.00/month
+      priceId: 'price_1S3eeTRsRfaVTYCjli5ZRMVY',
       features: [
         'Unlimited events',
         'Enhanced event pages with photos',
@@ -78,15 +68,7 @@ export const STRIPE_CONFIG = {
         'SMS and email notifications',
         'Detailed analytics dashboard',
         'Custom branding options',
-        'Social media integration'
-      ]
-    },
-    'event-premium': {
-      name: 'Event Premium',
-      price: 9999, // $99.99/month
-      priceId: 'price_1BBBBBBBBBBBBBBB',
-      features: [
-        'Everything in Event Pro',
+        'Social media integration',
         'Featured map placement',
         'Custom event marketing tools',
         'White-label event pages',

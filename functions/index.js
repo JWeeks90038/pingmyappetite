@@ -30,3 +30,9 @@ export * from "./festivalTriggers.js";
 
 // Export password reset functions
 export * from "./passwordResetService.js";
+
+// Export account deletion function
+export * from "./deleteUserAccount.js";
+
+// Export user cleanup trigger
+export * from "./userCleanupTrigger.js";

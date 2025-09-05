@@ -147,7 +147,7 @@ if (formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === '
 
 // Event organizers with paid plans
 if (formData.role === 'event-organizer') {
-  if (formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan)) {
+  if (formData.plan && ['event-basic', 'event-premium'].includes(formData.plan)) {
     userPlan = formData.plan;
     subscriptionStatus = 'pending'; // Will be updated by webhook after payment
   } else {
@@ -253,7 +253,7 @@ const userData = {
       }
 
       // For event organizer paid plans, redirect to Stripe checkout
-      if (formData.role === 'event-organizer' && formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan)) {
+      if (formData.role === 'event-organizer' && formData.plan && ['event-basic', 'event-premium'].includes(formData.plan)) {
         console.log('🔄 Creating Stripe checkout session for event organizer plan:', formData.plan);
         
         try {
@@ -299,7 +299,7 @@ const userData = {
         }
       }
 
-      // For basic plan, customers, or free event organizers, save user data and redirect to dashboard
+      // For starter plan, customers, or free event organizers, save user data and redirect to dashboard
       if (formData.role === 'customer' || formData.plan === 'basic' || (formData.role === 'event-organizer' && !formData.plan)) {
         console.log('🔄 Saving user data and redirecting to appropriate dashboard');
         await setDoc(doc(db, 'users', user.uid), userData);
@@ -350,7 +350,7 @@ const userData = {
   >
     <option value="">Select Role</option>
     <option value="customer">Foodie Fan</option>
-    <option value="owner">Food Truck</option>
+    <option value="owner">Business Owner</option>
     <option value="event-organizer">Event Organizer</option>
   </select>
 
@@ -400,7 +400,7 @@ const userData = {
 
   {formData.role === 'owner' && (
     <>
-      <label>Type of Food Truck:</label>
+      <label>Type of Mobile Kitchen Business:</label>
       <div className="kitchen-radio-group">
       <label className="kitchen-radio-option">
           <input
@@ -411,7 +411,7 @@ const userData = {
             onChange={handleChange}
             required
           />{' '}
-           <span>Food Truck</span>
+           <span>Truck</span>
         </label>
         {' '}
         <label className="kitchen-radio-option">
@@ -423,11 +423,35 @@ const userData = {
             onChange={handleChange}
             required
           />{' '}
-          <span>Food Trailer</span>
+          <span>Trailer</span>
+        </label>
+        {' '}
+        <label className="kitchen-radio-option">
+          <input
+            type="radio"
+            name="kitchenType"
+            value="cart"
+            checked={formData.kitchenType === 'cart'}
+            onChange={handleChange}
+            required
+          />{' '}
+          <span>Cart</span>
+        </label>
+        {' '}
+        <label className="kitchen-radio-option">
+          <input
+            type="radio"
+            name="kitchenType"
+            value="popup"
+            checked={formData.kitchenType === 'popup'}
+            onChange={handleChange}
+            required
+          />{' '}
+          <span>Popup</span>
         </label>
       </div>
 
-      <label htmlFor="truck-name">Food Truck Name</label>
+      <label htmlFor="truck-name">Business Name</label>
       <input
         type="text"
         id="truck-name"
@@ -435,7 +459,7 @@ const userData = {
         value={formData.truckName}
         onChange={handleChange}
         required
-        placeholder="Enter your food truck name"
+        placeholder="Enter your business name"
       />
 
       <label htmlFor="owner-name">Owner's Name</label>
@@ -486,7 +510,7 @@ const userData = {
         value={formData.location}
         onChange={handleChange}
         required
-        placeholder="Enter your food truck location"
+        placeholder="Enter your business location"
       />
 
       <label htmlFor="cuisine">Cuisine Type</label>
@@ -536,14 +560,14 @@ const userData = {
         placeholder="Enter your service hours (e.g., 11 AM - 9 PM)"
       />
 
-      <label htmlFor="description">Food Truck Description</label>
+      <label htmlFor="description">Business Description</label>
       <textarea
         id="description"
         name="description"
         rows="4"
         value={formData.description}
         onChange={handleChange}
-        placeholder="Tell us more about your food truck and menu"
+        placeholder="Tell us more about your business and menu"
       />
 
       <MobileKitchenPlanSelector
@@ -741,7 +765,7 @@ const userData = {
   )}
 
   {/* Referral code section for event organizers with paid plans */}
-  {formData.role === 'event-organizer' && formData.plan && ['event-starter', 'event-pro', 'event-premium'].includes(formData.plan) && (
+  {formData.role === 'event-organizer' && formData.plan && ['event-basic', 'event-premium'].includes(formData.plan) && (
     <>
       <label htmlFor="referralCode">Referral Code (Optional)</label>
       <input

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { validatePhoneNumber } from '../utils/phoneValidation';
@@ -126,11 +126,44 @@ const handleChangeEmail = async () => {
   };
 
   const handleDeleteAccount = async () => {
-    const confirmation = window.confirm("Are you sure you want to delete your account? This cannot be undone.");
+    const confirmation = window.confirm("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost, including any active subscriptions.");
     if (confirmation) {
       try {
-        await auth.currentUser.delete();
-        alert("Account deleted.");
+        const currentUser = auth.currentUser;
+        const userId = currentUser?.uid;
+        
+        if (!userId) {
+          alert('Unable to verify user credentials.');
+          return;
+        }
+
+        // Get ID token for verification
+        const idToken = await currentUser.getIdToken();
+        
+        // Call Firebase Function to handle complete account deletion
+        console.log('🗑️ Calling account deletion function...');
+        const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/deleteUserAccount', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            idToken: idToken
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || result.error) {
+          console.error('Account deletion failed:', result.error);
+          alert(result.error || 'Failed to delete account. You may need to re-login before deleting your account.');
+          return;
+        }
+        
+        console.log('✅ Account deletion completed:', result);
+        
+        alert("Account and all associated data deleted successfully, including any active subscriptions.");
         navigate("/signup");
       } catch (error) {
         console.error("Error deleting account:", error);

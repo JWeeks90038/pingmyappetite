@@ -536,7 +536,7 @@ New customer: ${session.customer_details?.email}
 • Referral Code Used: Arayaki_Hibachi
 • New User Name: ${userData.username || userData.ownerName}
 • New User Email: ${userData.email}
-• Food Truck Name: ${userData.truckName || 'Not specified'}
+• Business Name: ${userData.truckName || 'Not specified'}
 • Selected Plan: ${planType}
 • User ID: ${uid}
 • Stripe Customer ID: ${session.customer}
@@ -717,32 +717,36 @@ ${planType === 'pro' ? `
 ✅ Basic engagement metrics
 ✅ Priority placement in search results
 ` : planType === 'all-access' ? `
-✅ Everything in Basic & Pro
+✅ Everything in Starter & Pro
 ✅ Advanced 30-day analytics dashboard
 ✅ Create promotional drops and deals
 ✅ Featured placement in search results
 ✅ Priority customer support
 ✅ Advanced customer targeting
-` : planType === 'event-starter' ? `
+` : planType === 'event-basic' ? `
 ✅ Up to 3 events per month
+✅ Basic event page with details
 ✅ Vendor application management
-✅ Basic event promotion
+✅ Map location marker
 ✅ Email notifications
-✅ Customer support
-` : planType === 'event-pro' ? `
-✅ Unlimited events
-✅ Advanced vendor matching
-✅ Premium event promotion
-✅ Analytics and reporting
-✅ Priority vendor access
-✅ Custom branding options
+✅ Basic analytics
 ` : planType === 'event-premium' ? `
-✅ All Pro features
-✅ White-label event platform
+✅ Unlimited events
+✅ Enhanced event pages with photos
+✅ Priority map placement
+✅ Advanced vendor matching
+✅ SMS and email notifications
+✅ Detailed analytics dashboard
+✅ Custom branding options
+✅ Social media integration
+✅ Featured map placement
+✅ Custom event marketing tools
+✅ White-label event pages
 ✅ API access and integrations
 ✅ Dedicated account manager
-✅ Custom vendor contracts
-✅ Advanced analytics suite
+✅ Custom reporting
+✅ Multi-user team access
+✅ Priority vendor recommendations
 ` : '✅ Premium features'}
 
 Your 30-day free trial has started!
@@ -1308,7 +1312,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <h1 style="color: #2c6f57;">Welcome to Grubana${username ? `, ${username}` : ''}! 🚚</h1>
           <p>Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.</p>
           
-          <h2 style="color: #2c6f57;">Your Basic Plan Includes:</h2>
+          <h2 style="color: #2c6f57;">Your Starter Plan Includes:</h2>
           <ul>
             <li>✅ Appear on the Grubana discovery map</li>
             <li>✅ Access to your truck dashboard</li>
@@ -1336,7 +1340,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           
           <h2 style="color: #28a745;">Your Pro Plan Includes:</h2>
           <ul>
-            <li>✅ Everything in Basic</li>
+            <li>✅ Everything in Starter</li>
             <li>✅ Real-time GPS location tracking</li>
             <li>✅ Real-time menu display on map icon</li>
             <li>✅ Access to citywide heat maps</li>
@@ -1363,7 +1367,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           
           <h2 style="color: #007bff;">Your All Access Plan Includes:</h2>
           <ul>
-            <li>✅ Everything in Basic & Pro</li>
+            <li>✅ Everything in Starter & Pro</li>
             <li>✅ Advanced analytics dashboard</li>
             <li>✅ Create promotional drops and deals</li>
           </ul>
@@ -1447,7 +1451,7 @@ app.post('/api/send-referral-notification', async (req, res) => {
         <p><strong>Referral Code Used:</strong> ${referralCode}</p>
         <p><strong>New User Name:</strong> ${newUserName}</p>
         <p><strong>New User Email:</strong> ${newUserEmail}</p>
-        <p><strong>Food Truck Name:</strong> ${truckName || 'Not specified'}</p>
+        <p><strong>Business Name:</strong> ${truckName || 'Not specified'}</p>
         <p><strong>Selected Plan:</strong> ${selectedPlan}</p>
         <p><strong>User ID:</strong> ${userId}</p>
       </div>

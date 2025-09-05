@@ -283,6 +283,7 @@ const EventOrganizerMap = ({ organizerData }) => {
       } else {
         if (type === "trailer") url = "/trailer-icon.png";
         if (type === "cart") url = "/cart-icon.png";
+        if (type === "popup") url = "/popup-icon.png";
       }
       
       return {

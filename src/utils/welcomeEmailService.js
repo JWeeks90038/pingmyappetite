@@ -12,16 +12,16 @@ export const sendFreeUserWelcomeEmail = async (userData) => {
     // Create welcome message based on user role
     const welcomeMessages = {
       customer: {
-        subject: '🎉 Welcome to Grubana - Discover Amazing Food Trucks!',
+        subject: '🎉 Welcome to Grubana - Discover Amazing Mobile Kitchen Businesses!',
         title: `Welcome to Grubana, ${username}! 🚚🍴`,
         content: `
-Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.
+Thank you for joining the Grubana community! You're now part of the ultimate mobile kitchen business discovery platform.
 
 As a Foodie Fan, you can:
-✅ Discover food trucks near you
+✅ Discover mobile kitchen businesses near you
 ✅ Get real-time location updates
 ✅ Receive notifications about deals and favorites
-✅ Save your favorite trucks
+✅ Save your favorite vendors
 ✅ Never miss out on great food again!
 
 Get started by exploring trucks in your area and adding your favorites for personalized notifications.
@@ -33,12 +33,12 @@ P.S. Make sure to enable notifications in your settings to get alerts when your 
         `
       },
       owner: {
-        subject: '🎉 Welcome to Grubana - Start Growing Your Food Truck Business!',
+        subject: '🎉 Welcome to Grubana - Start Growing Your Mobile Kitchen Business!',
         title: `Welcome to Grubana, ${username}! 🚚💼`,
         content: `
 Thank you for joining Grubana! You're now part of a thriving community of mobile food entrepreneurs.
 
-Your Basic Plan includes:
+Your Starter Plan includes:
 ✅ Appear on the Grubana discovery map
 ✅ Access to your truck dashboard
 ✅ Manual location updates
@@ -133,7 +133,7 @@ export const sendPaidUserWelcomeEmail = async (userData, subscriptionData) => {
           content: `
 Congratulations ${username}! Your Grubana Pro subscription is now active! 🚚💼
 
-Your Pro Plan ($9.99/month) includes:
+Your Pro Plan ($9/month) includes:
 ✅ Real-time GPS tracking for customers
 ✅ Advanced analytics and insights
 ✅ Priority placement in search results
@@ -162,7 +162,7 @@ The Grubana Pro Team
           content: `
 Welcome to the top tier, ${username}! Your All-Access subscription is now active! 🚚👑
 
-Your All-Access Plan ($19.99/month) includes EVERYTHING:
+Your All-Access Plan ($19/month) includes EVERYTHING:
 ✅ All Pro features
 ✅ Advanced customer targeting
 ✅ Premium analytics dashboard
@@ -191,19 +191,20 @@ The Grubana Elite Team
         }
       },
       'event-organizer': {
-        'event-starter': {
-          subject: '🎉 Welcome to Event Starter - Your Events Just Got Better!',
+        'event-basic': {
+          subject: '🎉 Welcome to Event Basic - Start Your Event Journey!',
           content: `
-Congratulations ${username}! Your Event Starter subscription is now active! 🎪🍴
+Congratulations ${username}! Your Event Basic plan is now active! 🎪🍴
 
-Your Event Starter Plan ($29.99/month) includes:
+Your Event Starter Plan (FREE) includes:
 ✅ Up to 3 events per month
+✅ Basic event page with details
 ✅ Vendor application management
-✅ Basic event promotion
+✅ Map location marker
 ✅ Email notifications
-✅ Customer support
+✅ Basic analytics
 
-Your 30-day free trial has started! Get your first event rolling:
+Get your first event rolling:
 
 1. 📅 Create your first event in the dashboard
 2. 📝 Set up vendor requirements and application process
@@ -219,49 +220,28 @@ Happy event organizing!
 The Grubana Events Team
           `
         },
-        'event-pro': {
-          subject: '🎉 Welcome to Event Pro - Unlimited Event Possibilities!',
-          content: `
-Welcome to the next level, ${username}! Your Event Pro subscription is now active! 🎪⭐
-
-Your Event Pro Plan ($49.99/month) includes:
-✅ Unlimited events
-✅ Advanced vendor matching
-✅ Premium event promotion
-✅ Analytics and reporting
-✅ Priority vendor access
-✅ Custom branding options
-
-Your 30-day free trial has started! Here's your pro roadmap:
-
-1. 🎯 Set up advanced vendor matching preferences
-2. 📊 Access your event analytics dashboard
-3. 🎨 Customize your event branding
-4. 📢 Utilize premium promotion features
-5. 🤝 Connect with priority vendors
-6. 📈 Track your event success metrics
-
-Maximize your event potential: https://grubana.com/event-dashboard
-
-Your Pro success team is here to help: flavor@grubana.com
-
-Welcome to Pro-level events!
-The Grubana Events Pro Team
-          `
-        },
         'event-premium': {
           subject: '🎉 Welcome to Event Premium - The Ultimate Event Experience!',
           content: `
-Welcome to the pinnacle, ${username}! Your Event Premium subscription is now active! 🎪👑
+Welcome to premium, ${username}! Your Event Premium subscription is now active! 🎪👑
 
-Your Event Premium Plan ($99.99/month) includes EVERYTHING:
-✅ All Pro features
-✅ White-label event platform
+Your Event Premium Plan ($29.00/month) includes EVERYTHING:
+✅ Unlimited events
+✅ Enhanced event pages with photos
+✅ Priority map placement
+✅ Advanced vendor matching
+✅ SMS and email notifications
+✅ Detailed analytics dashboard
+✅ Custom branding options
+✅ Social media integration
+✅ Featured map placement
+✅ Custom event marketing tools
+✅ White-label event pages
 ✅ API access and integrations
 ✅ Dedicated account manager
-✅ Custom vendor contracts
-✅ Advanced analytics suite
-✅ Priority everything!
+✅ Custom reporting
+✅ Multi-user team access
+✅ Priority vendor recommendations
 
 Your 30-day free trial has started! Here's your premium experience:
 
@@ -272,14 +252,12 @@ Your 30-day free trial has started! Here's your premium experience:
 5. 📊 Dive into your advanced analytics suite
 6. 🎯 Plan your enterprise-level events
 
-Your dedicated account manager will contact you within 24 hours to help you get the most from Premium.
-
-Enterprise-level events start here: https://grubana.com/event-dashboard
+Premium-level events start here: https://grubana.com/event-dashboard
 
 Direct access to your Premium team: flavor@grubana.com
 
 Welcome to Premium excellence!
-The Grubana Enterprise Team
+The Grubana Events Premium Team
           `
         }
       }

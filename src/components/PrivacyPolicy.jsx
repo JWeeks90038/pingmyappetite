@@ -23,7 +23,7 @@ const PrivacyPolicy = () => {
     <h2>2. Information We Collect</h2>
     <div>
     <div><strong>Personal Information:</strong> Name, email address, phone number, username, password (hashed), payment information, and other identifiers you provide during registration or use of the Platform.</div><br></br>
-    <div><strong>Business Information:</strong> Food truck name, owner name, location, cuisine type, service hours, description, and other business-related details.</div><br></br>
+    <div><strong>Business Information:</strong> Business name, owner name, location, cuisine type, service hours, description, and other business-related details.</div><br></br>
     <div><strong>Usage Data:</strong> IP address, browser type, device information, access times, pages viewed, referring URLs, and interactions with the Platform.</div><br></br>
     <div><strong>Location Data:</strong> If you enable location services, we may collect precise or approximate geolocation data to provide location-based services.</div><br></br>
     <div><strong>Cookies and Tracking Technologies:</strong> We use cookies, web beacons, and similar technologies to collect information about your interactions with our Platform.</div><br></br>

@@ -16,9 +16,11 @@ import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 export default function TruckOnboardingScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [accountStatus, setAccountStatus] = useState(null);
   const [accountDetails, setAccountDetails] = useState(null);
@@ -148,6 +150,15 @@ export default function TruckOnboardingScreen({ navigation }) {
     setLoading(true);
     try {
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+      const businessName = userData?.truckName || user?.displayName || 'Mobile Kitchen Business';
+      
+      console.log('🔍 Creating Stripe account with data:', {
+        truckId: user.uid,
+        email: user.email,
+        businessName,
+        country: 'US'
+      });
+      
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboard`, {
         method: 'POST',
         headers: {
@@ -157,6 +168,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         body: JSON.stringify({
           truckId: user.uid,
           email: user.email,
+          businessName,
           country: 'US'
         })
       });
@@ -238,6 +250,8 @@ export default function TruckOnboardingScreen({ navigation }) {
       };
 
       console.log('📤 Sending menu item data:', menuItemData);
+      console.log('📤 API URL:', `${apiUrl}/api/marketplace/trucks/${user.uid}/menu`);
+      console.log('📤 User UID:', user.uid);
 
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
@@ -441,7 +455,7 @@ export default function TruckOnboardingScreen({ navigation }) {
               <Text style={styles.accountDetailsText}>
                 • Account ID: {accountDetails?.stripeAccountId?.slice(0, 12)}...{'\n'}
                 • Status: Ready to accept payments{'\n'}
-                • Platform fees: Based on your subscription plan (Basic: 5%, Pro: 2.5%, All-Access: 0%)
+                • Platform fees: Based on your subscription plan (Starter: 5%, Pro: 2.5%, All-Access: 0%)
               </Text>
             </View>
           </View>
@@ -691,7 +705,7 @@ export default function TruckOnboardingScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Food Truck Management</Text>
+        <Text style={styles.headerTitle}>Mobile Kitchen Business Management</Text>
         <Text style={styles.headerSubtitle}>Set up payments and manage your menu</Text>
       </View>
 
@@ -737,18 +751,18 @@ export default function TruckOnboardingScreen({ navigation }) {
               <Text style={styles.infoSectionTitle}>💳 Subscription Plans & Platform Fees:</Text>
               
               <View style={styles.planCard}>
-                <Text style={styles.planTitle}>🆓 Basic Plan</Text>
+                <Text style={styles.planTitle}>🆓 Starter Plan</Text>
                 <Text style={styles.planDetails}>Free • 5% platform fee per order</Text>
               </View>
               
               <View style={styles.planCard}>
                 <Text style={styles.planTitle}>⭐ Pro Plan</Text>
-                <Text style={styles.planDetails}>$9.99/month • 2.5% platform fee per order</Text>
+                <Text style={styles.planDetails}>$9/month • 2.5% platform fee per order</Text>
               </View>
               
               <View style={styles.planCard}>
                 <Text style={styles.planTitle}>🏆 All-Access Plan</Text>
-                <Text style={styles.planDetails}>$19.99/month • 0% platform fee per order</Text>
+                <Text style={styles.planDetails}>$19/month • 0% platform fee per order</Text>
               </View>
               
               <Text style={styles.infoNote}>

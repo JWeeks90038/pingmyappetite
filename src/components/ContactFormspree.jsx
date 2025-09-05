@@ -96,7 +96,7 @@ const ContactFormspree = () => {
                   <p>We typically respond within 24 hours</p>
                 </div>
                 <div className="contact-item">
-                  <h3>🚚 For Food Truck Owners</h3>
+                  <h3>🚚 For Mobile Kitchen Business Owners</h3>
                   <p>Questions about partnerships, features, or technical support</p>
                 </div>
                 <div className="contact-item">

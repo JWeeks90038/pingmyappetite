@@ -162,7 +162,7 @@ const OwnerDashboardScreen = () => {
         // Initialize or update truck location document
         await setDoc(truckLocationRef, {
           ownerUid: user.uid,
-          truckName: truckData?.truckName || user.displayName || 'Food Truck',
+          truckName: truckData?.truckName || user.displayName || 'Business',
           isLive: true,
           visible: true,
           lastActive: Date.now(),
@@ -208,7 +208,7 @@ const OwnerDashboardScreen = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.title}>Owner Dashboard</Text>
-        <Text style={styles.subtitle}>Manage your food truck presence</Text>
+        <Text style={styles.subtitle}>Manage your mobile kitchen business presence</Text>
       </View>
 
       {/* Live Status Section */}

@@ -20,7 +20,7 @@ export const SUBSCRIPTION_PLANS = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 9.99, // $9.99/month
+    price: 9, // $9/month
     platformFeePercentage: 0.025, // 2.5% platform fee per item
     stripePriceId: process.env.STRIPE_PRO_PRICE_ID || 'price_pro_monthly', // Set in environment
     features: [
@@ -33,7 +33,7 @@ export const SUBSCRIPTION_PLANS = {
   allAccess: {
     id: 'allAccess',
     name: 'All-Access',
-    price: 19.99, // $19.99/month
+    price: 19, // $19/month
     platformFeePercentage: 0.0, // 0% platform fee per item
     stripePriceId: process.env.STRIPE_ALL_ACCESS_PRICE_ID || 'price_all_access_monthly', // Set in environment
     features: [

@@ -108,23 +108,26 @@ export const createPaymentIntent = onRequest({
         },
       });
 
-      // Create a product first
-      const product = await stripe.products.create({
-        name: `Grubana ${planType.charAt(0).toUpperCase() + planType.slice(1)} Plan`,
-      });
+      // Use your existing Stripe price IDs - NO product creation
+      const predefinedPriceIds = {
+        'event-premium': 'price_1S3eeTRsRfaVTYCjli5ZRMVY', // Your actual Event Premium price ID
+        'pro': 'price_1S2yLyRsRfaVTYCjdOaclNNR',        // Your actual Pro price ID
+        'all-access': 'price_1S2yTYRsRfaVTYCjjkK7fUZS' // Your actual All-Access price ID
+      };
 
-      // Create a price for the product
-      const price = await stripe.prices.create({
-        unit_amount: amount,
-        currency: currency,
-        recurring: { interval: 'month' },
-        product: product.id,
-      });
+      // Get the price ID for this plan type
+      const priceId = predefinedPriceIds[planType];
+      
+      if (!priceId) {
+        throw new Error(`No price ID configured for plan type: ${planType}`);
+      }
 
-      // Create subscription with trial period
+      console.log(`Using existing Stripe price ID: ${priceId} for plan: ${planType}`);
+
+      // Create subscription with trial period using existing price
       const subscription = await stripe.subscriptions.create({
         customer: customer.id,
-        items: [{ price: price.id }],
+        items: [{ price: priceId }],
         trial_period_days: 30,
         metadata: {
           firebaseUserId: userId,
@@ -221,13 +224,53 @@ export const handleSubscriptionUpdate = onRequest({
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === "succeeded") {
+      // Get user data to find their Stripe customer ID
+      const userDoc = await db.collection("users").doc(userId).get();
+      const userData = userDoc.data();
+      
+      if (!userData || !userData.stripeCustomerId) {
+        res.set(corsHeaders);
+        res.status(400).json({ error: "User or Stripe customer not found" });
+        return;
+      }
+
+      // Use your existing Stripe price IDs - NO product creation
+      const predefinedPriceIds = {
+        'event-premium': 'price_1S3eeTRsRfaVTYCjli5ZRMVY', // Your actual Event Premium price ID
+        'pro': 'price_1S2yLyRsRfaVTYCjdOaclNNR',        // Your actual Pro price ID
+        'all-access': 'price_1S2yTYRsRfaVTYCjjkK7fUZS' // Your actual All-Access price ID
+      };
+
+      const planType = paymentIntent.metadata.planType;
+      const priceId = predefinedPriceIds[planType];
+      
+      if (!priceId) {
+        throw new Error(`No price ID configured for plan type: ${planType}`);
+      }
+
+      console.log(`Creating subscription with existing price ID: ${priceId} for plan: ${planType}`);
+
+      // Create subscription using existing price
+      const subscription = await stripe.subscriptions.create({
+        customer: userData.stripeCustomerId,
+        items: [{ price: priceId }],
+        metadata: {
+          firebaseUserId: userId,
+          planType: planType,
+          paymentIntentId: paymentIntentId,
+        },
+      });
+
+      console.log(`Subscription created: ${subscription.id}`);
+
       // Update user subscription status in Firestore
       await db.collection("users").doc(userId).update({
         subscriptionStatus: "active",
         paymentCompleted: true,
         subscriptionStartDate: FieldValue.serverTimestamp(),
         stripePaymentIntentId: paymentIntentId,
-        plan: paymentIntent.metadata.planType,
+        stripeSubscriptionId: subscription.id,
+        plan: planType,
       });
 
       // If referral was used, update referral document

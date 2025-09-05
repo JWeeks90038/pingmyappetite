@@ -33,25 +33,46 @@ export const AuthContextProvider = ({ children }) => {
 
       unsubUserDoc = onSnapshot(userDocRef, async (userSnap) => {
         if (!userSnap.exists()) {
-          const newUser = {
-            uid: currentUser.uid,
-            username: currentUser.displayName || "",
-            email: currentUser.email || "",
-            phone: "",
-            role: "customer",
-            plan: "basic",
-            menuUrl: "",
-            instagram: "",
-            facebook: "",
-            tiktok: "",
-            twitter: "",
+          const userData = {
+            uid: userDoc.id,
+            username: data.username || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            role: data.role || 'customer',
+            plan: data.plan || 'basic',
+            menuUrl: data.menuUrl || '',
+            facebook: data.facebook || '',
+            instagram: data.instagram || '',
+            twitter: data.twitter || '',
+            website: data.website || '',
+            // CRITICAL PAYMENT FIELDS FOR NAVIGATION SECURITY
+            subscriptionStatus: data.subscriptionStatus || 'inactive',
+            paymentCompleted: data.paymentCompleted || false,
+            hasValidReferral: data.hasValidReferral || false,
+            referralCode: data.referralCode || null,
+            stripeCustomerId: data.stripeCustomerId || null,
+            subscriptionId: data.subscriptionId || null
           };
+          
+          console.log('👤 AuthContext loaded user data:', {
+            uid: userData.uid,
+            plan: userData.plan,
+            subscriptionStatus: userData.subscriptionStatus,
+            paymentCompleted: userData.paymentCompleted,
+            role: userData.role
+          });
           await setDoc(userDocRef, newUser);
           setUserData(newUser);
           setUserRole(newUser.role);
           setUserPlan(newUser.plan);
         } else {
           const data = userSnap.data();
+          console.log('🔍 Mobile AuthContext: User data loaded:', {
+            plan: data.plan,
+            subscriptionStatus: data.subscriptionStatus,
+            paymentCompleted: data.paymentCompleted,
+            role: data.role
+          });
           setUserData(data);
           setUserRole(data.role || "customer");
           setUserPlan(data.plan || "basic");

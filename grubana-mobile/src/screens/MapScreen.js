@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,124 @@ const { width, height } = Dimensions.get('window');
 export default function MapScreen() {
   // DEBUG: Console log to confirm code changes are active
   console.log('🔧 DEBUG: MapScreen loaded with UPDATED code - Menu Management changes should be active');
+  
+  // Test Firebase connection immediately
+  useEffect(() => {
+    const testFirebaseConnection = async () => {
+      try {
+        console.log('🔥 FIREBASE TEST: Testing Firebase connection...');
+        console.log('🔥 FIREBASE TEST: db object exists:', !!db);
+        console.log('🔥 FIREBASE TEST: user object exists:', !!user);
+        console.log('🔥 FIREBASE TEST: user.uid:', user?.uid);
+        
+        // Try a simple Firebase read
+        const testDoc = doc(db, 'users', user?.uid || 'test');
+        const testSnapshot = await getDoc(testDoc);
+        console.log('🔥 FIREBASE TEST: Test doc read successful:', testSnapshot.exists());
+        
+        // Try to read truckLocations collection
+        const truckLocsRef = collection(db, 'truckLocations');
+        const truckLocsSnapshot = await getDocs(truckLocsRef);
+        console.log('🔥 FIREBASE TEST: truckLocations collection size:', truckLocsSnapshot.size);
+        
+        // Try to read trucks collection  
+        const trucksRef = collection(db, 'trucks');
+        const trucksSnapshot = await getDocs(trucksRef);
+        console.log('🔥 FIREBASE TEST: trucks collection size:', trucksSnapshot.size);
+        
+        // Try to read menuItems collection
+        const menuRef = collection(db, 'menuItems');
+        const menuSnapshot = await getDocs(menuRef);
+        console.log('🔥 FIREBASE TEST: menuItems collection size:', menuSnapshot.size);
+        
+      } catch (error) {
+        console.error('🔥 FIREBASE TEST: Connection test failed:', error);
+        console.error('🔥 FIREBASE TEST: Error code:', error.code);
+        console.error('🔥 FIREBASE TEST: Error message:', error.message);
+      }
+    };
+    
+    if (user) {
+      testFirebaseConnection();
+    }
+  }, [user]);
+  
+  // TEMPORARILY DISABLED: Load user's favorites - commenting out to test if this causes map issues
+  /*
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserFavorites(new Set());
+      return;
+    }
+
+    console.log('❤️ FAVORITES: Loading favorites for user:', user.uid);
+    
+    const favoritesQuery = query(
+      collection(db, 'favorites'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(favoritesQuery, (snapshot) => {
+      const favoriteSet = new Set();
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.truckId) {
+          favoriteSet.add(data.truckId);
+        }
+      });
+      
+      console.log('❤️ FAVORITES: Loaded', favoriteSet.size, 'favorites for user');
+      setUserFavorites(favoriteSet);
+    }, (error) => {
+      console.error('❤️ FAVORITES: Error loading favorites:', error);
+      // Set empty favorites to prevent undefined issues
+      setUserFavorites(new Set());
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+  */
+  
+  // Set empty favorites as fallback while disabled
+  useEffect(() => {
+    setUserFavorites(new Set());
+  }, []);
+
+  // TEMPORARILY DISABLED: Load favorite counts for all trucks (for owners to see analytics)
+  /*
+  useEffect(() => {
+    if (!foodTrucks.length) return;
+
+    console.log('📊 FAVORITES: Loading favorite counts for', foodTrucks.length, 'trucks');
+    
+    const loadFavoriteCounts = async () => {
+      const counts = new Map();
+      
+      for (const truck of foodTrucks) {
+        const truckId = truck.ownerId || truck.id;
+        if (!truckId) continue;
+        
+        try {
+          const favoritesQuery = query(
+            collection(db, 'favorites'),
+            where('truckId', '==', truckId)
+          );
+          
+          const snapshot = await getDocs(favoritesQuery);
+          counts.set(truckId, snapshot.size);
+        } catch (error) {
+          console.error('📊 FAVORITES: Error loading count for truck', truckId, error);
+          counts.set(truckId, 0);
+        }
+      }
+      
+      console.log('📊 FAVORITES: Loaded favorite counts:', counts.size, 'trucks processed');
+      setTruckFavoriteCounts(counts);
+    };
+
+    loadFavoriteCounts();
+  }, [foodTrucks]);
+  */
   
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -53,10 +171,11 @@ export default function MapScreen() {
   const MAX_TRUCKS_PER_LOAD = 100; // Limit trucks per viewport
   const GEOGRAPHIC_RADIUS = 50; // km radius for truck loading
   
-  // Persistent truck status filter state
-  const [showClosedTrucks, setShowClosedTrucks] = useState(true); // Show closed trucks by default
-  const [showOpenTrucks, setShowOpenTrucks] = useState(true);     // Show open trucks by default
   const [loadingImageSize, setLoadingImageSize] = useState(false);
+  
+  // Favorites functionality
+  const [userFavorites, setUserFavorites] = useState(new Set()); // Set of truck IDs favorited by user
+  const [truckFavoriteCounts, setTruckFavoriteCounts] = useState(new Map()); // Map of truck ID to favorite count
   
   // Events feature states
   const [events, setEvents] = useState([]);
@@ -457,12 +576,17 @@ export default function MapScreen() {
   }, [user, sessionId]);
 
   // Refresh truck data when returning to MapScreen (e.g., after updating business hours)
+  // DISABLED: This was causing map regeneration when truck filters were toggled
+  /*
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 MapScreen: Screen focused - triggering data refresh for business hours updates');
-      setRefreshTrigger(prev => prev + 1);
+      console.log('🔄 MapScreen: Screen focused - triggering truck data refresh for business hours updates');
+      // Only trigger truck data refresh, not full map regeneration
+      // This will be handled by the truck data listeners, not by regenerating the entire map
+      console.log('🔄 Note: Truck business hours will be updated through real-time listeners, no map regeneration needed');
     }, [])
   );
+  */
 
   // Fetch owner data for current user
   useEffect(() => {
@@ -524,11 +648,25 @@ export default function MapScreen() {
 
   // Automatically load menu items when truck modal opens
   useEffect(() => {
+    console.log('🍽️ MODAL DEBUG: useEffect triggered with:', {
+      showMenuModal,
+      selectedTruckOwnerId: selectedTruck?.ownerId,
+      selectedTruckName: selectedTruck?.name
+    });
+    
     if (showMenuModal && selectedTruck?.ownerId) {
       console.log('🍽️ Auto-loading menu items for opened truck modal:', selectedTruck.name);
+      console.log('🔍 Selected truck ownerId:', selectedTruck.ownerId);
+      console.log('🔍 Current user UID:', user?.uid);
+      console.log('🔍 Are they the same?', selectedTruck.ownerId === user?.uid);
       loadMenuItems(selectedTruck.ownerId);
       
       // Drops will be loaded by the real-time listener useEffect
+    } else {
+      console.log('🍽️ MODAL DEBUG: Not loading menu items because:', {
+        showMenuModal: !!showMenuModal,
+        hasOwnerId: !!selectedTruck?.ownerId
+      });
     }
   }, [showMenuModal, selectedTruck?.ownerId]);
 
@@ -633,11 +771,17 @@ export default function MapScreen() {
   // Function to load menu items from Firestore directly
   const loadMenuItems = async (truckOwnerId) => {
     if (!truckOwnerId) {
-      console.log("No truck owner ID provided");
+      console.log("❌ No truck owner ID provided to loadMenuItems");
       return;
     }
     
     console.log("🍽️ Loading menu items for truck owner:", truckOwnerId);
+    console.log("🔍 Selected truck basic info:", {
+      name: selectedTruck?.name || selectedTruck?.truckName,
+      ownerId: selectedTruck?.ownerId,
+      cuisine: selectedTruck?.cuisine || selectedTruck?.cuisineType,
+      hasBase64Image: !!selectedTruck?.base64CoverImage
+    });
     setLoadingMenu(true);
     setMenuItems([]);
     
@@ -649,14 +793,35 @@ export default function MapScreen() {
       console.log("🏷️ Loaded NEW item IDs:", [...ownerNewItemIds]);
       
       // Query Firestore directly for menu items
-      console.log("� Querying Firestore for menu items with ownerId:", truckOwnerId);
+      console.log("📊 Querying Firestore for menu items with ownerId:", truckOwnerId);
       
       const menuItemsRef = collection(db, 'menuItems');
-      const menuSnapshot = await getDocs(query(menuItemsRef, where('ownerId', '==', truckOwnerId)));
+      const menuQuery = query(menuItemsRef, where('ownerId', '==', truckOwnerId));
+      console.log("📊 Query created, executing...");
+      
+      const menuSnapshot = await getDocs(menuQuery);
+      console.log("📊 Query completed. Snapshot size:", menuSnapshot.size);
+      console.log("📊 Snapshot empty?", menuSnapshot.empty);
       
       if (menuSnapshot.empty) {
         console.log("📭 No menu items found in Firestore for this truck owner");
-        console.log("🍽️ This food truck hasn't added any menu items yet");
+        console.log("🔍 Double-checking: querying for ownerId =", truckOwnerId);
+        
+        // Debug: Let's see all documents in the menuItems collection
+        console.log("🔍 Let's check what's in the menuItems collection:");
+        const allMenuItemsRef = collection(db, 'menuItems');
+        const allMenuSnapshot = await getDocs(allMenuItemsRef);
+        console.log("🔍 Total menuItems in collection:", allMenuSnapshot.size);
+        
+        allMenuSnapshot.forEach((doc) => {
+          const data = doc.data();
+          console.log("🔍 Found menuItem:", doc.id, "ownerId:", data.ownerId, "name:", data.name);
+          if (data.ownerId === truckOwnerId) {
+            console.log("🎯 MATCH FOUND! This item should have been returned by our query");
+          }
+        });
+        
+        console.log("🍽️ This business hasn't added any menu items yet");
         setMenuItems([]); // Show empty menu instead of fallback samples
       } else {
         // Process real menu items from Firestore
@@ -701,6 +866,50 @@ export default function MapScreen() {
     }
   };
 
+  // Favorites functionality
+  const toggleFavorite = async (truckId, truckName) => {
+    if (!user?.uid || !truckId) {
+      Alert.alert('Error', 'Please log in to favorite trucks');
+      return;
+    }
+
+    try {
+      const isFavorited = userFavorites.has(truckId);
+      
+      if (isFavorited) {
+        // Remove from favorites
+        console.log('❤️ FAVORITES: Removing favorite for truck:', truckName);
+        
+        const favoritesQuery = query(
+          collection(db, 'favorites'),
+          where('userId', '==', user.uid),
+          where('truckId', '==', truckId)
+        );
+        
+        const snapshot = await getDocs(favoritesQuery);
+        if (!snapshot.empty) {
+          await deleteDoc(doc(db, 'favorites', snapshot.docs[0].id));
+          console.log('❤️ FAVORITES: Successfully removed favorite');
+        }
+      } else {
+        // Add to favorites
+        console.log('❤️ FAVORITES: Adding favorite for truck:', truckName);
+        
+        await addDoc(collection(db, 'favorites'), {
+          userId: user.uid,
+          truckId: truckId,
+          truckName: truckName,
+          createdAt: serverTimestamp(),
+        });
+        
+        console.log('❤️ FAVORITES: Successfully added favorite');
+      }
+    } catch (error) {
+      console.error('❤️ FAVORITES: Error toggling favorite:', error);
+      Alert.alert('Error', 'Failed to update favorite. Please try again.');
+    }
+  };
+
   // Drops functionality
   const handleDropFormChange = (field, value) => {
     setDropFormData(prev => ({
@@ -734,7 +943,7 @@ export default function MapScreen() {
       console.log("🔄 Checking user permissions for drop creation...");
       
       if (userRole !== 'owner') {
-        Alert.alert("Error", "Only food truck owners can create drops.");
+        Alert.alert("Error", "Only business owners can create drops.");
         setCreatingDrop(false);
         return;
       }
@@ -1310,7 +1519,7 @@ export default function MapScreen() {
       await setDoc(truckLocationRef, updateData, { merge: true });
       console.log('🔒 PRIVACY: ✅ Updated truckLocations collection with visible:', isVisible);
       
-      console.log('� PRIVACY: ===== UPDATE COMPLETE =====');
+      console.log('🔒 PRIVACY: ===== UPDATE COMPLETE =====');
       
       // Force reload truck data to reflect changes immediately
       console.log('🔄 PRIVACY: Forcing truck data reload...');
@@ -1446,17 +1655,7 @@ export default function MapScreen() {
     }
   };
 
-  // Get truck status button text based on current filter state
-  const getTruckStatusButtonText = () => {
-    if (showClosedTrucks && showOpenTrucks) {
-      return '🟢 Hide Closed';
-    } else if (!showClosedTrucks && showOpenTrucks) {
-      return '🔴 Hide Open';
-    } else if (showClosedTrucks && !showOpenTrucks) {
-      return '🟡 Show All';
-    }
-    return '🟢 Hide Closed'; // Default fallback
-  };
+  // REMOVED: getTruckStatusButtonText function (toggle functionality removed)
 
   const shareMenu = async () => {
     if (!selectedTruck?.menuUrl || !selectedTruck?.name) return;
@@ -1547,13 +1746,13 @@ export default function MapScreen() {
     if (!selectedTruck?.stripeConnectAccountId) {
       Alert.alert(
         'Payment Not Available', 
-        'This food truck has not set up payment processing yet. Please try again later or contact the truck owner directly.'
+        'This business has not set up payment processing yet. Please try again later or contact the business owner directly.'
       );
       return;
     }
 
     try {
-      console.log('� Starting Stripe Connect payment process...');
+      console.log('🚀 Starting Stripe Connect payment process...');
       console.log('🛒 Cart items:', cart);
       console.log('👤 User plan:', userPlan);
       console.log('🚛 Truck owner:', selectedTruck?.name, 'Stripe ID:', selectedTruck?.stripeConnectAccountId);
@@ -1695,7 +1894,7 @@ export default function MapScreen() {
         `Subtotal: $${subtotal.toFixed(2)}\n` +
         `Sales Tax: $${salesTax.toFixed(2)}\n` +
         `Total Paid: $${finalTotal.toFixed(2)}\n\n` +
-        `The food truck owner will receive your order and contact you shortly for pickup!`,
+        `The business owner will receive your order and contact you shortly for pickup!`,
         [{ text: 'Great!' }]
       );
 
@@ -1808,7 +2007,7 @@ export default function MapScreen() {
       console.error('❌ Catering request error:', error);
       Alert.alert(
         'Error',
-        'Failed to send catering request. Please try contacting the food truck directly or try again later.'
+        'Failed to send catering request. Please try contacting the business directly or try again later.'
       );
     } finally {
       setSubmittingCateringForm(false);
@@ -1912,7 +2111,7 @@ export default function MapScreen() {
       console.error('❌ Festival booking request error:', error);
       Alert.alert(
         'Error',
-        'Failed to send festival booking request. Please try contacting the food truck directly or try again later.'
+        'Failed to send festival booking request. Please try contacting the business directly or try again later.'
       );
     } finally {
       setSubmittingFestivalForm(false);
@@ -1921,7 +2120,16 @@ export default function MapScreen() {
 
   // Load real-time data from Firebase
   useEffect(() => {
-    if (!user) return;
+    console.log('🔥 FIREBASE DATA LOADING: useEffect triggered');
+    console.log('🔥 FIREBASE DATA LOADING: user exists:', !!user);
+    console.log('🔥 FIREBASE DATA LOADING: user.uid:', user?.uid);
+    console.log('🔥 FIREBASE DATA LOADING: userRole:', userRole);
+    console.log('🔥 FIREBASE DATA LOADING: userPlan:', userPlan);
+    
+    if (!user) {
+      console.log('❌ FIREBASE DATA LOADING: No user - exiting early');
+      return;
+    }
 
     console.log('🗺️ MapScreen: Loading Firebase data for user plan:', userPlan);
 
@@ -1955,7 +2163,12 @@ export default function MapScreen() {
     const unsubscribeTrucks = onSnapshot(
       query, 
       async (snapshot) => {
-        console.log('🚛 MapScreen: Loading truck locations and owner data for', snapshot.size, 'trucks');
+        console.log('� FIREBASE LISTENER: onSnapshot callback triggered');
+        console.log('🔥 FIREBASE LISTENER: snapshot exists:', !!snapshot);
+        console.log('🔥 FIREBASE LISTENER: snapshot.size:', snapshot.size);
+        console.log('🔥 FIREBASE LISTENER: snapshot.empty:', snapshot.empty);
+        
+        console.log('�🚛 MapScreen: Loading truck locations and owner data for', snapshot.size, 'trucks');
         console.log('🚛 PRIVACY DEBUG: User role:', userRole, 'User ID:', user?.uid?.substring(0, 8) + '...');
         
         // 🚀 PERFORMANCE: Early truncation for large datasets
@@ -2066,7 +2279,7 @@ export default function MapScreen() {
             setPrivacyCache(newCache);
             setPrivacyCacheTimestamp(now);
             
-            console.log('� PERFORMANCE: Fresh privacy data loaded and cached for', batchResults.length, 'trucks');
+            console.log('🚀 PERFORMANCE: Fresh privacy data loaded and cached for', batchResults.length, 'trucks');
           } catch (error) {
             console.log('🔒 PRIVACY: Error in batch privacy check - falling back to safe mode (hide all):', error);
             return { trucksToDisplay: [], trucksWithOwnerData: [] };
@@ -2075,6 +2288,25 @@ export default function MapScreen() {
         
         for (const docSnapshot of filteredTrucks) {
           const truckData = { id: docSnapshot.id, ...docSnapshot.data() };
+          
+          // SPECIAL DEBUG: Track your "True" truck specifically
+          const isTrueTruck = truckData.truckName === 'True';
+          if (isTrueTruck) {
+            console.log('🎯 TRUE TRUCK FOUND - Full debug info:', {
+              id: truckData.id,
+              truckName: truckData.truckName,
+              lat: truckData.lat,
+              lng: truckData.lng,
+              visible: truckData.visible,
+              isLive: truckData.isLive,
+              ownerUid: truckData.ownerUid,
+              coverUrl: truckData.coverUrl,
+              kitchenType: truckData.kitchenType,
+              lastActive: truckData.lastActive,
+              sessionId: truckData.sessionId,
+              fullData: truckData
+            });
+          }
           
           console.log('🔒 PRIVACY DEBUG: Processing truck:', {
             id: truckData.id,
@@ -2101,6 +2333,14 @@ export default function MapScreen() {
             console.log('🔒 PRIVACY: Truck hidden in at least one collection, skipping:', truckData.id, truckData.truckName || 'Unknown');
             console.log('🔒 PRIVACY: Hide reason - trucks visible:', trucksVisible, 'locations visible:', locationsVisible);
             continue;
+          }
+          
+          // Special case: If this is "The Grubber" and we're expecting it to be hidden
+          if ((truckData.truckName || '').includes('Grubber')) {
+            console.log('🚨 GRUBBER DEBUG: This truck should potentially be hidden');
+            console.log('🚨 GRUBBER DEBUG: trucksVisible =', trucksVisible, 'locationsVisible =', locationsVisible);
+            console.log('🚨 GRUBBER DEBUG: Raw truck data visible field =', truckData.visible);
+            console.log('🚨 GRUBBER DEBUG: Privacy map entry =', trucksPrivacy);
           }
         
         // Filter visible trucks (enhanced visibility logic matching web version)
@@ -2129,8 +2369,32 @@ export default function MapScreen() {
           isRecentlyActive,
           withinEightHourWindow,
           finalVisibility: isVisible,
-          rawVisibleField: truckData.visible
+          rawVisibleField: truckData.visible,
+          timeSinceActive: Math.round(timeSinceActive / (1000 * 60)) + ' minutes',
+          sessionDuration: Math.round(sessionDuration / (1000 * 60 * 60)) + ' hours'
         });
+        
+        // SPECIAL DEBUG for "True" truck
+        if (isTrueTruck) {
+          console.log('🎯 TRUE TRUCK VISIBILITY CHECK:', {
+            hasCoordinates,
+            isExplicitlyVisible, 
+            isRecentlyActive,
+            withinEightHourWindow,
+            finalVisibility: isVisible,
+            lastActiveTime: truckData.lastActive ? new Date(truckData.lastActive).toLocaleString() : 'Never',
+            sessionStartTime: truckData.sessionStartTime ? new Date(truckData.sessionStartTime).toLocaleString() : 'Never',
+            debugDetails: {
+              now,
+              lastActive: truckData.lastActive,
+              timeSinceActive,
+              GRACE_PERIOD,
+              ONLINE_THRESHOLD,
+              sessionDuration,
+              sessionStartTime: truckData.sessionStartTime
+            }
+          });
+        }
         
         if (!isVisible) {
           console.log('🚛 PRIVACY: Skipping non-visible truck:', truckData.id, '- Reason: visible =', truckData.visible);
@@ -2142,23 +2406,27 @@ export default function MapScreen() {
           const ownerDoc = await getDoc(doc(db, 'users', truckData.ownerUid || truckData.id));
           if (ownerDoc.exists()) {
             const ownerData = ownerDoc.data();
-            console.log('� Retrieved owner data for truck:', truckData.id, {
+            console.log('📊 Retrieved owner data for truck:', truckData.id, {
               truckName: ownerData.truckName,
               cuisineType: ownerData.cuisineType,
               rawCuisineType: ownerData.cuisineType,
               hasCuisineType: !!ownerData.cuisineType,
               coverUrl: (ownerData.coverUrl || ownerData.coverURL) ? (ownerData.coverUrl || ownerData.coverURL).substring(0, 50) + '...' : 'None',
+              fullCoverUrl: ownerData.coverUrl || ownerData.coverURL,
               menuUrl: ownerData.menuUrl ? 'Yes' : 'No',
-              socialCount: [ownerData.instagram, ownerData.facebook, ownerData.twitter, ownerData.tiktok].filter(Boolean).length
+              socialCount: [ownerData.instagram, ownerData.facebook, ownerData.twitter, ownerData.tiktok].filter(Boolean).length,
+              uid: ownerData.uid,
+              role: ownerData.role
             });
             
             // Merge truck location data with complete owner profile data
             // Prioritize 'cuisine' field over 'cuisineType' field
             console.log(`🍽️ Cuisine data for ${ownerData.truckName}: cuisine="${ownerData.cuisine}", cuisineType="${ownerData.cuisineType}"`);
             const actualCuisine = ownerData.cuisine || ownerData.cuisineType || inferCuisineType(ownerData.truckName || ownerData.username);
-            trucksWithOwnerData.push({
+            const finalTruckData = {
               ...truckData,
               uid: truckData.id, // Ensure uid field is available for filtering
+              ownerId: ownerData.uid || truckData.ownerUid || truckData.id, // Use actual owner UID from user data
               truckName: ownerData.truckName || ownerData.username || 'Food Truck',
               cuisineType: actualCuisine,
               coverUrl: ownerData.coverUrl || ownerData.coverURL, // Check both case variations
@@ -2170,12 +2438,21 @@ export default function MapScreen() {
               email: ownerData.email, // Add email for catering requests
               kitchenType: ownerData.kitchenType || truckData.kitchenType || 'truck',
               businessHours: ownerData.businessHours // Add business hours for status calculation
+            };
+            
+            console.log(`🎯 Final truck data for ${finalTruckData.truckName}:`, {
+              ownerId: finalTruckData.ownerId,
+              coverUrl: finalTruckData.coverUrl,
+              hasCoverUrl: !!finalTruckData.coverUrl
             });
+            
+            trucksWithOwnerData.push(finalTruckData);
           } else {
             console.log('⚠️ No owner data found for truck:', truckData.id);
             // Include truck with basic data and sensible defaults
             trucksWithOwnerData.push({
               ...truckData,
+              ownerId: truckData.id, // Add ownerId for menu item loading
               truckName: truckData.truckName || 'Food Truck',
               cuisineType: truckData.cuisine || truckData.cuisineType || 'General Food',
               coverUrl: null,
@@ -2201,6 +2478,7 @@ export default function MapScreen() {
           trucksWithOwnerData.push({
             ...truckData,
             uid: truckData.id, // Ensure uid field is available for filtering
+            ownerId: truckData.id, // Add ownerId for menu item loading
             truckName: truckData.truckName || 'Food Truck',
             cuisineType: inferredCuisine,
             coverUrl: null,
@@ -2355,7 +2633,11 @@ export default function MapScreen() {
       }));
       
       console.log('🎪 MapScreen: Loaded', eventsWithLogos.length, 'visible events');
-      console.log('🎪 Sample event data:', eventsWithLogos.slice(0, 2));
+      console.log('🎪 Sample event summary:', eventsWithLogos.slice(0, 2).map(event => ({
+        title: event.title,
+        organizerId: event.organizerId,
+        hasLogo: !!(event.organizerLogoUrl || event.base64Logo)
+      })));
       setEvents(eventsWithLogos);
     });
 
@@ -2366,7 +2648,7 @@ export default function MapScreen() {
       if (unsubscribePings) unsubscribePings();
       if (unsubscribeEvents) unsubscribeEvents();
     };
-  }, [user, userPlan, refreshTrigger]); // Add refreshTrigger to force reload when business hours change
+  }, [user, userPlan]); // Removed refreshTrigger to prevent unnecessary restarts of Firebase listeners
 
   // Handle geolocation based on user plan and role
   useEffect(() => {
@@ -2511,6 +2793,24 @@ export default function MapScreen() {
     saveLateLoadedLocation();
   }, [sessionId, ownerData, location, userRole, user, showTruckIcon]);
 
+  // Create a stable identifier for trucks to prevent unnecessary WebView regeneration
+  const trucksDataHash = useMemo(() => {
+    if (!foodTrucks || foodTrucks.length === 0) return 'empty';
+    
+    // Create a hash based on truck count and essential properties
+    const essentialData = foodTrucks.map(truck => ({
+      id: truck.id || truck.ownerId,
+      name: truck.name || truck.truckName,
+      lat: truck.lat || truck.latitude,
+      lng: truck.lng || truck.longitude,
+      visible: truck.visible,
+      status: truck.status,
+      isLive: truck.isLive
+    }));
+    
+    return JSON.stringify(essentialData);
+  }, [foodTrucks]);
+
   // Generate map HTML when location, trucks, or pings change
   useEffect(() => {
     const generateHTML = async () => {
@@ -2521,6 +2821,12 @@ export default function MapScreen() {
       }
       
       console.log('🗺️ Generating map HTML with processed truck icons...');
+      console.log('🎪 EVENTS DEBUG: events.length at HTML generation time:', events.length);
+      console.log('🎪 EVENTS DEBUG: Sample event summary:', events.length > 0 ? {
+        title: events[0].title,
+        organizerId: events[0].organizerId,
+        hasLogo: !!(events[0].organizerLogoUrl || events[0].base64Logo)
+      } : 'No events');
       
       // 🚀 PERFORMANCE: Start performance monitoring
       const perfStart = Date.now();
@@ -2553,7 +2859,9 @@ export default function MapScreen() {
     };
     
     generateHTML();
-  }, [location, foodTrucks, customerPings, events, userPlan, showTruckIcon, excludedCuisines, showClosedTrucks, showOpenTrucks]);
+  }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites]);
+  // NOTE: Using trucksDataHash instead of foodTrucks to prevent unnecessary regeneration
+  // NOTE: Removed showClosedTrucks, showOpenTrucks, and refreshTrigger from dependencies to prevent event markers from being affected by truck-specific changes
 
   // Mock food truck data with California coordinates (fallback for development)
   const mockFoodTrucks = [
@@ -2744,6 +3052,14 @@ export default function MapScreen() {
       })));
     }
     
+    // SPECIAL DEBUG: Check if "True" truck made it to the display list
+    const trueTruckInDisplay = trucksToDisplay.find(t => t.truckName === 'True');
+    if (trueTruckInDisplay) {
+      console.log('🎯 TRUE TRUCK WILL BE DISPLAYED:', trueTruckInDisplay);
+    } else {
+      console.log('🎯 TRUE TRUCK NOT IN DISPLAY LIST. Available trucks:', trucksToDisplay.map(t => t.truckName));
+    }
+    
     // Pre-process trucks with base64 images
     console.log('🎯 Pre-processing', trucksToDisplay.length, 'truck images...');
     
@@ -2865,6 +3181,12 @@ export default function MapScreen() {
     
     const eventLogoCount = processedEvents.filter(event => event.hasCustomLogo).length;
     console.log(`🎯 Successfully processed ${eventLogoCount}/${events.length} event logos`);
+    console.log('🎪 PROCESSED EVENTS DEBUG: processedEvents.length:', processedEvents.length);
+    console.log('🎪 PROCESSED EVENTS DEBUG: Sample event info:', processedEvents.length > 0 ? {
+      title: processedEvents[0].title,
+      organizerId: processedEvents[0].organizerId,
+      hasCustomLogo: processedEvents[0].hasCustomLogo
+    } : 'No events');
     
     // 🔍 DEBUG: Log the processed truck data
     console.log('🗺️ WEBVIEW DEBUG: About to create map with processed truck data:');
@@ -2872,12 +3194,73 @@ export default function MapScreen() {
     processedTrucks.forEach((truck, index) => {
       console.log(`🚛 Truck ${index + 1}:`, {
         name: truck.truckName || truck.name,
+        id: truck.id,
+        ownerId: truck.ownerId,
         hasCustomIcon: truck.hasCustomIcon,
         iconType: truck.personalizedIcon.type,
         cuisineType: truck.cuisineType
       });
     });
     
+    // 🎪 DEBUG: Log the processed events data summary (no base64)
+    console.log('🎪 WEBVIEW DEBUG: About to create map with processed events data:');
+    console.log('🎪 Total events to display:', processedEvents.length);
+    console.log('🎪 Events summary:', processedEvents.map(event => ({
+      title: event.title,
+      organizerId: event.organizerId,
+      hasCustomLogo: event.hasCustomLogo,
+      logoType: event.base64Logo ? 'base64' : 'url'
+    })));
+
+    // Debug: Toggle functionality removed - showing all markers
+    console.log('🚛 REACT STATE: Toggle functionality removed - showing all markers');
+
+    // CRITICAL: Sanitize data for JSON.stringify to prevent WebView errors
+    let sanitizedTrucks = [];
+    try {
+      sanitizedTrucks = processedTrucks.map(truck => ({
+        ...truck,
+        // Remove any functions or complex objects that might cause JSON.stringify to fail
+        personalizedIcon: truck.personalizedIcon ? {
+          type: truck.personalizedIcon.type,
+          html: truck.personalizedIcon.html,
+          className: truck.personalizedIcon.className
+        } : null
+      }));
+      console.log('🔧 REACT NATIVE: Successfully sanitized processedTrucks for JSON.stringify');
+    } catch (error) {
+      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize processedTrucks:', error);
+      sanitizedTrucks = [];
+    }
+
+    let sanitizedEvents = [];
+    try {
+      sanitizedEvents = processedEvents.map(event => ({
+        ...event,
+        // Remove any functions or complex objects that might cause JSON.stringify to fail
+        eventIcon: event.eventIcon ? {
+          type: event.eventIcon.type,
+          html: event.eventIcon.html,
+          className: event.eventIcon.className
+        } : null
+      }));
+      console.log('🔧 REACT NATIVE: Successfully sanitized processedEvents for JSON.stringify');
+    } catch (error) {
+      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize processedEvents:', error);
+      sanitizedEvents = [];
+    }
+
+    let sanitizedPings = [];
+    try {
+      sanitizedPings = JSON.parse(JSON.stringify(customerPings)); // Deep clone to remove any problematic references
+      console.log('🔧 REACT NATIVE: Successfully sanitized customerPings for JSON.stringify');
+    } catch (error) {
+      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize customerPings:', error);
+      sanitizedPings = [];
+    }
+
+    // REMOVED: Toggle button functionality - showing all markers now
+
     return `
     <!DOCTYPE html>
     <html>
@@ -3046,7 +3429,7 @@ export default function MapScreen() {
         <div class="controls">
             <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
             <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">${getTruckStatusButtonText()}</button>
+            <button class="control-btn" onclick="toggleStatusFilter()" id="statusFilterBtn">📊 Show All</button>
             ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
             ` : ''}
@@ -3140,21 +3523,36 @@ export default function MapScreen() {
     </head>
     <body>
         <div id="map"></div>
-        <div class="controls">
-            <button class="control-btn" onclick="centerOnUser()">📍 My Location</button>
-            <button class="control-btn" onclick="showCuisineSelector()">🍽️ Cuisine Type</button>
-            <button class="control-btn" onclick="toggleTruckStatus()" id="statusToggleBtn">${getTruckStatusButtonText()}</button>
-            ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
-            <button class="control-btn" onclick="toggleHeatmap()">🔥 Toggle Heatmap</button>
-            ` : ''}
-        </div>
 
 
 
         <script>
+            // 🔴 CRITICAL TEST: First line of WebView execution - use native console before redefinition
+            const nativeConsoleLog = console.log;
+            const nativeConsoleError = console.error;
+            
+            // Send startup message using native console AND direct WebView messaging
+            nativeConsoleLog('🟢 WEBVIEW STARTUP: JavaScript is executing in WebView!');
+            
+            // Also try to send through WebView immediately if available
+            if (window.ReactNativeWebView) {
+                try {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'CONSOLE_LOG',
+                        level: 'LOG',
+                        message: '🟢 WEBVIEW STARTUP: JavaScript is executing in WebView!'
+                    }));
+                } catch (e) {
+                    nativeConsoleLog('🔴 WebView messaging failed:', e);
+                }
+            } else {
+                // WebView bridge not ready yet, log this for debugging
+                nativeConsoleLog('⚠️ ReactNativeWebView not available yet during startup');
+            }
+            
             // WEBVIEW CONSOLE FORWARDING: Capture all console messages and send to React Native
-            const originalConsoleLog = console.log;
-            const originalConsoleError = console.error;
+            const originalConsoleLog = nativeConsoleLog;
+            const originalConsoleError = nativeConsoleError;
             
             console.log = function(...args) {
                 // Forward to React Native
@@ -3202,15 +3600,20 @@ export default function MapScreen() {
                 document.head.appendChild(script);
             }
             
-            // Initialize map
-            const map = L.map('map').setView([${userLat}, ${userLng}], 14);
+            // Initialize map (using let for function accessibility)
+            console.log('🗺️ WEBVIEW: About to initialize Leaflet map at [${userLat}, ${userLng}]');
+            let map = L.map('map').setView([${userLat}, ${userLng}], 14);
+            console.log('🗺️ WEBVIEW: Leaflet map initialized successfully');
             
             // Add OpenStreetMap tiles
+            console.log('🗺️ WEBVIEW: Adding OpenStreetMap tile layer...');
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+            console.log('🗺️ WEBVIEW: Tile layer added successfully');
 
             // User location marker
+            console.log('🗺️ WEBVIEW: Creating user location marker...');
             const userIcon = L.divIcon({
                 html: '<div style="background: #007AFF; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,122,255,0.3);"></div>',
                 iconSize: [20, 20],
@@ -3220,7 +3623,43 @@ export default function MapScreen() {
             L.marker([${userLat}, ${userLng}], { icon: userIcon })
                 .addTo(map)
                 .bindPopup('<div class="truck-popup"><div class="truck-name">📍 Your Location</div></div>');
+            console.log('🗺️ WEBVIEW: User location marker added successfully');
+            
+            // DEBUG: Check if execution continues past user marker creation
+            console.log('🔧 WEBVIEW DEBUG: About to start marker creation section...');
+            
+            // SAFE logging to prevent JavaScript crashes
+            console.log('🔧 WEBVIEW DEBUG: Checking foodTrucks variable...');
+            try {
+                const trucksCount = (foodTrucks && Array.isArray(foodTrucks)) ? foodTrucks.length : 'undefined or not array';
+                console.log('🔧 WEBVIEW DEBUG: foodTrucks count:', trucksCount);
+            } catch (e) {
+                console.error('🔧 WEBVIEW ERROR checking foodTrucks:', e.message);
+            }
+            
+            console.log('🔧 WEBVIEW DEBUG: Checking events variable...');
+            try {
+                const eventsCount = (events && Array.isArray(events)) ? events.length : 'undefined or not array';
+                console.log('🔧 WEBVIEW DEBUG: events count:', eventsCount);
+            } catch (e) {
+                console.error('🔧 WEBVIEW ERROR checking events:', e.message);
+            }
+            
+            // IMMEDIATE TEST - Call marker creation right here
+            console.log('🚀 WEBVIEW: About to call createTruckMarkers directly...');
+            try {
+                if (typeof createTruckMarkers !== 'undefined') {
+                    console.log('🚀 WEBVIEW: createTruckMarkers function exists, calling it...');
+                    createTruckMarkers(foodTrucks);
+                } else {
+                    console.error('🚀 WEBVIEW ERROR: createTruckMarkers function not defined!');
+                }
+            } catch (error) {
+                console.error('🚀 WEBVIEW ERROR calling createTruckMarkers:', error);
+            }
 
+            console.log('🔧 WEBVIEW: About to define checkTruckOpenStatus function...');
+            
             // Business hours status checking function
             function checkTruckOpenStatus(businessHours) {
                 // If no business hours provided, use default hours (9 AM - 5 PM, Mon-Sat)
@@ -3251,7 +3690,7 @@ export default function MapScreen() {
                 }
                 
                 console.log('🕐 Business hours for', currentDay, ':', dayHours.open, '-', dayHours.close);
-                console.log('� Current time:', currentTime12);
+                console.log('🕐 Current time:', currentTime12);
                 
                 // Helper function to convert AM/PM time to minutes since midnight for easy comparison
                 const timeToMinutes = (timeStr) => {
@@ -3410,14 +3849,52 @@ export default function MapScreen() {
                 }
             }
 
+            // CRITICAL DEBUG: Check if we reach data initialization section
+            console.log('🔧 WEBVIEW CRITICAL: Reached data initialization section!');
+            
             // Food truck data with pre-processed icons
-            const foodTrucks = ${JSON.stringify(processedTrucks)};
+            console.log('🔧 WEBVIEW: About to stringify sanitizedTrucks');
+            let foodTrucks = [];
+            try {
+                foodTrucks = ${JSON.stringify(sanitizedTrucks)};
+                console.log('🔧 WEBVIEW: Successfully parsed foodTrucks, count:', foodTrucks.length);
+            } catch (error) {
+                console.error('🔧 WEBVIEW ERROR: Failed to parse foodTrucks:', error);
+                foodTrucks = [];
+            }
             
             // Event data with pre-processed icons
-            const events = ${JSON.stringify(processedEvents)};
+            console.log('🔧 WEBVIEW: About to stringify events data');
+            let events = [];
+            try {
+                const eventsData = ${JSON.stringify(sanitizedEvents)};
+                console.log('🎪 WEBVIEW JSON DEBUG: Events data parsed, count:', eventsData.length);
+                events = eventsData;
+                console.log('🔧 WEBVIEW: Successfully parsed events, count:', events.length);
+            } catch (error) {
+                console.error('🔧 WEBVIEW ERROR: Failed to parse events:', error);
+                events = [];
+            }
             
             // Customer ping data for heatmap (Pro/All-Access only)
-            const customerPings = ${JSON.stringify(customerPings)};
+            console.log('🔧 WEBVIEW: About to stringify sanitizedPings');
+            let customerPings = [];
+            try {
+                customerPings = ${JSON.stringify(sanitizedPings)};
+                console.log('🔧 WEBVIEW: Successfully parsed customerPings, count:', customerPings.length);
+            } catch (error) {
+                console.error('🔧 WEBVIEW ERROR: Failed to parse customerPings:', error);
+                customerPings = [];
+            }
+            
+            // CRITICAL SUCCESS LOG: Confirm WebView data initialization completed
+            console.log('🔧 WEBVIEW SUCCESS: Data initialization completed successfully!');
+            console.log('🚛 WEBVIEW DATA: foodTrucks count:', foodTrucks.length);
+            console.log('🎪 WEBVIEW DATA: events count:', events.length);
+            console.log('📍 WEBVIEW DATA: customerPings count:', customerPings.length);
+            if (foodTrucks.length > 0) {
+                console.log('🚛 WEBVIEW SAMPLE TRUCK:', foodTrucks[0].truckName || foodTrucks[0].name);
+            }
             
             // Add some mock ping data for testing if no real data
             const mockPings = [
@@ -3444,11 +3921,16 @@ export default function MapScreen() {
             let truckMarkers = [];
             let eventMarkers = [];
             let heatmapLayer = null;
-            let showHeatmap = false;
+            var showHeatmap = false;
             
-            // Truck status filtering variables - persistent from React state
-            let showClosedTrucks = ${showClosedTrucks}; // Persistent from React state
-            let showOpenTrucks = ${showOpenTrucks};     // Persistent from React state
+            // Status filter: 'all', 'hideOpen', 'hideClosed'
+            var statusFilter = 'all';
+            
+            // User favorites from React state
+            var userFavorites = new Set(${JSON.stringify(Array.from(userFavorites || new Set()))}); // From React state
+            
+            console.log('🚛 WEBVIEW INIT: Toggle functionality removed - showing all markers');
+            console.log('❤️ WEBVIEW INIT: userFavorites =', userFavorites, 'size:', userFavorites.size);
 
             // Create circular icon using canvas (SIMPLIFIED for Leaflet WebView)
             const createCircularIcon = (imageUrl, size = 40) => {
@@ -3479,7 +3961,7 @@ export default function MapScreen() {
                             processedUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'alt=media';
                             console.log('🔄 Added alt=media to URL');
                         }
-                        console.log('� Final processed URL:', processedUrl);
+                        console.log('🖼️ Final processed URL:', processedUrl);
                     }
 
                     const img = new Image();
@@ -3618,6 +4100,8 @@ export default function MapScreen() {
                     return '<div style="background: #2c6f57; ' + baseStyle + '">🚚</div>';
                 } else if (type === 'cart') {
                     return '<div style="background: #4a9b6e; ' + baseStyle + '">🛒</div>';
+                } else if (type === 'popup') {
+                    return '<div style="background: #6b5b95; ' + baseStyle + '">🏪</div>';
                 } else {
                     // Default truck icon
                     return '<div style="background: #2c6f57; ' + baseStyle + '">🚛</div>';
@@ -3625,14 +4109,53 @@ export default function MapScreen() {
             };
 
             // Create truck markers with pre-processed personalized icons
+            console.log('🔧 WEBVIEW: About to define createTruckMarkers function...');
             function createTruckMarkers(trucks = foodTrucks) {
-                console.log('🚛 Creating truck markers for', trucks.length, 'trucks');
+                // Define trucksToUse in function scope first
+                let trucksToUse = [];
                 
-                // Clear existing markers
-                truckMarkers.forEach(marker => map.removeLayer(marker));
-                truckMarkers = [];
+                try {
+                    console.log('🚛 WEBVIEW: === STARTING createTruckMarkers ===');
+                    console.log('🚛 WEBVIEW: Input trucks parameter:', trucks ? trucks.length : 'NULL/UNDEFINED');
+                    console.log('🚛 WEBVIEW: Global foodTrucks:', foodTrucks ? foodTrucks.length : 'NULL/UNDEFINED');
+                    console.log('🚛 WEBVIEW: Map object exists:', typeof map !== 'undefined');
+                    
+                    if (typeof map === 'undefined') {
+                        console.error('🚛 WEBVIEW ERROR: Map not initialized when creating truck markers');
+                        return;
+                    }
 
-                for (const truck of trucks) {
+                    // Log the actual truck data we're working with
+                    trucksToUse = trucks || foodTrucks || [];
+                    console.log('🚛 WEBVIEW: Final trucks array length:', trucksToUse.length);
+                    console.log('🚛 WEBVIEW: Sample truck for debugging:', trucksToUse.length > 0 ? trucksToUse[0] : 'NO TRUCKS');
+                    
+                    // Clear existing markers
+                    console.log('🚛 WEBVIEW: Clearing existing markers - current count:', truckMarkers.length);
+                    truckMarkers.forEach(marker => map.removeLayer(marker));
+                    truckMarkers = [];
+                    console.log('🚛 WEBVIEW: Cleared existing markers');
+                    
+                    // If no trucks provided, simply return (don't create test markers)
+                    if (!trucksToUse || trucksToUse.length === 0) {
+                        console.log('🚛 WEBVIEW: No truck data - no markers to create');
+                        return;
+                    }
+                    
+                    console.log('🚛 WEBVIEW: Processing', trucksToUse.length, 'trucks for markers');
+                } catch (error) {
+                    console.error('🚛 WEBVIEW ERROR in createTruckMarkers setup:', error);
+                    return;
+                }
+
+                // Use final trucks array for processing
+                const trucksToProcess = trucksToUse;
+                for (let i = 0; i < trucksToProcess.length; i++) {
+                    const truck = trucksToProcess[i];
+                    console.log('🚛 WEBVIEW: Processing truck index', i, ':', truck.truckName || truck.name || 'UNNAMED');
+                    
+                    try {
+                    
                     // Determine status based on business hours if available
                     let truckStatus = truck.status || 'open';
                     if (truck.businessHours) {
@@ -3646,8 +4169,12 @@ export default function MapScreen() {
                     const truckName = truck.truckName || truck.name || 'Food Truck';
                     const kitchenType = truck.kitchenType || 'truck';
                     
-                    console.log('🚛 Processing truck:', truckName);
-                    console.log('🎨 Icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
+                    console.log('🚛 WEBVIEW: Processing truck:', truckName);
+                    console.log('🚛 WEBVIEW: Truck IDs - id:', truck.id, 'ownerId:', truck.ownerId);
+                    console.log('🎨 WEBVIEW: Icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
+                    console.log('🖼️ WEBVIEW: Has custom icon:', truck.hasCustomIcon);
+                    console.log('� Truck IDs - id:', truck.id, 'ownerId:', truck.ownerId);
+                    console.log('�🎨 Icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
                     console.log('🖼️ Has custom icon:', truck.hasCustomIcon);
                     
                     // Use pre-processed personalized icon
@@ -3661,6 +4188,26 @@ export default function MapScreen() {
                         console.log('📦 Using default icon for:', truckName);
                     }
                     
+                    // Add heart indicator if user has favorited this truck (with safety check)
+                    const truckId = truck.ownerId || truck.id;
+                    let isFavorited = false;
+                    try {
+                        isFavorited = userFavorites && typeof userFavorites.has === 'function' && userFavorites.has(truckId);
+                    } catch (error) {
+                        console.log('⚠️ Error checking favorites for truck', truckId, ':', error);
+                        isFavorited = false;
+                    }
+                    
+                    if (isFavorited) {
+                        iconHtml = \`
+                            <div style="position: relative; display: inline-block;">
+                                \${iconHtml}
+                                <div style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; background: #ff6b6b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">❤️</div>
+                            </div>
+                        \`;
+                        console.log('❤️ Added heart indicator for favorited truck:', truckName);
+                    }
+                    
                     const truckIcon = L.divIcon({
                         html: iconHtml,
                         iconSize: [55, 55],
@@ -3670,11 +4217,15 @@ export default function MapScreen() {
                     const lat = truck.lat || truck.latitude;
                     const lng = truck.lng || truck.longitude;
                     
-                    if (!lat || !lng) {
-                        console.log('⚠️ Skipping truck without coordinates:', truckName);
+                    console.log('🚛 WEBVIEW: Truck coordinates check - lat:', lat, 'lng:', lng);
+                    
+                    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+                        console.log('⚠️ WEBVIEW: Skipping truck without valid coordinates:', truckName, 'lat:', lat, 'lng:', lng);
                         continue;
                     }
 
+                    console.log('🚛 WEBVIEW: About to create marker for', truckName, 'at', lat, lng);
+                    
                     const marker = L.marker([lat, lng], { 
                         icon: truckIcon,
                         truckData: truck  // Store truck data with marker for auto-updates
@@ -3690,26 +4241,42 @@ export default function MapScreen() {
                                 <div class="truck-details">\${(truck.cuisine || truck.cuisineType || truck.type || 'American').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'American').slice(1)}</div>
                                 <div class="truck-details"> Type: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                 \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.ownerId || truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
                                     📋 View Full Details
                                 </button>
                             </div>
                         \`);
                     
                     truckMarkers.push(marker);
-                    console.log('✅ Added marker for:', truckName, 'with icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
+                    console.log('✅ WEBVIEW: Successfully added marker for:', truckName, 'at coordinates:', lat, lng);
+                    console.log('✅ WEBVIEW: Marker added to map, total markers now:', truckMarkers.length);
+                    
+                    } catch (truckError) {
+                        console.error('🚛 WEBVIEW ERROR processing truck:', truck.truckName || truck.name, truckError);
+                    }
                 }
                 
-                console.log('🚛 Finished creating', truckMarkers.length, 'truck markers');
+                console.log('🚛 WEBVIEW: Finished creating', truckMarkers.length, 'truck markers total');
             }
 
             // Create event markers with pre-processed personalized icons
             function createEventMarkers(eventsToDisplay = events) {
-                console.log('🎪 Creating event markers for', eventsToDisplay.length, 'events');
-                
-                // Clear existing event markers
-                eventMarkers.forEach(marker => map.removeLayer(marker));
-                eventMarkers = [];
+                try {
+                    console.log('🎪 Creating event markers for', eventsToDisplay.length, 'events');
+                    console.log('🎪 Map object exists:', typeof map !== 'undefined');
+                    
+                    if (typeof map === 'undefined') {
+                        console.error('🎪 ERROR: Map not initialized when creating event markers');
+                        return;
+                    }
+                    
+                    // Clear existing event markers
+                    eventMarkers.forEach(marker => map.removeLayer(marker));
+                    eventMarkers = [];
+                } catch (error) {
+                    console.error('🎪 ERROR in createEventMarkers setup:', error);
+                    return;
+                }
 
                 for (const event of eventsToDisplay) {
                     const eventTitle = event.title || event.eventName || 'Event';
@@ -3799,7 +4366,8 @@ export default function MapScreen() {
 
             // Function to handle truck details modal (communicates with React Native)
             function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok) {
-                console.log('Opening enhanced truck details for:', truckName);
+                console.log('🚛 WEBVIEW: Opening truck details for:', truckName);
+                console.log('🆔 WEBVIEW: Using truck ID (should be ownerId):', truckId);
                 
                 const socialLinks = {
                     instagram: instagram && instagram !== 'undefined' ? instagram : null,
@@ -3807,6 +4375,13 @@ export default function MapScreen() {
                     twitter: twitter && twitter !== 'undefined' ? twitter : null,
                     tiktok: tiktok && tiktok !== 'undefined' ? tiktok : null
                 };
+                
+                console.log('📤 WEBVIEW: Sending OPEN_TRUCK_DETAILS message with data:', {
+                    id: truckId,
+                    name: truckName,
+                    cuisine: cuisine,
+                    coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null
+                });
                 
                 // Send message to React Native to open enhanced truck details modal
                 window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -4001,22 +4576,48 @@ export default function MapScreen() {
             // Toggle truck status visibility
             function toggleTruckStatus() {
                 console.log('🚛 toggleTruckStatus() called');
-                console.log('🚛 Current state - showClosedTrucks:', showClosedTrucks, 'showOpenTrucks:', showOpenTrucks);
                 
-                if (showClosedTrucks && showOpenTrucks) {
+                try {
+                    console.log('🚛 DEBUG: About to check variables...');
+                    console.log('🚛 DEBUG: typeof showClosedTrucks =', typeof showClosedTrucks);
+                    console.log('🚛 DEBUG: typeof showOpenTrucks =', typeof showOpenTrucks);
+                    console.log('🚛 DEBUG: window.showClosedTrucks =', window.showClosedTrucks);
+                    console.log('🚛 DEBUG: window.showOpenTrucks =', window.showOpenTrucks);
+                    
+                    // Use window variables as backup if local ones are undefined
+                    const currentShowClosed = typeof showClosedTrucks !== 'undefined' ? showClosedTrucks : window.showClosedTrucks;
+                    const currentShowOpen = typeof showOpenTrucks !== 'undefined' ? showOpenTrucks : window.showOpenTrucks;
+                    
+                    console.log('🚛 Current state - showClosedTrucks:', currentShowClosed, 'showOpenTrucks:', currentShowOpen);
+                } catch (error) {
+                    console.error('🚛 ERROR: Variable access failed:', error);
+                    return;
+                }
+                
+                // Use safe variables for the logic
+                const currentShowClosed = typeof showClosedTrucks !== 'undefined' ? showClosedTrucks : window.showClosedTrucks;
+                const currentShowOpen = typeof showOpenTrucks !== 'undefined' ? showOpenTrucks : window.showOpenTrucks;
+                
+                if (currentShowClosed && currentShowOpen) {
                     // Currently showing all - hide closed trucks
                     showClosedTrucks = false;
                     showOpenTrucks = true;
+                    window.showClosedTrucks = false;
+                    window.showOpenTrucks = true;
                     console.log('🚛 Hiding closed trucks');
-                } else if (!showClosedTrucks && showOpenTrucks) {
+                } else if (!currentShowClosed && currentShowOpen) {
                     // Currently hiding closed - hide open trucks instead
                     showClosedTrucks = true;
                     showOpenTrucks = false;
+                    window.showClosedTrucks = true;
+                    window.showOpenTrucks = false;
                     console.log('🚛 Hiding open trucks');
-                } else if (showClosedTrucks && !showOpenTrucks) {
+                } else if (currentShowClosed && !currentShowOpen) {
                     // Currently hiding open - Show All trucks
                     showClosedTrucks = true;
                     showOpenTrucks = true;
+                    window.showClosedTrucks = true;
+                    window.showOpenTrucks = true;
                     console.log('🚛 Showing all trucks');
                 }
                 
@@ -4024,21 +4625,21 @@ export default function MapScreen() {
                 if (window.ReactNativeWebView) {
                     const message = {
                         type: 'TRUCK_FILTER_CHANGED',
-                        showClosedTrucks: showClosedTrucks,
-                        showOpenTrucks: showOpenTrucks
+                        showClosedTrucks: window.showClosedTrucks,
+                        showOpenTrucks: window.showOpenTrucks
                     };
                     window.ReactNativeWebView.postMessage(JSON.stringify(message));
                     console.log('🚛 Sent filter state to React Native:', message);
                 }
                 
-                // Update button text based on current state
+                // Update button text based on current state (use window variables for consistency)
                 let buttonText = '';
                 
-                if (showClosedTrucks && showOpenTrucks) {
+                if (window.showClosedTrucks && window.showOpenTrucks) {
                     buttonText = '🟢 Hide Closed';
-                } else if (!showClosedTrucks && showOpenTrucks) {
+                } else if (!window.showClosedTrucks && window.showOpenTrucks) {
                     buttonText = '🔴 Hide Open';
-                } else if (showClosedTrucks && !showOpenTrucks) {
+                } else if (window.showClosedTrucks && !window.showOpenTrucks) {
                     buttonText = '🟡 Show All';
                 }
                 
@@ -4051,13 +4652,41 @@ export default function MapScreen() {
                 });
                 
                 // Apply the filter by recreating truck markers
-                applyTruckStatusFilter();
+                console.log('🚛 About to call applyTruckStatusFilter()...');
+                console.log('🚛 typeof foodTrucks:', typeof foodTrucks);
+                console.log('🚛 foodTrucks exists:', typeof foodTrucks !== 'undefined');
+                if (typeof foodTrucks !== 'undefined' && foodTrucks !== null) {
+                    console.log('🚛 foodTrucks.length:', foodTrucks.length);
+                } else {
+                    console.log('🚛 foodTrucks is', foodTrucks);
+                }
+                
+                try {
+                    console.log('🚛 Calling applyTruckStatusFilter() now...');
+                    applyTruckStatusFilter();
+                    console.log('🚛 applyTruckStatusFilter() completed successfully');
+                } catch (error) {
+                    console.error('🚛 ERROR in applyTruckStatusFilter():', error);
+                    console.error('🚛 ERROR message:', error.message);
+                    console.error('🚛 ERROR stack:', error.stack);
+                }
             }
             
             // Apply truck status filtering
             function applyTruckStatusFilter() {
+                console.log('🚛 === applyTruckStatusFilter() START ===');
                 console.log('🚛 Applying truck status filter...');
-                console.log('🚛 Filter state - showOpen:', showOpenTrucks, 'showClosed:', showClosedTrucks);
+                console.log('🚛 Current statusFilter:', statusFilter);
+                
+                console.log('🚛 foodTrucks available:', foodTrucks ? 'YES' : 'NO');
+                console.log('🚛 foodTrucks length:', foodTrucks ? foodTrucks.length : 'N/A');
+                
+                if (!foodTrucks || !Array.isArray(foodTrucks)) {
+                    console.error('🚛 ERROR: foodTrucks is not available or not an array:', typeof foodTrucks);
+                    return;
+                }
+                
+                console.log('🚛 Starting with', foodTrucks.length, 'total trucks');
                 
                 // Get currently filtered trucks (considering cuisine filters)
                 let filtered = foodTrucks;
@@ -4076,48 +4705,53 @@ export default function MapScreen() {
                         const shouldExclude = isCuisineExcluded(truckCuisine, selectedCuisineType);
                         return !shouldExclude;
                     });
+                    console.log('🚛 After cuisine filter:', filtered.length, 'trucks');
                 }
                 
-                // Apply status filter
-                filtered = filtered.filter(truck => {
+                // Apply status filter based on statusFilter variable
+                const statusFilteredTrucks = [];
+                filtered.forEach(truck => {
                     let truckStatus = truck.status || 'open';
                     
                     // Try to get business hours from truck data or owner data
                     let businessHours = truck.businessHours || truck.ownerData?.businessHours;
                     
-                    // If no business hours found, use default hours (9 AM - 5 PM, Mon-Sat)
+                    // If no business hours found, treat as always open for testing
                     if (!businessHours) {
-                        businessHours = {
-                            sunday: { open: '10:00 AM', close: '4:00 PM', closed: true },
-                            monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-                            tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-                            wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-                            thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-                            friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-                            saturday: { open: '9:00 AM', close: '5:00 PM', closed: false }
-                        };
-                    }
-                    
-                    // Always calculate status from business hours (real or default)
-                    truckStatus = checkTruckOpenStatus(businessHours);
-                    
-                    if (truck.businessHours || truck.ownerData?.businessHours) {
-                        console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus, '(from business hours)');
+                        console.log('🚛 Truck', truck.truckName || truck.name, 'has NO business hours - treating as OPEN');
+                        truckStatus = 'open';
                     } else {
-                        console.log('🚛 Truck', truck.truckName || truck.name, 'status:', truckStatus, '(using default hours)');
+                        // Calculate status from business hours
+                        truckStatus = checkTruckOpenStatus(businessHours);
+                        console.log('🚛 Truck', truck.truckName || truck.name, 'status calculated as:', truckStatus);
                     }
                     
-                    if (truckStatus === 'open' || truckStatus === 'busy') {
-                        return showOpenTrucks;
-                    } else if (truckStatus === 'closed') {
-                        return showClosedTrucks;
+                    let shouldShow = true; // Default to show
+                    
+                    if (statusFilter === 'hide-open') {
+                        // Hide open trucks, show closed trucks
+                        shouldShow = !(truckStatus === 'open' || truckStatus === 'busy');
+                        console.log('🚛 HIDE-OPEN mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow:', shouldShow);
+                    } else if (statusFilter === 'hide-closed') {
+                        // Hide closed trucks, show open trucks
+                        shouldShow = (truckStatus === 'open' || truckStatus === 'busy');
+                        console.log('🚛 HIDE-CLOSED mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow:', shouldShow);
+                    } else {
+                        // Show all trucks (statusFilter === 'all')
+                        shouldShow = true;
+                        console.log('🚛 SHOW-ALL mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow: true');
                     }
                     
-                    return true; // Show trucks with unknown status by default
+                    if (shouldShow) {
+                        statusFilteredTrucks.push(truck);
+                    }
                 });
                 
-                console.log('🚛 Filtered', filtered.length, 'trucks after status filter');
-                createTruckMarkers(filtered);
+                console.log('🚛 Final result: Showing', statusFilteredTrucks.length, 'trucks after status filter');
+                console.log('🚛 Trucks to show:', statusFilteredTrucks.map(t => t.truckName || t.name));
+                console.log('🚛 About to call createTruckMarkers with', statusFilteredTrucks.length, 'trucks');
+                createTruckMarkers(statusFilteredTrucks);
+                console.log('🚛 === applyTruckStatusFilter() COMPLETE ===');
             }
 
             function centerOnUser() {
@@ -4239,15 +4873,71 @@ export default function MapScreen() {
                 }));
             }
 
+            function toggleStatusFilter() {
+                console.log('📊 Current status filter:', statusFilter);
+                
+                // Cycle through: 'all' -> 'hide-open' -> 'hide-closed' -> 'all'
+                if (statusFilter === 'all') {
+                    statusFilter = 'hide-open';
+                } else if (statusFilter === 'hide-open') {
+                    statusFilter = 'hide-closed';
+                } else {
+                    statusFilter = 'all';
+                }
+                
+                console.log('📊 New status filter:', statusFilter);
+                
+                // Update button text
+                const button = document.getElementById('statusFilterBtn');
+                if (button) {
+                    if (statusFilter === 'all') {
+                        button.textContent = '📊 Show All';
+                    } else if (statusFilter === 'hide-open') {
+                        button.textContent = '📊 Hide Open';
+                    } else if (statusFilter === 'hide-closed') {
+                        button.textContent = '📊 Hide Closed';
+                    }
+                }
+                
+                // Apply the filter to trucks
+                applyTruckStatusFilter();
+                
+                console.log('📊 Status filter toggle complete');
+            }
+
+            // CRITICAL DEBUG: Check if we reach the main initialization section
+            console.log('🔧 WEBVIEW CRITICAL: Reached main initialization section!');
+            console.log('🔧 WEBVIEW CRITICAL: About to start truck marker initialization...');
+
 
 
             // Initialize
             console.log('🚛 Initializing map with truck markers...');
-            // Apply initial truck status filter instead of showing all trucks
-            applyTruckStatusFilter();
+            console.log('🚛 foodTrucks available during init:', foodTrucks ? 'YES' : 'NO');
+            console.log('🚛 foodTrucks length during init:', foodTrucks ? foodTrucks.length : 'N/A');
+            console.log('🚛 foodTrucks data:', foodTrucks);
+            
+            // SIMPLIFIED: Just create all truck markers without any filtering
+            console.log('🚛 Creating all truck markers (no filtering)');
+            console.log('🚛 DEBUG: About to create markers for trucks:', foodTrucks ? foodTrucks.length : 0);
+            
+            try {
+                createTruckMarkers(foodTrucks || []);
+                console.log('🚛 createTruckMarkers completed successfully');
+            } catch (error) {
+                console.error('🚛 ERROR in createTruckMarkers:', error);
+            }
             
             console.log('🎪 Initializing map with event markers...');
-            createEventMarkers();
+            console.log('🎪 DEBUG: Events array length:', events.length);
+            console.log('🎪 DEBUG: Events data:', events);
+            console.log('🎪 DEBUG: About to call createEventMarkers()');
+            try {
+                createEventMarkers();
+                console.log('🎪 createEventMarkers completed successfully');
+            } catch (error) {
+                console.error('🎪 ERROR in createEventMarkers:', error);
+            }
             
             // Listen for messages from React Native using the proper WebView mechanism
             if (window.ReactNativeWebView) {
@@ -4275,17 +4965,63 @@ export default function MapScreen() {
                 console.log('🔴 ReactNativeWebView not found - message handling may fail');
             }
             
-            // Handle cuisine filter message
+                // Handle message types
             function handleCuisineFilterMessage(message) {
+                // Handle truck visibility updates
+                if (message.type === 'updateTruckVisibility') {
+                    console.log('🚚 WebView received truck visibility update:', message);
+                    const ownerId = message.ownerId;
+                    const visible = message.visible;
+                    
+                    console.log('🚚 WebView updating truck visibility for owner:', ownerId, 'to:', visible);
+                    
+                    // Find the truck marker by ownerId and update its visibility
+                    if (truckMarkers && truckMarkers.length > 0) {
+                        console.log('🚚 Checking', truckMarkers.length, 'truck markers');
+                        let found = false;
+                        
+                        for (let i = 0; i < truckMarkers.length; i++) {
+                            const marker = truckMarkers[i];
+                            const truckData = marker.options && marker.options.truckData;
+                            
+                            console.log('🚚 Marker', i, 'data:', truckData ? 
+                                      {id: truckData.id, ownerId: truckData.ownerId, name: truckData.name || truckData.truckName} : 
+                                      'No truck data');
+                            
+                            if (truckData && (truckData.ownerId === ownerId || truckData.id === ownerId)) {
+                                console.log('🚚 Found marker to update visibility:', truckData.name || truckData.truckName);
+                                
+                                // For Leaflet markers, we remove from map to hide, add to map to show
+                                if (!visible) {
+                                    marker.remove();
+                                    console.log('🚚 Removed marker from map (hidden)');
+                                } else {
+                                    marker.addTo(map);
+                                    console.log('🚚 Added marker to map (visible)');
+                                }
+                                
+                                found = true;
+                            }
+                        }
+                        
+                        if (!found) {
+                            console.log('❌ No matching truck marker found for owner ID:', ownerId);
+                        }
+                    } else {
+                        console.log('❌ No truck markers found (truckMarkers array is empty or undefined)');
+                    }
+                    
+                    return;
+                }
+                
+                // Handle cuisine filter
                 if (message.type === 'APPLY_CUISINE_FILTER') {
                     const cuisineType = message.cuisineType;
                     console.log('🍽️ Applying cuisine filter:', cuisineType);
                     console.log('🍽️ Type of cuisineType:', typeof cuisineType);
                     console.log('🍽️ Array.isArray(cuisineType):', Array.isArray(cuisineType));
                     
-                    selectedCuisineType = cuisineType;
-                    
-                    // Filter out excluded cuisines (show all by default, hide deselected)
+                    selectedCuisineType = cuisineType;                    // Filter out excluded cuisines (show all by default, hide deselected)
                     let filtered = foodTrucks;
                     if (cuisineType.length > 0) {
                         console.log('🍽️ Filtering food trucks with exclusions:', cuisineType);
@@ -4518,6 +5254,30 @@ export default function MapScreen() {
             // Also check immediately after 30 seconds to catch recent changes
             setTimeout(updateTruckStatuses, 30000);
 
+            // Create initial markers AFTER all functions are defined
+            console.log('🚀 Creating initial markers...');
+            console.log('🚀 foodTrucks data available:', typeof foodTrucks, 'length:', foodTrucks ? foodTrucks.length : 'N/A');
+            console.log('🚀 events data available:', typeof events, 'length:', events ? events.length : 'N/A');
+            console.log('🚀 Sample foodTrucks data:', foodTrucks && foodTrucks.length > 0 ? foodTrucks[0] : 'No trucks');
+            console.log('🚀 Sample events data:', events && events.length > 0 ? events[0] : 'No events');
+            
+            // Call marker creation functions with error handling
+            try {
+                createTruckMarkers(foodTrucks);
+                console.log('✅ Truck markers creation completed');
+            } catch (error) {
+                console.error('❌ Error creating truck markers:', error);
+            }
+            
+            try {
+                createEventMarkers(events);
+                console.log('✅ Event markers creation completed');
+            } catch (error) {
+                console.error('❌ Error creating event markers:', error);
+            }
+            
+            console.log('✅ Initial markers creation process finished');
+
             // Add click handler for setting truck location (owners only)
         </script>
         
@@ -4600,6 +5360,14 @@ export default function MapScreen() {
       if (message.type === 'OPEN_TRUCK_DETAILS') {
         const { id, name, cuisine, coverUrl, menuUrl, socialLinks } = message.data;
         
+        console.log('🚛 TRUCK DETAILS: Opening modal for truck:', {
+          id,
+          name, 
+          cuisine,
+          coverUrl: coverUrl ? 'Present' : 'Missing',
+          menuUrl: menuUrl ? 'Present' : 'Missing'
+        });
+        
         // Build social media links display
         let socialText = '';
         const activeSocials = [];
@@ -4613,7 +5381,7 @@ export default function MapScreen() {
           socialText = `\n\nSocial Media:\n${activeSocials.join('\n')}`;
         }
         
-        setSelectedTruck({
+        const truckData = {
           name,
           cuisine,
           coverUrl,
@@ -4622,7 +5390,12 @@ export default function MapScreen() {
           activeSocials,
           socialText,
           ownerId: id
-        });
+        };
+        
+        console.log('🍽️ MENU DEBUG: Setting selected truck with ownerId:', id);
+        console.log('🍽️ MENU DEBUG: This will trigger menu loading for ownerId:', id);
+        
+        setSelectedTruck(truckData);
         setShowMenuModal(true);
         // Load drops for this truck (for both customers and owners)
         loadTruckDrops(id);
@@ -4648,9 +5421,8 @@ export default function MapScreen() {
       } else if (message.type === 'TRUCK_FILTER_CHANGED') {
         // Handle truck status filter state changes from WebView
         console.log('🚛 Received truck filter update from WebView:', message);
-        setShowClosedTrucks(message.showClosedTrucks);
-        setShowOpenTrucks(message.showOpenTrucks);
-        console.log('🚛 Updated React state - showClosed:', message.showClosedTrucks, 'showOpen:', message.showOpenTrucks);
+        // NOTE: Not updating React state to prevent map regeneration - WebView handles filtering internally
+        console.log('🚛 WebView filter state - showClosed:', message.showClosedTrucks, 'showOpen:', message.showOpenTrucks, '(not updating React state)');
       }
     } catch (error) {
       console.log('Error parsing WebView message:', error);
@@ -4741,6 +5513,7 @@ export default function MapScreen() {
               try {
                 const newVisibility = !showTruckIcon;
                 console.log('🚚 Toggling truck visibility from', showTruckIcon, 'to', newVisibility);
+                console.log('🔄 CRITICAL FIX: Force updating truck visibility in WebView');
                 
                 // Update local state first
                 setShowTruckIcon(newVisibility);
@@ -4748,6 +5521,22 @@ export default function MapScreen() {
                 // Update database
                 await updateTruckVisibility(newVisibility);
                 await updateLastActivity(); // Update activity when user interacts
+                
+                // Force map refresh by sending direct message to WebView
+                if (webViewRef.current) {
+                  console.log('🔄 DIRECT WEBVIEW MESSAGE: Forcing visibility update via WebView message');
+                  const message = {
+                    type: 'updateTruckVisibility',
+                    ownerId: user.uid,
+                    visible: newVisibility
+                  };
+                  webViewRef.current.postMessage(JSON.stringify(message));
+                  
+                  // Truck visibility updates are now handled entirely through WebView messages
+                  console.log('🔄 Truck visibility update sent to WebView, no map regeneration needed');
+                } else {
+                  console.log('❌ WebView reference not available for direct message');
+                }
                 
                 console.log('🚚 Truck visibility toggle completed successfully:', newVisibility);
               } catch (error) {
@@ -4804,7 +5593,7 @@ export default function MapScreen() {
             </TouchableOpacity>
             <View style={styles.modalTitleContainer}>
               <Text style={styles.modalTitle}>
-                🚚 {selectedTruck?.name || 'Food Truck'}
+                🚚 {selectedTruck?.name || 'Business'}
               </Text>
               <Text style={styles.modalSubtitle}>
                 {getCuisineDisplayName(selectedTruck?.cuisine)} Cuisine
@@ -4825,6 +5614,35 @@ export default function MapScreen() {
                 />
                 <Text style={styles.quickMenuButtonText}>Menu</Text>
               </TouchableOpacity>
+              
+              {/* Favorite Button - Show for all customers */}
+              {userRole === 'customer' && selectedTruck?.ownerId && (
+                <TouchableOpacity 
+                  style={[
+                    styles.favoriteButton,
+                    userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonActive : styles.favoriteButtonInactive
+                  ]}
+                  onPress={() => {
+                    const truckId = selectedTruck.ownerId;
+                    const truckName = selectedTruck.name || 'Food Truck';
+                    console.log('❤️ Favorite button pressed for truck:', truckName);
+                    toggleFavorite(truckId, truckName);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name={userFavorites.has(selectedTruck.ownerId) ? "heart" : "heart-outline"} 
+                    size={20} 
+                    color={userFavorites.has(selectedTruck.ownerId) ? "#ff6b6b" : "#2c6f57"} 
+                  />
+                  <Text style={[
+                    styles.favoriteButtonText,
+                    userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonTextActive : styles.favoriteButtonTextInactive
+                  ]}>
+                    {userFavorites.has(selectedTruck.ownerId) ? 'Favorited' : 'Favorite'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               
               {/* Cart Button */}
               <TouchableOpacity 
@@ -5348,7 +6166,7 @@ export default function MapScreen() {
                   <Text style={styles.emptyMenuText}>
                     {selectedTruck.ownerId === user?.uid ? 
                       'You haven\'t added any menu items yet!' : 
-                      'This food truck hasn\'t added menu items yet.'
+                      'This business has not added menu items yet.'
                     }
                   </Text>
                   {selectedTruck.ownerId === user?.uid && (
@@ -7664,6 +8482,41 @@ const styles = StyleSheet.create({
     color: '#2c6f57',
     fontSize: 12,
     fontWeight: '600',
+  },
+  favoriteButton: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  favoriteButtonActive: {
+    backgroundColor: '#ffe6e6',
+    borderColor: '#ff6b6b',
+  },
+  favoriteButtonInactive: {
+    backgroundColor: '#fff',
+    borderColor: '#2c6f57',
+  },
+  favoriteButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  favoriteButtonTextActive: {
+    color: '#ff6b6b',
+  },
+  favoriteButtonTextInactive: {
+    color: '#2c6f57',
   },
   cateringButton: {
     backgroundColor: '#fff',

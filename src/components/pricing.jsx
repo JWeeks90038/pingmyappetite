@@ -46,9 +46,9 @@ const Pricing = () => {
         <p className="trial-offer">*Try Pro or All Access free for 30 days*</p>
         <div className="pricing-container">
           
-          {/* Basic Plan - Free */}
+          {/* Starter Plan - Free */}
           <div className="pricing-plan">
-            <h3>BASIC</h3>
+            <h3>STARTER</h3>
             <p className="price">Free</p>
             <p className="price-period">forever</p>
             <div className="features-list">
@@ -74,10 +74,10 @@ const Pricing = () => {
           <div className="pricing-plan popular">
             <div className="popular-badge">⭐ Most Popular</div>
             <h3>PRO</h3>
-            <p className="price">$9.99</p>
+            <p className="price">$9</p>
             <p className="price-period">per month</p>
             <div className="features-list">
-              <div className="feature">✅ Everything in Basic</div>
+              <div className="feature">✅ Everything in Starter</div>
               <div className="feature">✅ Real-time GPS tracking</div>
               <div className="feature">✅ Real-time menu display</div>
               <div className="feature">✅ Citywide heat maps</div>
@@ -96,10 +96,10 @@ const Pricing = () => {
           {/* All Access Plan - $19.99 */}
           <div className="pricing-plan">
             <h3>ALL ACCESS</h3>
-            <p className="price">$19.99</p>
+            <p className="price">$19</p>
             <p className="price-period">per month</p>
             <div className="features-list">
-              <div className="feature">✅ Everything in Basic & Pro</div>
+              <div className="feature">✅ Everything in Starter & Pro</div>
               <div className="feature">✅ Advanced analytics dashboard</div>
               <div className="feature">✅ Create promotional drops</div>
               <div className="feature">✅ Featured placement</div>
@@ -124,11 +124,11 @@ const Pricing = () => {
         <p className="trial-offer">*30-day money-back guarantee on all plans*</p>
         <div className="pricing-container">
           
-          {/* Event Starter Plan */}
+          {/* Event Starter Plan - Free */}
           <div className="pricing-plan">
             <h3>EVENT STARTER</h3>
-            <p className="price">$29.99</p>
-            <p className="price-period">per month</p>
+            <p className="price">Free</p>
+            <p className="price-period">forever</p>
             <div className="features-list">
               <div className="feature">✅ Up to 3 events per month</div>
               <div className="feature">✅ Basic event page with details</div>
@@ -139,17 +139,17 @@ const Pricing = () => {
             </div>
             <button
               className="subscribe-btn"
-              onClick={() => handleSubscribe('event-starter', 'event-organizer')}
+              onClick={() => handleSubscribe('event-basic', 'event-organizer')}
             >
-              Get Started
+              Start Free
             </button>
           </div>
 
-          {/* Event Pro Plan */}
+          {/* Event Premium Plan */}
           <div className="pricing-plan popular">
             <div className="popular-badge">⭐ Most Popular</div>
-            <h3>EVENT PRO</h3>
-            <p className="price">$49.99</p>
+            <h3>EVENT PREMIUM</h3>
+            <p className="price">$29.00</p>
             <p className="price-period">per month</p>
             <div className="features-list">
               <div className="feature">✅ Unlimited events</div>
@@ -160,22 +160,6 @@ const Pricing = () => {
               <div className="feature">✅ Detailed analytics dashboard</div>
               <div className="feature">✅ Custom branding options</div>
               <div className="feature">✅ Social media integration</div>
-            </div>
-            <button
-              className="subscribe-btn"
-              onClick={() => handleSubscribe('event-pro', 'event-organizer')}
-            >
-              Choose Pro
-            </button>
-          </div>
-
-          {/* Event Premium Plan */}
-          <div className="pricing-plan">
-            <h3>EVENT PREMIUM</h3>
-            <p className="price">$99.99</p>
-            <p className="price-period">per month</p>
-            <div className="features-list">
-              <div className="feature">✅ Everything in Event Pro</div>
               <div className="feature">✅ Featured map placement</div>
               <div className="feature">✅ Custom event marketing tools</div>
               <div className="feature">✅ White-label event pages</div>
@@ -183,12 +167,13 @@ const Pricing = () => {
               <div className="feature">✅ Dedicated account manager</div>
               <div className="feature">✅ Custom reporting</div>
               <div className="feature">✅ Multi-user team access</div>
+              <div className="feature">✅ Priority vendor recommendations</div>
             </div>
             <button
               className="subscribe-btn"
               onClick={() => handleSubscribe('event-premium', 'event-organizer')}
             >
-              Go Premium
+              Choose Premium
             </button>
           </div>
         </div>

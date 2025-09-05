@@ -340,7 +340,7 @@ export default function MenuManagementScreen() {
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Menu Management</Text>
           <Text style={styles.subtitle}>
-            {userData?.truckName || 'Your Food Truck'} Menu
+            {userData?.truckName || 'Your Business'} Menu
           </Text>
         </View>
       </View>

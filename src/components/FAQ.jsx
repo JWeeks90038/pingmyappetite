@@ -10,27 +10,27 @@ const FAQ = () => {
         {
           q: "What is Grubana?",
           a:
-            "Grubana is a real-time discovery platform for food trucks and trailers. It helps you find local mobile kitchens, see what they’re serving, and grab exclusive time-limited deals called 'drops' — all from an interactive live map."
+            "Grubana is a real-time discovery platform for trucks, trailers, carts, and pop-ups. It helps you find local mobile kitchens, see what they're serving, and grab exclusive time-limited deals called 'drops' — all from an interactive live map."
         },
         {
-          q: "How do I find food trucks near me?",
+          q: "How do I find trucks near me?",
           a:
-            "View the map on your dashboard. You'll see icons representing active food trucks and trailers near your location. Use filters like cuisine type to discover what's cooking nearby."
+            "View the map on your dashboard. You'll see icons representing active trucks, trailers, carts, and pop-ups near your location. Use filters like cuisine type to discover what's cooking nearby."
         },
         {
           q: "What do the icons on the map mean?",
           a:
-            "Each icon represents a different type of mobile kitchen. When a drop is available, foodie fans will see the icon change color (blue for food trucks and green for trailers) to indicate a special offer is live — foodie fans can tap it to view details."
+            "Each icon represents a different type of mobile kitchen. When a drop is available, you'll see the icon change color to indicate a special offer is live — tap it to view details."
         },
         {
           q: "What are 'pings' and how do they work?",
           a:
-            "Pings let you signal interest in a truck or trailer you want to see nearby. Each user gets 3 pings per day, which they can drop anywhere on the map. The more pings for a specific cusines in a certain area, the more likely a food truck or trailer will head there. Pings will show up as heatmap colors on the vendor map."
+            "Pings let you signal interest in a mobile kitchen business you want to see nearby. Each user gets 3 pings per day, which they can drop anywhere on the map. The more pings for a specific cuisine in a certain area, the more likely a mobile kitchen business will head there. Pings will show up as heatmap colors on the vendor map."
         },
         {
           q: "What are 'drops'?",
           a:
-            "Drops are time-limited deals or menu specials that vendors offer to nearby users. When a truck or trailer creates a drop, their icon changes color (blue for food trucks and green for trailers) to signal something special is happening. Tap the icon to view the drop and claim it before time runs out."
+            "Drops are time-limited deals or menu specials that vendors offer to nearby users. When a vendor creates a drop, their icon changes color to signal something special is happening. Tap the icon to view the drop and claim it before time runs out."
         },
         {
           q: "How do I claim a drop?",
@@ -55,7 +55,7 @@ const FAQ = () => {
       ],
     },
     {
-      category: "For Food Trucks & Food Trailers",
+      category: "For Trucks, Trailers, Carts & Pop-ups",
       questions: [
         {
           q: "What can Grubana do for my business?",
@@ -65,7 +65,7 @@ const FAQ = () => {
         {
           q: "How do I get my truck or trailer on Grubana?",
           a:
-            "Click Sign Up. Create your profile, upload a photo of your truck or trailer and photo (or PDF) of menu, and go live to appear on the interactive map. You can update your location manually with the Basic Plan or you can have full geolocation avtivity with the All-Access Plan. Your icon will disappear when you toggle your icon to hide or when you log out."
+            "Click Sign Up. Create your profile, upload a photo of your business and photo (or PDF) of menu, and go live to appear on the interactive map. You can update your location manually with the Starter Plan or you can have full geolocation activity with the All-Access Plan. Your icon will disappear when you toggle your icon to hide or when you log out."
         },
         {
           q: "How does the heatmap work?",
@@ -105,7 +105,7 @@ const FAQ = () => {
         {
           q: "Can I link my social media pages to my account?",
           a:
-            "Yes! Foodie fans can select your social media icon located below your menu when they click on your truck or trailer icon which will direct them to your social media page. Your social media icons will also be located at the bottom of your dashboard for your access as well."
+            "Yes! Customers can select your social media icon located below your menu when they click on your business icon which will direct them to your social media page. Your social media icons will also be located at the bottom of your dashboard for your access as well."
         },
       ],
     },
@@ -118,7 +118,7 @@ const FAQ = () => {
             "We’re launching in select metro areas first and expanding based on user demand. Don’t see any trucks nearby yet? Invite your favorite vendors or suggest your city on our site!"
         },
         {
-          q: "How is Grubana different from food truck booking sites?",
+          q: "How is Grubana different from truck booking sites?",
           a:
             "Grubana is not a catering platform. We focus on live discovery, community-driven demand, and real-time deals — helping mobile kitchens succeed in public spaces, not private events."
         },

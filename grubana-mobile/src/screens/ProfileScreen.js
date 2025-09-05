@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { signOut, sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,8 +24,9 @@ import { useAuth } from '../components/AuthContext';
 import ContactFormModal from '../components/ContactFormModal';
 import { auth, db, storage, functions } from '../firebase';
 import { useStripe, CardField, usePaymentSheet } from '@stripe/stripe-react-native';
+import { CommonActions } from '@react-navigation/native';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, userData, userRole, userPlan } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
   const [loading, setLoading] = useState(false);
@@ -548,26 +549,163 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.\n\nThis will delete:\n• All events you have created\n• All truck location data\n• All menu items\n• All customer pings\n• All favorites\n• Your user profile',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete Account', 
           style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await auth.currentUser.delete();
-              Alert.alert('Account Deleted', 'Account deleted successfully.');
-            } catch (error) {
-              console.error('Error deleting account:', error);
-              Alert.alert(
-                'Account Deletion Failed',
-                'You may need to re-login before deleting your account.'
-              );
-            } finally {
-              setLoading(false);
-            }
+          onPress: () => {
+            // Prompt for password re-authentication
+            Alert.prompt(
+              'Confirm Password',
+              'For security, please enter your password to confirm account deletion:',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Delete Account', 
+                  style: 'destructive',
+                  onPress: async (password) => {
+                    if (!password || password.trim() === '') {
+                      Alert.alert('Error', 'Password is required to delete your account.');
+                      return;
+                    }
+                    
+                    setLoading(true);
+                    try {
+                      const currentUser = auth.currentUser;
+                      
+                      if (!currentUser || !currentUser.email) {
+                        Alert.alert('Error', 'Unable to verify user credentials.');
+                        setLoading(false);
+                        return;
+                      }
+                      
+                      // Re-authenticate the user
+                      console.log('🔐 Re-authenticating user before account deletion');
+                      console.log('🔐 User email:', currentUser.email);
+                      console.log('🔐 Password length:', password?.length || 0);
+                      
+                      // Trim the password to remove any whitespace
+                      const trimmedPassword = password.trim();
+                      
+                      const credential = EmailAuthProvider.credential(currentUser.email, trimmedPassword);
+                      await reauthenticateWithCredential(currentUser, credential);
+                      console.log('✅ Re-authentication successful');
+                      
+                      const userId = currentUser.uid;
+                      
+                      // Get ID token for verification
+                      const idToken = await currentUser.getIdToken();
+                      
+                      // Call Firebase Function to handle complete account deletion
+                      console.log('🗑️ Calling account deletion function...');
+                      const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/deleteUserAccount', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          userId: userId,
+                          idToken: idToken
+                        }),
+                      });
+
+                      const result = await response.json();
+                      
+                      if (!response.ok || result.error) {
+                        console.error('Account deletion failed:', result.error);
+                        Alert.alert('Error', result.error || 'Failed to delete account. Please try again.');
+                        setLoading(false);
+                        return;
+                      }
+                      
+                      console.log('✅ Account deletion completed:', result);
+                      
+                      // The Firebase Function deletes the user from Firebase Auth
+                      // Force sign out to ensure clean state and immediate redirect
+                      console.log('🔄 Signing out user after deletion...');
+                      await signOut(auth);
+                      
+                      // Set loading to false
+                      setLoading(false);
+                      
+                      // Show success message - the AuthContext will handle navigation to login
+                      Alert.alert(
+                        'Account Deleted', 
+                        'Your account and all associated data have been successfully deleted, including any active subscriptions.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: () => {
+                              console.log('🔄 Account deletion complete - redirecting to login');
+                              
+                              // Add a small delay to ensure auth state change is processed
+                              setTimeout(() => {
+                                // Force a navigation reset as a fallback if AuthContext doesn't handle it
+                                if (navigation) {
+                                  try {
+                                    navigation.dispatch(
+                                      CommonActions.reset({
+                                        index: 0,
+                                        routes: [{ name: 'Login' }],
+                                      })
+                                    );
+                                  } catch (navError) {
+                                    console.log('Navigation fallback not needed - AuthContext handled it');
+                                  }
+                                }
+                              }, 1000);
+                            }
+                          }
+                        ]
+                      );
+                    } catch (error) {
+                      console.error('Error deleting account:', error);
+                      setLoading(false);
+                      
+                      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                        Alert.alert(
+                          'Incorrect Password',
+                          'The password you entered is incorrect. Please try again.'
+                        );
+                      } else if (error.code === 'auth/too-many-requests') {
+                        Alert.alert(
+                          'Too Many Attempts',
+                          'Too many failed attempts. Please try again later.'
+                        );
+                      } else if (error.code === 'auth/requires-recent-login') {
+                        Alert.alert(
+                          'Re-authentication Required',
+                          'Your session has expired. Please log out and log back in, then try deleting your account again.'
+                        );
+                      } else if (error.code === 'auth/user-disabled') {
+                        Alert.alert(
+                          'Account Disabled',
+                          'This account has been disabled. Please contact support.'
+                        );
+                      } else if (error.code === 'auth/user-not-found') {
+                        Alert.alert(
+                          'Account Not Found',
+                          'This account no longer exists.'
+                        );
+                      } else if (error.code === 'auth/network-request-failed') {
+                        Alert.alert(
+                          'Network Error',
+                          'Please check your internet connection and try again.'
+                        );
+                      } else {
+                        Alert.alert(
+                          'Account Deletion Failed',
+                          'There was an error deleting your account. Please try logging out and back in, then try again.\n\nError: ' + (error.message || 'Unknown error')
+                        );
+                      }
+                    }
+                  }
+                }
+              ],
+              'secure-text'
+            );
           }
         }
       ]
@@ -604,8 +742,9 @@ export default function ProfileScreen() {
 
   const getRoleDisplayName = (role) => {
     switch (role) {
-      case 'owner': return 'Food Truck Owner';
-      case 'eventOrganizer': return 'Event Organizer';
+      case 'owner': return 'Mobile Kitchen Business Owner';
+      case 'event-organizer': return 'Event Organizer';
+      case 'customer': return 'Foodie Fan';
       default: return 'Foodie Fan';
     }
   };
@@ -842,7 +981,11 @@ export default function ProfileScreen() {
         {userPlan && (
           <Text style={styles.planBadge}>
             {userPlan === 'all-access' ? 'All-Access Plan' : 
-             userPlan === 'pro' ? 'Pro Plan' : 'Basic Plan'}
+             userPlan === 'pro' ? 'Pro Plan' :
+             userPlan === 'event-premium' ? 'Event Premium Plan' :
+             userPlan === 'event-basic' ? 'Event Starter Plan' :
+             userPlan === 'basic' && userRole === 'event-organizer' ? 'Event Starter Plan (Free)' :
+             'Starter Plan'}
           </Text>
         )}
       </View>
@@ -1048,7 +1191,7 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Current Plan</Text>
             <Text style={styles.fieldValue}>
               {userPlan === 'all-access' ? 'All-Access (Paid)' : 
-               userPlan === 'pro' ? 'Pro (Paid)' : 'Basic (Free)'}
+               userPlan === 'pro' ? 'Pro (Paid)' : 'Starter (Free)'}
             </Text>
           </View>
           <TouchableOpacity 

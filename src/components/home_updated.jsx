@@ -72,7 +72,7 @@ const Home = () => {
     <div>
       <h3>Foodie Fans</h3>
       <p><strong>1. Drop a Pin</strong> – Show mobile kitchens where the hunger is by dropping a pin at your location.</p>
-      <p><strong>2. Favorite & Follow Your Faves</strong> – Click on food truck or trailer icon to view the menu, claim a drop and follow your favorite food trucks and trailers in real-time.</p>
+      <p><strong>2. Favorite & Follow Your Faves</strong> – Click on any mobile kitchen business icon to view the menu, claim a drop and follow your favorite vendors in real-time.</p>
       <p><strong>3. Grab the Drop</strong> – Snag exclusive deals, discounts, or limited-time items when trucks and trailers drop them in your area.</p>
       <p><strong>4. Feast Smarter</strong> – Check menus in advance and skip the guesswork. Your next bite is just a tap away.</p>
     </div>

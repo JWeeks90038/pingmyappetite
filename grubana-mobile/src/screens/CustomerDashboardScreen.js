@@ -241,8 +241,27 @@ const CustomerDashboardScreen = () => {
         
         // Show truck if visible and either recently active OR within 8-hour window
         const shouldShow = visible && (isRecentlyActive || withinEightHourWindow);
+        
+        // DEBUG: Show ALL trucks for debugging
+        const debugShowAll = true;
+        const finalShouldShow = debugShowAll || shouldShow;
+        
+        console.log('🚚 Mobile: Processing truck:', doc.id, {
+          truckName: data.truckName || 'Unknown',
+          isLive,
+          visible,
+          lastActive: new Date(lastActive).toLocaleString(),
+          timeSinceActive: Math.round(timeSinceActive / (60 * 1000)) + ' minutes',
+          sessionDuration: Math.round(sessionDuration / (60 * 1000)) + ' minutes',
+          isRecentlyActive,
+          withinEightHourWindow,
+          shouldShow,
+          debugShowAll,
+          finalShouldShow,
+          hasCoordinates: !!(data.lat && data.lng)
+        });
 
-        if (shouldShow) {
+        if (finalShouldShow) {
           // Apply distance filter if user location is available
           if (userLocation) {
             const distance = calculateDistance(
@@ -252,7 +271,13 @@ const CustomerDashboardScreen = () => {
               data.lng
             );
             
-            if (distance <= MAX_DISTANCE_MILES) {
+            console.log('🚚 Mobile: Distance calculated for truck', doc.id, ':', distance, 'miles');
+            
+            // DEBUG: Relax distance filter for debugging
+            const debugMaxDistance = 1000; // Much larger radius for debugging
+            const maxDistance = debugShowAll ? debugMaxDistance : MAX_DISTANCE_MILES;
+            
+            if (distance <= maxDistance) {
               trucks.push({
                 id: doc.id,
                 ...data,
@@ -262,6 +287,9 @@ const CustomerDashboardScreen = () => {
                 },
                 distance: distance
               });
+              console.log('🚚 Mobile: Added truck within range:', doc.id, data.truckName || 'Unknown', 'Distance:', distance, 'miles');
+            } else {
+              console.log('🚚 Mobile: Truck too far away:', doc.id, distance, 'miles (max:', maxDistance, ')');
             }
           } else {
             // If no user location, show all trucks
@@ -273,10 +301,14 @@ const CustomerDashboardScreen = () => {
                 longitude: data.lng,
               }
             });
+            console.log('🚚 Mobile: Added truck (no location filter):', doc.id, data.truckName || 'Unknown');
           }
+        } else {
+          console.log('🚚 Mobile: Truck filtered out (shouldShow=false):', doc.id, data.truckName || 'Unknown');
         }
       });
 
+      console.log('🚚 Mobile: Final truck count:', trucks.length, 'out of', snapshot.docs.length, 'total trucks');
       setFoodTrucks(trucks);
     });
 
@@ -579,7 +611,7 @@ const CustomerDashboardScreen = () => {
                 timestamp: new Date(), // Use local timestamp for immediate display
               }]);
 
-              Alert.alert('Success', 'Demand pin dropped! Food trucks can see your request.');
+              Alert.alert('Success', 'Demand pin dropped! Trucks can see your request.');
             } catch (error) {
               console.error('Error dropping demand pin:', error);
               Alert.alert('Error', 'Failed to drop demand pin');
@@ -625,7 +657,7 @@ const CustomerDashboardScreen = () => {
         <Text style={styles.title}>
           Welcome{username ? `, ${username}` : ''}!
         </Text>
-        <Text style={styles.subtitle}>Send a ping to nearby food trucks</Text>
+        <Text style={styles.subtitle}>Send a ping to nearby trucks</Text>
       </View>
 
       {/* Ping Form */}
@@ -721,7 +753,7 @@ const CustomerDashboardScreen = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.mapInstructions}>
-          🎯 Tap anywhere on the map to drop a demand pin and let food trucks know what you're craving!
+          🎯 Tap anywhere on the map to drop a demand pin and let trucks know what you're craving!
         </Text>
         <View style={styles.mapContainer}>
           <MapView
@@ -742,19 +774,25 @@ const CustomerDashboardScreen = () => {
             showsUserLocation={true}
             showsMyLocationButton={true}
           >
-              {/* Food Truck Markers */}
-              {foodTrucks.map((truck) => (
-                <Marker
-                  key={truck.id}
-                  coordinate={truck.coordinate}
-                  title={truck.truckName || 'Food Truck'}
-                  description={truck.cuisine || 'Food Truck'}
-                >
-                  <View style={styles.truckMarker}>
-                    <Ionicons name="restaurant" size={20} color="#fff" />
-                  </View>
-                </Marker>
-              ))}
+              {/* Business Markers */}
+              {(() => {
+                console.log('🗺️ Mobile: Rendering', foodTrucks.length, 'business markers');
+                return foodTrucks.map((truck) => {
+                  console.log('🗺️ Mobile: Rendering truck marker:', truck.id, 'at', truck.coordinate?.latitude, truck.coordinate?.longitude);
+                  return (
+                    <Marker
+                      key={truck.id}
+                      coordinate={truck.coordinate}
+                      title={truck.truckName || 'Business'}
+                      description={truck.cuisine || 'Business'}
+                    >
+                      <View style={styles.truckMarker}>
+                        <Ionicons name="restaurant" size={20} color="#fff" />
+                      </View>
+                    </Marker>
+                  );
+                });
+              })()}
 
               {/* Drop Markers */}
               {activeDrops.map((drop) => (

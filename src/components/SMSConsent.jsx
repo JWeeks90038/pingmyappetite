@@ -16,11 +16,11 @@ const SMSConsent = () => {
             By providing your mobile phone number to Grubana and checking the SMS notifications option during signup or in your account settings, you expressly consent to receive text messages from Grubana about:
           </p>
           <ul>
-            <li>🚚 <strong>Food truck location alerts</strong> - When your favorite trucks are nearby</li>
-            <li>🎉 <strong>Deal notifications</strong> - Special offers and promotions from food trucks</li>
+            <li>🚚 <strong>Truck location alerts</strong> - When your favorite trucks are nearby</li>
+            <li>🎉 <strong>Deal notifications</strong> - Special offers and promotions from mobile kitchen businesses</li>
             <li>📧 <strong>Account updates</strong> - Welcome messages, subscription changes, and important account information</li>
             <li>📊 <strong>Weekly digest</strong> - Summary of new trucks and deals in your area</li>
-            <li>🔔 <strong>Event notifications</strong> - Updates about food truck events and gatherings</li>
+            <li>🔔 <strong>Event notifications</strong> - Updates about local food events and gatherings</li>
           </ul>
         </section>
 
@@ -40,7 +40,7 @@ const SMSConsent = () => {
               <p><strong>During Signup:</strong></p>
               <div className="form-example">
                 <p>📱 Phone Number: <code>[Your Phone Number]</code></p>
-                <p>☑️ <strong>I agree to receive SMS notifications from Grubana about food truck locations, deals, and account updates.</strong></p>
+                <p>☑️ <strong>I agree to receive SMS notifications from Grubana about truck locations, deals, and account updates.</strong></p>
                 <p><em>Message and data rates may apply. Text STOP to opt out at any time.</em></p>
               </div>
             </div>
@@ -52,7 +52,7 @@ const SMSConsent = () => {
           <div className="message-details">
             <div className="detail-item">
               <h3>📊 Message Frequency</h3>
-              <p>Message frequency varies based on your notification preferences and food truck activity in your area. You may receive:</p>
+              <p>Message frequency varies based on your notification preferences and mobile kitchen business activity in your area. You may receive:</p>
               <ul>
                 <li>Up to 5 messages per day for location alerts</li>
                 <li>Weekly digest messages (1 per week)</li>

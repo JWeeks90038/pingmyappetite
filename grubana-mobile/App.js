@@ -14,7 +14,7 @@ import SignupSelectionScreen from './src/screens/SignupSelectionScreen.js';
 import CustomerSignupScreen from './src/screens/CustomerSignupScreen.js';
 import OwnerSignupScreen from './src/screens/OwnerSignupScreen.js';
 import EventOrganizerSignupScreen from './src/screens/EventOrganizerSignupScreen.js';
-import PaymentScreen from './src/screens/PaymentScreen.js';
+import SecureCheckoutScreen from './src/screens/SecureCheckoutScreen.js';
 import HomeScreen from './src/screens/HomeScreen.js';
 import MapScreen from './src/screens/MapScreen.js';
 import CustomerDashboardScreen from './src/screens/CustomerDashboardScreen.js';
@@ -38,7 +38,7 @@ function AuthStack() {
       <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
       <Stack.Screen name="OwnerSignup" component={OwnerSignupScreen} />
       <Stack.Screen name="EventOrganizerSignup" component={EventOrganizerSignupScreen} />
-      <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
+      <Stack.Screen name="SecureCheckoutScreen" component={SecureCheckoutScreen} />
     </Stack.Navigator>
   );
 }
@@ -155,7 +155,7 @@ function EventOrganizerTabs() {
   );
 }
 
-// Main App Tabs - Food Truck Owner Version
+// Main App Tabs - Mobile Kitchen Business Owner Version
 function OwnerTabs() {
   return (
     <Tab.Navigator
@@ -217,13 +217,18 @@ function MainStackNavigator() {
   
   // Function to determine which tab navigator to show based on user role
   const getTabNavigator = () => {
+    console.log('🔍 Navigation: Determining tabs for userRole:', userRole);
+    
     switch (userRole) {
       case 'owner':
+        console.log('📊 Navigation: Showing OwnerTabs (with Analytics)');
         return <OwnerTabs />;
       case 'event-organizer':
+        console.log('🎪 Navigation: Showing EventOrganizerTabs');
         return <EventOrganizerTabs />;
       case 'customer':
       default:
+        console.log('📱 Navigation: Showing CustomerTabs (with Send Ping)');
         return <CustomerTabs />;
     }
   };
@@ -277,18 +282,26 @@ function AppContent() {
   }
 
   // Check if user needs to complete payment
+  // CRITICAL SECURITY: All paid plan users must have paymentCompleted = true
+  // Subscription status alone is not sufficient (can be set by failed payments)
   const needsPayment = user && userData && 
-    (userData.plan === 'pro' || userData.plan === 'all-access') && 
-    (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus);
+    !(userData.role === 'event-organizer' && userData.plan === 'event-basic') &&
+    (userData.plan === 'pro' || userData.plan === 'all-access' || 
+     userData.plan === 'event-premium') && 
+    (userData.paymentCompleted !== true);
 
-  console.log('🔍 Payment Check in App.js:', {
+  console.log('🔍 SECURE Payment Check in App.js:', {
     needsPayment,
     hasUser: !!user,
     hasUserData: !!userData,
     plan: userData?.plan,
+    role: userData?.role,
     subscriptionStatus: userData?.subscriptionStatus,
-    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access',
-    condition2: userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus
+    paymentCompleted: userData?.paymentCompleted,
+    isEventOrganizerBasic: userData?.role === 'event-organizer' && userData?.plan === 'event-basic',
+    isEventOrganizerPaid: userData?.role === 'event-organizer' && (userData?.plan === 'event-premium'),
+    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium',
+    SECURITY_RULE: 'paymentCompleted must be true for paid plans'
   });
 
   if (needsPayment) {
@@ -298,8 +311,8 @@ function AppContent() {
         <StatusBar style="light" />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen 
-            name="PaymentScreen" 
-            component={PaymentScreen}
+            name="SecureCheckoutScreen" 
+            component={SecureCheckoutScreen}
             initialParams={{
               plan: userData.plan,
               hasValidReferral: userData.hasValidReferral,

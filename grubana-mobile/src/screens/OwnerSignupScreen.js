@@ -40,14 +40,38 @@ export default function OwnerSignupScreen({ navigation }) {
   const [referralMessage, setReferralMessage] = useState('');
 
   const cuisineTypes = [
-    'American', 'Asian', 'Mexican', 'Italian', 'BBQ', 'Seafood', 'Vegetarian',
-    'Desserts', 'Coffee', 'Breakfast', 'Pizza', 'Burgers', 'Tacos', 'Other'
+    'American',
+    'Asian Fusion',
+    'BBQ',
+    'Burgers',
+    'Chinese',
+    'Coffee & Café',
+    'Desserts & Sweets',
+    'Drinks & Beverages',
+    'Greek',
+    'Halal',
+    'Healthy & Fresh',
+    'Indian',
+    'Italian',
+    'Korean',
+    'Latin American',
+    'Mediterranean',
+    'Mexican',
+    'Pizza',
+    'Seafood',
+    'Southern Comfort',
+    'Sushi & Japanese',
+    'Thai',
+    'Vegan & Vegetarian',
+    'Wings',
+    'Other'
   ];
 
   const kitchenTypes = [
-    { label: 'Food Truck', value: 'truck' },
-    { label: 'Food Trailer', value: 'trailer' },
-    { label: 'Food Cart', value: 'cart' },
+    { label: 'Truck', value: 'truck' },
+    { label: 'Trailer', value: 'trailer' },
+    { label: 'Cart', value: 'cart' },
+    { label: 'Popup', value: 'popup' },
   ];
 
   const planOptions = [
@@ -55,13 +79,13 @@ export default function OwnerSignupScreen({ navigation }) {
       id: 'basic', 
       name: 'Starter Plan', 
       price: 'Free',
-      features: ['Update locations manually via live map', 'Custom menu display', 'Customer Pre-order engagement']
+      features: ['Personalized icons on discovery map','Real-time GPS tracking', 'Custom menu display', 'Customer pre-order engagement']
     },
     { 
       id: 'pro', 
       name: 'Pro Plan', 
       price: '$9/month',
-      features: ['Everything in Starter', 'Real-time GPS tracking', 'Heat maps showing customer demand', 'Pre-order engagement', 'Create Drops providing exclusive deals']
+      features: ['Everything in Starter', 'Heat maps showing customer demand', 'Create Drops providing exclusive deals']
     },
     { 
       id: 'all-access', 
@@ -111,7 +135,7 @@ export default function OwnerSignupScreen({ navigation }) {
       return;
     }
     if (!formData.truckName.trim()) {
-      Alert.alert('Error', 'Please enter your truck name');
+      Alert.alert('Error', 'Please enter your business name');
       return;
     }
     if (!formData.email.trim()) {
@@ -143,7 +167,7 @@ export default function OwnerSignupScreen({ navigation }) {
       const user = userCredential.user;
 
       // Determine subscription status
-      let subscriptionStatus = 'active'; // Default for basic plan
+      let subscriptionStatus = 'active'; // Default for starter plan
       if (formData.plan === 'pro' || formData.plan === 'all-access') {
         subscriptionStatus = 'pending'; // Will be updated after payment
       }
@@ -201,7 +225,7 @@ export default function OwnerSignupScreen({ navigation }) {
           referralCode: formData.referralCode,
           selectedPlan: formData.plan,
           signupAt: serverTimestamp(),
-          paymentCompleted: formData.plan === 'basic', // Basic is free
+          paymentCompleted: formData.plan === 'basic', // Starter is free
           emailSent: false
         });
       }
@@ -209,7 +233,7 @@ export default function OwnerSignupScreen({ navigation }) {
       if (formData.plan === 'basic') {
         Alert.alert(
           'Success!', 
-          'Account created successfully! Welcome to Grubana Basic.',
+          'Account created successfully! Welcome to Grubana Starter.',
           [{ text: 'OK' }] // Let navigation handle automatically
         );
       } else {
@@ -273,12 +297,18 @@ export default function OwnerSignupScreen({ navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            style={[styles.backButton, { zIndex: 1000 }]}
+            onPress={() => {
+              console.log('🔥 BACK BUTTON PRESSED!');
+              console.log('Back button pressed - canGoBack:', navigation.canGoBack());
+              console.log('Navigation state:', navigation.getState?.());
+              navigation.navigate('SignupSelection');
+            }}
+            activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={24} color="#2c6f57" />
           </TouchableOpacity>
-          <Text style={styles.title}>Join as Food Truck Owner</Text>
+          <Text style={styles.title}>Join as Mobile Kitchen Business Owner</Text>
           <Text style={styles.subtitle}>Start serving customers in your area</Text>
         </View>
 
@@ -296,14 +326,14 @@ export default function OwnerSignupScreen({ navigation }) {
             />
           </View>
 
-          {/* Truck Name */}
+          {/* Business Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Food Truck Name *</Text>
+            <Text style={styles.label}>Business Name *</Text>
             <TextInput
               style={styles.input}
               value={formData.truckName}
               onChangeText={(value) => handleInputChange('truckName', value)}
-              placeholder="Enter your truck name"
+              placeholder="Enter your business name"
               autoCapitalize="words"
             />
           </View>
@@ -353,10 +383,12 @@ export default function OwnerSignupScreen({ navigation }) {
                 selectedValue={formData.cuisine}
                 style={styles.picker}
                 onValueChange={(value) => handleInputChange('cuisine', value)}
+                mode="dropdown"
+                itemStyle={styles.pickerItem}
               >
-                <Picker.Item label="Select cuisine type" value="" />
+                <Picker.Item label="Select cuisine type" value="" color="#999" />
                 {cuisineTypes.map(cuisine => (
-                  <Picker.Item key={cuisine} label={cuisine} value={cuisine} />
+                  <Picker.Item key={cuisine} label={cuisine} value={cuisine} color="#333" />
                 ))}
               </Picker>
             </View>
@@ -364,15 +396,17 @@ export default function OwnerSignupScreen({ navigation }) {
 
           {/* Kitchen Type */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Kitchen Type</Text>
+            <Text style={styles.label}>Business Type</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={formData.kitchenType}
                 style={styles.picker}
                 onValueChange={(value) => handleInputChange('kitchenType', value)}
+                mode="dropdown"
+                itemStyle={styles.pickerItem}
               >
                 {kitchenTypes.map(type => (
-                  <Picker.Item key={type.value} label={type.label} value={type.value} />
+                  <Picker.Item key={type.value} label={type.label} value={type.value} color="#333" />
                 ))}
               </Picker>
             </View>
@@ -396,7 +430,7 @@ export default function OwnerSignupScreen({ navigation }) {
               style={[styles.input, styles.textArea]}
               value={formData.description}
               onChangeText={(value) => handleInputChange('description', value)}
-              placeholder="Describe your food truck and specialties"
+              placeholder="Describe your mobile kitchen business and specialties"
               multiline
               numberOfLines={4}
             />
@@ -537,8 +571,11 @@ const styles = {
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 60,
-    padding: 8,
+    top: 70,
+    padding: 12,
+    backgroundColor: 'rgba(248, 249, 250, 0.8)',
+    borderRadius: 20,
+    zIndex: 1000,
   },
   title: {
     fontSize: 28,
@@ -587,9 +624,24 @@ const styles = {
     borderColor: '#ddd',
     borderRadius: 8,
     backgroundColor: '#fff',
+    overflow: 'hidden',
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   picker: {
     height: 50,
+    width: '100%',
+    color: '#333',
+    backgroundColor: 'transparent',
+    marginTop: Platform.OS === 'ios' ? -8 : 0,
+  },
+  pickerItem: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    height: Platform.OS === 'ios' ? 50 : 50,
+    lineHeight: Platform.OS === 'ios' ? 50 : undefined,
   },
   passwordContainer: {
     flexDirection: 'row',

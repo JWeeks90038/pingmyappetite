@@ -140,7 +140,7 @@ export default function CustomerSignupScreen({ navigation }) {
           referralCode: formData.referralCode,
           selectedPlan: 'basic',
           signupAt: serverTimestamp(),
-          paymentCompleted: true, // Basic plan is free
+          paymentCompleted: true, // Starter plan is free
           emailSent: false
         });
       }
@@ -173,8 +173,8 @@ export default function CustomerSignupScreen({ navigation }) {
           >
             <Ionicons name="arrow-back" size={24} color="#2c6f57" />
           </TouchableOpacity>
-          <Text style={styles.title}>Join as a Foodie Fan</Text>
-          <Text style={styles.subtitle}>Discover amazing food trucks in your area</Text>
+          <Text style={styles.title}>Join as Customer</Text>
+          <Text style={styles.subtitle}>Discover amazing mobile kitchen businesses in your area</Text>
         </View>
 
         {/* Form */}
@@ -309,7 +309,7 @@ export default function CustomerSignupScreen({ navigation }) {
               thumbColor={formData.smsConsent ? '#fff' : '#f4f3f4'}
             />
             <Text style={styles.consentText}>
-              I consent to receive SMS notifications about food truck locations and deals
+              I consent to receive SMS notifications about mobile kitchen business locations and deals
             </Text>
           </View>
 
@@ -327,7 +327,7 @@ export default function CustomerSignupScreen({ navigation }) {
           {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>

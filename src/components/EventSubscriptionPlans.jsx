@@ -3,11 +3,10 @@ import { getPlanDetails, getPriceId } from '../utils/stripe';
 import '../assets/EventSubscription.css';
 
 const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan || 'event-starter');
+  const [selectedPlan, setSelectedPlan] = useState(currentPlan || 'event-basic');
 
   const eventPlans = [
-    'event-starter',
-    'event-pro', 
+    'event-basic',
     'event-premium'
   ];
 
@@ -33,7 +32,7 @@ const EventSubscriptionPlans = ({ onPlanSelect, currentPlan = null }) => {
         {eventPlans.map((planType) => {
           const plan = getPlanDetails(planType);
           const isSelected = selectedPlan === planType;
-          const isPopular = planType === 'event-pro';
+          const isPopular = planType === 'event-premium';
 
           return (
             <div 

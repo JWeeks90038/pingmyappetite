@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import "../assets/styles.css";
@@ -206,15 +206,58 @@ const OwnerSettings = ({
   const handleDeleteAccount = async () => {
     setConfirm({
       isOpen: true,
-      message: 'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+      message: 'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost. This includes all truck location data, any events you have created, and any active subscriptions will be canceled.',
       title: 'Delete Account',
       type: 'danger',
       onConfirm: async () => {
         try {
-          await auth.currentUser.delete();
+          const currentUser = auth.currentUser;
+          const userId = currentUser?.uid;
+          
+          if (!userId) {
+            setAlert({
+              isOpen: true,
+              message: 'Unable to verify user credentials.',
+              type: 'error',
+              title: 'Account Deletion Failed'
+            });
+            return;
+          }
+
+          // Get ID token for verification
+          const idToken = await currentUser.getIdToken();
+          
+          // Call Firebase Function to handle complete account deletion
+          console.log('🗑️ Calling account deletion function...');
+          const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/deleteUserAccount', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: userId,
+              idToken: idToken
+            }),
+          });
+
+          const result = await response.json();
+          
+          if (!response.ok || result.error) {
+            console.error('Account deletion failed:', result.error);
+            setAlert({
+              isOpen: true,
+              message: result.error || 'Failed to delete account. You may need to re-login before deleting your account.',
+              type: 'error',
+              title: 'Account Deletion Failed'
+            });
+            return;
+          }
+          
+          console.log('✅ Account deletion completed:', result);
+          
           setAlert({
             isOpen: true,
-            message: 'Account deleted successfully.',
+            message: 'Account and all associated data deleted successfully, including any active subscriptions.',
             type: 'success',
             title: 'Account Deleted'
           });
@@ -366,7 +409,7 @@ const OwnerSettings = ({
           <strong>Current Plan:</strong> {
             plan === 'all-access' ? 'All-Access (Paid)' : 
             plan === 'pro' ? 'Pro (Paid)' : 
-            'Basic (Free)'
+            'Starter (Free)'
           }
         </p>
         {cardInfo && (

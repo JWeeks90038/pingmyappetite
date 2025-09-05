@@ -26,9 +26,9 @@ export default function EventOrganizerSignupScreen({ navigation }) {
     organizationType: '',
     website: '',
     description: '',
-    plan: '',
     referralCode: '',
     smsConsent: false,
+    plan: 'event-basic', // Default to starter plan for event organizers
   });
   const [loading, setLoading] = useState(false);
   const [isValidReferral, setIsValidReferral] = useState(false);
@@ -91,6 +91,7 @@ export default function EventOrganizerSignupScreen({ navigation }) {
       });
 
       // Create user document in Firestore
+      // Event organizers can choose from event-specific plans
       const userData = {
         uid: user.uid,
         role: 'event-organizer',
@@ -101,8 +102,9 @@ export default function EventOrganizerSignupScreen({ navigation }) {
         organizationType: formData.organizationType,
         website: formData.website,
         description: formData.description,
-        plan: formData.plan || 'basic',
-        subscriptionStatus: 'active',
+        plan: formData.plan, // Use selected plan instead of hardcoded 'basic'
+        subscriptionStatus: formData.plan === 'event-basic' ? 'active' : 'pending', // Starter is free, others need payment
+        paymentCompleted: formData.plan === 'event-basic', // Only free plans are considered paid upfront
         referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
         hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
         
@@ -132,29 +134,68 @@ export default function EventOrganizerSignupScreen({ navigation }) {
           userName: formData.contactName,
           organizationName: formData.organizationName,
           referralCode: formData.referralCode,
-          selectedPlan: formData.plan || 'basic',
+          selectedPlan: formData.plan, // Use selected plan
           signupAt: serverTimestamp(),
-          paymentCompleted: (formData.plan || 'basic') === 'basic', // Basic is free
+          paymentCompleted: formData.plan === 'event-basic', // Only starter plan is free for event organizers
           emailSent: false
         });
       }
 
-      Alert.alert(
-        'Success!',
-        'Your account has been created successfully. Welcome to Grubana!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to appropriate dashboard or login
-              navigation.navigate('Login');
+      if (formData.plan === 'event-basic') {
+        Alert.alert(
+          'Success!',
+          'Your event organizer account has been created successfully with a FREE Starter plan! Welcome to Grubana!',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Don't navigate manually - let the auth system handle it
+                // The user is already logged in and will be redirected automatically
+                console.log('✅ Event organizer account created successfully');
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Almost Done!',
+          `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`,
+          [
+            {
+              text: 'Continue',
+              onPress: () => {
+                // Don't navigate manually - let the auth system handle it
+                console.log('✅ Event organizer account created, payment required');
+              },
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('Error', error.message);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        Alert.alert(
+          'Email Already Registered',
+          'An account with this email already exists. Would you like to sign in instead?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Sign In', 
+              onPress: () => {
+                // Navigate back to signup selection, user can choose login from there
+                navigation.navigate('SignupSelection');
+              }
+            }
+          ]
+        );
+      } else if (error.code === 'auth/weak-password') {
+        Alert.alert('Error', 'Password is too weak. Please choose a stronger password.');
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert('Error', 'Please enter a valid email address.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
+      }
     }
     setLoading(false);
   };
@@ -280,6 +321,100 @@ export default function EventOrganizerSignupScreen({ navigation }) {
             ) : null}
           </View>
 
+          {/* Plan Selection */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Select Your Plan *</Text>
+            <Text style={styles.planHelpText}>Choose the plan that best fits your event organization needs</Text>
+            
+            {/* Starter Plan */}
+            <TouchableOpacity
+              style={[
+                styles.planOption,
+                formData.plan === 'event-basic' && styles.planOptionSelected
+              ]}
+              onPress={() => handleInputChange('plan', 'event-basic')}
+            >
+              <View style={styles.planHeader}>
+                <Text style={[
+                  styles.planName,
+                  formData.plan === 'event-basic' && styles.planNameSelected
+                ]}>
+                  Event Starter
+                </Text>
+                <Text style={[
+                  styles.planPrice,
+                  formData.plan === 'event-basic' && styles.planPriceSelected
+                ]}>
+                  FREE
+                </Text>
+              </View>
+              <Text style={[
+                styles.planDescription,
+                formData.plan === 'event-basic' && styles.planDescriptionSelected
+              ]}>
+                Perfect for getting started with event organizing
+              </Text>
+              <View style={styles.planFeatures}>
+                <Text style={styles.featureText}>• Up to 3 events per month</Text>
+                <Text style={styles.featureText}>• Basic event page with details</Text>
+                <Text style={styles.featureText}>• Vendor application management</Text>
+                <Text style={styles.featureText}>• Map location marker</Text>
+                <Text style={styles.featureText}>• Email notifications</Text>
+                <Text style={styles.featureText}>• Basic analytics</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Premium Plan */}
+            <TouchableOpacity
+              style={[
+                styles.planOption,
+                formData.plan === 'event-premium' && styles.planOptionSelected
+              ]}
+              onPress={() => handleInputChange('plan', 'event-premium')}
+            >
+              <View style={styles.planHeader}>
+                <Text style={[
+                  styles.planName,
+                  formData.plan === 'event-premium' && styles.planNameSelected
+                ]}>
+                  Event Premium
+                </Text>
+                <Text style={[
+                  styles.planPrice,
+                  formData.plan === 'event-premium' && styles.planPriceSelected
+                ]}>
+                  $29/month
+                </Text>
+              </View>
+              <Text style={[
+                styles.planDescription,
+                formData.plan === 'event-premium' && styles.planDescriptionSelected
+              ]}>
+                Full-featured plan for professional event organizers
+              </Text>
+              <View style={styles.planFeatures}>
+                <Text style={styles.featureText}>• Unlimited events</Text>
+                <Text style={styles.featureText}>• Enhanced event pages with photos</Text>
+                <Text style={styles.featureText}>• Priority map placement</Text>
+                <Text style={styles.featureText}>• Advanced vendor matching</Text>
+                <Text style={styles.featureText}>• SMS and email notifications</Text>
+                <Text style={styles.featureText}>• Detailed analytics dashboard</Text>
+                <Text style={styles.featureText}>• Custom branding options</Text>
+                <Text style={styles.featureText}>• Social media integration</Text>
+                <Text style={styles.featureText}>• Featured map placement</Text>
+                <Text style={styles.featureText}>• White-label event pages</Text>
+                <Text style={styles.featureText}>• API access for integrations</Text>
+                <Text style={styles.featureText}>• Dedicated account manager</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {formData.plan === 'event-basic' && (
+            <View style={styles.freePlanNotice}>
+              <Text style={styles.freePlanText}>🎉 Starter Plan is FREE for Event Organizers</Text>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password *</Text>
             <TextInput
@@ -333,10 +468,10 @@ export default function EventOrganizerSignupScreen({ navigation }) {
 
           <TouchableOpacity 
             style={styles.signInButton}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.goBack()}
           >
             <Text style={styles.signInButtonText}>
-              Have an account already? Sign In
+              Have an account already? Go Back
             </Text>
           </TouchableOpacity>
         </View>
@@ -419,6 +554,77 @@ const styles = {
   },
   errorMessage: {
     color: '#dc3545',
+  },
+  planHelpText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  planOption: {
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  planOptionSelected: {
+    borderColor: '#2c6f57',
+    backgroundColor: '#f8fdf9',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  planName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  planNameSelected: {
+    color: '#2c6f57',
+  },
+  planPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  planPriceSelected: {
+    color: '#2c6f57',
+  },
+  planDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  planDescriptionSelected: {
+    color: '#2c6f57',
+  },
+  planFeatures: {
+    marginTop: 8,
+  },
+  featureText: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 2,
+  },
+  freePlanNotice: {
+    backgroundColor: '#e8f5e8',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: '#2c6f57',
+  },
+  freePlanText: {
+    color: '#2c6f57',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   signupButton: {
     backgroundColor: '#2c6f57',

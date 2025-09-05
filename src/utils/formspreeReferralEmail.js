@@ -13,7 +13,7 @@ Referral Details:
 • Referral Code Used: ${referralCode}
 • New User Name: ${newUserName}
 • New User Email: ${newUserEmail}
-• Food Truck Name: ${truckName || 'Not specified'}
+• Business Name: ${truckName || 'Not specified'}
 • Selected Plan: ${selectedPlan}
 • User ID: ${userId}
 

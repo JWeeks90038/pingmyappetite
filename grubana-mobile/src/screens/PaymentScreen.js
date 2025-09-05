@@ -7,49 +7,237 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebase';
 import { useAuth } from '../components/AuthContext';
 import { useStripe } from '@stripe/stripe-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(route.params?.plan || 'pro');
-  const { user, logout } = useAuth();
+  const { user, userData, userRole } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   
   const { hasValidReferral, referralCode, userId } = route.params || {};
 
+  // Ensure this screen is always focused and cannot be navigated away from
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔒 PaymentScreen focused - enforcing payment security');
+      
+      // Check if user has somehow gained access without paying
+      const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
+      const paymentCompleted = userData?.paymentCompleted === true;
+      const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
+      
+      if (hasPaidPlan && (!hasActiveSubscription || !paymentCompleted)) {
+        console.log('🔒 SECURITY: User on paid plan without payment - enforcing payment screen');
+        // User must stay on this screen
+      }
+      
+      return () => {
+        console.log('🔒 PaymentScreen losing focus - payment still required');
+      };
+    }, [userData])
+  );
+
+  // Prevent Android back button from bypassing payment
+  useEffect(() => {
+    const backAction = () => {
+      Alert.alert(
+        'Payment Required',
+        'You must complete payment to access your account. Would you like to sign out instead?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Sign Out', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await signOut(auth);
+              } catch (error) {
+                console.error('Error signing out:', error);
+                Alert.alert('Error', 'Failed to sign out. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+      return true; // Prevent default back action
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, []);
+
+  // Security check: Ensure user cannot bypass payment
+  useEffect(() => {
+    console.log('🔒 PaymentScreen Security Check:', {
+      plan: selectedPlan,
+      userPlan: userData?.plan,
+      subscriptionStatus: userData?.subscriptionStatus,
+      paymentCompleted: userData?.paymentCompleted
+    });
+
+    // If user somehow has an active subscription or payment completed, they shouldn't be here
+    const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
+    const paymentCompleted = userData?.paymentCompleted === true;
+    
+    if (hasActiveSubscription && paymentCompleted) {
+      console.log('🔒 User has completed payment, should not be on payment screen');
+      // They've already paid, let navigation handle the redirect
+      return;
+    }
+
+    // If they have a paid plan but no active subscription, they must stay here
+    const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
+    if (hasPaidPlan && !hasActiveSubscription) {
+      console.log('🔒 User has paid plan but no active subscription - enforcing payment');
+    }
+  }, [userData, selectedPlan]);
+
   const plans = {
     pro: {
       name: 'Pro Plan',
-      price: '$9.99',
+      price: '$9',
       priceAmount: 9.99,
-      description: 'Perfect for individual food trucks',
+      description: 'Perfect for individual mobile kitchen businesses',
       features: [
-        'Go live and share location',
-        'Receive customer pings',
-        'Basic analytics',
-        'Event participation',
-        'Email support'
+        'Everything in Starter',
+        'Heat maps showing customer demand',
+        'Create Drops providing exclusive deals'
       ]
     },
     'all-access': {
       name: 'All-Access Plan',
-      price: '$19.99',
+      price: '$19',
       priceAmount: 19.99,
       description: 'Complete solution for growing businesses',
       features: [
-        'All Pro features included',
-        'Advanced analytics & insights',
-        'Priority event placement',
-        'Enhanced customer engagement',
-        'Premium support',
-        'Multiple truck management'
+        'Everything in Pro',
+        'Advanced analytics',
+        'Event management'
+      ]
+    },
+        'event-basic': {
+      name: 'Event Starter',
+      price: 'Free',
+      priceAmount: 0,
+      description: 'Perfect for getting started with event organizing',
+      features: [
+        'Up to 3 events per month',
+        'Basic event page with details',
+        'Vendor application management',
+        'Map location marker',
+        'Email notifications',
+        'Basic analytics'
+      ]
+    },
+    'event-premium': {
+      name: 'Event Premium',
+      price: '$29.00',
+      priceAmount: 29.00,
+      description: 'Full-featured plan for professional event organizers',
+      features: [
+        'Unlimited events',
+        'Enhanced event pages with photos',
+        'Priority map placement',
+        'Advanced vendor matching',
+        'SMS and email notifications',
+        'Detailed analytics dashboard',
+        'Custom branding options',
+        'Social media integration',
+        'Featured map placement',
+        'Custom event marketing tools',
+        'White-label event pages',
+        'API access for integrations',
+        'Dedicated account manager',
+        'Custom reporting',
+        'Multi-user team access',
+        'Priority vendor recommendations'
       ]
     }
+  };
+
+  // Filter plans based on user role
+  const getFilteredPlans = () => {
+    if (userRole === 'event-organizer') {
+      // Event organizers should only see event plans
+      return {
+        'event-premium': plans['event-premium']
+      };
+    } else if (userRole === 'owner') {
+      // Food truck owners should only see truck plans
+      return {
+        'pro': plans['pro'],
+        'all-access': plans['all-access']
+      };
+    }
+    // Default: return all plans
+    return plans;
+  };
+
+  const filteredPlans = getFilteredPlans();
+
+  // Function to go back to previous plan
+  const handleGoBackToPreviousPlan = async () => {
+    const currentUserPlan = userData?.plan || 'basic';
+    
+    // Determine what plan to go back to
+    let previousPlanName = 'Starter (Free)';
+    if (currentUserPlan === 'pro') {
+      previousPlanName = 'Pro Plan';
+    } else if (currentUserPlan === 'all-access') {
+      previousPlanName = 'All-Access Plan';
+    } else if (currentUserPlan === 'event-premium') {
+      previousPlanName = 'Event Premium Plan';
+    }
+
+    Alert.alert(
+      'Return to Previous Plan',
+      `Are you sure you want to go back to your ${previousPlanName}? You can always upgrade again later.`,
+      [
+        { text: 'Stay Here', style: 'cancel' },
+        { 
+          text: 'Go Back', 
+          style: 'default',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Update user document to remove any pending upgrade flags
+              if (userData) {
+                await updateDoc(doc(db, 'users', user.uid), {
+                  pendingUpgrade: null,
+                  upgradeAttempt: null,
+                  lastUpgradeAttempt: new Date().toISOString()
+                });
+              }
+              
+              // Navigate back based on user role and current plan
+              if (userData?.role === 'organizer') {
+                navigation.replace('EventDashboard');
+              } else if (userData?.role === 'owner') {
+                navigation.replace('Dashboard');
+              } else {
+                navigation.replace('Dashboard');
+              }
+              
+            } catch (error) {
+              console.error('Error returning to previous plan:', error);
+              Alert.alert('Error', 'Failed to return to previous plan. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handlePayment = async () => {
@@ -147,7 +335,28 @@ export default function PaymentScreen({ navigation, route }) {
       console.log('🔍 Payment response:', paymentResponse);
 
       if (paymentResponse.error) {
-        if (paymentResponse.error.code !== 'Canceled') {
+        if (paymentResponse.error.code === 'Canceled') {
+          console.log('🔍 Payment was cancelled by user');
+          Alert.alert(
+            'Payment Required',
+            'Payment was cancelled. You must complete payment to access premium features. Please try again.',
+            [
+              { text: 'Try Again', style: 'default' },
+              { 
+                text: 'Sign Out', 
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await signOut(auth);
+                  } catch (error) {
+                    console.error('Error signing out:', error);
+                    Alert.alert('Error', 'Failed to sign out. Please try again.');
+                  }
+                }
+              }
+            ]
+          );
+        } else {
           Alert.alert('Payment failed', paymentResponse.error.message);
         }
         setLoading(false);
@@ -251,10 +460,25 @@ export default function PaymentScreen({ navigation, route }) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Choose Your Plan</Text>
+        <Text style={styles.title}>Secure Checkout</Text>
         <Text style={styles.subtitle}>
-          Select the perfect plan for your food truck business
+          {userRole === 'event-organizer' 
+            ? hasValidReferral 
+              ? 'Payment required to start your 30-day FREE trial with Event Premium features'
+              : 'Complete payment to access your Event Premium features'
+            : 'Complete payment to access your premium features'
+          }
         </Text>
+        
+        <View style={styles.warningContainer}>
+          <Ionicons name="warning-outline" size={20} color="#ff6b35" />
+          <Text style={styles.warningText}>
+            {hasValidReferral 
+              ? 'Payment required upfront - trial starts after payment completion'
+              : 'You must complete payment to access your account'
+            }
+          </Text>
+        </View>
         
         {hasValidReferral && (
           <View style={styles.referralBanner}>
@@ -266,39 +490,151 @@ export default function PaymentScreen({ navigation, route }) {
         )}
       </View>
 
+      {/* Go Back to Previous Plan Button */}
+      {userData?.plan && userData.plan !== 'basic' && (
+        <View style={styles.goBackContainer}>
+          <TouchableOpacity 
+            style={styles.goBackButton}
+            onPress={handleGoBackToPreviousPlan}
+            disabled={loading}
+          >
+            <Ionicons name="arrow-back" size={20} color="#2c6f57" />
+            <Text style={styles.goBackButtonText}>
+              Go Back to {userData.plan === 'pro' ? 'Pro Plan' : 
+                         userData.plan === 'all-access' ? 'All-Access Plan' : 
+                         userData.plan === 'event-premium' ? 'Event Premium Plan' : 
+                         'Previous Plan'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.plansContainer}>
-        {Object.entries(plans).map(([key, plan]) => renderPlanCard(key, plan))}
+        {Object.entries(filteredPlans).map(([key, plan]) => renderPlanCard(key, plan))}
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.continueButton, loading && styles.disabledButton]}
-          onPress={handlePayment}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
+        {filteredPlans[selectedPlan]?.priceAmount === 0 ? (
+          <TouchableOpacity
+            style={[styles.continueButton, loading && styles.disabledButton]}
+            onPress={async () => {
+              setLoading(true);
+              try {
+                // For free plans, just update the user's plan directly
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, {
+                  plan: selectedPlan,
+                  subscriptionStatus: 'active',
+                  subscriptionStartDate: new Date(),
+                  paymentCompleted: true
+                });
+
+                Alert.alert(
+                  'Plan Activated!',
+                  `Welcome to ${filteredPlans[selectedPlan].name}! Your free plan is now active.`,
+                  [{ text: 'Continue' }]
+                );
+              } catch (error) {
+                console.error('Error activating free plan:', error);
+                Alert.alert('Error', 'Failed to activate plan. Please try again.');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
               <Text style={styles.continueText}>
-                Continue with {plans[selectedPlan].name}
+                Activate {filteredPlans[selectedPlan].name} - Free
               </Text>
-              <Text style={styles.continuePrice}>
-                {plans[selectedPlan].price}/month
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.continueButton, loading && styles.disabledButton]}
+            onPress={handlePayment}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.continueText}>
+                  {hasValidReferral ? 'Start Trial' : `Continue with ${filteredPlans[selectedPlan].name}`}
+                </Text>
+                <Text style={styles.continuePrice}>
+                  {hasValidReferral 
+                    ? '30-day free trial - payment required first'
+                    : `${filteredPlans[selectedPlan].price}/month`
+                  }
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
         
                 <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
             Alert.alert(
               'Go Back',
-              'Would you like to sign out and return to the login screen?',
+              userRole === 'event-organizer' 
+                ? 'What would you like to do?'
+                : 'What would you like to do?',
               [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign Out', onPress: logout }
+                { 
+                  text: 'Change Plan', 
+                  onPress: () => {
+                    // Allow them to select a different plan or downgrade to free
+                    Alert.alert(
+                      'Change Plan',
+                      userRole === 'event-organizer'
+                        ? 'Would you like to switch to the free Event Starter plan instead?'
+                        : 'Would you like to switch to the free Starter plan instead?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Switch to Free Plan', 
+                          onPress: async () => {
+                            try {
+                              const userRef = doc(db, 'users', user.uid);
+                              const freePlan = userRole === 'event-organizer' ? 'event-basic' : 'basic';
+                              await updateDoc(userRef, {
+                                plan: freePlan,
+                                subscriptionStatus: 'active',
+                                subscriptionStartDate: new Date(),
+                                paymentCompleted: true
+                              });
+                              Alert.alert(
+                                'Plan Updated!',
+                                `You've been switched to the free ${userRole === 'event-organizer' ? 'Event Starter' : 'Starter'} plan.`,
+                                [{ text: 'Continue' }]
+                              );
+                            } catch (error) {
+                              console.error('Error updating plan:', error);
+                              Alert.alert('Error', 'Failed to update plan. Please try again.');
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }
+                },
+                { 
+                  text: 'Sign Out', 
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await signOut(auth);
+                    } catch (error) {
+                      console.error('Error signing out:', error);
+                      Alert.alert('Error', 'Failed to sign out. Please try again.');
+                    }
+                  }
+                }
               ]
             );
           }}
@@ -434,6 +770,26 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 2,
   },
+  goBackContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  goBackButton: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#2c6f57',
+  },
+  goBackButtonText: {
+    color: '#2c6f57',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   backButton: {
     alignItems: 'center',
     paddingVertical: 12,
@@ -441,5 +797,22 @@ const styles = StyleSheet.create({
   backText: {
     color: '#666',
     fontSize: 16,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e0',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff6b35',
+  },
+  warningText: {
+    color: '#ff6b35',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+    flex: 1,
   },
 });

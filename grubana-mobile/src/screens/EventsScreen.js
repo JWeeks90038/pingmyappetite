@@ -38,13 +38,15 @@ import * as ImagePicker from 'expo-image-picker';
 const { width } = Dimensions.get('window');
 
 const EventsScreen = () => {
-  const { user, userData, userRole } = useAuth();
+  const { user, userData, userRole, userPlan } = useAuth();
   const [events, setEvents] = useState([]);
   const [myEvents, setMyEvents] = useState([]);
   const [attendedEvents, setAttendedEvents] = useState([]);
+  const [attendingEvents, setAttendingEvents] = useState([]);
+  const [eventAttendanceCounts, setEventAttendanceCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState('upcoming'); // upcoming, past, attended, my-events
+  const [selectedFilter, setSelectedFilter] = useState('upcoming'); // upcoming, past, attended, my-events, attending
   
   // Event management modal states
   const [showEventModal, setShowEventModal] = useState(false);
@@ -472,6 +474,75 @@ const EventsScreen = () => {
     return unsubscribe;
   }, [user]);
 
+  // Fetch user's attending events (interested/planning to attend)
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('🎪 EventsScreen: Setting up attending events listener');
+    
+    const interestQuery = query(
+      collection(db, 'eventInterest'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(interestQuery, (snapshot) => {
+      const interestData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log('🎪 EventsScreen: Found attending events:', interestData.length);
+      setAttendingEvents(interestData);
+    }, (error) => {
+      console.error('🎪 EventsScreen: Error fetching attending events:', error);
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  // Fetch event attendance counts for analytics
+  useEffect(() => {
+    if (!user || userRole !== 'event-organizer') return;
+
+    console.log('🎪 EventsScreen: Setting up attendance counts listener for event organizer');
+    
+    // Listen to both attended and attending counts
+    const attendedQuery = query(collection(db, 'eventAttendance'));
+    const attendingQuery = query(collection(db, 'eventInterest'));
+
+    const unsubscribeAttended = onSnapshot(attendedQuery, (snapshot) => {
+      const attendedCounts = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const eventId = data.eventId;
+        if (!attendedCounts[eventId]) {
+          attendedCounts[eventId] = { attended: 0, attending: 0 };
+        }
+        attendedCounts[eventId].attended++;
+      });
+
+      const unsubscribeAttending = onSnapshot(attendingQuery, (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const eventId = data.eventId;
+          if (!attendedCounts[eventId]) {
+            attendedCounts[eventId] = { attended: 0, attending: 0 };
+          }
+          attendedCounts[eventId].attending++;
+        });
+
+        console.log('🎪 EventsScreen: Event attendance counts:', attendedCounts);
+        setEventAttendanceCounts(attendedCounts);
+      });
+
+      return () => {
+        unsubscribeAttending();
+      };
+    });
+
+    return unsubscribeAttended;
+  }, [user, userRole]);
+
   // Cleanup timeout on component unmount
   useEffect(() => {
     return () => {
@@ -483,7 +554,15 @@ const EventsScreen = () => {
 
   // Check if user can manage events
   const canManageEvents = () => {
-    return userRole === 'event-organizer' || userRole === 'owner';
+    // Role-based access: event-organizer or owner
+    if (userRole === 'event-organizer' || userRole === 'owner') {
+      return true;
+    }
+    // Plan-based access: All-Access plan gets event management
+    if (userPlan === 'all-access') {
+      return true;
+    }
+    return false;
   };
 
   // Check if user can edit/delete specific event
@@ -745,6 +824,14 @@ const EventsScreen = () => {
   const markEventAttended = async (event) => {
     try {
       console.log('🎪 EventsScreen: Marking event as attended:', event.id);
+      console.log('🎪 EventsScreen: User role:', userRole);
+      console.log('🎪 EventsScreen: User data:', {
+        uid: user.uid,
+        email: user.email,
+        role: userRole,
+        businessName: userData?.businessName,
+        username: userData?.username
+      });
 
       // Check if already marked as attended
       const existingAttendance = attendedEvents.find(a => a.eventId === event.id);
@@ -753,24 +840,31 @@ const EventsScreen = () => {
         return;
       }
 
-      // Add to eventAttendance collection
-      await addDoc(collection(db, 'eventAttendance'), {
+      // Create attendance record with proper user info for mobile kitchen owners
+      const userName = userData?.businessName || userData?.truckName || userData?.username || 'Unknown User';
+      const attendanceData = {
         userId: user.uid,
         userEmail: user.email,
-        userName: userData?.username || userData?.businessName || 'Unknown User',
+        userName: userName,
+        userRole: userRole, // Add user role for better tracking
         eventId: event.id,
         eventTitle: event.title || event.eventName,
-        eventDate: event.date,
+        eventDate: event.date || event.startDate,
         eventLocation: event.location || event.address,
         organizerId: event.organizerId,
         attendedAt: serverTimestamp(),
         attendanceMethod: 'manual', // manual, checkin, automatic
         rating: null, // Can be updated later
         review: null
-      });
+      };
+
+      console.log('🎪 EventsScreen: Creating attendance record:', attendanceData);
+
+      // Add to eventAttendance collection
+      await addDoc(collection(db, 'eventAttendance'), attendanceData);
 
       Alert.alert('Success', 'Event marked as attended!');
-      console.log('🎪 EventsScreen: Event attendance recorded successfully');
+      console.log('🎪 EventsScreen: Event attendance recorded successfully for mobile kitchen owner');
 
     } catch (error) {
       console.error('🎪 EventsScreen: Error marking event as attended:', error);
@@ -797,6 +891,69 @@ const EventsScreen = () => {
     } catch (error) {
       console.error('🎪 EventsScreen: Error removing event attendance:', error);
       Alert.alert('Error', 'Failed to remove event attendance. Please try again.');
+    }
+  };
+
+  // Mark event as attending (for upcoming events)
+  const markEventAttending = async (event) => {
+    try {
+      console.log('🎪 EventsScreen: Marking event as attending:', event.id);
+
+      // Check if already marked as attending
+      const existingAttending = attendingEvents.find(a => a.eventId === event.id);
+      if (existingAttending) {
+        Alert.alert('Already Marked', 'You have already marked this event as attending.');
+        return;
+      }
+
+      const userName = userData?.businessName || userData?.truckName || userData?.username || 'Unknown User';
+      const attendingData = {
+        userId: user.uid,
+        userEmail: user.email,
+        userName: userName,
+        userRole: userRole,
+        eventId: event.id,
+        eventTitle: event.title || event.eventName,
+        eventDate: event.date || event.startDate,
+        eventLocation: event.location || event.address,
+        organizerId: event.organizerId,
+        interestedAt: serverTimestamp(),
+        status: 'attending' // attending, maybe, not-attending
+      };
+
+      console.log('🎪 EventsScreen: Creating attending record:', attendingData);
+
+      // Add to eventInterest collection
+      await addDoc(collection(db, 'eventInterest'), attendingData);
+
+      Alert.alert('Success', 'Marked as attending!');
+      console.log('🎪 EventsScreen: Event interest recorded successfully');
+
+    } catch (error) {
+      console.error('🎪 EventsScreen: Error marking event as attending:', error);
+      Alert.alert('Error', 'Failed to mark as attending. Please try again.');
+    }
+  };
+
+  // Remove attending status
+  const removeEventAttending = async (eventId) => {
+    try {
+      console.log('🎪 EventsScreen: Removing attending status:', eventId);
+
+      const attendingRecord = attendingEvents.find(a => a.eventId === eventId);
+      if (!attendingRecord) {
+        Alert.alert('Error', 'Attending record not found.');
+        return;
+      }
+
+      await deleteDoc(doc(db, 'eventInterest', attendingRecord.id));
+      
+      Alert.alert('Success', 'Attending status removed.');
+      console.log('🎪 EventsScreen: Attending status removed successfully');
+
+    } catch (error) {
+      console.error('🎪 EventsScreen: Error removing attending status:', error);
+      Alert.alert('Error', 'Failed to remove attending status. Please try again.');
     }
   };
 
@@ -866,6 +1023,9 @@ const EventsScreen = () => {
       case 'attended':
         const attendedEventIds = attendedEvents.map(a => a.eventId);
         return events.filter(event => attendedEventIds.includes(event.id));
+      case 'attending':
+        const attendingEventIds = attendingEvents.map(a => a.eventId);
+        return events.filter(event => attendingEventIds.includes(event.id));
       case 'my-events':
         return myEvents;
       default:
@@ -875,11 +1035,29 @@ const EventsScreen = () => {
 
   // Get available filter tabs based on user role
   const getFilterTabs = () => {
-    const baseTabs = ['upcoming', 'past', 'attended'];
+    const baseTabs = ['upcoming', 'past', 'attended', 'attending'];
     if (canManageEvents()) {
       baseTabs.push('my-events');
     }
     return baseTabs;
+  };
+
+  // Get display name for filter tab
+  const getFilterDisplayName = (filter) => {
+    switch (filter) {
+      case 'my-events':
+        return 'My Events';
+      case 'attending':
+        return 'Attending';
+      case 'attended':
+        return 'Attended';
+      case 'upcoming':
+        return 'Upcoming';
+      case 'past':
+        return 'Past';
+      default:
+        return filter.charAt(0).toUpperCase() + filter.slice(1);
+    }
   };
 
   // Refresh events
@@ -1817,8 +1995,10 @@ const EventsScreen = () => {
   // Render event card
   const renderEventCard = (event) => {
     const attended = isEventAttended(event.id);
+    const attending = attendingEvents.some(a => a.eventId === event.id);
     const isPast = isEventPast(event.startDate || event.date);
     const canEdit = canEditEvent(event);
+    const attendanceCount = eventAttendanceCounts[event.id] || { attended: 0, attending: 0 };
 
     return (
       <View key={event.id} style={styles.eventCard}>
@@ -1830,6 +2010,20 @@ const EventsScreen = () => {
               <View style={styles.attendedBadge}>
                 <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
                 <Text style={styles.attendedText}>Attended</Text>
+              </View>
+            )}
+            {attending && !attended && !isPast && (
+              <View style={styles.attendingBadge}>
+                <Ionicons name="heart" size={20} color="#8A2BE2" />
+                <Text style={styles.attendingText}>Attending</Text>
+              </View>
+            )}
+            {/* Show attendance counts for event organizers */}
+            {userRole === 'event-organizer' && event.organizerId === user.uid && (
+              <View style={styles.attendanceCountBadge}>
+                <Text style={styles.attendanceCountText}>
+                  {isPast ? `${attendanceCount.attended} attended` : `${attendanceCount.attending} interested`}
+                </Text>
               </View>
             )}
             {canEdit && (
@@ -1891,17 +2085,41 @@ const EventsScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          {!attended && !isPast && !canEdit && (
+          {/* For upcoming events - show attending button only if not the event organizer */}
+          {!isPast && !attending && !attended && event.organizerId !== user.uid && (
+            <TouchableOpacity
+              style={styles.attendingButton}
+              onPress={() => markEventAttending(event)}
+            >
+              <Ionicons name="heart-outline" size={20} color="#8A2BE2" />
+              <Text style={styles.attendingButtonText}>Mark as Attending</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* For upcoming events - remove attending status only if not the event organizer */}
+          {!isPast && attending && !attended && event.organizerId !== user.uid && (
+            <TouchableOpacity
+              style={styles.removeAttendingButton}
+              onPress={() => removeEventAttending(event.id)}
+            >
+              <Ionicons name="heart-dislike-outline" size={20} color="#f44336" />
+              <Text style={styles.removeAttendingButtonText}>Remove Attending</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* For past events - show attended button if not marked yet */}
+          {isPast && !attended && (
             <TouchableOpacity
               style={styles.attendButton}
               onPress={() => markEventAttended(event)}
             >
-              <Ionicons name="add-circle-outline" size={20} color="#2c6f57" />
+              <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
               <Text style={styles.attendButtonText}>Mark as Attended</Text>
             </TouchableOpacity>
           )}
 
-          {attended && !canEdit && (
+          {/* Remove attended status */}
+          {attended && (
             <TouchableOpacity
               style={styles.removeButton}
               onPress={() => removeEventAttendance(event.id)}
@@ -1975,12 +2193,15 @@ const EventsScreen = () => {
             onPress={() => setSelectedFilter(filter)}
           >
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
               style={[
                 styles.filterTabText,
                 selectedFilter === filter && styles.activeFilterTabText
               ]}
             >
-              {filter === 'my-events' ? 'My Events' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+              {getFilterDisplayName(filter)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -2065,24 +2286,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'white',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     marginBottom: 10,
   },
   filterTab: {
     flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 20,
-    marginHorizontal: 5,
+    marginHorizontal: 3,
     alignItems: 'center',
+    minWidth: 0, // Allow text to shrink
   },
   activeFilterTab: {
     backgroundColor: '#2c6f57',
   },
   filterTabText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
+    numberOfLines: 1,
   },
   activeFilterTabText: {
     color: 'white',
@@ -2380,6 +2604,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#f44336',
     marginLeft: 6,
+    fontWeight: '500',
+  },
+  attendingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0E6FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  attendingButtonText: {
+    fontSize: 14,
+    color: '#8A2BE2',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  removeAttendingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE8E8',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  removeAttendingButtonText: {
+    fontSize: 14,
+    color: '#f44336',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  attendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0E6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  attendingText: {
+    fontSize: 12,
+    color: '#8A2BE2',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  attendanceCountBadge: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  attendanceCountText: {
+    fontSize: 12,
+    color: '#666',
     fontWeight: '500',
   },
   loadingContainer: {

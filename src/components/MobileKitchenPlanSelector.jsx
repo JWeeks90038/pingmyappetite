@@ -6,7 +6,7 @@ const MobileKitchenPlanSelector = ({ selectedPlan, onPlanSelect }) => {
   const mobileKitchenPlans = [
     {
       id: 'basic',
-      name: 'Basic',
+      name: 'Starter',
       price: 'Free',
       period: '/forever',
       description: 'Perfect for getting started with your mobile kitchen',
@@ -24,11 +24,11 @@ const MobileKitchenPlanSelector = ({ selectedPlan, onPlanSelect }) => {
     {
       id: 'pro',
       name: 'Pro',
-      price: '$9.99',
+      price: '$9',
       period: '/month',
       description: 'Most popular choice for active mobile kitchen owners',
       features: [
-        'Everything in Basic',
+        'Everything in Starter',
         'Real-time GPS tracking',
         'Real-time menu display',
         'Citywide heat maps',
@@ -42,11 +42,11 @@ const MobileKitchenPlanSelector = ({ selectedPlan, onPlanSelect }) => {
     {
       id: 'all-access',
       name: 'All Access',
-      price: '$19.99',
+      price: '$19',
       period: '/month',
       description: 'Full-featured plan for professional mobile kitchens',
       features: [
-        'Everything in Basic & Pro',
+        'Everything in Starter & Pro',
         'Advanced analytics dashboard',
         'Create promotional drops',
         'Featured placement',
