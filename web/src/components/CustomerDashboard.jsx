@@ -993,12 +993,30 @@ useEffect(() => {
               overflow: hidden;
               box-shadow: 0 2px 4px rgba(0,0,0,0.3);
               background: white;
+              position: relative;
             ">
               <img src="${icon.coverUrl}" style="
                 width: 100%; 
                 height: 100%; 
                 object-fit: cover;
               " />
+              ${isFavorite ? `
+                <div style="
+                  position: absolute;
+                  top: -5px;
+                  right: -5px;
+                  width: 20px;
+                  height: 20px;
+                  background: #ff6b6b;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 12px;
+                  border: 2px solid white;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                ">❤️</div>
+              ` : ''}
             </div>
           `;
           
@@ -1104,7 +1122,7 @@ useEffect(() => {
     Object.values(foodTruckMarkers.current).forEach(marker => marker.setMap(null));
     foodTruckMarkers.current = {};
   };
-}, [user, showTrucks, activeDrops, cuisineFilters]);
+}, [user, showTrucks, activeDrops, cuisineFilters, favorites]);
 
 useEffect(() => {
   if (!user) {
@@ -1206,9 +1224,35 @@ useEffect(() => {
   // Handler to update favorites after change
   const handleFavoriteChange = async () => {
     if (!user) return;
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    if (userDoc.exists()) {
-      setFavorites(userDoc.data().favorites || []);
+    
+    console.log('🔄 Refreshing favorites after change...');
+    
+    // Refresh favorites from the favorites collection
+    try {
+      const favoritesQuery = query(
+        collection(db, 'favorites'),
+        where('userId', '==', user.uid)
+      );
+      const favoritesSnapshot = await getDocs(favoritesQuery);
+      const updatedFavorites = favoritesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setFavorites(updatedFavorites);
+      console.log('✅ Favorites updated:', updatedFavorites.length, 'favorites');
+      
+      // Force map markers to update by re-rendering
+      setTimeout(() => {
+        // Trigger map update by clearing and re-fetching truck data
+        if (mapInstance.current) {
+          // The useEffect for foodTruckMarkers will automatically update
+          console.log('🗺️ Triggering map marker updates...');
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Error refreshing favorites:', error);
     }
   };
 

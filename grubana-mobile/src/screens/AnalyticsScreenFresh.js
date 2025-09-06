@@ -53,7 +53,7 @@ export default function AnalyticsScreen() {
     last30DaysOrders: 0,
     last30DaysRevenue: 0,
     last7DaysOrders: 0,
-    last7DaysRevenue: 95.75,
+    last7DaysRevenue: 0,
   });
 
   const [eventStats, setEventStats] = useState({
@@ -251,9 +251,12 @@ export default function AnalyticsScreen() {
 
     console.log('💰 Setting up orders analytics for:', userData.uid);
 
+    // Using orderBy for better performance with composite index
+    // Note: orderBy works best with consistent data types (prefer Timestamp over string)
     const ordersQuery = query(
       collection(db, 'orders'),
-      where('truckId', '==', userData.uid)
+      where('truckId', '==', userData.uid),
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
@@ -261,20 +264,120 @@ export default function AnalyticsScreen() {
       console.log('📦 Found orders:', orders.length);
 
       if (orders.length === 0) {
-        console.log('📦 No orders found - showing placeholder UI');
+        console.log('📦 No orders found - resetting to zero');
+        setOrderStats({
+          totalOrders: 0,
+          totalRevenue: 0,
+          last30DaysOrders: 0,
+          last30DaysRevenue: 0,
+          last7DaysOrders: 0,
+          last7DaysRevenue: 0,
+        });
         return;
       }
 
-      // Calculate order stats
-      const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0) / 100;
-      
-      setOrderStats({
+      // Get current time and calculate date thresholds
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      console.log('📅 Date filters:', {
+        now: now.toISOString(),
+        sevenDaysAgo: sevenDaysAgo.toISOString(),
+        thirtyDaysAgo: thirtyDaysAgo.toISOString()
+      });
+
+      // Filter orders by time periods
+      const last7DaysOrders = orders.filter(order => {
+        let orderDate;
+        if (order.createdAt?.toDate) {
+          // Firestore Timestamp
+          orderDate = order.createdAt.toDate();
+        } else if (order.createdAt?.seconds) {
+          // Firestore Timestamp object
+          orderDate = new Date(order.createdAt.seconds * 1000);
+        } else if (typeof order.createdAt === 'string') {
+          // String date - parse it
+          orderDate = new Date(order.createdAt);
+        } else {
+          // Fallback to current date if invalid
+          console.warn('Invalid createdAt format for order:', order.id, order.createdAt);
+          orderDate = new Date();
+        }
+        return orderDate >= sevenDaysAgo;
+      });
+
+      const last30DaysOrders = orders.filter(order => {
+        let orderDate;
+        if (order.createdAt?.toDate) {
+          // Firestore Timestamp
+          orderDate = order.createdAt.toDate();
+        } else if (order.createdAt?.seconds) {
+          // Firestore Timestamp object
+          orderDate = new Date(order.createdAt.seconds * 1000);
+        } else if (typeof order.createdAt === 'string') {
+          // String date - parse it
+          orderDate = new Date(order.createdAt);
+        } else {
+          // Fallback to current date if invalid
+          console.warn('Invalid createdAt format for order:', order.id, order.createdAt);
+          orderDate = new Date();
+        }
+        return orderDate >= thirtyDaysAgo;
+      });
+
+      console.log('📊 Filtered orders:', {
+        total: orders.length,
+        last7Days: last7DaysOrders.length,
+        last30Days: last30DaysOrders.length
+      });
+
+      // Calculate revenue (convert from cents to dollars)
+      const calculateRevenue = (orderList) => {
+        return orderList.reduce((sum, order) => {
+          // Handle both cents (number) and dollar (string) formats
+          let amount = 0;
+          if (typeof order.totalAmount === 'number') {
+            // Assume it's in cents, convert to dollars
+            amount = order.totalAmount / 100;
+          } else if (typeof order.totalAmount === 'string') {
+            // Parse as dollar amount
+            amount = parseFloat(order.totalAmount) || 0;
+          } else if (order.total) {
+            // Fallback to 'total' field
+            amount = typeof order.total === 'number' ? order.total / 100 : parseFloat(order.total) || 0;
+          }
+          
+          console.log(`💰 Order ${order.id}: amount=${amount}, originalTotal=${order.totalAmount || order.total}`);
+          return sum + amount;
+        }, 0);
+      };
+
+      const totalRevenue = calculateRevenue(orders);
+      const last7DaysRevenue = calculateRevenue(last7DaysOrders);
+      const last30DaysRevenue = calculateRevenue(last30DaysOrders);
+
+      const newOrderStats = {
         totalOrders: orders.length,
         totalRevenue: totalRevenue,
-        last30DaysOrders: orders.length, // Simplified for now
-        last30DaysRevenue: totalRevenue,
-        last7DaysOrders: orders.length,
-        last7DaysRevenue: totalRevenue,
+        last30DaysOrders: last30DaysOrders.length,
+        last30DaysRevenue: last30DaysRevenue,
+        last7DaysOrders: last7DaysOrders.length,
+        last7DaysRevenue: last7DaysRevenue,
+      };
+
+      console.log('💰 Final order stats:', newOrderStats);
+      setOrderStats(newOrderStats);
+    }, (error) => {
+      console.error('❌ Error fetching orders:', error);
+      // Reset to zero on error
+      setOrderStats({
+        totalOrders: 0,
+        totalRevenue: 0,
+        last30DaysOrders: 0,
+        last30DaysRevenue: 0,
+        last7DaysOrders: 0,
+        last7DaysRevenue: 0,
       });
     });
 
@@ -800,30 +903,85 @@ export default function AnalyticsScreen() {
 
         {/* Orders Analytics */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💰 Orders & Revenue Analytics</Text>
+          <Text style={styles.sectionTitle}>💰 Orders & Revenue</Text>
           {orderStats.totalOrders > 0 ? (
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{orderStats.totalOrders}</Text>
-                <Text style={styles.statLabel}>Total Orders</Text>
+            <>
+              {/* Overall Stats */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Ionicons name="receipt" size={24} color="#2c6f57" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>{orderStats.totalOrders}</Text>
+                  <Text style={styles.statLabel}>Total Orders</Text>
+                  <Text style={styles.statSubtext}>All time</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Ionicons name="cash" size={24} color="#4CAF50" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>${orderStats.totalRevenue.toFixed(2)}</Text>
+                  <Text style={styles.statLabel}>Total Revenue</Text>
+                  <Text style={styles.statSubtext}>All time</Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>${orderStats.totalRevenue.toFixed(2)}</Text>
-                <Text style={styles.statLabel}>Total Revenue</Text>
+
+              {/* 30-Day Stats */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Ionicons name="calendar" size={24} color="#FF9800" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>{orderStats.last30DaysOrders}</Text>
+                  <Text style={styles.statLabel}>Orders (30 days)</Text>
+                  <Text style={styles.statSubtext}>Recent activity</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Ionicons name="trending-up" size={24} color="#2196F3" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>${orderStats.last30DaysRevenue.toFixed(2)}</Text>
+                  <Text style={styles.statLabel}>Revenue (30 days)</Text>
+                  <Text style={styles.statSubtext}>Recent earnings</Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{orderStats.last7DaysOrders}</Text>
-                <Text style={styles.statLabel}>Orders (7 days)</Text>
+
+              {/* 7-Day Stats */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Ionicons name="time" size={24} color="#8A2BE2" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>{orderStats.last7DaysOrders}</Text>
+                  <Text style={styles.statLabel}>Orders (7 days)</Text>
+                  <Text style={styles.statSubtext}>This week</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Ionicons name="card" size={24} color="#E91E63" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>${orderStats.last7DaysRevenue.toFixed(2)}</Text>
+                  <Text style={styles.statLabel}>Revenue (7 days)</Text>
+                  <Text style={styles.statSubtext}>This week</Text>
+                </View>
               </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>${orderStats.last7DaysRevenue.toFixed(2)}</Text>
-                <Text style={styles.statLabel}>Revenue (7 days)</Text>
-              </View>
-            </View>
+
+              {/* Average Order Value */}
+              {orderStats.totalOrders > 0 && (
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}>
+                    <Ionicons name="calculator" size={24} color="#795548" style={styles.statIcon} />
+                    <Text style={styles.statNumber}>${(orderStats.totalRevenue / orderStats.totalOrders).toFixed(2)}</Text>
+                    <Text style={styles.statLabel}>Average Order Value</Text>
+                    <Text style={styles.statSubtext}>Per order</Text>
+                  </View>
+                  <View style={styles.statCard}>
+                    <Ionicons name="stats-chart" size={24} color="#607D8B" style={styles.statIcon} />
+                    <Text style={styles.statNumber}>
+                      {orderStats.last7DaysOrders > 0 ? (orderStats.last7DaysRevenue / orderStats.last7DaysOrders).toFixed(2) : '0.00'}
+                    </Text>
+                    <Text style={styles.statLabel}>Weekly Avg Order</Text>
+                    <Text style={styles.statSubtext}>Last 7 days</Text>
+                  </View>
+                </View>
+              )}
+            </>
           ) : (
             <View style={styles.placeholderContainer}>
+              <Ionicons name="receipt-outline" size={64} color="#ccc" />
               <Text style={styles.placeholderText}>
-                📊 No orders yet! Your order analytics will appear here once customers start placing orders through your mobile ordering system.
+                📊 No orders yet! Your order analytics will appear here once customers start placing pre-orders through your mobile ordering system.
+              </Text>
+              <Text style={styles.placeholderSubtext}>
+                Make sure your menu is set up and customers can find your truck on the map to start receiving orders.
               </Text>
             </View>
           )}
@@ -907,6 +1065,15 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     textAlign: 'center',
     lineHeight: 20,
+    marginTop: 10,
+  },
+  placeholderSubtext: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   statIcon: {
     marginBottom: 8,

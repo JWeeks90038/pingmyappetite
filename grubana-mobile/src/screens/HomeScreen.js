@@ -18,10 +18,10 @@ const HomeScreen = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/grubana-logo-tshirt.png')} 
+          source={require('../../assets/2.png')} 
           style={styles.logo}
         />
-        <Text style={styles.title}>Welcome to Grubana</Text>
+        
         <Text style={styles.subtitle}>
           {userRole === 'owner' 
             ? 'Manage your food truck and connect with customers'
@@ -36,7 +36,7 @@ const HomeScreen = () => {
         {user && (
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeText}>
-              Hello, {userData?.username || userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'there'}!
+              Welcome, {userData?.username || userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'there'}!
             </Text>
           </View>
         )}
@@ -164,10 +164,17 @@ const HomeScreen = () => {
         <View style={styles.aboutSection}>
           <Text style={styles.sectionTitle}>About Grubana</Text>
           <Text style={styles.aboutText}>
-            Grubana connects food truck lovers, truck owners, and event organizers in one amazing community. 
-            Whether you're searching for the perfect meal, running a mobile food business, or organizing 
-            incredible food truck events, Grubana helps you connect through real-time location sharing, 
-            event coordination, and community-driven food discovery.
+            <Text style={styles.aboutBold}>Why We Built Grubana{'\n'}</Text>
+            The mobile food industry faced fragmented communication, unpredictable customer discovery, and missed opportunities for collaboration. Food truck owners struggled with inconsistent foot traffic, customers couldn't reliably find their favorite trucks, and event organizers lacked efficient ways to coordinate with multiple vendors.{'\n\n'}
+            
+            <Text style={styles.aboutBold}>The Problems We Solve{'\n'}</Text>
+            • <Text style={styles.aboutBold}>Customer Discovery:</Text> No more scouring social media and driving around hoping to find food trucks - see real-time locations and menus instantly{'\n'}
+            • <Text style={styles.aboutBold}>Vendor Visibility:</Text> Eliminate unpredictable sales by connecting directly with hungry customers through live tracking, pre-orders and catering/event bookings{'\n'}
+            • <Text style={styles.aboutBold}>Event Coordination:</Text> Streamline vendor management and customer engagement for seamless food truck events{'\n'}
+            • <Text style={styles.aboutBold}>Community Building:</Text> Foster lasting relationships between customers, vendors, and organizers through favorites, reviews, and event participation{'\n\n'}
+            
+            <Text style={styles.aboutBold}>Strengthening the Mobile Food Industry{'\n'}</Text>
+            Grubana connects food truck lovers, truck owners, and event organizers in one powerful community platform. We're enriching the mobile food industry by providing the technology infrastructure that increases efficiency for all participants. Through real-time location sharing, intelligent event coordination, and community-driven food discovery, we're building a stronger, more connected mobile food ecosystem where everyone thrives together.
           </Text>
         </View>
       </View>
@@ -196,9 +203,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   logo: {
-    width: 250,
-    height: 100,
-    marginBottom: 20,
+    width: 450,
+    height: 240,
+    marginBottom: -60,
     resizeMode: 'contain',
   },
   title: {
@@ -336,6 +343,10 @@ const styles = StyleSheet.create({
     color: '#555',
     lineHeight: 22,
     textAlign: 'center',
+  },
+  aboutBold: {
+    fontWeight: 'bold',
+    color: '#2c6f57',
   },
 });
 

@@ -1,54 +1,28 @@
 {
-  "name": "ping-my-appetite",
+  "name": "grubana-monorepo",
+  "version": "2.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "start": "node src/server/index.js"
-  },
-  "dependencies": {
-    "@googlemaps/markerclusterer": "^2.5.3",
-    "@react-google-maps/api": "^2.20.6",
-    "@sendgrid/mail": "^8.1.5",
-    "@stripe/react-stripe-js": "^3.7.0",
-    "@stripe/stripe-js": "^7.3.0",
-    "chart.js": "^4.4.9",
-    "cors": "^2.8.5",
-    "date-fns": "^4.1.0",
-    "dotenv": "^16.5.0",
-    "expo": "^53.0.20",
-    "express": "^5.1.0",
-    "firebase": "^11.6.1",
-    "firebase-admin": "^13.4.0",
-    "lodash": "^4.17.21",
-    "mongoose": "^8.15.1",
-    "multer": "^2.0.0",
-    "qrcode.react": "^4.2.0",
-    "react": "^19.0.0",
-    "react-chartjs-2": "^5.3.0",
-    "react-dom": "^19.0.0",
-    "react-firebase-hooks": "^5.1.1",
-    "react-icons": "^5.5.0",
-    "react-router-dom": "^7.5.0",
-    "stripe": "^18.1.1",
-    "supercluster": "^8.0.1",
-    "twilio": "^5.8.0",
-    "uuid": "^11.1.0"
+    "install:all": "npm install && npm install --prefix web && npm install --prefix grubana-mobile && npm install --prefix shared/functions",
+    "dev:web": "npm run dev --prefix web",
+    "build:web": "npm run build --prefix web",
+    "deploy:web": "npm run deploy --prefix web",
+    "start:mobile": "npm start --prefix grubana-mobile",
+    "build:ios": "npm run build:ios --prefix grubana-mobile",
+    "build:android": "npm run build:android --prefix grubana-mobile",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:all": "npm run build:web && firebase deploy",
+    "clean": "rm -rf node_modules web/node_modules grubana-mobile/node_modules shared/functions/node_modules web/dist",
+    "lint": "echo 'Add linting scripts here'"
   },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.21.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^15.15.0",
-    "vite": "^6.2.0",
-    "vite-plugin-pwa": "^1.0.0"
+    "firebase-tools": "^13.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0"
   }
 }

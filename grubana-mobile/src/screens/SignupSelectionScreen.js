@@ -15,7 +15,7 @@ export default function SignupSelectionScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../../assets/grubana-logo-tshirt.png')} 
+            source={require('../../assets/2.png')} 
             style={styles.logo}
             resizeMode="contain"
           />

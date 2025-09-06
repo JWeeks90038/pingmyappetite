@@ -3,22 +3,22 @@ const admin = require('firebase-admin');
 // Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(require('./serviceAccountKey.json')),
-    databaseURL: 'https://foodtrucktracker-ad6c8-default-rtdb.firebaseio.com'
+    credential: admin.credential.cert(require('../serviceAccountKey.json'))
   });
 }
 
 const db = admin.firestore();
 
 // Default business hours (9 AM to 5 PM, Monday through Saturday)
+// Using ordered structure to ensure correct day sequence in UI
 const DEFAULT_BUSINESS_HOURS = {
-  sunday: { open: '10:00 AM', close: '4:00 PM', closed: true },
   monday: { open: '9:00 AM', close: '5:00 PM', closed: false },
   tuesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
   wednesday: { open: '9:00 AM', close: '5:00 PM', closed: false },
   thursday: { open: '9:00 AM', close: '5:00 PM', closed: false },
   friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
-  saturday: { open: '9:00 AM', close: '5:00 PM', closed: false }
+  saturday: { open: '9:00 AM', close: '5:00 PM', closed: false },
+  sunday: { open: '10:00 AM', close: '4:00 PM', closed: true }
 };
 
 async function setDefaultBusinessHours() {

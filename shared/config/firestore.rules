@@ -293,9 +293,8 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'response', 'updatedAt']);
     }
     
-    // Reviews collection - allow customers to write reviews and everyone to read them
+    // Reviews collection - temporarily allow all operations for debugging
     match /reviews/{reviewId} {
-      // Temporarily allow all operations for debugging
       allow read, write: if true;
     }
   }

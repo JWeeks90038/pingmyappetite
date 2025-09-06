@@ -4,6 +4,15 @@ import path from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, '../shared'),
+      '@functions': path.resolve(__dirname, '../shared/functions'),
+      '@config': path.resolve(__dirname, '../shared/config'),
+      '@utils': path.resolve(__dirname, '../shared/utils')
+    }
+  },
   plugins: [
     react(),
     VitePWA({

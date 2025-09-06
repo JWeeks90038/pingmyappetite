@@ -195,7 +195,7 @@ const OwnerDashboardScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Image 
-            source={require('../../assets/grubana-logo-tshirt.png')}
+            source={require('../../assets/2.png')}
             style={styles.logo}
             resizeMode="contain"
           />

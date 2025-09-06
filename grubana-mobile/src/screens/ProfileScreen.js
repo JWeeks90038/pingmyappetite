@@ -949,7 +949,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/grubana-logo-tshirt.png')} 
+          source={require('../../assets/2.png')} 
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -1023,6 +1023,11 @@ export default function ProfileScreen({ navigation }) {
             {key === 'phone' && (
               <Text style={styles.fieldHelpText}>
                 Format: (123) 456-7890 or +1 (123) 456-7890
+              </Text>
+            )}
+            {key === 'hours' && (
+              <Text style={styles.fieldHelpText}>
+                Please tap Hide Icon and Show Icon on map to reset Open/Closed when changing hours.
               </Text>
             )}
             
@@ -1345,7 +1350,10 @@ export default function ProfileScreen({ navigation }) {
             </View>
 
             <ScrollView style={styles.businessHoursModalContent}>
-              {Object.entries(businessHours).map(([day, hours]) => (
+              {/* Define ordered days to ensure Monday-Sunday sequence */}
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                const hours = businessHours[day];
+                return (
                 <View key={day} style={styles.dayRow}>
                   <View style={styles.dayHeader}>
                     <Text style={styles.dayName}>
@@ -1381,7 +1389,8 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                   )}
                 </View>
-              ))}
+                );
+              })}
             </ScrollView>
           </View>
 
@@ -1443,9 +1452,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerLogo: {
-    width: 50,
-    height: 50,
-    marginBottom: 10,
+    width: 240,
+    height: 168,
+    marginTop: -60,
+    marginBottom: -40,
   },
   title: {
     fontSize: 24,

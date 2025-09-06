@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import PreOrderSystem from './PreOrderSystem';
 
 const PreOrderContent = ({ truckId, cart, setCart }) => {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [showPreOrderSystem, setShowPreOrderSystem] = useState(false);
 
   useEffect(() => {
     if (!truckId) {
@@ -63,10 +65,46 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
     });
   };
 
+  const removeFromCart = (itemId) => {
+    setCart(currentCart => {
+      return currentCart.reduce((acc, cartItem) => {
+        if (cartItem.id === itemId) {
+          if (cartItem.quantity > 1) {
+            acc.push({ ...cartItem, quantity: cartItem.quantity - 1 });
+          }
+          // If quantity is 1, don't add to acc (removes item)
+        } else {
+          acc.push(cartItem);
+        }
+        return acc;
+      }, []);
+    });
+  };
+
   const getItemQuantityInCart = (itemId) => {
     const cartItem = cart.find(item => item.id === itemId);
     return cartItem ? cartItem.quantity : 0;
   };
+
+  const handleOrderComplete = (orderId, orderData) => {
+    console.log('✅ Order completed:', orderId);
+    setShowPreOrderSystem(false);
+    // Clear cart after successful order
+    setCart([]);
+  };
+
+  // Toggle between menu and pre-order system
+  if (showPreOrderSystem) {
+    return (
+      <PreOrderSystem 
+        truckId={truckId}
+        menuItems={menuItems}
+        cart={cart}
+        setCart={setCart}
+        onOrderComplete={handleOrderComplete}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -169,46 +207,81 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
                     <div style={{ 
                       fontSize: '18px', 
                       fontWeight: 'bold', 
-                      color: '#2c6f57' 
+                      color: '#2c6f57',
+                      marginBottom: '10px' 
                     }}>
                       ${parseFloat(item.price || 0).toFixed(2)}
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => addToCart(item)}
-                    style={{
-                      backgroundColor: '#2c6f57',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      position: 'relative'
-                    }}
-                  >
-                    Add to Cart
-                    {quantityInCart > 0 && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '-8px',
-                        right: '-8px',
-                        backgroundColor: '#ff6b6b',
-                        color: 'white',
-                        borderRadius: '50%',
-                        width: '20px',
-                        height: '20px',
-                        fontSize: '12px',
+                  {/* Cart Controls */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    {quantityInCart === 0 ? (
+                      <button
+                        onClick={() => addToCart(item)}
+                        style={{
+                          backgroundColor: '#2c6f57',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '8px 16px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        Add to Cart
+                      </button>
+                    ) : (
+                      <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        gap: '8px'
                       }}>
-                        {quantityInCart}
-                      </span>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          style={{
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          −
+                        </button>
+                        
+                        <span style={{
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          padding: '0 8px'
+                        }}>
+                          {quantityInCart}
+                        </span>
+                        
+                        <button
+                          onClick={() => addToCart(item)}
+                          style={{
+                            backgroundColor: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </div>
                 
                 {item.description && (
@@ -241,19 +314,87 @@ const PreOrderContent = ({ truckId, cart, setCart }) => {
   };
 
   return (
-    <div>
-      <h3 style={{ 
-        color: '#333', 
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+      {/* Header with Cart Summary */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '20px',
-        fontSize: '24px'
+        padding: '15px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
       }}>
-        Menu
-      </h3>
+        <h3 style={{ 
+          margin: 0,
+          color: '#2c6f57', 
+          fontSize: '24px'
+        }}>
+          🍽️ Menu
+        </h3>
+        
+        {cart.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ fontSize: '16px', color: '#666' }}>
+              {cart.reduce((total, item) => total + item.quantity, 0)} items in cart
+            </div>
+            <button
+              onClick={() => setShowPreOrderSystem(true)}
+              style={{
+                backgroundColor: '#2c6f57',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              🛒 View Cart & Order
+            </button>
+          </div>
+        )}
+      </div>
       
       {categories.length > 0 ? (
         categories.map(category => renderItemsByCategory(category))
       ) : (
         <div style={{ color: '#666' }}>No menu categories found</div>
+      )}
+
+      {/* Floating Cart Button (when cart has items) */}
+      {cart.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <button
+            onClick={() => setShowPreOrderSystem(true)}
+            style={{
+              backgroundColor: '#2c6f57',
+              color: 'white',
+              border: 'none',
+              padding: '15px 20px',
+              borderRadius: '50px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            🛒 {cart.reduce((total, item) => total + item.quantity, 0)} items
+          </button>
+        </div>
       )}
     </div>
   );

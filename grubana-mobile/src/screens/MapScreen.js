@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
@@ -59,8 +59,7 @@ export default function MapScreen() {
     }
   }, [user]);
   
-  // TEMPORARILY DISABLED: Load user's favorites - commenting out to test if this causes map issues
-  /*
+  // Load user's favorites - re-enabled
   useEffect(() => {
     if (!user?.uid) {
       setUserFavorites(new Set());
@@ -83,7 +82,8 @@ export default function MapScreen() {
         }
       });
       
-      console.log('❤️ FAVORITES: Loaded', favoriteSet.size, 'favorites for user');
+      console.log('❤️ FAVORITES: Real-time update - Loaded', favoriteSet.size, 'favorites for user');
+      console.log('❤️ FAVORITES: Favorite truck IDs:', Array.from(favoriteSet));
       setUserFavorites(favoriteSet);
     }, (error) => {
       console.error('❤️ FAVORITES: Error loading favorites:', error);
@@ -93,15 +93,8 @@ export default function MapScreen() {
 
     return () => unsubscribe();
   }, [user?.uid]);
-  */
   
-  // Set empty favorites as fallback while disabled
-  useEffect(() => {
-    setUserFavorites(new Set());
-  }, []);
-
-  // TEMPORARILY DISABLED: Load favorite counts for all trucks (for owners to see analytics)
-  /*
+  // Load favorite counts for all trucks (for owners to see analytics)
   useEffect(() => {
     if (!foodTrucks.length) return;
 
@@ -134,7 +127,6 @@ export default function MapScreen() {
 
     loadFavoriteCounts();
   }, [foodTrucks]);
-  */
   
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -198,6 +190,16 @@ export default function MapScreen() {
 
   // Catering booking states
   const [showCateringModal, setShowCateringModal] = useState(false);
+  
+  // Reviews states
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    comment: '',
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
   
   // NEW item tracking (client-side workaround)
   const [newItemIds, setNewItemIds] = useState(new Set());
@@ -661,6 +663,10 @@ export default function MapScreen() {
       console.log('🔍 Are they the same?', selectedTruck.ownerId === user?.uid);
       loadMenuItems(selectedTruck.ownerId);
       
+      // Load reviews for rating display
+      console.log('⭐ TRUCK MODAL DEBUG: About to load reviews for truck:', selectedTruck.ownerId);
+      loadReviews(selectedTruck.ownerId);
+      
       // Drops will be loaded by the real-time listener useEffect
     } else {
       console.log('🍽️ MODAL DEBUG: Not loading menu items because:', {
@@ -875,9 +881,11 @@ export default function MapScreen() {
 
     try {
       const isFavorited = userFavorites.has(truckId);
+      console.log('❤️ FAVORITES: Toggle action - truckId:', truckId, 'isFavorited:', isFavorited);
+      console.log('❤️ FAVORITES: Current favorites before action:', Array.from(userFavorites));
       
       if (isFavorited) {
-        // Remove from favorites
+        // Remove from favorites - delete ALL matching records (handles duplicates)
         console.log('❤️ FAVORITES: Removing favorite for truck:', truckName);
         
         const favoritesQuery = query(
@@ -887,9 +895,17 @@ export default function MapScreen() {
         );
         
         const snapshot = await getDocs(favoritesQuery);
+        console.log('❤️ FAVORITES: Found', snapshot.size, 'favorite records to delete');
+        
+        // Delete ALL matching records (handles duplicates)
         if (!snapshot.empty) {
-          await deleteDoc(doc(db, 'favorites', snapshot.docs[0].id));
-          console.log('❤️ FAVORITES: Successfully removed favorite');
+          const deletePromises = snapshot.docs.map(docSnapshot => 
+            deleteDoc(doc(db, 'favorites', docSnapshot.id))
+          );
+          await Promise.all(deletePromises);
+          console.log('❤️ FAVORITES: Successfully removed', snapshot.size, 'favorite records from Firebase');
+        } else {
+          console.log('❤️ FAVORITES: No favorite record found to delete');
         }
       } else {
         // Add to favorites
@@ -902,12 +918,330 @@ export default function MapScreen() {
           createdAt: serverTimestamp(),
         });
         
-        console.log('❤️ FAVORITES: Successfully added favorite');
+        console.log('❤️ FAVORITES: Successfully added favorite to Firebase');
       }
     } catch (error) {
       console.error('❤️ FAVORITES: Error toggling favorite:', error);
       Alert.alert('Error', 'Failed to update favorite. Please try again.');
     }
+  };
+
+  // Helper function to get rating summary for a truck (for map markers)
+  const getTruckRatingSummary = async (truckId) => {
+    if (!truckId) return { averageRating: 0, reviewCount: 0 };
+    
+    try {
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('truckId', '==', truckId)
+      );
+      
+      const snapshot = await getDocs(reviewsQuery);
+      const reviewsData = snapshot.docs.map(doc => doc.data());
+      
+      if (reviewsData.length === 0) {
+        return { averageRating: 0, reviewCount: 0 };
+      }
+      
+      const total = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
+      const average = total / reviewsData.length;
+      
+      return {
+        averageRating: parseFloat(average.toFixed(1)),
+        reviewCount: reviewsData.length
+      };
+    } catch (error) {
+      console.error('❌ Error loading rating summary for truck:', truckId, error);
+      return { averageRating: 0, reviewCount: 0 };
+    }
+  };
+
+  // Reviews functionality
+  const loadReviews = async (truckId) => {
+    if (!truckId) {
+      console.log('⭐ REVIEWS DEBUG: No truckId provided to loadReviews');
+      return;
+    }
+    
+    console.log('⭐ REVIEWS DEBUG: Starting loadReviews for truck:', truckId);
+    setLoadingReviews(true);
+    try {
+      console.log('⭐ Loading reviews for truck:', truckId);
+      console.log('⭐ Current user:', user?.uid);
+      console.log('⭐ User auth state:', !!user);
+      console.log('⭐ Reviews collection reference created');
+      
+      // Try with orderBy first, fallback to simple query if index not ready
+      let reviewsQuery;
+      try {
+        console.log('⭐ Query created (with orderBy), executing...');
+        reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId),
+          orderBy('createdAt', 'desc')
+        );
+      } catch (indexError) {
+        console.log('⭐ Index not ready, using simple query without orderBy');
+        reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId)
+        );
+      }
+      
+      const snapshot = await getDocs(reviewsQuery);
+      const reviewsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let createdAt = new Date();
+        
+        if (data.createdAt) {
+          if (typeof data.createdAt.toDate === 'function') {
+            createdAt = data.createdAt.toDate();
+          } else if (data.createdAt.seconds) {
+            // Handle Firestore timestamp object
+            createdAt = new Date(data.createdAt.seconds * 1000);
+          } else if (data.createdAt instanceof Date) {
+            createdAt = data.createdAt;
+          } else {
+            createdAt = new Date(data.createdAt);
+          }
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: createdAt,
+        };
+      });
+      
+      // Sort manually if we couldn't use orderBy
+      reviewsData.sort((a, b) => b.createdAt - a.createdAt);
+      
+      console.log('⭐ Loaded', reviewsData.length, 'reviews');
+      console.log('⭐ Reviews data:', reviewsData);
+      setReviews(reviewsData);
+    } catch (error) {
+      console.error('⭐ Error loading reviews:', error);
+      console.error('⭐ Error code:', error.code);
+      console.error('⭐ Error message:', error.message);
+      
+      if (error.code === 'permission-denied') {
+        console.log('⭐ Permission denied - checking auth state');
+        console.log('⭐ User authenticated:', !!user);
+        console.log('⭐ User UID:', user?.uid);
+      }
+      
+      // Try simple query without any ordering if the complex query fails
+      try {
+        console.log('⭐ Retrying with simple query...');
+        const simpleQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId)
+        );
+        const simpleSnapshot = await getDocs(simpleQuery);
+        const simpleReviewsData = simpleSnapshot.docs.map(doc => {
+          const data = doc.data();
+          let createdAt = new Date();
+          
+          if (data.createdAt) {
+            if (typeof data.createdAt.toDate === 'function') {
+              createdAt = data.createdAt.toDate();
+            } else if (data.createdAt.seconds) {
+              // Handle Firestore timestamp object
+              createdAt = new Date(data.createdAt.seconds * 1000);
+            } else if (data.createdAt instanceof Date) {
+              createdAt = data.createdAt;
+            } else {
+              createdAt = new Date(data.createdAt);
+            }
+          }
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: createdAt,
+          };
+        });
+        
+        // Sort manually
+        simpleReviewsData.sort((a, b) => b.createdAt - a.createdAt);
+        
+        console.log('⭐ Simple query successful, loaded', simpleReviewsData.length, 'reviews');
+        setReviews(simpleReviewsData);
+      } catch (fallbackError) {
+        console.error('⭐ Fallback query also failed:', fallbackError);
+        Alert.alert('Error', 'Failed to load reviews. Please try again later.');
+      }
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const submitReview = async () => {
+    console.log('⭐ REVIEW DEBUG: Starting review submission');
+    console.log('⭐ REVIEW DEBUG: User:', user?.uid);
+    console.log('⭐ REVIEW DEBUG: Truck ownerId:', selectedTruck?.ownerId);
+    console.log('⭐ REVIEW DEBUG: User role:', userRole);
+    console.log('⭐ REVIEW DEBUG: Is user the truck owner?', user?.uid === selectedTruck?.ownerId);
+    
+    if (!user || !selectedTruck?.ownerId) {
+      Alert.alert('Error', 'Unable to submit review. Please try again.');
+      return;
+    }
+
+    // Check if user is trying to review their own truck
+    if (user.uid === selectedTruck.ownerId) {
+      Alert.alert('Error', 'You cannot review your own food truck.');
+      return;
+    }
+
+    if (!newReview.comment.trim()) {
+      Alert.alert('Error', 'Please write a comment for your review.');
+      return;
+    }
+
+    // Check if user already reviewed this truck
+    try {
+      console.log('⭐ REVIEW DEBUG: Checking for existing reviews...');
+      const existingReviewQuery = query(
+        collection(db, 'reviews'),
+        where('truckId', '==', selectedTruck.ownerId),
+        where('userId', '==', user.uid)
+      );
+      
+      const existingSnapshot = await getDocs(existingReviewQuery);
+      if (!existingSnapshot.empty) {
+        Alert.alert('Info', 'You have already reviewed this food truck. You can only submit one review per truck.');
+        return;
+      }
+
+      console.log('⭐ REVIEW DEBUG: No existing review found, proceeding with submission...');
+      setSubmittingReview(true);
+      
+      const reviewData = {
+        truckId: selectedTruck.ownerId,
+        truckName: selectedTruck.name || 'Food Truck',
+        userId: user.uid,
+        userName: userData?.username || userData?.displayName || user?.displayName || 'Anonymous',
+        rating: newReview.rating,
+        comment: newReview.comment.trim(),
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log('⭐ REVIEW DEBUG: Review data to submit:', {
+        ...reviewData,
+        createdAt: 'serverTimestamp()'
+      });
+      
+      console.log('⭐ REVIEW DEBUG: User auth state details:', {
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        isAnonymous: user.isAnonymous,
+        accessToken: user.accessToken ? 'Present' : 'Missing',
+        auth: auth?.currentUser ? 'Active' : 'Inactive'
+      });
+      
+      console.log('⭐ REVIEW DEBUG: About to attempt Firestore write...');
+      console.log('⭐ REVIEW DEBUG: Firebase app instance:', !!db);
+      console.log('⭐ REVIEW DEBUG: Collection reference creating...');
+      
+      // Test Firebase connectivity first
+      console.log('⭐ CONNECTIVITY TEST: Testing basic Firestore write...');
+      try {
+        const testCollection = collection(db, 'test');
+        await addDoc(testCollection, { 
+          test: 'connectivity', 
+          timestamp: new Date().toISOString(),
+          user: user.uid 
+        });
+        console.log('⭐ CONNECTIVITY TEST: Basic write successful');
+      } catch (testError) {
+        console.error('⭐ CONNECTIVITY TEST: Basic write failed:', testError);
+        throw new Error(`Firebase connectivity issue: ${testError.message}`);
+      }
+      
+      // Test writing to reviews collection specifically
+      console.log('⭐ CONNECTIVITY TEST: Testing reviews collection write...');
+      try {
+        const reviewsCollection = collection(db, 'reviews');
+        const testReviewData = {
+          userId: user.uid,
+          truckId: selectedTruck.ownerId,
+          rating: 5,
+          comment: 'Test review',
+          createdAt: new Date().toISOString(),
+          truckName: selectedTruck.name,
+          userName: userData?.username || userData?.displayName || user?.displayName || 'Anonymous'
+        };
+        await addDoc(reviewsCollection, testReviewData);
+        console.log('⭐ CONNECTIVITY TEST: Reviews collection write successful');
+      } catch (testError) {
+        console.error('⭐ CONNECTIVITY TEST: Reviews collection write failed:', testError);
+        throw new Error(`Reviews collection issue: ${testError.message}`);
+      }
+      
+      const reviewsCollection = collection(db, 'reviews');
+      console.log('⭐ REVIEW DEBUG: Collection reference created successfully');
+      
+      await addDoc(reviewsCollection, reviewData);
+      
+      console.log('⭐ Review submitted successfully');
+      Alert.alert('Success', 'Your review has been submitted!');
+      
+      // Reset form and reload reviews with a small delay to ensure document is saved
+      setNewReview({ rating: 5, comment: '' });
+      
+      // Small delay to ensure the review document is properly written before reloading
+      setTimeout(() => {
+        loadReviews(selectedTruck.ownerId);
+      }, 500);
+      
+    } catch (error) {
+      console.error('⭐ Error submitting review:', error);
+      console.error('⭐ Error details:', {
+        code: error.code,
+        message: error.message,
+        name: error.name,
+        stack: error.stack?.substring(0, 200),
+        customData: error.customData
+      });
+      
+      // Try to get more Firebase-specific error details
+      if (error.code) {
+        console.error('⭐ Firebase error code:', error.code);
+      }
+      
+      Alert.alert('Error', `Failed to submit review: ${error.message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const renderStarRating = (rating, onPress = null, size = 24) => {
+    return (
+      <View style={styles.starRating}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => onPress && onPress(star)}
+            disabled={!onPress}
+            style={styles.starButton}
+          >
+            <Ionicons
+              name={star <= rating ? 'star' : 'star-outline'}
+              size={size}
+              color={star <= rating ? '#FFD700' : '#ddd'}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const getAverageRating = () => {
+    if (reviews.length === 0) return 0;
+    const sum = reviews.reduce((total, review) => total + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
   };
 
   // Drops functionality
@@ -3108,6 +3442,11 @@ export default function MapScreen() {
               console.log('⚡ Skipping image processing for distant truck:', truck.truckName);
             }
             
+            // Load rating data for this truck (in batch processing)
+            console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+            const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
+            console.log('⭐ Rating data loaded:', ratingData);
+            
             const personalizedIcon = generatePersonalizedIcon({
               ...truck,
               base64CoverImage: base64Image
@@ -3117,7 +3456,10 @@ export default function MapScreen() {
               ...truck,
               base64CoverImage: base64Image,
               hasCustomIcon: !!base64Image,
-              personalizedIcon: personalizedIcon
+              personalizedIcon: personalizedIcon,
+              // Add rating data
+              averageRating: ratingData.averageRating,
+              reviewCount: ratingData.reviewCount
             };
           })
         );
@@ -3136,6 +3478,11 @@ export default function MapScreen() {
             base64Image = await convertImageToBase64(truck.coverUrl);
           }
           
+          // Load rating data for this truck
+          console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+          const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
+          console.log('⭐ Rating data loaded:', ratingData);
+          
           const personalizedIcon = generatePersonalizedIcon({
             ...truck,
             base64CoverImage: base64Image
@@ -3145,7 +3492,10 @@ export default function MapScreen() {
             ...truck,
             base64CoverImage: base64Image,
             hasCustomIcon: !!base64Image,
-            personalizedIcon: personalizedIcon
+            personalizedIcon: personalizedIcon,
+            // Add rating data
+            averageRating: ratingData.averageRating,
+            reviewCount: ratingData.reviewCount
           };
         })
       );
@@ -3306,6 +3656,34 @@ export default function MapScreen() {
                 color: #2d3748;
                 margin-bottom: 8px;
                 text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            }
+            
+            .truck-rating-popup {
+                margin: 0 15px 12px 15px;
+                padding: 8px 12px;
+                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                border-radius: 8px;
+                border: 1px solid #f59e0b;
+            }
+            
+            .rating-stars {
+                font-size: 16px;
+                margin-bottom: 4px;
+                letter-spacing: 2px;
+            }
+            
+            .rating-text {
+                font-size: 12px;
+                font-weight: 600;
+                color: #92400e;
+                text-align: center;
+            }
+            
+            .no-rating {
+                font-size: 11px;
+                color: #6b7280;
+                font-style: italic;
+                text-align: center;
             }
             
             .truck-status {
@@ -3673,6 +4051,32 @@ export default function MapScreen() {
             }
 
             console.log('🔧 WEBVIEW: About to define checkTruckOpenStatus function...');
+            
+            // Star rating generator function for popup
+            function generateStarRating(rating) {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                
+                let stars = '';
+                
+                // Full stars
+                for (let i = 0; i < fullStars; i++) {
+                    stars += '⭐';
+                }
+                
+                // Half star
+                if (hasHalfStar) {
+                    stars += '⭐'; // Using full star for simplicity in popup
+                }
+                
+                // Empty stars
+                for (let i = 0; i < emptyStars; i++) {
+                    stars += '☆';
+                }
+                
+                return stars;
+            }
             
             // Business hours status checking function
             function checkTruckOpenStatus(businessHours) {
@@ -4251,6 +4655,21 @@ export default function MapScreen() {
                                     \${truck.base64CoverImage ? \`<img src="\${truck.base64CoverImage}" class="truck-cover-image" />\` : truck.coverUrl ? \`<img src="\${truck.coverUrl}" class="truck-cover-image" onerror="this.style.display='none'" />\` : ''}
                                     <div class="truck-name">\${truckName}</div>
                                 </div>
+                                
+                                <!-- Rating Display in Popup -->
+                                <div class="truck-rating-popup">
+                                    \${truck.reviewCount > 0 ? \`
+                                        <div class="rating-stars">
+                                            \${generateStarRating(truck.averageRating)}
+                                        </div>
+                                        <div class="rating-text">
+                                            \${truck.averageRating}/5 (\${truck.reviewCount} review\${truck.reviewCount !== 1 ? 's' : ''})
+                                        </div>
+                                    \` : \`
+                                        <div class="no-rating">No reviews yet</div>
+                                    \`}
+                                </div>
+                                
                                 <div class="truck-status \${statusClass}">\${statusEmoji} \${truckStatus.toUpperCase()}</div>
                                 <div class="truck-details">\${(truck.cuisine || truck.cuisineType || truck.type || 'American').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'American').slice(1)}</div>
                                 <div class="truck-details"> Type: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
@@ -5534,7 +5953,7 @@ export default function MapScreen() {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/grubana-logo-tshirt.png')} 
+          source={require('../../assets/2.png')} 
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -5604,14 +6023,14 @@ export default function MapScreen() {
                 color="white" 
               />
               <Text style={styles.toggleText}>
-                {showTruckIcon ? 'Hide Truck' : 'Show Truck'}
+                {showTruckIcon ? 'Hide Icon' : 'Show Icon'}
               </Text>
             </View>
           </TouchableOpacity>
           
           {/* Visibility Info Text */}
           <Text style={styles.visibilityInfoText}>
-            💡 Your truck icon stays visible to customers even when you log out, unless "Hide Truck" is enabled
+            💡 Your map icon stays visible to customers and event organizers even when you log out, unless "Hide Icon" is enabled
           </Text>
         </View>
       )}
@@ -5648,6 +6067,29 @@ export default function MapScreen() {
               <Text style={styles.modalSubtitle}>
                 {getCuisineDisplayName(selectedTruck?.cuisine)} Cuisine
               </Text>
+              
+              {/* Clean Rating Display */}
+              {(() => {
+                console.log('⭐ RATING DEBUG: Rendering rating display');
+                console.log('⭐ RATING DEBUG: reviews.length:', reviews.length);
+                console.log('⭐ RATING DEBUG: selectedTruck ownerId:', selectedTruck?.ownerId);
+                console.log('⭐ RATING DEBUG: reviews data:', reviews);
+                return null;
+              })()}
+              {reviews.length > 0 ? (
+                <View style={styles.ratingContainer}>
+                  <View style={styles.starRatingContainer}>
+                    {renderStarRating(parseFloat(getAverageRating()), null, 20)}
+                  </View>
+                  <Text style={styles.averageRatingText}>
+                    {getAverageRating()} ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.averageRatingText, {opacity: 0.7, marginTop: 8}]}>
+                  No reviews yet
+                </Text>
+              )}
             </View>
             
             <View style={styles.headerButtonsContainer}>
@@ -5693,6 +6135,33 @@ export default function MapScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
+              
+              {/* Reviews Button - Show for all users */}
+              <TouchableOpacity 
+                style={styles.reviewsButton}
+                onPress={() => {
+                  console.log('⭐ Reviews button pressed for truck:', selectedTruck?.name);
+                  console.log('⭐ About to set showReviewsModal to true');
+                  
+                  // Close truck modal first to prevent modal conflicts
+                  setShowMenuModal(false);
+                  
+                  // Small delay to ensure truck modal closes before opening reviews modal
+                  setTimeout(() => {
+                    setShowReviewsModal(true);
+                    console.log('⭐ Called setShowReviewsModal(true)');
+                    loadReviews(selectedTruck?.ownerId);
+                  }, 100);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons 
+                  name="star" 
+                  size={20} 
+                  color="#2c6f57" 
+                />
+                <Text style={styles.reviewsButtonText}>Reviews</Text>
+              </TouchableOpacity>
               
               {/* Cart Button */}
               <TouchableOpacity 
@@ -7506,6 +7975,142 @@ export default function MapScreen() {
         </View>
       </Modal>
 
+      {/* Reviews Modal */}
+      <Modal
+        visible={showReviewsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowReviewsModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          {/* Close Button - Positioned relative to modalContainer, not modalHeader */}
+          <TouchableOpacity 
+            style={styles.reviewsCloseButton}
+            onPress={() => {
+              console.log('❌ Reviews modal close button pressed - returning to menu modal');
+              setShowReviewsModal(false);
+              // Small delay to ensure reviews modal closes before opening menu modal
+              setTimeout(() => {
+                setShowMenuModal(true);
+              }, 100);
+            }}
+            activeOpacity={0.6}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          >
+            <Text style={styles.reviewsCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.modalHeader}>
+            {/* Grubana Logo - Centered in header */}
+            <View style={styles.headerLogoContainer}>
+              <Image 
+                source={require('../../assets/2.png')}
+                style={styles.headerLogo}
+                resizeMode="center"
+              />
+            </View>
+            
+            <View style={styles.modalTitleContainer}>
+              <Text style={styles.modalTitle}>
+                ⭐ Reviews for {selectedTruck?.name || 'Food Truck'}
+              </Text>
+              {reviews.length > 0 && (
+                <Text style={styles.modalSubtitle}>
+                  {getAverageRating()} ⭐ ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Truck Logo/Cover Image - Positioned below header */}
+          {selectedTruck?.coverUrl && (
+            <View style={styles.reviewModalImageContainer}>
+              <Image 
+                source={{ uri: selectedTruck.coverUrl }}
+                style={styles.reviewModalTruckImage}
+                resizeMode="cover"
+              />
+            </View>
+          )}
+
+          <ScrollView style={styles.modalContent}>
+            {/* Write Review Section - Only for customers */}
+            {userRole === 'customer' && (
+              <View style={styles.reviewFormSection}>
+                <Text style={styles.sectionTitle}>
+                  {selectedTruck?.name || 'Food Truck'} 
+                </Text>
+                <View style={styles.reviewForm}>
+                  <Text style={styles.ratingLabel}>Select Rating:</Text>
+                  {renderStarRating(newReview.rating, (rating) => setNewReview(prev => ({ ...prev, rating })))}
+                  
+                  <Text style={styles.commentLabel}>Write a Review:</Text>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Share your experience with this food truck..."
+                    value={newReview.comment}
+                    onChangeText={(text) => setNewReview(prev => ({ ...prev, comment: text }))}
+                    multiline
+                    numberOfLines={4}
+                    maxLength={500}
+                  />
+                  <Text style={styles.characterCount}>{newReview.comment.length}/500</Text>
+                  
+                  <TouchableOpacity
+                    style={[styles.submitReviewButton, submittingReview && styles.disabledButton]}
+                    onPress={submitReview}
+                    disabled={submittingReview}
+                  >
+                    {submittingReview ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Reviews List */}
+            <View style={styles.reviewsListSection}>
+              <Text style={styles.sectionTitle}>📝 Customer Reviews</Text>
+              
+              {loadingReviews ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#2c6f57" />
+                  <Text style={styles.loadingText}>Loading reviews...</Text>
+                </View>
+              ) : reviews.length === 0 ? (
+                <View style={styles.emptyReviewsContainer}>
+                  <Text style={styles.emptyReviewsIcon}>⭐</Text>
+                  <Text style={styles.emptyReviewsTitle}>No Reviews Yet</Text>
+                  <Text style={styles.emptyReviewsText}>
+                    Be the first to share your experience with this food truck!
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.reviewsList}>
+                  {reviews.map((review) => (
+                    <View key={review.id} style={styles.reviewCard}>
+                      <View style={styles.reviewHeader}>
+                        <Text style={styles.reviewerName}>{review.userName}</Text>
+                        <View style={styles.reviewRating}>
+                          {renderStarRating(review.rating, null, 16)}
+                        </View>
+                      </View>
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                      <Text style={styles.reviewDate}>
+                        {review.createdAt.toLocaleDateString()}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* Cuisine Filter Modal */}
       <Modal
         animationType="slide"
@@ -7596,8 +8201,6 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-
-
     </View>
   );
 }
@@ -7627,8 +8230,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   headerLogo: {
-    width: 120,
-    height: 48,
+    width: 240,
+    height: 132,
+    marginTop: -20,
+    marginBottom: -35,
   },
   title: {
     fontSize: 24,
@@ -7712,7 +8317,7 @@ const styles = StyleSheet.create({
   modalHeader: {
     backgroundColor: '#2c6f57', // Green header
     padding: 15,
-    paddingTop: 50,
+    paddingTop: 35,
     paddingRight: 60,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -7727,6 +8332,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  headerLogoContainer: {
+    position: 'absolute',
+    top: 5,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  headerLogo: {
+    width: 180,
+    height: 60,
+    backgroundColor: 'transparent',
+    marginBottom: 15,
   },
   closeButton: {
     position: 'absolute',
@@ -7753,11 +8372,50 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff', // White text on green background
     marginBottom: 5,
+    textAlign: 'center',
+  },
+  reviewModalImageContainer: {
+    alignItems: 'center',
+    paddingVertical: 15,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  reviewModalTruckImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#2c6f57',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   modalSubtitle: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)', // Light white subtitle
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    justifyContent: 'center',
+  },
+  starRatingContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  averageRatingText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
   modalContent: {
     flex: 1,
@@ -7771,6 +8429,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c6f57',
     marginBottom: 10,
+    textAlign: 'center',
   },
   loadingMenuText: {
     fontSize: 14,
@@ -8429,6 +9088,7 @@ const styles = StyleSheet.create({
   modalTitleContainer: {
     flex: 1,
     alignItems: 'center',
+    marginTop: 25,
   },
   cartButton: {
     borderRadius: 25,
@@ -8588,6 +9248,30 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   cateringButtonText: {
+    color: '#2c6f57',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reviewsButton: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 2,
+    borderColor: '#2c6f57',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  reviewsButtonText: {
     color: '#2c6f57',
     fontSize: 12,
     fontWeight: '600',
@@ -8929,4 +9613,368 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#bbb',
   },
+  
+  // Reviews Modal Styles
+  reviewFormSection: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  reviewForm: {
+    gap: 15,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  starRating: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 15,
+  },
+  starButton: {
+    padding: 4,
+  },
+  commentLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    minHeight: 100,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  submitReviewButton: {
+    backgroundColor: '#2c6f57',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  submitReviewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reviewsListSection: {
+    marginBottom: 20,
+  },
+  emptyReviewsContainer: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  emptyReviewsIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyReviewsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  reviewsList: {
+    gap: 15,
+  },
+  reviewCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  
+  // Reviews Modal Styles
+  reviewsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewsModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    borderWidth: 2,
+    borderColor: '#2c6f57',
+  },
+  reviewsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  reviewsModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  reviewsCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 12,
+    backgroundColor: '#d3d3d3',
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99999,
+    elevation: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  reviewsCloseButtonText: {
+    fontSize: 24,
+    color: '#333',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  averageRatingContainer: {
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+  },
+  averageRatingText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 5,
+  },
+  averageStars: {
+    flexDirection: 'row',
+    marginBottom: 5,
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: '#666',
+  },
+  leaveReviewSection: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  starRatingContainer: {
+    marginBottom: 15,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  starRatingInput: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  commentInputContainer: {
+    marginBottom: 15,
+  },
+  commentLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    textAlignVertical: 'top',
+    minHeight: 100,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  submitReviewButton: {
+    backgroundColor: '#2c6f57',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitReviewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  reviewsListSection: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  reviewsList: {
+    maxHeight: 300,
+  },
+  reviewCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  emptyReviewsContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyReviewsIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyReviewsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+
 });

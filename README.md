@@ -1,6 +1,160 @@
-# Grubana
+# Grubana Monorepo
 
-Grubana is a real-time street food discovery platform that connects users with local food trucks, trailers, and carts. This repository contains the frontend code for the Grubana web app, built with React, Firebase (Client SDK), and Map APIs.
+A comprehensive food truck locator platform with separate web and mobile applications.
+
+## Project Structure
+
+```
+grubana-monorepo/
+├── web/                          # React web application
+│   ├── src/                     # Web application source code
+│   ├── public/                  # Static assets for web
+│   ├── dist/                    # Built web application
+│   ├── package.json             # Web dependencies
+│   ├── vite.config.js          # Vite configuration with path aliases
+│   └── .env                     # Web environment variables
+│
+├── grubana-mobile/              # React Native mobile app
+│   ├── screens/                 # Mobile screens
+│   ├── components/              # Mobile components
+│   ├── navigation/              # Navigation configuration
+│   ├── context/                 # React Context providers
+│   ├── functions/               # Mobile-specific cloud functions
+│   ├── App.js                   # Main mobile app entry point
+│   ├── app.json                 # Expo configuration
+│   ├── package.json             # Mobile dependencies
+│   ├── babel.config.js          # Babel configuration
+│   └── .env                     # Mobile environment variables
+│
+├── shared/                      # Shared resources
+│   ├── functions/               # Firebase Cloud Functions
+│   ├── config/                  # Firebase configuration files
+│   │   ├── firebase.json
+│   │   ├── firestore.rules
+│   │   ├── firestore.indexes.json
+│   │   └── storage.rules
+│   └── utils/                   # Shared utility functions
+│
+├── scripts/                     # Development and debugging scripts
+│   ├── debug-*.js              # Debugging utilities
+│   ├── test-*.js               # Testing scripts
+│   └── fix-*.js                # Data migration scripts
+│
+├── firebase.json                # Main Firebase configuration
+├── package.json                 # Root package.json for monorepo
+└── README.md                    # This file
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm 8+
+- Firebase CLI
+- Expo CLI (for mobile development)
+
+### Installation
+
+1. **Install all dependencies:**
+   ```bash
+   npm run install:all
+   ```
+
+2. **Set up environment variables:**
+   - Copy environment variables to `web/.env` and `grubana-mobile/.env`
+   - Configure Firebase project settings
+
+### Development
+
+#### Web Application
+```bash
+# Start web development server
+npm run dev:web
+
+# Build web application
+npm run build:web
+
+# Deploy web application
+npm run deploy:web
+```
+
+#### Mobile Application
+```bash
+# Start mobile development server
+npm run start:mobile
+
+# Build for iOS
+npm run build:ios
+
+# Build for Android
+npm run build:android
+```
+
+#### Firebase Functions
+```bash
+# Deploy functions
+npm run deploy:functions
+
+# Deploy everything (web + functions)
+npm run deploy:all
+```
+
+## Path Aliases
+
+The project uses path aliases for cleaner imports:
+
+### Web Application
+- `@/` → `./src/`
+- `@shared/` → `../shared/`
+- `@functions/` → `../shared/functions/`
+- `@config/` → `../shared/config/`
+- `@utils/` → `../shared/utils/`
+
+### Mobile Application
+- Imports use relative paths to shared resources
+- Mobile-specific functions in `grubana-mobile/functions/`
+
+## Environment Variables
+
+### Web (.env)
+- `VITE_GOOGLE_MAPS_API_KEY` - Google Maps API key
+- `VITE_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
+- `VITE_API_URL` - Backend API URL
+- `VITE_FIREBASE_VAPID_KEY` - Firebase push notification key
+
+### Mobile (.env)
+- `GOOGLE_MAPS_API_KEY` - Google Maps API key
+- `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
+- `API_URL` - Backend API URL
+- `FIREBASE_VAPID_KEY` - Firebase push notification key
+
+## Deployment
+
+### Web Application
+The web app is deployed using Firebase Hosting:
+```bash
+npm run deploy:web
+```
+
+### Mobile Application
+Use Expo Application Services (EAS):
+```bash
+# iOS
+npm run build:ios
+npm run submit:ios
+
+# Android
+npm run build:android
+npm run submit:android
+```
+
+## Architecture Notes
+
+- **Monorepo Structure**: Web and mobile apps share Firebase functions and configuration
+- **Separation of Concerns**: Web-specific code in `web/`, mobile-specific in `grubana-mobile/`
+- **Shared Resources**: Common Firebase functions and utilities in `shared/`
+- **Path Aliases**: Configured for clean, maintainable imports
+- **Environment Separation**: Platform-specific environment variables for security
 
 🚀 **Live Demo:** https://grubana.vercel.app
 
