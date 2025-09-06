@@ -12,9 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm install
         working-directory: ./
+
+      - name: Install web dependencies
+        run: npm install
+        working-directory: ./web
 
       - name: Build
         run: npm run build:web
