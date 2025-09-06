@@ -1,0 +1,5 @@
+[build]
+workingDirectory = "web/src/server"
+
+[start]
+cmd = "npm start"
