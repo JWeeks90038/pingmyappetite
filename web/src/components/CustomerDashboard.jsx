@@ -141,6 +141,12 @@ const CustomerDashboard = () => {
     twitter: '',
   });
 
+  // User role and booking states
+  const [userRole, setUserRole] = useState('customer');
+  const [userData, setUserData] = useState(null);
+  const [showCateringModal, setShowCateringModal] = useState(false);
+  const [showFestivalModal, setShowFestivalModal] = useState(false);
+
   const mapRef = useRef(null);
   const qrRef = useRef(null);
   const mapInstance = useRef(null);
@@ -306,6 +312,9 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         setUsername(userData.displayName || ''); // Use displayName from Firestore
+        setUserRole(userData.role || 'customer'); // Set user role
+        setUserData(userData); // Store full user data
+        console.log('🔍 CustomerDashboard: User role detected:', userData.role || 'customer');
         
         // CRITICAL: Clean up any truck location documents for customers
         if (userData.role === "customer") {
@@ -1797,6 +1806,8 @@ return (
                 setActiveModalTab('details'); // Reset to details tab
                 setMenuItems([]); // Clear menu items
                 setLoadingMenu(false); // Reset loading state
+                setShowCateringModal(false); // Close catering modal
+                setShowFestivalModal(false); // Close festival modal
                 // Don't clear other state immediately to prevent flickering
                 setTimeout(() => {
                   setShowDropSummary(false);
@@ -1939,7 +1950,8 @@ return (
                         transition: 'all 0.2s ease',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '8px',
+                        marginRight: '10px'
                       }}
                       onMouseEnter={(e) => {
                         e.target.style.backgroundColor = '#1e4a3f';
@@ -1952,8 +1964,80 @@ return (
                     >
                       🛒 Pre-Order - Skip the Line!
                     </button>
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                      Place your order before you arrive
+
+                    {/* Book Catering Button - Show for customers, event organizers, and food truck owners viewing other trucks */}
+                    {(userRole === 'customer' || userRole === 'event-organizer' || (userRole === 'owner' && activeTruck?.ownerUid !== user?.uid)) && (
+                      <button
+                        onClick={() => {
+                          console.log('🎉 Catering button pressed for truck:', activeTruck?.truckName);
+                          setShowCateringModal(true);
+                        }}
+                        style={{
+                          backgroundColor: '#0066cc',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '8px',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          transition: 'all 0.2s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginRight: '10px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#0052a3';
+                          e.target.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#0066cc';
+                          e.target.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        📅 Book Catering
+                      </button>
+                    )}
+
+                    {/* Book Festival Button - Show only for event organizers */}
+                    {userRole === 'event-organizer' && (
+                      <button
+                        onClick={() => {
+                          console.log('🎪 Festival booking button pressed for truck:', activeTruck?.truckName);
+                          setShowFestivalModal(true);
+                        }}
+                        style={{
+                          backgroundColor: '#e91e63',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 24px',
+                          borderRadius: '8px',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          transition: 'all 0.2s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = '#c2185b';
+                          e.target.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = '#e91e63';
+                          e.target.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        🎪 Book Festival
+                      </button>
+                    )}
+
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+                      Place your order before you arrive • Book for special events
                     </div>
                   </div>
                 </>
@@ -2360,6 +2444,200 @@ return (
                 truckId={activeTruck.uid}
                 truckName={activeTruck.truckName || 'Food Truck'}
               />
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Catering Booking Modal */}
+    {showCateringModal && activeTruck && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        zIndex: 1002,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <div style={{
+          width: '90%',
+          maxWidth: '600px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          padding: '30px',
+          maxHeight: '80%',
+          overflowY: 'auto'
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            paddingBottom: '15px',
+            borderBottom: '2px solid #0066cc'
+          }}>
+            <h2 style={{ margin: 0, color: '#0066cc' }}>
+              🎉 Book {activeTruck.truckName} for Catering
+            </h2>
+            <button
+              onClick={() => setShowCateringModal(false)}
+              style={{
+                backgroundColor: 'transparent',
+                border: '2px solid #0066cc',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '18px',
+                color: '#0066cc'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Form Content */}
+          <div style={{ color: '#333', lineHeight: '1.6' }}>
+            <p style={{ fontSize: '16px', marginBottom: '20px' }}>
+              Book this food truck for your private event, corporate catering, or special occasion!
+            </p>
+            
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '20px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#0066cc', marginTop: 0 }}>📞 Contact for Booking</h3>
+              <p>
+                This feature will connect you directly with <strong>{activeTruck.truckName}</strong> 
+                to discuss your catering needs.
+              </p>
+              <button
+                onClick={() => {
+                  // Placeholder for future implementation
+                  alert('Catering booking system coming soon! Please contact the truck directly for now.');
+                  setShowCateringModal(false);
+                }}
+                style={{
+                  backgroundColor: '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  marginTop: '10px'
+                }}
+              >
+                Request Catering Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Festival Booking Modal */}
+    {showFestivalModal && activeTruck && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        zIndex: 1002,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <div style={{
+          width: '90%',
+          maxWidth: '600px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          padding: '30px',
+          maxHeight: '80%',
+          overflowY: 'auto'
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            paddingBottom: '15px',
+            borderBottom: '2px solid #e91e63'
+          }}>
+            <h2 style={{ margin: 0, color: '#e91e63' }}>
+              🎪 Book {activeTruck.truckName} for Festival
+            </h2>
+            <button
+              onClick={() => setShowFestivalModal(false)}
+              style={{
+                backgroundColor: 'transparent',
+                border: '2px solid #e91e63',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '18px',
+                color: '#e91e63'
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Form Content */}
+          <div style={{ color: '#333', lineHeight: '1.6' }}>
+            <p style={{ fontSize: '16px', marginBottom: '20px' }}>
+              Book this food truck for your festival, concert, or large-scale event! 
+              Perfect for event organizers managing multiple vendors.
+            </p>
+            
+            <div style={{
+              backgroundColor: '#f8f9fa',
+              padding: '20px',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#e91e63', marginTop: 0 }}>🎭 Festival Booking</h3>
+              <p>
+                As an event organizer, you can book <strong>{activeTruck.truckName}</strong> 
+                for your festival or large event.
+              </p>
+              <p style={{ fontSize: '14px', color: '#666' }}>
+                Organization: <strong>{userData?.organizationName || 'Your Organization'}</strong>
+              </p>
+              <button
+                onClick={() => {
+                  // Placeholder for future implementation
+                  alert('Festival booking system coming soon! Please contact the truck directly for now.');
+                  setShowFestivalModal(false);
+                }}
+                style={{
+                  backgroundColor: '#e91e63',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  marginTop: '10px'
+                }}
+              >
+                Request Festival Booking
+              </button>
             </div>
           </div>
         </div>
