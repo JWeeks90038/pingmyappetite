@@ -1,8 +1,1 @@
-[build]
-workingDirectory = "web/src/server"
-
-[install]
-cmd = "npm install"
-
-[start]
-cmd = "npm start"
+# Railway deployment configuration - uses root package.json start script
