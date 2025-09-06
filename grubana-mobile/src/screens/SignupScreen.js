@@ -14,8 +14,11 @@ import { Picker } from '@react-native-picker/picker';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { useTheme } from '../theme/ThemeContext';
 
 const SignupScreen = ({ navigation }) => {
+  const theme = useTheme();
+  const styles = createThemedStyles(theme);
   const [formData, setFormData] = useState({
     email: '',
     password: '',

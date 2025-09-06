@@ -34,11 +34,14 @@ import { db, storage } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 const EventsScreen = () => {
   const { user, userData, userRole, userPlan } = useAuth();
+  const theme = useTheme();
+  const styles = createThemedStyles(theme);
   const [events, setEvents] = useState([]);
   const [myEvents, setMyEvents] = useState([]);
   const [attendedEvents, setAttendedEvents] = useState([]);
@@ -2444,41 +2447,47 @@ const EventsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.background.primary,
   },
   header: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.background.secondary,
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   headerTitle: {
-    color: 'white',
+    color: theme.colors.text.primary,
     fontSize: 24,
     fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
   },
   createButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 20,
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    ...theme.shadows.neonPink,
   },
   filterTabs: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.secondary,
     paddingVertical: 10,
     paddingHorizontal: 15,
     marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   filterTab: {
     flex: 1,
@@ -2490,35 +2499,31 @@ const styles = StyleSheet.create({
     minWidth: 0, // Allow text to shrink
   },
   activeFilterTab: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   filterTabText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontWeight: '500',
     textAlign: 'center',
     numberOfLines: 1,
   },
   activeFilterTabText: {
-    color: 'white',
+    color: theme.colors.text.primary,
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
   },
   eventCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.subtle,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -2532,17 +2537,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editButton: {
-    backgroundColor: '#E8F5E8',
+    backgroundColor: theme.colors.accent.blue,
     borderRadius: 12,
     width: 32,
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    ...theme.shadows.neonBlue,
   },
   eventTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text.primary,
     flex: 1,
   },
   attendedBadge: {
@@ -2556,7 +2562,7 @@ const styles = StyleSheet.create({
   },
   attendedText: {
     fontSize: 12,
-    color: '#4CAF50',
+    color: theme.colors.accent.blue,
     marginLeft: 4,
     fontWeight: '500',
   },
@@ -2570,7 +2576,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     marginLeft: 8,
     flex: 1,
   },
@@ -2587,28 +2593,30 @@ const styles = StyleSheet.create({
   editEventButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E8',
+    backgroundColor: theme.colors.accent.blue,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     flex: 1,
     justifyContent: 'center',
+    ...theme.shadows.neonBlue,
   },
   editEventButtonText: {
     fontSize: 14,
-    color: '#2c6f57',
+    color: theme.colors.text.primary,
     marginLeft: 6,
     fontWeight: '500',
   },
   deleteEventButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFE8E8',
+    backgroundColor: theme.colors.accent.pink,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
     flex: 1,
     justifyContent: 'center',
+    ...theme.shadows.neonPink,
   },
   deleteEventButtonText: {
     fontSize: 14,

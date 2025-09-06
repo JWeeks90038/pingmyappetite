@@ -7,6 +7,8 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthContextProvider, useAuth } from './src/components/AuthContext';
+import { ThemeProvider } from './src/theme/ThemeContext';
+import theme from './src/theme/colors';
 
 // Import screens
 import LoginScreen from './src/screens/LoginScreen.js';
@@ -65,8 +67,17 @@ function CustomerTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2c6f57',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: theme.colors.accent.pink,
+        tabBarInactiveTintColor: theme.colors.text.secondary,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background.secondary,
+          borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
         headerShown: false,
       })}
     >
@@ -177,8 +188,17 @@ function OwnerTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2c6f57',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: theme.colors.accent.pink,
+        tabBarInactiveTintColor: theme.colors.text.secondary,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background.secondary,
+          borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
         headerShown: false,
       })}
     >
@@ -307,8 +327,20 @@ function AppContent() {
   if (needsPayment) {
     console.log('🎯 Showing Payment Screen for plan:', userData?.plan);
     return (
-      <NavigationContainer>
-        <StatusBar style="light" />
+      <NavigationContainer
+        theme={{
+          dark: true,
+          colors: {
+            primary: theme.colors.accent.pink,
+            background: theme.colors.background.primary,
+            card: theme.colors.background.secondary,
+            text: theme.colors.text.primary,
+            border: theme.colors.border,
+            notification: theme.colors.accent.blue,
+          },
+        }}
+      >
+        <StatusBar style="light" backgroundColor={theme.colors.background.primary} />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen 
             name="SecureCheckoutScreen" 
@@ -326,8 +358,20 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style="light" />
+    <NavigationContainer
+      theme={{
+        dark: true,
+        colors: {
+          primary: theme.colors.accent.pink,
+          background: theme.colors.background.primary,
+          card: theme.colors.background.secondary,
+          text: theme.colors.text.primary,
+          border: theme.colors.border,
+          notification: theme.colors.accent.blue,
+        },
+      }}
+    >
+      <StatusBar style="light" backgroundColor={theme.colors.background.primary} />
       {user ? <MainStackNavigator /> : <AuthStack />}
     </NavigationContainer>
   );
@@ -346,9 +390,11 @@ export default function App() {
 
   return (
     <StripeProvider {...stripeConfig}>
-      <AuthContextProvider>
-        <AppContent />
-      </AuthContextProvider>
+      <ThemeProvider>
+        <AuthContextProvider>
+          <AppContent />
+        </AuthContextProvider>
+      </ThemeProvider>
     </StripeProvider>
   );
 }

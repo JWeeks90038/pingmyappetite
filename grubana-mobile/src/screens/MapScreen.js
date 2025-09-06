@@ -11,10 +11,16 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { calculateStripeConnectPayment, preparePaymentIntentData } from '../utils/paymentConfig';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
+import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
 export default function MapScreen() {
+  const theme = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
+  
   // DEBUG: Console log to confirm code changes are active
   console.log('🔧 DEBUG: MapScreen loaded with UPDATED code - Menu Management changes should be active');
   
@@ -3630,9 +3636,9 @@ export default function MapScreen() {
                 padding: 0;
                 text-align: center;
                 border-radius: 12px;
-                background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-                box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-                border: 1px solid #e2e8f0;
+                background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%);
+                box-shadow: 0 8px 24px rgba(255, 78, 201, 0.15), 0 0 20px rgba(77, 191, 255, 0.1);
+                border: 1px solid #FF4EC9;
                 overflow: hidden;
             }
             
@@ -3653,17 +3659,18 @@ export default function MapScreen() {
             .truck-name {
                 font-size: 18px;
                 font-weight: 700;
-                color: #2d3748;
+                color: #FFFFFF;
                 margin-bottom: 8px;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                text-shadow: 0 0 8px rgba(255, 78, 201, 0.5);
             }
             
             .truck-rating-popup {
                 margin: 0 15px 12px 15px;
                 padding: 8px 12px;
-                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                background: linear-gradient(135deg, #1A1036 0%, #2D1B4E 100%);
                 border-radius: 8px;
-                border: 1px solid #f59e0b;
+                border: 1px solid #4DBFFF;
+                box-shadow: 0 0 10px rgba(77, 191, 255, 0.3);
             }
             
             .rating-stars {
@@ -3675,13 +3682,13 @@ export default function MapScreen() {
             .rating-text {
                 font-size: 12px;
                 font-weight: 600;
-                color: #92400e;
+                color: #4DBFFF;
                 text-align: center;
             }
             
             .no-rating {
                 font-size: 11px;
-                color: #6b7280;
+                color: #B0B3C2;
                 font-style: italic;
                 text-align: center;
             }
@@ -3715,7 +3722,7 @@ export default function MapScreen() {
             
             .truck-details {
                 font-size: 13px;
-                color: #4a5568;
+                color: #B0B3C2;
                 margin: 4px 15px;
                 display: flex;
                 align-items: center;
@@ -3724,7 +3731,7 @@ export default function MapScreen() {
             }
             
             .view-details-btn {
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                background: linear-gradient(135deg, #FF4EC9 0%, #E91E63 100%);
                 color: white;
                 border: none;
                 padding: 12px 16px;
@@ -3733,30 +3740,33 @@ export default function MapScreen() {
                 font-weight: 600;
                 cursor: pointer;
                 transition: all 0.2s ease;
-                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3), 0 0 20px rgba(255, 78, 201, 0.2);
                 width: 100%;
                 margin-top: 15px;
             }
             
             .view-details-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+                box-shadow: 0 6px 16px rgba(255, 78, 201, 0.4), 0 0 25px rgba(255, 78, 201, 0.3);
             }
             
             .leaflet-popup-content-wrapper {
                 border-radius: 12px;
                 overflow: hidden;
+                background: #0B0B1A !important;
+                border: 1px solid #FF4EC9 !important;
             }
             
             .leaflet-popup-tip {
-                background: #fff;
+                background: #0B0B1A !important;
+                border: 1px solid #FF4EC9 !important;
             }
             .controls {
                 position: fixed;
                 top: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: white;
+                background: #1A1036;
                 padding: 10px;
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -3768,25 +3778,35 @@ export default function MapScreen() {
                 width: 100%;
                 padding: 8px;
                 margin: 5px 0;
-                border: none;
-                border-radius: 5px;
-                background: #2c6f57;
-                color: white;
+                border: 2px solid #FF4EC9;
+                border-radius: 8px;
+                background: #1A1036;
+                color: #FFFFFF;
                 cursor: pointer;
                 font-size: 12px;
                 transition: all 0.2s ease;
                 user-select: none;
                 -webkit-user-select: none;
                 touch-action: manipulation;
+                box-shadow: 0 0 10px rgba(255, 78, 201, 0.3);
             }
-            .control-btn:hover { background: #1e4a3a; }
+            .control-btn:hover { 
+                background: #FF4EC9; 
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.6);
+                transform: translateY(-1px);
+            }
             .control-btn:active { 
-                background: #144034; 
-                transform: scale(0.95);
+                background: #4DBFFF; 
+                border-color: #4DBFFF;
+                box-shadow: 0 0 15px rgba(77, 191, 255, 0.5);
+                transform: scale(0.98);
             }
             .control-btn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
+                background: #B0B3C2;
+                border-color: #B0B3C2;
+                box-shadow: none;
             }
             .plan-notice {
                 position: absolute;
@@ -3794,19 +3814,21 @@ export default function MapScreen() {
                 left: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(44, 111, 87, 0.95);
-                color: white;
+                background: rgba(26, 16, 54, 0.95);
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 8px;
+                border: 2px solid #FF4EC9;
                 text-align: center;
                 font-size: 12px;
+                box-shadow: 0 0 15px rgba(255, 78, 201, 0.4);
             }
             .heatmap-controls {
                 position: absolute;
                 bottom: 80px;
                 right: 10px;
                 z-index: 1000;
-                background: white;
+                background: #1A1036;
                 padding: 10px;
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -3868,45 +3890,59 @@ export default function MapScreen() {
                 top: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: white;
+                background: #0B0B1A;
                 padding: 10px;
                 border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                border: 2px solid #FF4EC9;
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.3);
             }
             .control-btn {
                 display: block;
                 width: 100%;
                 padding: 8px;
                 margin: 5px 0;
-                border: none;
-                border-radius: 5px;
-                background: #2c6f57;
-                color: white;
+                border: 2px solid #FF4EC9;
+                border-radius: 8px;
+                background: #1A1036;
+                color: #FFFFFF;
                 cursor: pointer;
+                font-size: 12px;
+                transition: all 0.2s ease;
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: manipulation;
+                box-shadow: 0 0 10px rgba(255, 78, 201, 0.3);
             }
-            .control-btn:hover { background: #1e4a3a; }
+            .control-btn:hover { 
+                background: #FF4EC9; 
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.6);
+                transform: translateY(-1px);
+            }
             .plan-notice {
                 position: absolute;
                 bottom: 10px;
                 left: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(44, 111, 87, 0.95);
-                color: white;
+                background: rgba(26, 16, 54, 0.95);
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 8px;
+                border: 2px solid #FF4EC9;
                 text-align: center;
                 font-size: 12px;
+                box-shadow: 0 0 15px rgba(255, 78, 201, 0.4);
             }
             .heatmap-controls {
                 position: absolute;
                 bottom: 80px;
                 right: 10px;
                 z-index: 1000;
-                background: white;
+                background: #0B0B1A;
                 padding: 10px;
                 border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                border: 2px solid #4DBFFF;
+                box-shadow: 0 0 20px rgba(77, 191, 255, 0.3);
             }
         </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -5357,14 +5393,26 @@ export default function MapScreen() {
                 
                 console.log('📊 New status filter:', statusFilter);
                 
-                // Update button text
+                // Update button text and styling
                 if (button) {
                     if (statusFilter === 'all') {
                         button.textContent = '📊 Show All';
+                        // Default styling for "Show All" state
+                        button.style.background = '#1A1036';
+                        button.style.borderColor = '#FF4EC9';
+                        button.style.boxShadow = '0 0 10px rgba(255, 78, 201, 0.3)';
                     } else if (statusFilter === 'hide-open') {
                         button.textContent = '📊 Hide Open';
+                        // Active filtering state - neon pink background
+                        button.style.background = '#FF4EC9';
+                        button.style.borderColor = '#FF4EC9';
+                        button.style.boxShadow = '0 0 20px rgba(255, 78, 201, 0.6)';
                     } else if (statusFilter === 'hide-closed') {
                         button.textContent = '📊 Hide Closed';
+                        // Active filtering state - neon blue background
+                        button.style.background = '#4DBFFF';
+                        button.style.borderColor = '#4DBFFF';
+                        button.style.boxShadow = '0 0 20px rgba(77, 191, 255, 0.6)';
                     }
                 }
                 
@@ -6016,11 +6064,15 @@ export default function MapScreen() {
             }}
             activeOpacity={0.8}
           >
-            <View style={[styles.toggleContainer, { backgroundColor: showTruckIcon ? '#4CAF50' : '#757575' }]}>
+            <View style={[styles.toggleContainer, { 
+              backgroundColor: showTruckIcon ? theme.colors.accent.pink : theme.colors.background.secondary,
+              borderColor: showTruckIcon ? theme.colors.accent.pink : theme.colors.border,
+              ...showTruckIcon ? theme.shadows.neonPink : {}
+            }]}>
               <Ionicons 
                 name={showTruckIcon ? 'car' : 'car-outline'} 
                 size={18} 
-                color="white" 
+                color={theme.colors.text.primary}
               />
               <Text style={styles.toggleText}>
                 {showTruckIcon ? 'Hide Icon' : 'Show Icon'}
@@ -6102,7 +6154,7 @@ export default function MapScreen() {
                 <Ionicons 
                   name="restaurant" 
                   size={20} 
-                  color="#2c6f57" 
+                  color={colors.accent.blue} 
                 />
                 <Text style={styles.quickMenuButtonText}>Menu</Text>
               </TouchableOpacity>
@@ -6125,7 +6177,7 @@ export default function MapScreen() {
                   <Ionicons 
                     name={userFavorites.has(selectedTruck.ownerId) ? "heart" : "heart-outline"} 
                     size={20} 
-                    color={userFavorites.has(selectedTruck.ownerId) ? "#ff6b6b" : "#2c6f57"} 
+                    color={userFavorites.has(selectedTruck.ownerId) ? colors.accent.pink : colors.accent.blue} 
                   />
                   <Text style={[
                     styles.favoriteButtonText,
@@ -6158,7 +6210,7 @@ export default function MapScreen() {
                 <Ionicons 
                   name="star" 
                   size={20} 
-                  color="#2c6f57" 
+                  color={colors.accent.blue} 
                 />
                 <Text style={styles.reviewsButtonText}>Reviews</Text>
               </TouchableOpacity>
@@ -6206,7 +6258,7 @@ export default function MapScreen() {
                 <Ionicons 
                   name="calendar" 
                   size={20} 
-                  color="#2c6f57" 
+                  color={colors.accent.blue} 
                 />
                 <Text style={styles.cateringButtonText}>Book Catering</Text>
               </TouchableOpacity>
@@ -6230,7 +6282,7 @@ export default function MapScreen() {
                   <Ionicons 
                     name="musical-notes" 
                     size={20} 
-                    color="#7c2d12" 
+                    color={colors.accent.pink} 
                   />
                   <Text style={[styles.cateringButtonText, styles.festivalButtonText]}>Book Festival</Text>
                 </TouchableOpacity>
@@ -6723,16 +6775,15 @@ export default function MapScreen() {
               alignItems: 'center'
             }}>
               <View style={{ 
-                backgroundColor: '#ffffff', 
+                backgroundColor: theme.colors.background.primary, 
                 marginTop: 60,
                 borderRadius: 20,
                 margin: 20,
                 width: '90%',
                 maxHeight: '80%',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.3,
-                shadowRadius: 20,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                ...theme.shadows.neonPink,
                 elevation: 10
               }}>
                 {/* Cart Header */}
@@ -6742,12 +6793,12 @@ export default function MapScreen() {
                   alignItems: 'center',
                   padding: 20,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee'
+                  borderBottomColor: theme.colors.border
                 }}>
                   <Text style={{ 
                     fontSize: 24, 
                     fontWeight: 'bold',
-                    color: '#000'
+                    color: colors.text.primary
                   }}>
                     🛒 Your Cart
                   </Text>
@@ -6757,12 +6808,14 @@ export default function MapScreen() {
                       setShowCartModal(false);
                     }}
                     style={{
-                      padding: 10,
-                      backgroundColor: '#f0f0f0',
-                      borderRadius: 20
+                      padding: 8,
+                      borderRadius: 20,
+                      backgroundColor: theme.colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Text style={{ fontSize: 18, color: '#666' }}>✕</Text>
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -6770,10 +6823,10 @@ export default function MapScreen() {
                 <ScrollView style={{ maxHeight: 300, padding: 20 }}>
                   {cart.length === 0 ? (
                     <View style={{ alignItems: 'center', padding: 30 }}>
-                      <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>
+                      <Text style={{ fontSize: 18, color: theme.colors.text.secondary, textAlign: 'center' }}>
                         Your cart is empty
                       </Text>
-                      <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginTop: 10 }}>
+                      <Text style={{ fontSize: 14, color: theme.colors.text.secondary, textAlign: 'center', marginTop: 10 }}>
                         Add some delicious items from the menu!
                       </Text>
                     </View>
@@ -6785,13 +6838,13 @@ export default function MapScreen() {
                         alignItems: 'center',
                         paddingVertical: 15,
                         borderBottomWidth: index < cart.length - 1 ? 1 : 0,
-                        borderBottomColor: '#f0f0f0'
+                        borderBottomColor: theme.colors.border
                       }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000' }}>
+                          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text.primary }}>
                             {item.name}
                           </Text>
-                          <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
+                          <Text style={{ fontSize: 14, color: colors.text.secondary, marginTop: 2 }}>
                             ${item.price.toFixed(2)} each
                           </Text>
                         </View>
@@ -6799,14 +6852,14 @@ export default function MapScreen() {
                         <View style={{ 
                           flexDirection: 'row', 
                           alignItems: 'center',
-                          backgroundColor: '#f8f8f8',
+                          backgroundColor: theme.colors.background.secondary,
                           borderRadius: 8,
                           padding: 5
                         }}>
                           <TouchableOpacity 
                             onPress={() => updateQuantity(item.id, item.quantity - 1)}
                             style={{
-                              backgroundColor: '#e74c3c',
+                              backgroundColor: theme.colors.accent.pink,
                               borderRadius: 15,
                               width: 30,
                               height: 30,
@@ -6814,14 +6867,14 @@ export default function MapScreen() {
                               alignItems: 'center'
                             }}
                           >
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>-</Text>
+                            <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: 'bold' }}>-</Text>
                           </TouchableOpacity>
                           
                           <Text style={{ 
                             marginHorizontal: 15, 
                             fontSize: 16, 
                             fontWeight: 'bold',
-                            color: '#000',
+                            color: colors.text.primary,
                             minWidth: 20,
                             textAlign: 'center'
                           }}>
@@ -6831,7 +6884,7 @@ export default function MapScreen() {
                           <TouchableOpacity 
                             onPress={() => updateQuantity(item.id, item.quantity + 1)}
                             style={{
-                              backgroundColor: '#27ae60',
+                              backgroundColor: theme.colors.accent.blue,
                               borderRadius: 15,
                               width: 30,
                               height: 30,
@@ -6839,14 +6892,14 @@ export default function MapScreen() {
                               alignItems: 'center'
                             }}
                           >
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>+</Text>
+                            <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: 'bold' }}>+</Text>
                           </TouchableOpacity>
                         </View>
                         
                         <Text style={{ 
                           fontSize: 16, 
                           fontWeight: 'bold',
-                          color: '#2c6f57',
+                          color: colors.accent.blue,
                           marginLeft: 15,
                           minWidth: 60,
                           textAlign: 'right'
@@ -6862,7 +6915,7 @@ export default function MapScreen() {
                 {cart.length > 0 && (
                   <View style={{
                     borderTopWidth: 1,
-                    borderTopColor: '#eee',
+                    borderTopColor: theme.colors.border,
                     padding: 20
                   }}>
                     {/* Order Summary */}
@@ -6873,10 +6926,10 @@ export default function MapScreen() {
                         alignItems: 'center',
                         marginBottom: 8
                       }}>
-                        <Text style={{ fontSize: 16, color: '#666' }}>
+                        <Text style={{ fontSize: 16, color: colors.text.secondary }}>
                           Subtotal:
                         </Text>
-                        <Text style={{ fontSize: 16, color: '#000' }}>
+                        <Text style={{ fontSize: 16, color: colors.text.primary }}>
                           ${getTotalPrice()}
                         </Text>
                       </View>
@@ -6888,10 +6941,10 @@ export default function MapScreen() {
                         alignItems: 'center',
                         marginBottom: 8
                       }}>
-                        <Text style={{ fontSize: 14, color: '#666' }}>
+                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                           Sales Tax (8.75%):
                         </Text>
-                        <Text style={{ fontSize: 14, color: '#666' }}>
+                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                           ${getSalesTax()}
                         </Text>
                       </View>
@@ -6902,12 +6955,12 @@ export default function MapScreen() {
                         alignItems: 'center',
                         paddingTop: 8,
                         borderTopWidth: 1,
-                        borderTopColor: '#f0f0f0'
+                        borderTopColor: theme.colors.border
                       }}>
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text.primary }}>
                           Total:
                         </Text>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2c6f57' }}>
+                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.accent.blue }}>
                           ${getFinalTotal()}
                         </Text>
                       </View>
@@ -6916,16 +6969,17 @@ export default function MapScreen() {
                     <TouchableOpacity 
                       onPress={placeOrder}
                       style={{
-                        backgroundColor: '#2c6f57',
+                        backgroundColor: theme.colors.accent.pink,
                         borderRadius: 12,
                         padding: 18,
                         alignItems: 'center',
-                        marginBottom: 10
+                        marginBottom: 10,
+                        ...theme.shadows.neonPink,
                       }}
                     >
                       <Text style={{ 
                         fontSize: 18, 
-                        color: '#fff',
+                        color: colors.text.primary,
                         fontWeight: 'bold'
                       }}>
                         💳 Pay with Stripe (${getFinalTotal()})
@@ -6938,15 +6992,17 @@ export default function MapScreen() {
                         setShowCartModal(false);
                       }}
                       style={{
-                        backgroundColor: '#f8f8f8',
+                        backgroundColor: theme.colors.background.secondary,
                         borderRadius: 12,
                         padding: 15,
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
                       }}
                     >
                       <Text style={{ 
                         fontSize: 16, 
-                        color: '#666',
+                        color: colors.text.secondary,
                         fontWeight: '500'
                       }}>
                         Continue Shopping
@@ -6966,7 +7022,7 @@ export default function MapScreen() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.8)',
+              backgroundColor: 'rgba(11, 11, 26, 0.95)',
               zIndex: 9999,
               justifyContent: 'flex-start',
               alignItems: 'center',
@@ -6978,13 +7034,15 @@ export default function MapScreen() {
                 style={{
                   width: '100%',
                   flex: 1,
-                  backgroundColor: '#ffffff',
+                  backgroundColor: colors.background.primary,
                   borderRadius: 20,
-                  shadowColor: '#000',
+                  borderWidth: 1,
+                  borderColor: colors.accent.pink,
+                  shadowColor: colors.accent.pink,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 4,
-                  elevation: 5,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 10,
+                  elevation: 15,
                 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -7004,12 +7062,12 @@ export default function MapScreen() {
                   marginBottom: 20,
                   paddingBottom: 15,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee',
+                  borderBottomColor: colors.accent.pink,
                 }}>
                   <Text style={{
                     fontSize: 18,
                     fontWeight: 'bold',
-                    color: '#2c6f57',
+                    color: colors.text.primary,
                     flex: 1,
                   }}>
                     🎉 Book {selectedTruck?.name} for Catering
@@ -7019,10 +7077,12 @@ export default function MapScreen() {
                     style={{
                       padding: 8,
                       borderRadius: 20,
-                      backgroundColor: '#f5f5f5',
+                      backgroundColor: colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Ionicons name="close" size={20} color="#666" />
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -7035,21 +7095,23 @@ export default function MapScreen() {
                 >
                   {/* Customer Name */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Your Name *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerName}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerName: text }))}
                       placeholder="Enter your full name"
+                      placeholderTextColor={theme.colors.text.secondary}
                       autoCapitalize="words"
                       returnKeyType="next"
                     />
@@ -7057,21 +7119,23 @@ export default function MapScreen() {
 
                   {/* Email */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Email Address *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerEmail}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerEmail: text }))}
                       placeholder="your.email@example.com"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       returnKeyType="next"
@@ -7080,21 +7144,23 @@ export default function MapScreen() {
 
                   {/* Phone */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Phone Number *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerPhone}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerPhone: text }))}
                       placeholder="(555) 123-4567"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="phone-pad"
                       returnKeyType="next"
                     />
@@ -7102,65 +7168,71 @@ export default function MapScreen() {
 
                   {/* Event Date */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Date *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.eventDate}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventDate: text }))}
                       placeholder="MM/DD/YYYY"
+                      placeholderTextColor={theme.colors.text.secondary}
                       returnKeyType="next"
                     />
                   </View>
 
                   {/* Event Time */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Time *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.eventTime}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventTime: text }))}
                       placeholder="e.g., 12:00 PM - 3:00 PM"
+                      placeholderTextColor={theme.colors.text.secondary}
                       returnKeyType="next"
                     />
                   </View>
 
                   {/* Event Location */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Location *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                         minHeight: 50,
                         textAlignVertical: 'top',
                       }}
                       value={cateringFormData.eventLocation}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventLocation: text }))}
                       placeholder="Full address or venue name"
+                      placeholderTextColor={theme.colors.text.secondary}
                       multiline={true}
                       numberOfLines={2}
                       returnKeyType="next"
@@ -7169,21 +7241,23 @@ export default function MapScreen() {
 
                   {/* Guest Count */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Estimated Guest Count *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.guestCount}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, guestCount: text }))}
                       placeholder="e.g., 50-75 people"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="numeric"
                       returnKeyType="next"
                     />
@@ -7191,23 +7265,25 @@ export default function MapScreen() {
 
                   {/* Special Requests */}
                   <View style={{ marginBottom: 25 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Special Requests or Details
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                         minHeight: 100,
                         textAlignVertical: 'top',
                       }}
                       value={cateringFormData.specialRequests}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, specialRequests: text }))}
                       placeholder="Any dietary restrictions, special menu requests, or other details..."
+                      placeholderTextColor={theme.colors.text.secondary}
                       multiline={true}
                       numberOfLines={4}
                       returnKeyType="done"
@@ -7217,11 +7293,12 @@ export default function MapScreen() {
                   {/* Submit Button */}
                   <TouchableOpacity
                     style={{
-                      backgroundColor: submittingCateringForm ? '#ccc' : '#2c6f57',
+                      backgroundColor: submittingCateringForm ? theme.colors.text.secondary : theme.colors.accent.pink,
                       padding: 15,
                       borderRadius: 10,
                       alignItems: 'center',
                       marginBottom: 15,
+                      ...(!submittingCateringForm ? theme.shadows.neonPink : {}),
                     }}
                     onPress={() => handleCateringSubmit()}
                     disabled={submittingCateringForm || !cateringFormData.customerName || !cateringFormData.customerEmail || !cateringFormData.customerPhone}
@@ -7243,7 +7320,7 @@ export default function MapScreen() {
                   {/* Info Text */}
                   <Text style={{
                     fontSize: 12,
-                    color: '#666',
+                    color: colors.text.secondary,
                     textAlign: 'center',
                     lineHeight: 16,
                     marginBottom: 10,
@@ -7264,7 +7341,7 @@ export default function MapScreen() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.8)',
+              backgroundColor: 'rgba(11, 11, 26, 0.95)',
               zIndex: 9999,
               justifyContent: 'flex-start',
               alignItems: 'center',
@@ -7276,13 +7353,15 @@ export default function MapScreen() {
                 style={{
                   width: '100%',
                   flex: 1,
-                  backgroundColor: '#ffffff',
+                  backgroundColor: colors.background.primary,
                   borderRadius: 20,
-                  shadowColor: '#000',
+                  borderWidth: 1,
+                  borderColor: colors.accent.pink,
+                  shadowColor: colors.accent.pink,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 4,
-                  elevation: 5,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 10,
+                  elevation: 15,
                 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -7302,12 +7381,12 @@ export default function MapScreen() {
                   marginBottom: 20,
                   paddingBottom: 15,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee',
+                  borderBottomColor: colors.accent.pink,
                 }}>
                   <Text style={{
                     fontSize: 18,
                     fontWeight: 'bold',
-                    color: '#7c2d12',
+                    color: colors.text.primary,
                     flex: 1,
                   }}>
                     🎪 Book {selectedTruck?.name} for Festival
@@ -7317,10 +7396,12 @@ export default function MapScreen() {
                     style={{
                       padding: 8,
                       borderRadius: 20,
-                      backgroundColor: '#f5f5f5',
+                      backgroundColor: colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Ionicons name="close" size={20} color="#666" />
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -7330,7 +7411,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       📋 Organizer Information
@@ -7341,7 +7422,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Organization/Contact Name *
@@ -7349,13 +7430,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter organization or contact name"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerName}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerName: text }))}
                         autoCapitalize="words"
@@ -7367,7 +7450,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Contact Email *
@@ -7375,13 +7458,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter your email address"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerEmail}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerEmail: text }))}
                         keyboardType="email-address"
@@ -7394,7 +7479,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Contact Phone *
@@ -7402,13 +7487,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter your phone number"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerPhone}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerPhone: text }))}
                         keyboardType="phone-pad"
@@ -7421,7 +7508,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       🎪 Event Information
@@ -7432,7 +7519,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Name *
@@ -7440,13 +7527,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter event name"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventName}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventName: text }))}
                         autoCapitalize="words"
@@ -7458,7 +7547,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Date *
@@ -7466,13 +7555,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="MM/DD/YYYY"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDate}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDate: text }))}
                       />
@@ -7483,7 +7574,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Time *
@@ -7491,13 +7582,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 10:00 AM - 6:00 PM"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventTime}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventTime: text }))}
                       />
@@ -7508,7 +7601,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Location *
@@ -7516,13 +7609,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter event location/venue"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventLocation}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventLocation: text }))}
                         autoCapitalize="words"
@@ -7534,7 +7629,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Address
@@ -7542,13 +7637,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter full address (optional)"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventAddress}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventAddress: text }))}
                         autoCapitalize="words"
@@ -7560,7 +7657,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Expected Attendance *
@@ -7568,13 +7665,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 500-1000 people"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.expectedAttendance}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, expectedAttendance: text }))}
                       />
@@ -7585,7 +7684,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Duration
@@ -7593,13 +7692,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 1 day, 2 days, weekend"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDuration}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDuration: text }))}
                       />
@@ -7611,7 +7712,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       📋 Event Details
@@ -7622,7 +7723,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Available Vendor Spaces
@@ -7630,13 +7731,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 20 food trucks, 10x10 spaces"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.spacesAvailable}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, spacesAvailable: text }))}
                       />
@@ -7647,7 +7750,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 10,
                       }}>
                         Amenities Provided
@@ -7659,19 +7762,19 @@ export default function MapScreen() {
                           alignItems: 'center',
                           padding: 10,
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           marginBottom: 8,
-                          backgroundColor: festivalFormData.electricityProvided ? '#e6f3e6' : '#fff',
+                          backgroundColor: festivalFormData.electricityProvided ? colors.background.secondary : theme.colors.background.secondary,
                         }}
                         onPress={() => setFestivalFormData(prev => ({ ...prev, electricityProvided: !prev.electricityProvided }))}
                       >
                         <Ionicons 
                           name={festivalFormData.electricityProvided ? "checkbox" : "square-outline"} 
                           size={20} 
-                          color={festivalFormData.electricityProvided ? "#2c6f57" : "#666"} 
+                          color={festivalFormData.electricityProvided ? colors.accent.blue : colors.text.secondary} 
                         />
-                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: colors.text.primary }}>
                           Electricity provided
                         </Text>
                       </TouchableOpacity>
@@ -7682,18 +7785,18 @@ export default function MapScreen() {
                           alignItems: 'center',
                           padding: 10,
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
-                          backgroundColor: festivalFormData.waterProvided ? '#e6f3e6' : '#fff',
+                          backgroundColor: festivalFormData.waterProvided ? colors.background.secondary : theme.colors.background.secondary,
                         }}
                         onPress={() => setFestivalFormData(prev => ({ ...prev, waterProvided: !prev.waterProvided }))}
                       >
                         <Ionicons 
                           name={festivalFormData.waterProvided ? "checkbox" : "square-outline"} 
                           size={20} 
-                          color={festivalFormData.waterProvided ? "#2c6f57" : "#666"} 
+                          color={festivalFormData.waterProvided ? colors.accent.blue : colors.text.secondary} 
                         />
-                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: colors.text.primary }}>
                           Water access provided
                         </Text>
                       </TouchableOpacity>
@@ -7704,7 +7807,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Booth Fee Structure
@@ -7712,13 +7815,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. $200/day, $500/weekend, or negotiable"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.boothFee}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, boothFee: text }))}
                       />
@@ -7729,7 +7834,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Sales Percentage (if applicable)
@@ -7737,13 +7842,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 10% of sales, or none"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.salesPercentage}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, salesPercentage: text }))}
                       />
@@ -7754,7 +7861,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Description
@@ -7762,15 +7869,17 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                           height: 80,
                           textAlignVertical: 'top',
                         }}
                         placeholder="Describe your event, theme, target audience, etc."
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDescription}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDescription: text }))}
                         multiline
@@ -7783,7 +7892,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Special Requirements
@@ -7791,15 +7900,17 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                           height: 60,
                           textAlignVertical: 'top',
                         }}
                         placeholder="Any special setup requirements, restrictions, etc."
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.specialRequirements}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, specialRequirements: text }))}
                         multiline
@@ -7811,21 +7922,28 @@ export default function MapScreen() {
                   {/* Submit Button */}
                   <TouchableOpacity
                     style={{
-                      backgroundColor: submittingFestivalForm ? '#ccc' : '#7c2d12',
+                      backgroundColor: submittingFestivalForm ? colors.background.tertiary : colors.accent.pink,
                       padding: 15,
                       borderRadius: 10,
                       alignItems: 'center',
                       marginBottom: 15,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
+                      shadowColor: colors.accent.pink,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      elevation: 5,
                     }}
                     onPress={() => handleFestivalSubmit()}
                     disabled={submittingFestivalForm || !festivalFormData.organizerName || !festivalFormData.organizerEmail || !festivalFormData.organizerPhone || !festivalFormData.eventName}
                     activeOpacity={0.8}
                   >
                     {submittingFestivalForm ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={colors.text.primary} />
                     ) : (
                       <Text style={{
-                        color: '#fff',
+                        color: colors.text.primary,
                         fontSize: 16,
                         fontWeight: 'bold',
                       }}>
@@ -7837,7 +7955,7 @@ export default function MapScreen() {
                   {/* Info Text */}
                   <Text style={{
                     fontSize: 12,
-                    color: '#666',
+                    color: colors.text.secondary,
                     textAlign: 'center',
                     lineHeight: 16,
                     marginBottom: 10,
@@ -8205,29 +8323,23 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// Create themed styles function
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e', // Deep navy blue
+    backgroundColor: theme.colors.background.primary,
   },
   webview: {
     flex: 1,
   },
   header: {
     padding: 15,
-    backgroundColor: '#2c6f57', // Green header
+    backgroundColor: theme.colors.background.secondary,
     paddingTop: 50,
     alignItems: 'center',
     borderBottomWidth: 3,
-    borderBottomColor: '#000000', // Black border accent
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   headerLogo: {
     width: 240,
@@ -8238,12 +8350,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff', // White text on green background
+    color: theme.colors.text.primary,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     marginTop: 10,
   },
@@ -8276,18 +8388,18 @@ const styles = StyleSheet.create({
     top: 50,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(44, 111, 87, 0.95)',
+    backgroundColor: 'rgba(11, 11, 26, 0.95)',
     padding: 15,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: '#FF4EC9',
     borderLeftWidth: 4,
-    borderLeftColor: '#4682b4', // Blue accent left border
+    borderLeftColor: '#4DBFFF', // Blue accent left border
   },
   overlayTitle: {
     fontSize: 18,
@@ -8301,21 +8413,21 @@ const styles = StyleSheet.create({
   },
   overlayFeature: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.text.secondary,
     marginTop: 5,
     fontStyle: 'italic',
   },
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.background.primary,
     borderWidth: 3,
-    borderColor: '#000000', // Black border
+    borderColor: theme.colors.accent.pink,
     borderTopWidth: 5,
-    borderTopColor: '#4682b4', // Blue accent top border
+    borderTopColor: theme.colors.accent.blue,
   },
   modalHeader: {
-    backgroundColor: '#2c6f57', // Green header
+    backgroundColor: theme.colors.background.secondary,
     padding: 15,
     paddingTop: 35,
     paddingRight: 60,
@@ -8323,12 +8435,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     position: 'relative',
     borderBottomWidth: 3,
-    borderBottomColor: '#000000', // Black accent
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
@@ -8377,28 +8485,21 @@ const styles = StyleSheet.create({
   reviewModalImageContainer: {
     alignItems: 'center',
     paddingVertical: 15,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: theme.colors.border,
   },
   reviewModalTruckImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: '#2c6f57',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)', // Light white subtitle
+    color: theme.colors.text.secondary,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -8414,7 +8515,7 @@ const styles = StyleSheet.create({
   },
   averageRatingText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.text.secondary,
     fontWeight: '500',
   },
   modalContent: {
@@ -8427,13 +8528,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 10,
     textAlign: 'center',
   },
   loadingMenuText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   coverPhotoSection: {
@@ -8442,11 +8543,13 @@ const styles = StyleSheet.create({
   coverImageContainer: {
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 200,
     width: '100%',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   coverImage: {
     width: '100%',
@@ -8504,35 +8607,35 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   socialButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#4DBFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 120,
   },
   instagramButton: {
-    backgroundColor: '#fef7f7',
+    backgroundColor: '#1A1036',
     borderColor: '#E4405F',
   },
   facebookButton: {
-    backgroundColor: '#f7f9ff',
+    backgroundColor: '#1A1036',
     borderColor: '#1877F2',
   },
   twitterButton: {
-    backgroundColor: '#f7fcff',
+    backgroundColor: '#1A1036',
     borderColor: '#1DA1F2',
   },
   xButton: {
-    backgroundColor: '#f8f8f8',
-    borderColor: '#000000',
+    backgroundColor: '#1A1036',
+    borderColor: '#FFFFFF',
   },
   tiktokButton: {
-    backgroundColor: '#f8f8f8',
-    borderColor: '#000000',
+    backgroundColor: '#1A1036',
+    borderColor: '#FFFFFF',
   },
   socialButtonText: {
     fontWeight: 'bold',
@@ -8542,11 +8645,12 @@ const styles = StyleSheet.create({
   // Drops Section Styles
   dropsSection: {
     marginBottom: 20,
-    backgroundColor: '#2a2a3e',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#4682b4',
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   dropsHeader: {
     flexDirection: 'row',
@@ -8562,17 +8666,18 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   createDropButton: {
-    backgroundColor: '#4682b4',
+    backgroundColor: theme.colors.accent.blue,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   createDropButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 5,
@@ -8589,34 +8694,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dropForm: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: theme.colors.background.secondary,
     padding: 15,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   dropFormTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
   dropFieldLabel: {
     fontSize: 14,
-    color: '#4682b4',
+    color: theme.colors.accent.blue,
     fontWeight: '600',
     marginBottom: 5,
     marginTop: 10,
   },
   dropInputContainer: {
-    backgroundColor: '#2a2a3e',
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4682b4',
+    borderColor: theme.colors.accent.blue,
   },
   dropInput: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 16,
     padding: 12,
     minHeight: 45,
@@ -8634,20 +8740,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   submitDropButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   submitDropButtonDisabled: {
-    backgroundColor: '#666',
-    borderColor: '#999',
+    backgroundColor: theme.colors.text.secondary,
+    borderColor: theme.colors.border,
+    opacity: 0.5,
   },
   submitDropButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -8655,24 +8763,28 @@ const styles = StyleSheet.create({
   // Customer Drops Section Styles
   customerDropsSection: {
     marginBottom: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 15,
     marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   claimedDropCard: {
-    backgroundColor: '#d4edda',
+    backgroundColor: 'rgba(255, 78, 201, 0.1)',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#c3e6cb',
+    borderColor: theme.colors.accent.pink,
     alignItems: 'center',
+    ...theme.shadows.neonPink,
   },
   claimedDropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#155724',
+    color: theme.colors.accent.pink,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -8684,40 +8796,42 @@ const styles = StyleSheet.create({
   claimCode: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#155724',
+    color: theme.colors.background.primary,
     letterSpacing: 2,
     marginVertical: 10,
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#c3e6cb',
+    borderColor: theme.colors.accent.pink,
     borderStyle: 'dashed',
+    ...theme.shadows.neonPink,
   },
   claimedDropExpires: {
     fontSize: 12,
-    color: '#155724',
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   claimMessageContainer: {
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 8,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
   },
   claimMessage: {
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '500',
+    color: theme.colors.text.primary,
   },
   noDropsContainer: {
     padding: 20,
     alignItems: 'center',
   },
   noDropsText: {
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontSize: 14,
     fontStyle: 'italic',
   },
@@ -8725,30 +8839,23 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   dropCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 10,
     padding: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   dropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 6,
   },
   dropDescription: {
     fontSize: 14,
-    color: '#555',
+    color: theme.colors.text.secondary,
     marginBottom: 10,
     lineHeight: 18,
   },
@@ -8759,7 +8866,7 @@ const styles = StyleSheet.create({
   },
   dropDetail: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.text.secondary,
     flex: 1,
   },
   claimDropButton: {
@@ -8767,6 +8874,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   claimDropButtonActive: {
     backgroundColor: '#2c6f57',
@@ -8810,12 +8919,12 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     width: '48%',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     borderRadius: 10,
     marginBottom: 15,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: colors.border,
   },
   menuItemImageContainer: {
     position: 'relative',
@@ -8854,18 +8963,18 @@ const styles = StyleSheet.create({
   menuItemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 4,
   },
   menuItemPrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e74c3c',
+    color: colors.accent.blue,
     marginBottom: 4,
   },
   menuItemDescription: {
     fontSize: 12,
-    color: '#666',
+    color: colors.text.secondary,
     lineHeight: 16,
   },
   emptyMenuContainer: {
@@ -8904,29 +9013,27 @@ const styles = StyleSheet.create({
   },
   // Cuisine Modal Styles
   cuisineModalContent: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 12,
     padding: 20,
     margin: 20,
     maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    borderWidth: 2,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cuisineModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
   },
   cuisineModalSubtitle: {
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   cuisineScrollView: {
@@ -8940,9 +9047,9 @@ const styles = StyleSheet.create({
   },
   cuisineOption: {
     width: '48%',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -8950,17 +9057,19 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cuisineOptionSelected: {
-    borderColor: '#2c6f57',
-    backgroundColor: '#2c6f57',
+    borderColor: theme.colors.accent.pink,
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cuisineOptionExcluded: {
-    borderColor: '#e74c3c',
-    backgroundColor: '#ffe6e6',
+    borderColor: theme.colors.accent.pink,
+    backgroundColor: theme.colors.background.primary,
     opacity: 0.7,
   },
   cuisineOptionAll: {
-    borderColor: '#4682b4',
-    backgroundColor: '#4682b4',
+    borderColor: theme.colors.accent.blue,
+    backgroundColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   cuisineOptionContent: {
     alignItems: 'center',
@@ -8977,31 +9086,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    color: '#333',
+    color: theme.colors.text.primary,
     lineHeight: 14,
   },
   cuisineNameSelected: {
-    color: 'white',
+    color: theme.colors.text.primary,
   },
   cuisineNameAll: {
-    color: 'white',
+    color: theme.colors.text.primary,
   },
   cuisineNameExcluded: {
-    color: '#999',
+    color: theme.colors.text.secondary,
     textDecorationLine: 'line-through',
   },
   cuisineCheckmark: {
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 10,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: theme.colors.text.primary,
   },
   cuisineCheckmarkText: {
     color: 'white',
@@ -9050,7 +9159,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: theme.colors.border,
   },
   cuisineModalButton: {
     paddingVertical: 10,
@@ -9058,30 +9167,34 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     minWidth: 80,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButton: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: theme.colors.background.secondary,
   },
   clearButton: {
-    backgroundColor: '#4682b4',
+    backgroundColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   applyButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text.secondary,
   },
   clearButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'white',
+    color: theme.colors.text.primary,
   },
   applyButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'white',
+    color: theme.colors.text.primary,
   },
   
   // Cart-related styles
@@ -9437,10 +9550,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background.secondary,
   },
   toggleText: {
-    color: 'white',
+    color: theme.colors.text.primary,
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 5,
@@ -9471,12 +9585,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ownerDropCard: {
-    backgroundColor: '#2c2c54',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#40407a',
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   ownerDropHeader: {
     marginBottom: 8,
@@ -9484,16 +9599,16 @@ const styles = StyleSheet.create({
   ownerDropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text.primary,
     marginBottom: 4,
   },
   ownerDropExpiry: {
     fontSize: 12,
-    color: '#bbb',
+    color: theme.colors.text.secondary,
   },
   ownerDropDescription: {
     fontSize: 14,
-    color: '#ddd',
+    color: theme.colors.text.secondary,
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -9616,12 +9731,13 @@ const styles = StyleSheet.create({
   
   // Reviews Modal Styles
   reviewFormSection: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   reviewForm: {
     gap: 15,
@@ -9758,18 +9874,19 @@ const styles = StyleSheet.create({
   // Reviews Modal Styles
   reviewsModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   reviewsModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 15,
     padding: 20,
     width: '90%',
     maxHeight: '80%',
     borderWidth: 2,
-    borderColor: '#2c6f57',
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   reviewsModalHeader: {
     flexDirection: 'row',
@@ -9778,19 +9895,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.colors.border,
   },
   reviewsModalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text.primary,
   },
   reviewsCloseButton: {
     position: 'absolute',
     top: 10,
     right: 10,
     padding: 12,
-    backgroundColor: '#d3d3d3',
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 30,
     width: 60,
     height: 60,
@@ -9798,34 +9915,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 99999,
     elevation: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   reviewsCloseButtonText: {
     fontSize: 24,
-    color: '#333',
+    color: theme.colors.text.primary,
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 24,
   },
   averageRatingContainer: {
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   averageRatingText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 5,
   },
   averageStars: {
@@ -9834,15 +9948,16 @@ const styles = StyleSheet.create({
   },
   reviewCount: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
   },
   leaveReviewSection: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   starRatingContainer: {
     marginBottom: 15,
@@ -9850,7 +9965,7 @@ const styles = StyleSheet.create({
   ratingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.accent.blue,
     marginBottom: 8,
   },
   starRatingInput: {
@@ -9863,33 +9978,37 @@ const styles = StyleSheet.create({
   commentLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.accent.blue,
     marginBottom: 8,
   },
   commentInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.accent.blue,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
+    color: theme.colors.text.primary,
     textAlignVertical: 'top',
     minHeight: 100,
   },
   characterCount: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.text.secondary,
     textAlign: 'right',
     marginTop: 5,
   },
   submitReviewButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   submitReviewButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -9899,7 +10018,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -9907,20 +10026,13 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   reviewCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 10,
     padding: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -9931,7 +10043,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text.primary,
     flex: 1,
   },
   reviewRating: {
@@ -9939,13 +10051,13 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     fontSize: 14,
-    color: '#555',
+    color: theme.colors.text.secondary,
     lineHeight: 20,
     marginBottom: 8,
   },
   reviewDate: {
     fontSize: 12,
-    color: '#999',
+    color: theme.colors.text.secondary,
   },
   emptyReviewsContainer: {
     alignItems: 'center',
@@ -9958,12 +10070,12 @@ const styles = StyleSheet.create({
   emptyReviewsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text.primary,
     marginBottom: 8,
   },
   emptyReviewsText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -9974,7 +10086,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
   },
 
 });

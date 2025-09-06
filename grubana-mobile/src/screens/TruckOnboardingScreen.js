@@ -18,6 +18,7 @@ import { useAuth } from '../components/AuthContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { colors } from '../theme/colors';
 
 export default function TruckOnboardingScreen({ navigation }) {
   const { user, userData } = useAuth();
@@ -159,11 +160,14 @@ export default function TruckOnboardingScreen({ navigation }) {
         country: 'US'
       });
       
+      const token = await user.getIdToken();
+      console.log('🔐 Got auth token:', token ? 'Yes' : 'No');
+      
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboard`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await user.getIdToken()}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           truckId: user.uid,
@@ -173,18 +177,28 @@ export default function TruckOnboardingScreen({ navigation }) {
         })
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers);
+
       const data = await response.json();
+      console.log('📥 Server response:', data);
 
       if (response.ok) {
         setAccountStatus('created');
         setAccountDetails(data);
         await checkAccountStatus();
       } else {
+        console.error('❌ Server error response:', data);
         throw new Error(data.error || 'Failed to create account');
       }
     } catch (error) {
       console.error('Error creating account:', error);
-      Alert.alert('Error', 'Failed to create Stripe account. Please try again.');
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      Alert.alert('Error', `Failed to create Stripe account. ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -490,12 +504,14 @@ export default function TruckOnboardingScreen({ navigation }) {
             <TextInput
               style={[styles.input, styles.halfInput]}
               placeholder="Item Name (e.g., Classic Cheeseburger)"
+              placeholderTextColor={colors.text.secondary}
               value={newMenuItem.name}
               onChangeText={(text) => setNewMenuItem(prev => ({ ...prev, name: text }))}
             />
             <TextInput
               style={[styles.input, styles.halfInput]}
               placeholder="Price (e.g., 12.99)"
+              placeholderTextColor={colors.text.secondary}
               value={newMenuItem.price}
               onChangeText={(text) => setNewMenuItem(prev => ({ ...prev, price: text }))}
               keyboardType="numeric"
@@ -505,6 +521,7 @@ export default function TruckOnboardingScreen({ navigation }) {
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Description (optional)"
+            placeholderTextColor={colors.text.secondary}
             value={newMenuItem.description}
             onChangeText={(text) => setNewMenuItem(prev => ({ ...prev, description: text }))}
             multiline={true}
@@ -799,16 +816,16 @@ export default function TruckOnboardingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.primary,
   },
   header: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.background.secondary,
     padding: 20,
     paddingTop: 40,
     alignItems: 'center',
     borderBottomWidth: 3,
-    borderBottomColor: '#000000',
-    shadowColor: '#000',
+    borderBottomColor: colors.accent.pink,
+    shadowColor: colors.accent.pink,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -820,20 +837,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text.primary,
     marginBottom: 5,
     textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#e8f5e8',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderBottomWidth: 2,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -842,16 +859,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   activeTab: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.accent.pink,
   },
   tabText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   activeTabText: {
-    color: '#fff',
+    color: colors.text.primary,
   },
   tabContent: {
     flex: 1,
@@ -864,64 +881,64 @@ const styles = StyleSheet.create({
   statusText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   statusCard: {
-    backgroundColor: '#fff3cd',
+    backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 20,
     marginBottom: 20,
     borderLeftWidth: 4,
-    borderLeftColor: '#4682b4', // Blue accent left border
+    borderLeftColor: colors.accent.blue,
   },
   pendingCard: {
-    backgroundColor: '#cce5ff',
-    borderColor: '#99ccff',
+    backgroundColor: colors.background.secondary,
+    borderColor: colors.accent.blue,
   },
   successCard: {
-    backgroundColor: '#d4edda',
-    borderColor: '#c3e6cb',
+    backgroundColor: colors.background.secondary,
+    borderColor: colors.status.success,
   },
   errorCard: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c6cb',
+    backgroundColor: colors.background.secondary,
+    borderColor: colors.status.error,
   },
   statusTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#856404',
+    color: colors.text.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
   statusDescription: {
     fontSize: 14,
-    color: '#856404',
+    color: colors.text.secondary,
     marginBottom: 15,
     lineHeight: 20,
     textAlign: 'center',
   },
   accountDetailsCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background.secondary,
     padding: 15,
     borderRadius: 6,
     marginTop: 15,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: colors.border,
     borderTopWidth: 3,
-    borderTopColor: '#4682b4', // Blue accent top border
+    borderTopColor: colors.accent.blue,
   },
   accountDetailsTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#155724',
+    color: colors.text.primary,
     marginBottom: 10,
   },
   accountDetailsText: {
     fontSize: 14,
-    color: '#155724',
+    color: colors.text.secondary,
     lineHeight: 20,
   },
   button: {
@@ -932,37 +949,37 @@ const styles = StyleSheet.create({
     marginTop: 150,
   },
   primaryButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.accent.pink,
   },
   blueButton: {
-    backgroundColor: '#0066cc',
+    backgroundColor: colors.accent.blue,
   },
   dangerButton: {
-    backgroundColor: '#dc3545',
+    backgroundColor: colors.status.error,
   },
   disabledButton: {
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   addItemCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 20,
     marginBottom: 30,
     borderBottomWidth: 4,
-    borderBottomColor: '#4682b4', // Blue accent bottom border
+    borderBottomColor: colors.accent.blue,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -973,11 +990,12 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 6,
     padding: 12,
     fontSize: 14,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.primary,
+    color: colors.text.primary,
   },
   halfInput: {
     width: '48%',
@@ -993,7 +1011,7 @@ const styles = StyleSheet.create({
   imageLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -1003,9 +1021,9 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   imagePickerButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: 6,
     padding: 15,
@@ -1014,7 +1032,7 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
   },
   imagePreviewContainer: {
     position: 'relative',
@@ -1060,23 +1078,23 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 6,
     marginBottom: 15,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.primary,
     height: 50,
     justifyContent: 'center',
   },
   picker: {
     height: 50,
-    color: '#333',
+    color: colors.text.primary,
     fontSize: 16,
     marginTop: -6,
     marginBottom: -6,
   },
   pickerItem: {
     height: 50,
-    color: '#333',
+    color: colors.text.primary,
     fontSize: 16,
   },
   newItemCheckbox: {
@@ -1089,31 +1107,31 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 3,
     marginRight: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.primary,
   },
   checkmark: {
-    color: '#2c6f57',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
   },
   checkboxLabel: {
     fontSize: 16,
-    color: '#333',
+    color: colors.text.primary,
   },
   menuListCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderRadius: 8,
     padding: 20,
   },
   emptyMenuContainer: {
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     borderRadius: 8,
   },
   emptyMenuIcon: {
@@ -1123,21 +1141,21 @@ const styles = StyleSheet.create({
   emptyMenuTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: colors.text.primary,
     marginBottom: 5,
   },
   emptyMenuText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   menuGrid: {
     gap: 20,
   },
   menuItem: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 8,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -1191,11 +1209,11 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderStyle: 'dashed',
   },
   imagePlaceholderText: {
@@ -1204,11 +1222,11 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderSubtext: {
     fontSize: 12,
-    color: '#666',
+    color: colors.text.secondary,
     marginBottom: 10,
   },
   retryButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -1246,7 +1264,7 @@ const styles = StyleSheet.create({
   menuItemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     flex: 1,
     textAlign: 'center',
   },
@@ -1262,34 +1280,36 @@ const styles = StyleSheet.create({
   menuItemPrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     marginBottom: 8,
     textAlign: 'center',
   },
   menuItemDescription: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
     marginBottom: 8,
     lineHeight: 20,
     textAlign: 'center',
   },
   categoryTag: {
-    backgroundColor: '#e9f7f1',
+    backgroundColor: colors.background.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   categoryText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     textAlign: 'center',
   },
   infoCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 20,
     marginTop: 20,
@@ -1297,7 +1317,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -1307,18 +1327,18 @@ const styles = StyleSheet.create({
   infoSectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.accent.blue,
     marginBottom: 10,
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
     lineHeight: 22,
   },
   planCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
@@ -1327,29 +1347,31 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     marginBottom: 5,
   },
   planDetails: {
     fontSize: 12,
-    color: '#666',
+    color: colors.text.secondary,
   },
   infoNote: {
     fontSize: 12,
-    color: '#666',
+    color: colors.text.secondary,
     fontStyle: 'italic',
     marginTop: 10,
   },
   backButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: colors.background.secondary,
     margin: 20,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 6,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   backButtonText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },

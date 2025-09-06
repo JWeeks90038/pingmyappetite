@@ -9,10 +9,14 @@ import {
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../theme/ThemeContext';
 
 const HomeScreen = () => {
   const { user, userData, userRole } = useAuth();
   const navigation = useNavigation();
+  const theme = useTheme();
+
+  const styles = createThemedStyles(theme);
 
   return (
     <ScrollView style={styles.container}>
@@ -182,25 +186,18 @@ const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.primary,
   },
   header: {
-    backgroundColor: '#2c6f57', // Green header
+    backgroundColor: theme.colors.background.secondary,
     padding: 30,
     alignItems: 'center',
     borderBottomWidth: 3,
-    borderBottomColor: '#000000', // Black border accent
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   logo: {
     width: 450,
@@ -211,7 +208,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text.primary,
     marginBottom: 10,
   },
   subtitle: {
@@ -243,7 +240,7 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 18,
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -253,31 +250,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 15,
     textAlign: 'center',
   },
   featuresList: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: theme.colors.border,
     borderLeftWidth: 4,
-    borderLeftColor: '#4682b4', // Blue accent left border
+    borderLeftColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   featureItem: {
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: theme.colors.border,
   },
   featureTitle: {
     fontSize: 16,
@@ -288,7 +278,7 @@ const styles = StyleSheet.create({
   },
   featureDescription: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     lineHeight: 20,
     textAlign: 'center',
   },
@@ -296,57 +286,43 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   primaryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.accent.pink,
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...theme.shadows.neonPink,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
   },
   buttonSubtext: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 14,
     marginTop: 4,
     opacity: 0.9,
   },
   aboutSection: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     padding: 20,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: theme.colors.border,
     borderBottomWidth: 4,
-    borderBottomColor: '#4682b4', // Blue accent bottom border
+    borderBottomColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   aboutText: {
     fontSize: 15,
-    color: '#555',
+    color: theme.colors.text.secondary,
     lineHeight: 22,
     textAlign: 'center',
   },
   aboutBold: {
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
   },
 });
 

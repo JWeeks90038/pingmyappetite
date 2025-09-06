@@ -27,6 +27,7 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
+import { useTheme } from '../theme/ThemeContext';
 
 // React Native compatible UUID generation
 const generateUUID = () => {
@@ -35,6 +36,8 @@ const generateUUID = () => {
 
 export default function PingScreen() {
   const { user } = useAuth();
+  const theme = useTheme();
+  const styles = createThemedStyles(theme);
   const [username, setUsername] = useState('');
   const [cuisineType, setCuisineType] = useState('');
   const [manualAddress, setManualAddress] = useState('');
@@ -446,23 +449,21 @@ export default function PingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.primary,
   },
   header: {
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   logo: {
     width: 60,
@@ -472,13 +473,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 5,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
   },
   statsContainer: {
@@ -488,43 +489,40 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statBox: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     padding: 20,
     borderRadius: 15,
     alignItems: 'center',
     minWidth: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.subtle,
   },
   statNumber: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     marginTop: 5,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     margin: 20,
     marginTop: 0,
     padding: 20,
     borderRadius: 15,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.subtle,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 15,
   },
   formGroup: {
@@ -539,29 +537,30 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text.primary,
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   locationStatus: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
     borderRadius: 10,
     padding: 15,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.colors.background.secondary,
+    color: theme.colors.text.primary,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
     borderRadius: 10,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.colors.background.secondary,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'stretch',
@@ -570,44 +569,49 @@ const styles = StyleSheet.create({
     height: 50,
     width: '100%',
     alignSelf: 'center',
+    color: theme.colors.text.primary,
   },
   pickerItem: {
     height: 50,
     textAlign: 'center',
     fontSize: 16,
+    color: theme.colors.text.primary,
   },
   sendButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 18,
     borderRadius: 12,
     marginTop: 10,
+    ...theme.shadows.neonPink,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: theme.colors.text.secondary,
   },
   buttonIcon: {
     marginRight: 8,
   },
   sendButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
   },
   limitNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffeaa7',
+    backgroundColor: theme.colors.background.secondary,
     padding: 15,
     borderRadius: 10,
     marginTop: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.pink,
   },
   limitText: {
     marginLeft: 10,
     fontSize: 14,
-    color: '#e74c3c',
+    color: theme.colors.accent.pink,
     flex: 1,
   },
   stepContainer: {
@@ -622,19 +626,20 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.blue,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
+    ...theme.shadows.neonBlue,
   },
   stepNumberText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontWeight: 'bold',
     fontSize: 16,
   },
   stepText: {
     fontSize: 16,
-    color: '#333',
+    color: theme.colors.text.primary,
     flex: 1,
   },
 });

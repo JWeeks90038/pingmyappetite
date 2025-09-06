@@ -10,12 +10,16 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from './AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 
 const ContactFormModal = ({ visible, onClose }) => {
   const { user, userData } = useAuth();
+  const theme = useTheme();
+  const styles = createThemedStyles(theme);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: userData?.username || userData?.ownerName || userData?.contactName || '',
@@ -95,7 +99,7 @@ const ContactFormModal = ({ visible, onClose }) => {
             style={styles.closeButton}
             onPress={onClose}
           >
-            <Ionicons name="close" size={24} color="#333" />
+            <Ionicons name="close" size={24} color={theme.colors.text.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Contact Us</Text>
           <View style={styles.placeholder} />
@@ -174,10 +178,10 @@ const ContactFormModal = ({ visible, onClose }) => {
   );
 };
 
-const styles = {
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.background.primary,
   },
   header: {
     flexDirection: 'row',
@@ -186,17 +190,20 @@ const styles = {
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   closeButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 78, 201, 0.1)',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text.primary,
   },
   placeholder: {
     width: 40,
@@ -207,7 +214,7 @@ const styles = {
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: 30,
     lineHeight: 22,
@@ -218,55 +225,63 @@ const styles = {
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.accent.blue,
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.accent.blue,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
+    color: theme.colors.text.primary,
   },
   textArea: {
     height: 120,
     textAlignVertical: 'top',
   },
   submitButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: theme.colors.accent.pink,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
     marginBottom: 30,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: theme.colors.text.secondary,
+    opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
   },
   infoSection: {
-    backgroundColor: '#f0f8ff',
+    backgroundColor: 'rgba(77, 191, 255, 0.1)',
     padding: 20,
     borderRadius: 8,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text.primary,
     marginBottom: 10,
   },
   infoText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.text.secondary,
     marginBottom: 5,
   },
-};
+});
 
 export default ContactFormModal;

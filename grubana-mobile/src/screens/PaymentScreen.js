@@ -16,6 +16,7 @@ import { db, auth } from '../firebase';
 import { useAuth } from '../components/AuthContext';
 import { useStripe } from '@stripe/stripe-react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { colors } from '../theme/colors';
 
 export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
@@ -649,24 +650,24 @@ export default function PaymentScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.primary,
   },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.accent.pink,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: colors.text.primary,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -674,14 +675,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e8f5e8',
+    backgroundColor: colors.background.secondary,
     padding: 12,
     borderRadius: 8,
     marginTop: 15,
+    borderWidth: 1,
+    borderColor: colors.accent.blue,
   },
   referralText: {
     fontSize: 14,
-    color: '#2c6f57',
+    color: colors.accent.blue,
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -690,16 +693,16 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   planCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderRadius: 12,
     padding: 20,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
     position: 'relative',
   },
   selectedPlan: {
-    backgroundColor: '#2c6f57',
-    borderColor: '#2c6f57',
+    backgroundColor: colors.background.secondary,
+    borderColor: colors.accent.pink,
   },
   planHeader: {
     marginBottom: 12,
@@ -707,7 +710,7 @@ const styles = StyleSheet.create({
   planName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 4,
   },
   planPrice: {

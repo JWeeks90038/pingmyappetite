@@ -20,6 +20,7 @@ import { useAuth } from '../components/AuthContext';
 import { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
+import { colors } from '../theme/colors';
 
 export default function MenuManagementScreen() {
   console.log('🔧 DEBUG: MenuManagementScreen loaded - NEW ITEM feature should be visible!');
@@ -274,9 +275,9 @@ export default function MenuManagementScreen() {
               }}
             />
           ) : (
-            <View style={[styles.menuItemImage, {backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center'}]}>
-              <Ionicons name="image-outline" size={32} color="#ccc" />
-              <Text style={{fontSize: 10, color: '#999'}}>No Image</Text>
+            <View style={[styles.menuItemImage, {backgroundColor: colors.background.primary, justifyContent: 'center', alignItems: 'center'}]}>
+              <Ionicons name="image-outline" size={32} color={colors.text.secondary} />
+              <Text style={{fontSize: 10, color: colors.text.secondary}}>No Image</Text>
             </View>
           )}
           {item.isNewItem && (
@@ -439,12 +440,12 @@ export default function MenuManagementScreen() {
               <Text style={styles.label}>⭐ MARK AS NEW ITEM ⭐</Text>
               <TouchableOpacity 
                 style={{
-                  backgroundColor: formData.isNewItem ? '#ff6b35' : '#f0f0f0',
+                  backgroundColor: formData.isNewItem ? colors.accent.pink : colors.background.primary,
                   padding: 20,
                   borderRadius: 10,
                   alignItems: 'center',
                   borderWidth: 3,
-                  borderColor: formData.isNewItem ? '#ff6b35' : '#ddd',
+                  borderColor: formData.isNewItem ? colors.accent.pink : colors.border,
                   marginVertical: 10
                 }}
                 onPress={() => {
@@ -455,7 +456,7 @@ export default function MenuManagementScreen() {
                 }}
               >
                 <Text style={{
-                  color: formData.isNewItem ? 'white' : '#333',
+                  color: formData.isNewItem ? colors.text.primary : colors.text.secondary,
                   fontSize: 20,
                   fontWeight: 'bold',
                   textAlign: 'center'
@@ -568,35 +569,39 @@ export default function MenuManagementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.primary,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background.primary,
   },
   loadingText: {
     marginTop: 10,
-    color: '#666',
+    color: colors.text.secondary,
     fontSize: 16,
   },
   header: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.background.secondary,
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent.pink,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
+    borderWidth: 1,
+    borderColor: colors.accent.pink,
   },
   titleContainer: {
     flex: 1,
@@ -604,12 +609,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text.primary,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#a8d5ba',
+    color: colors.text.secondary,
   },
   content: {
     flex: 1,
@@ -626,12 +631,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 10,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -640,16 +645,18 @@ const styles = StyleSheet.create({
   },
   menuCount: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text.secondary,
     marginBottom: 15,
     fontWeight: '500',
   },
   menuItemCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.accent.pink,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -667,19 +674,19 @@ const styles = StyleSheet.create({
   menuItemName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 4,
   },
   menuItemCategory: {
     fontSize: 14,
-    color: '#2c6f57',
+    color: colors.accent.blue,
     fontWeight: '500',
     marginBottom: 4,
   },
   menuItemPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#e67e22',
+    color: colors.accent.pink,
   },
   menuItemImageContainer: {
     position: 'relative',
@@ -688,13 +695,13 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.background.primary,
   },
   newItemBadge: {
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: '#f39c12',
+    backgroundColor: colors.accent.pink,
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -820,32 +827,33 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.primary,
+    color: colors.text.primary,
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   categoryContainerFixed: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 15,
   },
   selectedCategoryLabel: {
     fontSize: 16,
-    color: '#333',
+    color: colors.text.primary,
     marginBottom: 10,
     fontWeight: '500',
   },
@@ -854,33 +862,36 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   categoryChip: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.background.primary,
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 10,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   categoryChipSelected: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: colors.accent.blue,
+    borderColor: colors.accent.blue,
   },
   categoryChipText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
     fontWeight: '500',
   },
   categoryChipTextSelected: {
-    color: '#fff',
+    color: colors.text.primary,
   },
   imagePickerButton: {
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: 8,
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.background.primary,
   },
   selectedImage: {
     width: '100%',
@@ -892,7 +903,7 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderText: {
     marginTop: 8,
-    color: '#999',
+    color: colors.text.secondary,
     fontSize: 14,
   },
   newItemButton: {
@@ -911,12 +922,12 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   newItemButtonActive: {
-    backgroundColor: '#f39c12',
-    borderColor: '#e67e22',
+    backgroundColor: colors.accent.pink,
+    borderColor: colors.accent.pink,
   },
   newItemButtonInactive: {
-    backgroundColor: '#fff',
-    borderColor: '#f39c12',
+    backgroundColor: colors.background.secondary,
+    borderColor: colors.accent.pink,
     borderStyle: 'dashed',
   },
   newItemButtonText: {
@@ -926,9 +937,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   newItemButtonTextActive: {
-    color: '#fff',
+    color: colors.text.primary,
   },
   newItemButtonTextInactive: {
-    color: '#f39c12',
+    color: colors.accent.pink,
   },
 });

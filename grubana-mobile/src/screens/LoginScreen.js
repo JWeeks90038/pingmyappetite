@@ -14,11 +14,15 @@ import {
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from '../services/firebase';
+import { useTheme } from '../theme/ThemeContext';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const theme = useTheme();
+
+  const styles = createThemedStyles(theme);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -142,10 +146,10 @@ const LoginScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e', // Deep navy blue background
+    backgroundColor: theme.colors.background.primary,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -164,32 +168,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2c6f57', // Back to green
+    color: theme.colors.accent.pink,
     marginBottom: 10,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#87ceeb', // Light blue
+    color: theme.colors.accent.blue,
     textAlign: 'center',
   },
   form: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 20,
     padding: 25,
     marginHorizontal: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
     borderWidth: 2,
-    borderColor: '#000000', // Black border accent
+    borderColor: theme.colors.border,
     borderTopWidth: 4,
-    borderTopColor: '#4682b4', // Blue accent top border
+    borderTopColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   inputContainer: {
     marginBottom: 20,
@@ -202,36 +199,29 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 2,
-    borderColor: '#4682b4', // Steel blue border
+    borderColor: theme.colors.accent.blue,
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
-    backgroundColor: '#f8f9fa',
-    color: '#1a1a2e',
+    backgroundColor: theme.colors.background.primary,
+    color: theme.colors.text.primary,
   },
   button: {
-    backgroundColor: '#2c6f57', // Green button
+    backgroundColor: theme.colors.accent.pink,
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#000000', // Black border
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   buttonDisabled: {
-    backgroundColor: '#cccccc',
-    borderColor: '#999999',
+    backgroundColor: theme.colors.text.secondary,
+    borderColor: theme.colors.border,
   },
   buttonText: {
-    color: '#ffffff', // White text on green button
+    color: theme.colors.text.primary,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -243,11 +233,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#4682b4', // Steel blue divider
+    backgroundColor: theme.colors.accent.blue,
   },
   dividerText: {
     marginHorizontal: 15,
-    color: '#4682b4',
+    color: theme.colors.accent.blue,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -255,14 +245,13 @@ const styles = StyleSheet.create({
     padding: 15,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#4682b4', // Blue border
+    borderColor: theme.colors.accent.blue,
     borderRadius: 12,
     backgroundColor: 'transparent',
   },
   secondaryButtonText: {
-    color: '#4682b4', // Steel blue text
+    color: theme.colors.accent.blue,
     fontSize: 16,
-    fontWeight: '600',
     fontWeight: '600',
   },
   forgotPasswordContainer: {
@@ -270,7 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#4682b4', // Steel blue text
+    color: theme.colors.accent.blue,
     fontSize: 14,
     fontWeight: '500',
     textDecorationLine: 'underline',
