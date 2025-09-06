@@ -17,7 +17,7 @@ jobs:
         working-directory: ./
 
       - name: Build
-        run: npm run build
+        run: npm run build:web
         working-directory: ./
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
