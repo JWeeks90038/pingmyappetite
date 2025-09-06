@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   resolve: {
@@ -10,45 +9,13 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, '../shared'),
       '@functions': path.resolve(__dirname, '../shared/functions'),
       '@config': path.resolve(__dirname, '../shared/config'),
-      '@utils': path.resolve(__dirname, '../shared/utils')
+      '@utils': path.resolve(__dirname, '../shared/utils'),
+      components: path.resolve(__dirname, 'src/components'),
     }
   },
   plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        globIgnores: ['**/aerostat.png', '**/bdexpress.png', '**/weenie.png'],
-        maximumFileSizeToCacheInBytes: 5000000 // 5MB limit
-      },
-      manifest: {
-        name: 'Grubana Food Truck Locator',
-        short_name: 'Grubana',
-        start_url: '.',
-        display: 'standalone',
-        background_color: '#ffffff',
-        theme_color: '#2c6f57',
-        icons: [
-          {
-            src: '/grubana-logo.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/grubana-logo.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
-      }
-    })
+    react()
   ],
-  resolve: {
-    alias: {
-      components: path.resolve(__dirname, 'src/components'),
-    },
-  },
   server: {
     host: '0.0.0.0',
     port: 5173,
