@@ -2165,7 +2165,10 @@ export default function MapScreen() {
 
       // Call your server to create payment intent
       console.log('🌐 Creating payment intent on server...');
-      const response = await fetch(`${process.env.EXPO_PUBLIC_SERVER_URL || 'https://grubana-dugv014wb-jws-projects-e7f4947b.vercel.app'}/api/create-payment-intent`, {
+      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+      console.log('🌐 Using server URL:', apiUrl);
+      
+      const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2173,7 +2176,28 @@ export default function MapScreen() {
         body: JSON.stringify(paymentIntentData)
       });
 
-      const { client_secret, payment_intent_id } = await response.json();
+      console.log('🌐 Server response status:', response.status);
+      console.log('🌐 Server response headers:', response.headers);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error response:', errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 200)}`);
+      }
+      
+      const responseText = await response.text();
+      console.log('🌐 Raw server response:', responseText.substring(0, 500));
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.error('❌ Response was:', responseText);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
+      }
+      
+      const { client_secret, payment_intent_id } = responseData;
       
       if (!client_secret) {
         throw new Error('Failed to create payment intent');
