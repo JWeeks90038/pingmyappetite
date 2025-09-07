@@ -96,12 +96,23 @@ router.post('/trucks/sync-payment-data', async (req, res) => {
 
     console.log('🔄 SYNC DEBUG: Updating trucks collection...');
     // Update trucks collection with Stripe account ID
-    await db.collection('trucks').doc(truckId).update({
+    const updateData = {
       stripeConnectAccountId: stripeAccountId,
       paymentEnabled: true,
       stripeAccountStatus: userData.stripeAccountStatus || 'completed',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    
+    console.log('🔄 SYNC DEBUG: Update data:', updateData);
+    
+    const updateResult = await db.collection('trucks').doc(truckId).update(updateData);
+    console.log('🔄 SYNC DEBUG: Update result:', updateResult);
+    
+    // Verify the update worked
+    const verifyDoc = await db.collection('trucks').doc(truckId).get();
+    const verifyData = verifyDoc.data();
+    console.log('🔄 SYNC DEBUG: Verification - stripeConnectAccountId after update:', verifyData.stripeConnectAccountId);
+    console.log('🔄 SYNC DEBUG: Verification - full truck data keys:', Object.keys(verifyData));
 
     console.log(`✅ Synced payment data for truck ${truckId} with Stripe account ${stripeAccountId}`);
 

@@ -535,19 +535,22 @@ export default function TruckOnboardingScreen({ navigation }) {
               </Text>
             </View>
             
-            <Text style={[styles.statusDescription, { marginTop: 15, fontSize: 14, fontStyle: 'italic' }]}>
-              If customers see "Payment Not Available" errors, click the button below to sync your payment data:
-            </Text>
-            
-            <TouchableOpacity
-              style={[styles.button, styles.blueButton, { marginTop: 10 }]}
-              onPress={syncPaymentData}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Syncing...' : '🔄 Sync Payment Data'}
+            <View style={styles.troubleshootingSection}>
+              <Text style={styles.troubleshootingTitle}>🔧 Troubleshooting</Text>
+              <Text style={styles.troubleshootingText}>
+                Payment sync happens automatically. Only use this if customers report payment issues:
               </Text>
-            </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, styles.secondaryButton, { marginTop: 8, paddingVertical: 8 }]}
+                onPress={syncPaymentData}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { fontSize: 14 }]}>
+                  {loading ? 'Syncing...' : '🔄 Manual Sync (Support Only)'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         );
 
@@ -1450,5 +1453,25 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  troubleshootingSection: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  troubleshootingTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginBottom: 8,
+  },
+  troubleshootingText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: 8,
   },
 });
