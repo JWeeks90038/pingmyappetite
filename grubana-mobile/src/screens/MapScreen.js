@@ -2148,6 +2148,17 @@ export default function MapScreen() {
       console.log('🔐 ORDER DEBUG: About to create order with data:', orderData);
       console.log('🔐 ORDER DEBUG: Current user UID:', user.uid);
       console.log('🔐 ORDER DEBUG: User auth state:', !!user);
+      console.log('🔐 ORDER DEBUG: User email:', user.email);
+      console.log('🔐 ORDER DEBUG: Auth token exists:', !!user.accessToken);
+      
+      // Test basic Firebase connection first
+      try {
+        console.log('🔥 Testing Firebase connection...');
+        const testDoc = await addDoc(collection(db, 'test'), { test: true, timestamp: new Date() });
+        console.log('✅ Firebase test write successful:', testDoc.id);
+      } catch (testError) {
+        console.error('❌ Firebase test write failed:', testError);
+      }
       
       try {
         const docRef = await addDoc(collection(db, 'orders'), orderData);
@@ -2157,6 +2168,12 @@ export default function MapScreen() {
         console.error('❌ ORDER CREATION ERROR:', orderError);
         console.error('❌ ORDER ERROR CODE:', orderError.code);
         console.error('❌ ORDER ERROR MESSAGE:', orderError.message);
+        console.error('❌ ORDER ERROR DETAILS:', {
+          code: orderError.code,
+          message: orderError.message,
+          stack: orderError.stack,
+          serverResponse: orderError.serverResponse
+        });
         console.error('❌ ORDER DATA ATTEMPTED:', JSON.stringify(orderData, null, 2));
         throw orderError;
       }
