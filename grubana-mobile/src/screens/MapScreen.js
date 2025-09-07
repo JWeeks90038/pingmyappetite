@@ -2117,7 +2117,8 @@ export default function MapScreen() {
 
       // Create order in Firebase first to get order ID
       const orderData = {
-        userId: user.uid,
+        customerId: user.uid, // Changed from userId to customerId to match security rules
+        userId: user.uid, // Keep userId for backward compatibility
         userEmail: user.email,
         userName: userData?.displayName || user.displayName || 'Customer',
         userPlan: userPlan,
@@ -7068,7 +7069,7 @@ export default function MapScreen() {
                         color: colors.text.primary,
                         fontWeight: 'bold'
                       }}>
-                        💳 Pay with Stripe (${getFinalTotal()})
+                        Pay with Stripe (${getFinalTotal()})
                       </Text>
                     </TouchableOpacity>
 
