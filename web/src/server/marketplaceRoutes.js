@@ -69,6 +69,74 @@ router.use((req, res, next) => {
   return authenticateUser(req, res, next);
 });
 
+// Emergency sync endpoint - automatically sync current user's Stripe data
+router.post('/trucks/emergency-sync', async (req, res) => {
+  try {
+    console.log('🚨 EMERGENCY SYNC: Starting emergency payment data sync...');
+    const truckId = req.user?.uid;
+    
+    if (!truckId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    
+    // Get user data with Stripe account info
+    const userDoc = await db.collection('users').doc(truckId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    const stripeAccountId = userData.stripeAccountId;
+    
+    if (!stripeAccountId) {
+      return res.status(400).json({ 
+        error: 'No Stripe account found. Please complete Stripe onboarding first.' 
+      });
+    }
+
+    // Check if trucks collection document exists
+    const truckDoc = await db.collection('trucks').doc(truckId).get();
+    if (!truckDoc.exists) {
+      return res.status(404).json({ error: 'Truck not found in trucks collection' });
+    }
+
+    // Force update trucks collection with Stripe account ID
+    const updateData = {
+      stripeConnectAccountId: stripeAccountId,
+      paymentEnabled: true,
+      stripeAccountStatus: userData.stripeAccountStatus || 'active',
+      emergencySync: true,
+      emergencySyncAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await db.collection('trucks').doc(truckId).update(updateData);
+    
+    // Verify the update worked
+    const verifyDoc = await db.collection('trucks').doc(truckId).get();
+    const verifyData = verifyDoc.data();
+
+    console.log(`🚨 EMERGENCY SYNC: Completed for truck ${truckId} with Stripe account ${stripeAccountId}`);
+
+    res.json({
+      success: true,
+      message: 'Emergency sync completed - payment should now work!',
+      stripeAccountId,
+      truckId,
+      verifiedUpdate: verifyData.stripeConnectAccountId === stripeAccountId
+    });
+
+  } catch (error) {
+    console.error('🚨 EMERGENCY SYNC ERROR:', error);
+    res.status(500).json({ 
+      error: 'Emergency sync failed',
+      details: error.message 
+    });
+  }
+});
+
 // Sync payment data from users collection to trucks collection
 router.post('/trucks/sync-payment-data', async (req, res) => {
   try {
@@ -256,31 +324,35 @@ router.get('/trucks/status', async (req, res) => {
       status = 'created';
     }
 
-    // 🔄 AUTO-SYNC: When account becomes active, ensure trucks collection is updated
-    if (status === 'active') {
-      console.log('🔄 AUTO-SYNC: Account is active, syncing to trucks collection...');
-      try {
-        // Check if trucks collection document exists
-        const trucksDoc = await db.collection('trucks').doc(truckId).get();
-        if (trucksDoc.exists) {
-          const trucksData = trucksDoc.data();
-          // Only update if not already synced or if status changed
-          if (!trucksData.stripeConnectAccountId || trucksData.stripeAccountStatus !== 'active') {
-            await db.collection('trucks').doc(truckId).update({
-              stripeConnectAccountId: stripeAccountId,
-              paymentEnabled: true,
-              stripeAccountStatus: 'active',
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            console.log('✅ AUTO-SYNC: Successfully synced active account to trucks collection');
-          }
+    // 🔄 BACKUP SYNC: Always ensure trucks collection has stripeConnectAccountId
+    // This catches any accounts that weren't synced during creation
+    console.log('🔄 BACKUP SYNC: Checking if trucks collection needs sync...');
+    try {
+      const trucksDoc = await db.collection('trucks').doc(truckId).get();
+      if (trucksDoc.exists) {
+        const trucksData = trucksDoc.data();
+        console.log('🔄 BACKUP SYNC: Current stripeConnectAccountId:', trucksData.stripeConnectAccountId);
+        
+        // Sync if missing or different
+        if (!trucksData.stripeConnectAccountId || trucksData.stripeConnectAccountId !== stripeAccountId) {
+          console.log('🔄 BACKUP SYNC: Syncing missing/incorrect stripeConnectAccountId...');
+          await db.collection('trucks').doc(truckId).update({
+            stripeConnectAccountId: stripeAccountId,
+            paymentEnabled: true,
+            stripeAccountStatus: status,
+            backupSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log('✅ BACKUP SYNC: Successfully synced to trucks collection');
         } else {
-          console.log('⚠️ AUTO-SYNC: Truck document not found in trucks collection');
+          console.log('✅ BACKUP SYNC: Already synced correctly');
         }
-      } catch (syncError) {
-        console.error('❌ AUTO-SYNC ERROR:', syncError);
-        // Don't fail the main operation if sync fails
+      } else {
+        console.log('⚠️ BACKUP SYNC: Truck document not found in trucks collection');
       }
+    } catch (syncError) {
+      console.error('❌ BACKUP SYNC ERROR:', syncError);
+      // Don't fail the main operation if sync fails
     }
 
     res.json({
@@ -340,27 +412,49 @@ router.post('/trucks/onboard', async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 🔄 AUTOMATIC SYNC: Also sync to trucks collection for immediate payment availability
-    console.log('🔄 AUTO-SYNC: Syncing Stripe account to trucks collection...');
-    try {
-      // Check if trucks collection document exists
-      const truckDoc = await db.collection('trucks').doc(truckId).get();
-      if (truckDoc.exists) {
-        // Update trucks collection with Stripe account ID
-        await db.collection('trucks').doc(truckId).update({
-          stripeConnectAccountId: account.id,
-          paymentEnabled: true,
-          stripeOnboardingStatus: 'pending',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        console.log('✅ AUTO-SYNC: Successfully synced to trucks collection');
-      } else {
-        console.log('⚠️ AUTO-SYNC: Truck document not found in trucks collection');
-      }
-    } catch (syncError) {
-      console.error('❌ AUTO-SYNC ERROR:', syncError);
-      // Don't fail the main operation if sync fails
+    // 🔄 CRITICAL SYNC: Must sync to trucks collection immediately for payment availability
+    console.log('🔄 CRITICAL SYNC: Starting mandatory sync to trucks collection...');
+    console.log('🔄 CRITICAL SYNC: truckId:', truckId);
+    console.log('🔄 CRITICAL SYNC: stripeAccountId:', account.id);
+    
+    // Check if trucks collection document exists
+    const truckDoc = await db.collection('trucks').doc(truckId).get();
+    console.log('🔄 CRITICAL SYNC: Truck doc exists:', truckDoc.exists);
+    
+    if (!truckDoc.exists) {
+      // This is a critical error - truck should exist
+      console.error('❌ CRITICAL ERROR: Truck document not found in trucks collection for user:', truckId);
+      console.error('❌ This will cause payment failures. Truck document must be created first.');
+      throw new Error(`Truck document not found for user ${truckId}. Cannot enable payments.`);
     }
+    
+    // Force update trucks collection with Stripe account ID
+    const updateData = {
+      stripeConnectAccountId: account.id,
+      paymentEnabled: true,
+      stripeOnboardingStatus: 'pending',
+      autoSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    console.log('🔄 CRITICAL SYNC: Update data:', updateData);
+    
+    await db.collection('trucks').doc(truckId).update(updateData);
+    console.log('✅ CRITICAL SYNC: Successfully updated trucks collection');
+    
+    // Verify the sync worked
+    const verifyDoc = await db.collection('trucks').doc(truckId).get();
+    const verifyData = verifyDoc.data();
+    console.log('🔄 CRITICAL SYNC: Verification - stripeConnectAccountId:', verifyData.stripeConnectAccountId);
+    
+    if (verifyData.stripeConnectAccountId !== account.id) {
+      console.error('❌ CRITICAL SYNC VERIFICATION FAILED!');
+      console.error('❌ Expected:', account.id);
+      console.error('❌ Actual:', verifyData.stripeConnectAccountId);
+      throw new Error('Stripe account sync verification failed. Payment setup incomplete.');
+    }
+    
+    console.log('🎉 CRITICAL SYNC: Sync verified successfully! Payments should now work.');
 
     // Create account link for onboarding
     const baseUrl = ensureHttpsUrl(process.env.FRONTEND_URL || process.env.CLIENT_URL || 'grubana.com');

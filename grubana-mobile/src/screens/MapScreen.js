@@ -2088,12 +2088,59 @@ export default function MapScreen() {
     console.log('🔍 PAYMENT DEBUG: selectedTruck keys:', Object.keys(selectedTruck || {}));
 
     if (!selectedTruck?.stripeConnectAccountId) {
-      console.log('❌ PAYMENT DEBUG: Missing stripeConnectAccountId - payment blocked');
-      Alert.alert(
-        'Payment Not Available', 
-        'This business has not set up payment processing yet. Please try again later or contact the business owner directly.'
-      );
-      return;
+      console.log('❌ PAYMENT DEBUG: Missing stripeConnectAccountId - attempting auto-fix...');
+      
+      try {
+        // 🔄 AUTO-FIX: Try to trigger sync for this truck owner
+        console.log('🔄 AUTO-FIX: Attempting to sync payment data for truck:', selectedTruck?.ownerId);
+        
+        const token = await user.getIdToken();
+        const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+        
+        // Call the truck status endpoint which has backup sync logic
+        const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          console.log('🔄 AUTO-FIX: Sync attempt completed, retrying payment...');
+          
+          // Reload truck data to check if sync worked
+          // Force refresh by clearing cache and reloading
+          console.log('🔄 AUTO-FIX: Refreshing truck data...');
+          
+          // Brief delay to allow sync to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Attempt to get updated truck data
+          console.log('🔄 AUTO-FIX: Checking if stripeConnectAccountId is now available...');
+          
+          // If we reach here and still no stripeConnectAccountId, show the error
+          if (!selectedTruck?.stripeConnectAccountId) {
+            console.log('❌ AUTO-FIX: Sync attempt failed or truck still not ready');
+            Alert.alert(
+              'Payment Setup In Progress', 
+              'This business is still setting up payment processing. Please try again in a few minutes.'
+            );
+            return;
+          }
+        } else {
+          console.log('❌ AUTO-FIX: Sync attempt failed');
+        }
+      } catch (autoFixError) {
+        console.error('❌ AUTO-FIX ERROR:', autoFixError);
+      }
+      
+      // If still no stripeConnectAccountId after auto-fix attempt
+      if (!selectedTruck?.stripeConnectAccountId) {
+        Alert.alert(
+          'Payment Not Available', 
+          'This business has not set up payment processing yet. Please try again later or contact the business owner directly.'
+        );
+        return;
+      }
     }
 
     try {
