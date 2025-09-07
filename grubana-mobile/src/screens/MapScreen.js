@@ -5879,7 +5879,7 @@ export default function MapScreen() {
   }
 
   // Handle messages from WebView
-  const handleWebViewMessage = (event) => {
+  const handleWebViewMessage = async (event) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
       
@@ -5919,6 +5919,27 @@ export default function MapScreen() {
           coverUrl: coverUrl ? 'Present' : 'Missing',
           menuUrl: menuUrl ? 'Present' : 'Missing'
         });
+
+        // Fetch payment data from trucks collection for this specific truck
+        console.log('🔍 PAYMENT DEBUG: Fetching payment data for truck:', id);
+        let paymentData = {};
+        
+        try {
+          const paymentDoc = await getDoc(doc(db, 'trucks', id));
+          if (paymentDoc.exists()) {
+            paymentData = paymentDoc.data();
+            console.log('🔍 PAYMENT DEBUG: Payment data fetched for selected truck:', {
+              truckId: id,
+              stripeConnectAccountId: paymentData.stripeConnectAccountId,
+              paymentEnabled: paymentData.paymentEnabled,
+              stripeAccountStatus: paymentData.stripeAccountStatus
+            });
+          } else {
+            console.log('⚠️ PAYMENT DEBUG: No payment data found for truck:', id);
+          }
+        } catch (error) {
+          console.error('❌ PAYMENT DEBUG: Error fetching payment data for truck:', id, error);
+        }
         
         // Build social media links display
         let socialText = '';
@@ -5941,11 +5962,17 @@ export default function MapScreen() {
           socialLinks,
           activeSocials,
           socialText,
-          ownerId: id
+          ownerId: id,
+          // Include payment data for pre-order processing
+          ...paymentData
         };
         
         console.log('🍽️ MENU DEBUG: Setting selected truck with ownerId:', id);
         console.log('🍽️ MENU DEBUG: This will trigger menu loading for ownerId:', id);
+        console.log('🔍 PAYMENT DEBUG: Selected truck now has payment data:', {
+          stripeConnectAccountId: truckData.stripeConnectAccountId,
+          paymentEnabled: truckData.paymentEnabled
+        });
         
         setSelectedTruck(truckData);
         setShowMenuModal(true);
