@@ -1610,8 +1610,8 @@ app.post('/create-checkout-session', async (req, res) => {
         referralCode: referralCode || '',
       },
       // Redirect to home page to let role-based routing handle dashboard selection
-      success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`,
+      success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/?success=true&session_id={CHECKOUT_SESSION_ID}`.replace(/^http:/, 'https:'),
+      cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`.replace(/^http:/, 'https:'),
       allow_promotion_codes: true,
     };
 

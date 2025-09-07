@@ -19,6 +19,24 @@ const router = express.Router();
 let stripe;
 
 /**
+ * Ensure URL uses HTTPS for production/live mode
+ */
+function ensureHttpsUrl(url) {
+  if (!url) return 'https://grubana.com'; // fallback
+  
+  // If it's already https, return as-is
+  if (url.startsWith('https://')) return url;
+  
+  // If it's http, convert to https
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  
+  // If it's just a domain, add https
+  return `https://${url}`;
+}
+
+/**
  * Authentication middleware for marketplace routes
  */
 const authenticateUser = async (req, res, next) => {
@@ -296,10 +314,11 @@ router.post('/trucks/onboard', async (req, res) => {
     });
 
     // Create account link for onboarding
+    const baseUrl = ensureHttpsUrl(process.env.FRONTEND_URL || process.env.CLIENT_URL || 'grubana.com');
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${process.env.FRONTEND_URL}/truck/onboarding/refresh`,
-      return_url: `${process.env.FRONTEND_URL}/truck/onboarding/complete`,
+      refresh_url: `${baseUrl}/truck/onboarding/refresh`,
+      return_url: `${baseUrl}/truck/onboarding/complete`,
       type: 'account_onboarding',
     });
 
@@ -356,10 +375,11 @@ router.post('/trucks/onboarding-link', async (req, res) => {
     }
 
     // Create account link for onboarding
+    const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: `${process.env.CLIENT_URL}/truck-onboarding?refresh=true`,
-      return_url: `${process.env.CLIENT_URL}/truck-onboarding?complete=true`,
+      refresh_url: `${baseUrl}/truck-onboarding?refresh=true`,
+      return_url: `${baseUrl}/truck-onboarding?complete=true`,
       type: 'account_onboarding',
     });
 

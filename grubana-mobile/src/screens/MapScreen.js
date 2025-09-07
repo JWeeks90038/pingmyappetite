@@ -155,7 +155,7 @@ export default function MapScreen() {
   const [showCartModal, setShowCartModal] = useState(false);
   const [webViewReady, setWebViewReady] = useState(false);
   const [pendingCuisineFilter, setPendingCuisineFilter] = useState(null);
-  const [showTruckIcon, setShowTruckIcon] = useState(true); // Toggle for truck icon visibility (owners only)
+  const [showTruckIcon, setShowTruckIcon] = useState(null); // Toggle for truck icon visibility (owners only) - null until loaded from Firebase
   const [lastActivityTime, setLastActivityTime] = useState(Date.now()); // Track user activity
   const [imageAspectRatio, setImageAspectRatio] = useState(null);
   
@@ -6141,37 +6141,26 @@ export default function MapScreen() {
       {userRole === 'owner' && (
         <View style={styles.ownerControlsContainer}>
           <TouchableOpacity
-            style={styles.truckToggleButton}
+            style={[styles.truckToggleButton, { 
+              opacity: showTruckIcon === null ? 0.6 : 1 
+            }]}
+            disabled={showTruckIcon === null}
             onPress={async () => {
+              if (showTruckIcon === null) return; // Don't allow toggle while loading
+              
               try {
                 const newVisibility = !showTruckIcon;
                 console.log('🚚 Toggling truck visibility from', showTruckIcon, 'to', newVisibility);
-                console.log('🔄 CRITICAL FIX: Force updating truck visibility in WebView');
                 
-                // Update local state first
+                // Update local state first - this will trigger map regeneration via useEffect
                 setShowTruckIcon(newVisibility);
                 
-                // Update database
+                // Update database to persist the preference
                 await updateTruckVisibility(newVisibility);
                 await updateLastActivity(); // Update activity when user interacts
                 
-                // Force map refresh by sending direct message to WebView
-                if (webViewRef.current) {
-                  console.log('🔄 DIRECT WEBVIEW MESSAGE: Forcing visibility update via WebView message');
-                  const message = {
-                    type: 'updateTruckVisibility',
-                    ownerId: user.uid,
-                    visible: newVisibility
-                  };
-                  webViewRef.current.postMessage(JSON.stringify(message));
-                  
-                  // Truck visibility updates are now handled entirely through WebView messages
-                  console.log('🔄 Truck visibility update sent to WebView, no map regeneration needed');
-                } else {
-                  console.log('❌ WebView reference not available for direct message');
-                }
-                
-                console.log('🚚 Truck visibility toggle completed successfully:', newVisibility);
+                console.log('� Truck visibility toggle completed successfully:', newVisibility);
+                console.log('�️ Map will regenerate automatically due to showTruckIcon state change');
               } catch (error) {
                 console.error('❌ Error toggling truck visibility:', error);
                 // Revert state on error
@@ -6181,17 +6170,21 @@ export default function MapScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.toggleContainer, { 
-              backgroundColor: showTruckIcon ? theme.colors.accent.pink : theme.colors.background.secondary,
-              borderColor: showTruckIcon ? theme.colors.accent.pink : theme.colors.border,
-              ...showTruckIcon ? theme.shadows.neonPink : {}
+              backgroundColor: showTruckIcon === null ? theme.colors.background.tertiary : 
+                             showTruckIcon ? theme.colors.accent.pink : theme.colors.background.secondary,
+              borderColor: showTruckIcon === null ? theme.colors.border :
+                          showTruckIcon ? theme.colors.accent.pink : theme.colors.border,
+              ...(showTruckIcon === true ? theme.shadows.neonPink : {})
             }]}>
               <Ionicons 
-                name={showTruckIcon ? 'car' : 'car-outline'} 
+                name={showTruckIcon === null ? 'hourglass-outline' : 
+                     showTruckIcon ? 'car' : 'car-outline'} 
                 size={18} 
                 color={theme.colors.text.primary}
               />
               <Text style={styles.toggleText}>
-                {showTruckIcon ? 'Hide Icon' : 'Show Icon'}
+                {showTruckIcon === null ? 'Loading...' : 
+                 showTruckIcon ? 'Hide Icon' : 'Show Icon'}
               </Text>
             </View>
           </TouchableOpacity>
