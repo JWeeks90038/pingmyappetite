@@ -2746,9 +2746,29 @@ export default function MapScreen() {
           continue;
         }
         
-        // Get complete owner data for each truck
+        // Get complete owner data and payment data for each truck
         try {
+          // Get owner data from users collection
           const ownerDoc = await getDoc(doc(db, 'users', truckData.ownerUid || truckData.id));
+          
+          // Get payment data from trucks collection 
+          const paymentDoc = await getDoc(doc(db, 'trucks', truckData.ownerUid || truckData.id));
+          
+          console.log('🔍 PAYMENT DEBUG: Getting payment data for truck:', truckData.id);
+          console.log('🔍 PAYMENT DEBUG: Payment doc exists:', paymentDoc.exists());
+          
+          let paymentData = {};
+          if (paymentDoc.exists()) {
+            paymentData = paymentDoc.data();
+            console.log('🔍 PAYMENT DEBUG: Payment data loaded:', {
+              stripeConnectAccountId: paymentData.stripeConnectAccountId,
+              paymentEnabled: paymentData.paymentEnabled,
+              stripeAccountStatus: paymentData.stripeAccountStatus
+            });
+          } else {
+            console.log('⚠️ PAYMENT DEBUG: No payment document found for truck:', truckData.id);
+          }
+          
           if (ownerDoc.exists()) {
             const ownerData = ownerDoc.data();
             console.log('📊 Retrieved owner data for truck:', truckData.id, {
@@ -2764,12 +2784,13 @@ export default function MapScreen() {
               role: ownerData.role
             });
             
-            // Merge truck location data with complete owner profile data
+            // Merge truck location data with complete owner profile data AND payment data
             // Prioritize 'cuisine' field over 'cuisineType' field
             console.log(`🍽️ Cuisine data for ${ownerData.truckName}: cuisine="${ownerData.cuisine}", cuisineType="${ownerData.cuisineType}"`);
             const actualCuisine = ownerData.cuisine || ownerData.cuisineType || inferCuisineType(ownerData.truckName || ownerData.username);
             const finalTruckData = {
               ...truckData,
+              ...paymentData, // Include payment data from trucks collection
               uid: truckData.id, // Ensure uid field is available for filtering
               ownerId: ownerData.uid || truckData.ownerUid || truckData.id, // Use actual owner UID from user data
               truckName: ownerData.truckName || ownerData.username || 'Food Truck',
@@ -2788,15 +2809,24 @@ export default function MapScreen() {
             console.log(`🎯 Final truck data for ${finalTruckData.truckName}:`, {
               ownerId: finalTruckData.ownerId,
               coverUrl: finalTruckData.coverUrl,
-              hasCoverUrl: !!finalTruckData.coverUrl
+              hasCoverUrl: !!finalTruckData.coverUrl,
+              stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
+              paymentEnabled: finalTruckData.paymentEnabled,
+              stripeAccountStatus: finalTruckData.stripeAccountStatus
+            });
+            
+            console.log(`🔍 PAYMENT DEBUG: Final truck has payment data:`, {
+              stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
+              paymentEnabled: finalTruckData.paymentEnabled
             });
             
             trucksWithOwnerData.push(finalTruckData);
           } else {
             console.log('⚠️ No owner data found for truck:', truckData.id);
-            // Include truck with basic data and sensible defaults
+            // Include truck with basic data and sensible defaults INCLUDING payment data
             trucksWithOwnerData.push({
               ...truckData,
+              ...paymentData, // Include payment data even if owner data is missing
               ownerId: truckData.id, // Add ownerId for menu item loading
               truckName: truckData.truckName || 'Food Truck',
               cuisineType: truckData.cuisine || truckData.cuisineType || 'General Food',
