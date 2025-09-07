@@ -2083,7 +2083,12 @@ export default function MapScreen() {
       return;
     }
 
+    console.log('🔍 PAYMENT DEBUG: selectedTruck data:', JSON.stringify(selectedTruck, null, 2));
+    console.log('🔍 PAYMENT DEBUG: selectedTruck.stripeConnectAccountId:', selectedTruck?.stripeConnectAccountId);
+    console.log('🔍 PAYMENT DEBUG: selectedTruck keys:', Object.keys(selectedTruck || {}));
+
     if (!selectedTruck?.stripeConnectAccountId) {
+      console.log('❌ PAYMENT DEBUG: Missing stripeConnectAccountId - payment blocked');
       Alert.alert(
         'Payment Not Available', 
         'This business has not set up payment processing yet. Please try again later or contact the business owner directly.'

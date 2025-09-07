@@ -407,8 +407,7 @@ const EventDashboard = () => {
           <h1>Event Organizer Dashboard</h1>
           {organizerData && (
             <div className="organizer-info">
-              <h2>Welcome, {organizerData.contactPerson || organizerData.username}!</h2>
-              <p>{organizerData.organizationName} - {organizerData.organizationType}</p>
+              <h2>Welcome, {organizerData.organizationName}!</h2>
             </div>
           )}
         </div>

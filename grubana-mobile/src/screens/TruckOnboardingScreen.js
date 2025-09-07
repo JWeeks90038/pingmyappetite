@@ -110,10 +110,72 @@ export default function TruckOnboardingScreen({ navigation }) {
       });
 
       const data = await response.json();
+      console.log('📊 Account status response:', data);
+      
+      // Use real Stripe status from API response
       setAccountStatus(data.status || 'no_account');
       setAccountDetails(data);
     } catch (error) {
       console.error('Error checking account status:', error);
+      setAccountStatus('error');
+      setAccountDetails(null);
+    }
+  };
+
+  const syncPaymentData = async () => {
+    try {
+      console.log('🔄 Syncing payment data to enable pre-orders...');
+      setLoading(true);
+      
+      const token = await user.getIdToken();
+      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+      
+      console.log('🔄 SYNC DEBUG: Making API call to:', `${apiUrl}/api/marketplace/trucks/sync-payment-data`);
+      
+      const response = await fetch(`${apiUrl}/api/marketplace/trucks/sync-payment-data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('🔄 SYNC DEBUG: Response status:', response.status);
+      console.log('🔄 SYNC DEBUG: Response headers:', response.headers);
+      
+      // Get response as text first to see what we're actually getting
+      const responseText = await response.text();
+      console.log('🔄 SYNC DEBUG: Raw response text:', responseText.substring(0, 200) + '...');
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('🔄 SYNC DEBUG: Parsed JSON data:', data);
+      } catch (parseError) {
+        console.error('🔄 SYNC DEBUG: JSON parse failed:', parseError);
+        console.error('🔄 SYNC DEBUG: Full response text:', responseText);
+        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
+      }
+      
+      if (response.ok) {
+        Alert.alert(
+          'Success!', 
+          'Payment data synced successfully. Pre-orders should now work properly!',
+          [
+            {
+              text: 'OK',
+              onPress: () => checkAccountStatus() // Refresh status
+            }
+          ]
+        );
+      } else {
+        throw new Error(data.error || 'Failed to sync payment data');
+      }
+    } catch (error) {
+      console.error('Error syncing payment data:', error);
+      Alert.alert('Error', `Failed to sync payment data: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -472,6 +534,20 @@ export default function TruckOnboardingScreen({ navigation }) {
                 • Platform fees: Based on your subscription plan (Starter: 5%, Pro: 2.5%, All-Access: 0%)
               </Text>
             </View>
+            
+            <Text style={[styles.statusDescription, { marginTop: 15, fontSize: 14, fontStyle: 'italic' }]}>
+              If customers see "Payment Not Available" errors, click the button below to sync your payment data:
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.button, styles.blueButton, { marginTop: 10 }]}
+              onPress={syncPaymentData}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Syncing...' : '🔄 Sync Payment Data'}
+              </Text>
+            </TouchableOpacity>
           </View>
         );
 

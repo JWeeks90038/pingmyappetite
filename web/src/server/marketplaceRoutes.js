@@ -51,6 +51,78 @@ router.use((req, res, next) => {
   return authenticateUser(req, res, next);
 });
 
+// Sync payment data from users collection to trucks collection
+router.post('/trucks/sync-payment-data', async (req, res) => {
+  try {
+    console.log('🔄 SYNC DEBUG: Starting payment data sync...');
+    const truckId = req.user?.uid;
+    console.log('🔄 SYNC DEBUG: truckId from auth:', truckId);
+    
+    if (!truckId) {
+      console.log('❌ SYNC DEBUG: No truckId - authentication failed');
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    console.log('🔄 SYNC DEBUG: Getting Firestore instance...');
+    const db = admin.firestore();
+    
+    console.log('🔄 SYNC DEBUG: Querying users collection...');
+    // Get user data with Stripe account info
+    const userDoc = await db.collection('users').doc(truckId).get();
+    if (!userDoc.exists) {
+      console.log('❌ SYNC DEBUG: User document not found');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('🔄 SYNC DEBUG: User document found, getting data...');
+    const userData = userDoc.data();
+    const stripeAccountId = userData.stripeAccountId;
+    console.log('🔄 SYNC DEBUG: stripeAccountId found:', stripeAccountId);
+    
+    if (!stripeAccountId) {
+      console.log('❌ SYNC DEBUG: No stripeAccountId in user data');
+      return res.status(400).json({ 
+        error: 'No Stripe account found. Please complete Stripe onboarding first.' 
+      });
+    }
+
+    console.log('🔄 SYNC DEBUG: Checking trucks collection...');
+    // Check if trucks collection document exists
+    const truckDoc = await db.collection('trucks').doc(truckId).get();
+    if (!truckDoc.exists) {
+      console.log('❌ SYNC DEBUG: Truck document not found in trucks collection');
+      return res.status(404).json({ error: 'Truck not found in trucks collection' });
+    }
+
+    console.log('🔄 SYNC DEBUG: Updating trucks collection...');
+    // Update trucks collection with Stripe account ID
+    await db.collection('trucks').doc(truckId).update({
+      stripeConnectAccountId: stripeAccountId,
+      paymentEnabled: true,
+      stripeAccountStatus: userData.stripeAccountStatus || 'completed',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`✅ Synced payment data for truck ${truckId} with Stripe account ${stripeAccountId}`);
+
+    res.json({
+      success: true,
+      message: 'Payment data synced successfully',
+      stripeAccountId,
+      truckId
+    });
+
+  } catch (error) {
+    console.error('❌ Error syncing payment data:', error);
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to sync payment data',
+      details: error.message 
+    });
+  }
+});
+
 /**
  * Initialize the marketplace routes with Stripe instance
  * @param {Object} stripeInstance - Configured Stripe instance

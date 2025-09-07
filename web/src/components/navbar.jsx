@@ -78,8 +78,8 @@ const Navbar = () => {
             )}
             {userRole === 'owner' && (
               <li>
-                <Link to="/orders" onClick={() => setMenuOpen(false)}>
-                  Order Management
+                <Link to="/menu-management" onClick={() => setMenuOpen(false)}>
+                  Menu Management
                 </Link>
               </li>
             )}

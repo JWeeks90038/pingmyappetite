@@ -179,8 +179,9 @@ async function handleAccountUpdated(account) {
     }
 
     const truckDoc = trucksQuery.docs[0];
+    const truckId = truckDoc.id;
     
-    // Update truck's Stripe account status
+    // Update truck's Stripe account status in users collection
     await truckDoc.ref.update({
       stripeAccountStatus: account.details_submitted ? 'completed' : 'pending',
       stripePayoutsEnabled: account.payouts_enabled,
@@ -188,7 +189,21 @@ async function handleAccountUpdated(account) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log(`✅ Updated truck ${truckDoc.id} Stripe account status`);
+    console.log(`✅ Updated truck ${truckId} Stripe account status in users collection`);
+
+    // Also update the trucks collection with stripeConnectAccountId for payment processing
+    const trucksCollectionDoc = await db.collection('trucks').doc(truckId).get();
+    if (trucksCollectionDoc.exists) {
+      await db.collection('trucks').doc(truckId).update({
+        stripeConnectAccountId: account.id,
+        paymentEnabled: account.charges_enabled && account.payouts_enabled,
+        stripeAccountStatus: account.details_submitted ? 'completed' : 'pending',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`✅ Updated truck ${truckId} in trucks collection with stripeConnectAccountId: ${account.id}`);
+    } else {
+      console.log(`⚠️ Truck ${truckId} not found in trucks collection`);
+    }
 
   } catch (error) {
     console.error(`❌ Error updating truck account status:`, error);

@@ -221,26 +221,26 @@ const createThemedStyles = (theme) => StyleSheet.create({
     padding: 20,
   },
   welcomeSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#00BFFF', // Neon blue background instead of white
     padding: 20,
     borderRadius: 12,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: '#00BFFF',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
     borderWidth: 2,
-    borderColor: '#000000',
+    borderColor: '#00FFFF',
     borderTopWidth: 4,
-    borderTopColor: '#4682b4', // Blue accent top border
+    borderTopColor: '#87CEEB', // Light blue accent top border
   },
   welcomeText: {
     fontSize: 18,
-    color: theme.colors.accent.pink,
+    color: '#FFFFFF', // White text for better contrast on neon blue background
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -250,7 +250,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: theme.colors.accent.pink,
+    color: '#FF69B4', // Lighter pink for better readability
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -272,7 +272,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
   featureTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#999', // Even lighter gray for better readability
     marginBottom: 5,
     textAlign: 'center',
   },

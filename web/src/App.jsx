@@ -50,7 +50,7 @@ import NetworkStatus from "./components/NetworkStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import MobileGoogleMapsWrapper from "./components/MobileGoogleMapsWrapper";
 import TruckOnboarding from "./components/TruckOnboarding";
-import OrderManagement from "./components/OrderManagement";
+import MenuManagement from "./components/MenuManagement";
 import CustomerOrderTracking from "./components/CustomerOrderTracking";
 import OrderSuccess from "./components/OrderSuccess";
 import OrderCancelled from "./components/OrderCancelled";
@@ -367,8 +367,8 @@ function App() {
               <Route path="/logout" element={<Logout />} />
               <Route path="/success" element={<Success />} />
               <Route path="/truck-onboarding" element={<TruckOnboarding />} />
-              <Route path="/orders" element={
-                userRole === 'customer' ? <Navigate to="/my-orders" /> : <OrderManagement />
+              <Route path="/menu-management" element={
+                userRole === 'owner' ? <MenuManagement /> : <Navigate to="/login" />
               } />
               <Route path="/my-orders" element={<CustomerOrderTracking />} />
               <Route path="/order-success" element={<OrderSuccess />} />
@@ -435,7 +435,7 @@ function App() {
             <Route path="/logout" element={<Logout />} />
             <Route path="/success" element={<Success />} />
             <Route path="/truck-onboarding" element={<TruckOnboarding />} />
-            <Route path="/orders" element={<OrderManagement />} />
+            <Route path="/menu-management" element={userRole === 'owner' ? <MenuManagement /> : <Navigate to="/login" />} />
             <Route path="/order-success" element={<OrderSuccess />} />
             <Route path="/order-cancelled" element={<OrderCancelled />} />
             <Route path="/marketplace-test" element={<MarketplaceTest />} />

@@ -66,7 +66,27 @@ const EventOrganizerMap = ({ organizerData }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
     
-    const originalDate = new Date(event.originalDate || event.date);
+    // Validate date input
+    const dateValue = event.originalDate || event.date;
+    if (!dateValue) {
+      console.warn('Event has no date value, using today as fallback:', event);
+      return {
+        ...event,
+        date: today.toISOString().split('T')[0] // Use today as fallback
+      };
+    }
+    
+    const originalDate = new Date(dateValue);
+    
+    // Check if date is valid
+    if (isNaN(originalDate.getTime())) {
+      console.warn('Invalid date value for event, using today as fallback:', dateValue, event);
+      return {
+        ...event,
+        date: today.toISOString().split('T')[0] // Use today as fallback
+      };
+    }
+    
     originalDate.setHours(0, 0, 0, 0);
     
     // If event hasn't started yet, return original date
@@ -77,6 +97,12 @@ const EventOrganizerMap = ({ organizerData }) => {
     // Calculate the current or next occurrence
     let currentOccurrence = new Date(originalDate);
     const endDate = event.recurringEndDate ? new Date(event.recurringEndDate) : null;
+    
+    // Validate end date if provided
+    if (endDate && isNaN(endDate.getTime())) {
+      console.warn('Invalid recurring end date for event:', event.recurringEndDate, event);
+      // Continue without end date validation
+    }
     
     // Find the current or next occurrence
     while (currentOccurrence < today) {
@@ -163,6 +189,14 @@ const EventOrganizerMap = ({ organizerData }) => {
       } else {
         // For non-recurring events, only show if not completed or still active today
         const eventDate = new Date(event.date);
+        if (isNaN(eventDate.getTime())) {
+          console.warn('Invalid date for non-recurring event, using today as fallback:', event.date, event);
+          // Use today as fallback date for invalid events
+          const today = new Date();
+          event.date = today.toISOString().split('T')[0];
+          return event; // Return the event with corrected date
+        }
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -294,12 +328,12 @@ const EventOrganizerMap = ({ organizerData }) => {
     return null;
   };
 
-  // Event marker with 3-color system and organizer logo: Gray for draft, Yellow for active, Green for completed
-  const getEventMarkerIcon = useCallback((eventStatus, logoUrl = null) => {
+  // Event marker with 3-color system and event-specific logo: Gray for draft, Yellow for active, Green for completed
+  const getEventMarkerIcon = useCallback((eventStatus, eventLogoUrl = null) => {
     if (!window.google) return null;
     
     // Log marker creation for debugging
-    console.log('🌟 Creating event marker with status:', eventStatus, 'and logo:', logoUrl ? 'PROVIDED' : 'NONE');
+    console.log('🌟 Creating event marker with status:', eventStatus, 'and event logo:', eventLogoUrl ? 'PROVIDED' : 'NONE');
     
     // Status-based border colors
     let borderColor = '#9E9E9E'; // Default gray for draft
@@ -311,21 +345,21 @@ const EventOrganizerMap = ({ organizerData }) => {
       borderColor = '#2196F3'; // Blue for upcoming
     }
     
-    // If we have a logo URL, return custom marker config
-    if (logoUrl) {
-      console.log('🎯 Returning custom marker config with logo');
+    // If we have an event logo URL, return custom marker config
+    if (eventLogoUrl) {
+      console.log('🎯 Returning custom marker config with event logo');
       return {
         type: 'custom',
-        logoUrl: logoUrl,
+        logoUrl: eventLogoUrl,
         borderColor: borderColor,
         size: 40 // Smaller size for just logo
       };
     }
     
-    // Fallback to simple star without logo
+    // Fallback to simple star without event logo
     const starIcon = {
       path: "M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z", // Star shape
-      fillColor: fillColor,
+      fillColor: borderColor,
       fillOpacity: 0.9,
       strokeColor: '#FFFFFF',
       strokeWeight: 2,
@@ -333,7 +367,7 @@ const EventOrganizerMap = ({ organizerData }) => {
       anchor: { x: 12, y: 12 }
     };
     
-    console.log('🎯 Returning star icon without logo');
+    console.log('🎯 Returning star icon without event logo');
     return starIcon;
   }, []);
 
@@ -427,12 +461,18 @@ const EventOrganizerMap = ({ organizerData }) => {
           </h4>
           
           <div style="margin-bottom: 8px;">
-            <strong>📅 Date:</strong> ${new Date(event.date).toLocaleDateString()}
+            <strong>📅 Date:</strong> ${(() => {
+              const eventDate = new Date(event.date);
+              return isNaN(eventDate.getTime()) ? 'Invalid Date' : eventDate.toLocaleDateString();
+            })()}
             ${(event.isRecurring || event.originalEvent?.isRecurring) ? 
               `<span style="fontSize: 11px; color: #888; display: block;">
                 🔄 Repeats ${(event.originalEvent || event).recurringPattern}
                 ${(event.originalEvent || event).recurringEndDate ? 
-                  ` until ${new Date((event.originalEvent || event).recurringEndDate).toLocaleDateString()}` : 
+                  (() => {
+                    const endDate = new Date((event.originalEvent || event).recurringEndDate);
+                    return isNaN(endDate.getTime()) ? ' (ongoing)' : ` until ${endDate.toLocaleDateString()}`;
+                  })() : 
                   ` (ongoing)`
                 }
               </span>` : ''
@@ -1296,10 +1336,32 @@ const EventOrganizerMap = ({ organizerData }) => {
     );
 
     const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
-      const eventsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })).filter(event => event.latitude && event.longitude);
+      const eventsData = snapshot.docs.map(doc => {
+        const eventData = {
+          id: doc.id,
+          ...doc.data()
+        };
+        
+        // Validate event dates before processing
+        if (eventData.date) {
+          const testDate = new Date(eventData.date);
+          if (isNaN(testDate.getTime())) {
+            console.warn('🚨 Invalid date found in event:', doc.id, 'Date value:', eventData.date);
+            // Set a default date or skip this event
+            eventData.date = new Date().toISOString().split('T')[0]; // Today as fallback
+          }
+        }
+        
+        if (eventData.recurringEndDate) {
+          const testEndDate = new Date(eventData.recurringEndDate);
+          if (isNaN(testEndDate.getTime())) {
+            console.warn('🚨 Invalid recurring end date found in event:', doc.id, 'Date value:', eventData.recurringEndDate);
+            eventData.recurringEndDate = null; // Remove invalid end date
+          }
+        }
+        
+        return eventData;
+      }).filter(event => event.latitude && event.longitude);
 
       console.log('🎪 EventOrganizerMap: Found events:', eventsData.length);
       setEvents(eventsData);
@@ -1346,12 +1408,16 @@ const EventOrganizerMap = ({ organizerData }) => {
       currentEventIds.add(eventMarkerId);
       
       const position = { lat: event.latitude, lng: event.longitude };
-      const icon = getEventMarkerIcon(event.status, organizerLogo);
+      // Use the event's own organizerLogoUrl if available, otherwise fall back to current user's logo
+      const eventLogoUrl = event.organizerLogoUrl || organizerLogo;
+      const icon = getEventMarkerIcon(event.status, eventLogoUrl);
       
       console.log('🎯 Processing event marker:', {
         id: event.id,
         status: event.status,
-        hasLogo: !!organizerLogo,
+        hasEventLogo: !!event.organizerLogoUrl,
+        hasUserLogo: !!organizerLogo,
+        usingLogo: !!eventLogoUrl,
         iconType: icon?.type || 'standard'
       });
 
