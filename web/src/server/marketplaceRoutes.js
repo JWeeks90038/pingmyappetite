@@ -256,6 +256,33 @@ router.get('/trucks/status', async (req, res) => {
       status = 'created';
     }
 
+    // 🔄 AUTO-SYNC: When account becomes active, ensure trucks collection is updated
+    if (status === 'active') {
+      console.log('🔄 AUTO-SYNC: Account is active, syncing to trucks collection...');
+      try {
+        // Check if trucks collection document exists
+        const trucksDoc = await db.collection('trucks').doc(truckId).get();
+        if (trucksDoc.exists) {
+          const trucksData = trucksDoc.data();
+          // Only update if not already synced or if status changed
+          if (!trucksData.stripeConnectAccountId || trucksData.stripeAccountStatus !== 'active') {
+            await db.collection('trucks').doc(truckId).update({
+              stripeConnectAccountId: stripeAccountId,
+              paymentEnabled: true,
+              stripeAccountStatus: 'active',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('✅ AUTO-SYNC: Successfully synced active account to trucks collection');
+          }
+        } else {
+          console.log('⚠️ AUTO-SYNC: Truck document not found in trucks collection');
+        }
+      } catch (syncError) {
+        console.error('❌ AUTO-SYNC ERROR:', syncError);
+        // Don't fail the main operation if sync fails
+      }
+    }
+
     res.json({
       status,
       stripeAccountId: account.id,
@@ -312,6 +339,28 @@ router.post('/trucks/onboard', async (req, res) => {
       stripeOnboardingStatus: 'pending',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+
+    // 🔄 AUTOMATIC SYNC: Also sync to trucks collection for immediate payment availability
+    console.log('🔄 AUTO-SYNC: Syncing Stripe account to trucks collection...');
+    try {
+      // Check if trucks collection document exists
+      const truckDoc = await db.collection('trucks').doc(truckId).get();
+      if (truckDoc.exists) {
+        // Update trucks collection with Stripe account ID
+        await db.collection('trucks').doc(truckId).update({
+          stripeConnectAccountId: account.id,
+          paymentEnabled: true,
+          stripeOnboardingStatus: 'pending',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('✅ AUTO-SYNC: Successfully synced to trucks collection');
+      } else {
+        console.log('⚠️ AUTO-SYNC: Truck document not found in trucks collection');
+      }
+    } catch (syncError) {
+      console.error('❌ AUTO-SYNC ERROR:', syncError);
+      // Don't fail the main operation if sync fails
+    }
 
     // Create account link for onboarding
     const baseUrl = ensureHttpsUrl(process.env.FRONTEND_URL || process.env.CLIENT_URL || 'grubana.com');
