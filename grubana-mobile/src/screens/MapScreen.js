@@ -2145,9 +2145,21 @@ export default function MapScreen() {
         deliveryMethod: 'pickup'
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      const orderId = docRef.id;
-      console.log('📝 Order created with ID:', orderId);
+      console.log('🔐 ORDER DEBUG: About to create order with data:', orderData);
+      console.log('🔐 ORDER DEBUG: Current user UID:', user.uid);
+      console.log('🔐 ORDER DEBUG: User auth state:', !!user);
+      
+      try {
+        const docRef = await addDoc(collection(db, 'orders'), orderData);
+        const orderId = docRef.id;
+        console.log('📝 Order created with ID:', orderId);
+      } catch (orderError) {
+        console.error('❌ ORDER CREATION ERROR:', orderError);
+        console.error('❌ ORDER ERROR CODE:', orderError.code);
+        console.error('❌ ORDER ERROR MESSAGE:', orderError.message);
+        console.error('❌ ORDER DATA ATTEMPTED:', JSON.stringify(orderData, null, 2));
+        throw orderError;
+      }
 
       // Prepare payment intent data with customer's total amount (including tax)
       const customPaymentBreakdown = {
