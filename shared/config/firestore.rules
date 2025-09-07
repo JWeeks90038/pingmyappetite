@@ -238,18 +238,25 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.userId;
     }
     
-    // Orders collection - allow customers and truck owners to manage orders
+    // Orders collection - allow customers, mobile kitchen owners, and event organizers to place pre-orders
     match /orders/{orderId} {
-      // Allow customers to read their own orders
+      // Allow customers to read their own orders (supporting both customerId and userId fields)
       allow read: if request.auth != null && 
-        request.auth.uid == resource.data.customerId;
+        (request.auth.uid == resource.data.customerId || 
+         request.auth.uid == resource.data.userId);
       
       // Allow truck owners to read and update orders for their truck
       allow read, update: if request.auth != null && 
         request.auth.uid == resource.data.truckId;
       
-      // Allow order creation during checkout process (handled by backend)
+      // Allow ANY authenticated user to create pre-orders (customers, mobile kitchen owners, event organizers)
+      // This enables the pre-order and payment feature for all user types
       allow create: if request.auth != null;
+      
+      // Allow order updates by customers for their own orders (for status tracking)
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.customerId || 
+         request.auth.uid == resource.data.userId);
     }
     
     // Catering requests collection - allow authenticated users to create catering requests
