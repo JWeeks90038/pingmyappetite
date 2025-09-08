@@ -116,7 +116,7 @@ function OwnerTabs() {
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
-        options={{ title: 'Dashboard' }}
+        options={{ title: 'Home' }}
       />
       <Tab.Screen 
         name="Map" 

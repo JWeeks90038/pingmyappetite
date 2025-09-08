@@ -22,7 +22,7 @@ const HomeScreen = () => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/2.png')} 
+          source={require('../../assets/logo.png')} 
           style={styles.logo}
         />
         

@@ -133,7 +133,7 @@ export const sendPaidUserWelcomeEmail = async (userData, subscriptionData) => {
           content: `
 Congratulations ${username}! Your Grubana Pro subscription is now active! 🚚💼
 
-Your Pro Plan ($9/month) includes:
+Your Pro Plan ($9.99/month) includes:
 ✅ Real-time GPS tracking for customers
 ✅ Advanced analytics and insights
 ✅ Priority placement in search results
@@ -162,7 +162,7 @@ The Grubana Pro Team
           content: `
 Welcome to the top tier, ${username}! Your All-Access subscription is now active! 🚚👑
 
-Your All-Access Plan ($19/month) includes EVERYTHING:
+Your All-Access Plan ($19.99/month) includes EVERYTHING:
 ✅ All Pro features
 ✅ Advanced customer targeting
 ✅ Premium analytics dashboard

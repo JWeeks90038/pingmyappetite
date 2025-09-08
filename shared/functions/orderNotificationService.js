@@ -90,7 +90,7 @@ const getUserNotificationPreferences = async (userId) => {
       hasValidEmail: !!(userData.email && userData.emailVerified !== false),
       phone: userData.phone,
       email: userData.email,
-      fcmToken: userData.fcmToken,
+      fcmToken: userData.fcmToken || userData.expoPushToken,
       username: userData.username || userData.displayName
     };
   } catch (error) {
@@ -106,6 +106,30 @@ const getUserNotificationPreferences = async (userId) => {
 };
 
 /**
+ * Get user's unread notification count for badge
+ */
+const getUserUnreadCount = async (userId) => {
+  try {
+    const db = admin.firestore();
+    
+    // Get unread notifications from last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const unreadQuery = await db.collection('sentNotifications')
+      .where('userId', '==', userId)
+      .where('timestamp', '>=', admin.firestore.Timestamp.fromDate(sevenDaysAgo))
+      .where('read', '==', false)
+      .get();
+    
+    return unreadQuery.size;
+  } catch (error) {
+    logger.error('Error getting unread count:', error);
+    return 1; // Default to 1 if we can't get count
+  }
+};
+
+/**
  * Send push notification via FCM
  */
 const sendPushNotification = async (fcmToken, title, body, data = {}) => {
@@ -113,6 +137,9 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
     if (!fcmToken) {
       return { success: false, error: 'No FCM token', method: 'push' };
     }
+    
+    // Get badge count for this user
+    const badgeCount = data.userId ? await getUserUnreadCount(data.userId) : 1;
     
     const message = {
       token: fcmToken,
@@ -124,6 +151,21 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
         ...data,
         clickAction: data.clickAction || '/my-orders',
         type: data.type || 'order_status'
+      },
+      // iOS specific badge count
+      apns: {
+        payload: {
+          aps: {
+            badge: badgeCount,
+            sound: 'default'
+          }
+        }
+      },
+      // Android specific badge count
+      android: {
+        notification: {
+          notificationCount: badgeCount
+        }
       },
       webpush: {
         notification: {
@@ -192,6 +234,11 @@ const createNotificationContent = (orderData, status) => {
   const shortOrderId = orderId.substring(0, 8);
   
   const statusContent = {
+    new_order: {
+      title: '🚚 New Order Received!',
+      body: `New order #${shortOrderId} from ${customerName || 'customer'} • $${orderData.totalAmount?.toFixed(2) || '0.00'}`,
+      emoji: '🚚'
+    },
     confirmed: {
       title: '✅ Order Confirmed!',
       body: `${truckName} confirmed your order #${shortOrderId}${estimatedTime ? ` • ~${estimatedTime} min` : ''}`,
@@ -239,24 +286,105 @@ const sendOrderStatusNotification = async (orderId, status, customData = {}) => 
       logger.error(`Order not found: ${orderId}`);
       return { success: false, error: 'Order not found' };
     }
-    
+
     const orderData = orderDoc.data();
     const customerId = orderData.customerId;
-    
-    if (!customerId || customerId === 'guest') {
-      logger.info(`Skipping notifications for guest order: ${orderId}`);
-      return { success: true, note: 'Guest order - no notifications sent' };
-    }
-    
+    const truckId = orderData.truckId;
+
     // Get truck details
     let truckData = {};
-    if (orderData.truckId) {
-      const truckDoc = await db.collection('users').doc(orderData.truckId).get();
+    if (truckId) {
+      const truckDoc = await db.collection('users').doc(truckId).get();
       if (truckDoc.exists) {
         truckData = truckDoc.data();
       }
     }
-    
+
+    const results = [];
+
+    // Handle new order notifications (notify truck owner)
+    if (status === 'new_order') {
+      logger.info(`🚚 Sending new order notification to truck owner: ${truckId}`);
+      
+      if (truckId && truckId !== 'guest') {
+        // Get truck owner preferences
+        const truckPreferences = await getUserNotificationPreferences(truckId);
+        
+        // Get customer details for the notification
+        let customerData = {};
+        if (customerId && customerId !== 'guest') {
+          const customerDoc = await db.collection('users').doc(customerId).get();
+          if (customerDoc.exists) {
+            customerData = customerDoc.data();
+          }
+        }
+
+        // Prepare notification data for truck owner
+        const truckNotificationData = {
+          orderId,
+          truckName: truckData.businessName || truckData.username || 'Food Truck',
+          customerName: customerData.username || customerData.displayName || 'Customer',
+          items: orderData.items,
+          totalAmount: orderData.totalAmount,
+          ...customData
+        };
+
+        const truckContent = createNotificationContent(truckNotificationData, status);
+
+        // Send push notification to truck owner
+        if (truckPreferences.pushNotifications && truckPreferences.fcmToken) {
+          const pushResult = await sendPushNotification(
+            truckPreferences.fcmToken,
+            truckContent.title,
+            truckContent.body,
+            {
+              orderId,
+              status,
+              type: 'new_order',
+              clickAction: '/orders', // Truck owner orders page
+              userId: truckId // Add userId for badge counting
+            }
+          );
+          results.push(pushResult);
+        }
+
+        // Send SMS notification to truck owner
+        if (truckPreferences.smsNotifications && truckPreferences.hasValidPhone && truckPreferences.phone) {
+          const smsResult = await sendOrderStatusSMS(truckPreferences.phone, truckNotificationData, status);
+          results.push(smsResult);
+        }
+
+        // Record notification sent to truck owner
+        await db.collection('sentNotifications').add({
+          userId: truckId,
+          orderId,
+          type: 'new_order',
+          status,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          content: truckContent,
+          results: results.filter(r => r),
+          success: results.some(r => r.success),
+          recipient: 'truck_owner',
+          read: false // Initialize as unread for badge counting
+        });
+
+        logger.info(`🚚 New order notifications sent to truck owner ${truckId} for order ${orderId}`);
+      }
+
+      return {
+        success: true,
+        results,
+        notificationsSent: results.filter(r => r.success).length,
+        recipient: 'truck_owner'
+      };
+    }
+
+    // Handle customer notifications for order status updates
+    if (!customerId || customerId === 'guest') {
+      logger.info(`Skipping customer notifications for guest order: ${orderId}`);
+      return { success: true, note: 'Guest order - no customer notifications sent' };
+    }
+
     // Calculate estimated time if confirming or preparing
     let estimatedTime = null;
     if (status === 'confirmed' || status === 'preparing') {
@@ -271,69 +399,72 @@ const sendOrderStatusNotification = async (orderId, status, customData = {}) => 
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
     }
+
+    // Get customer notification preferences
+    const customerPreferences = await getUserNotificationPreferences(customerId);
     
-    // Get user notification preferences
-    const preferences = await getUserNotificationPreferences(customerId);
-    
-    // Prepare notification data
-    const notificationData = {
+    // Prepare notification data for customer
+    const customerNotificationData = {
       orderId,
       truckName: truckData.businessName || truckData.username || 'Food Truck',
-      customerName: preferences.username,
+      customerName: customerPreferences.username,
       items: orderData.items,
       totalAmount: orderData.totalAmount,
       estimatedTime,
       ...customData
     };
-    
-    const content = createNotificationContent(notificationData, status);
-    const results = [];
-    
-    // Send push notification
-    if (preferences.pushNotifications && preferences.fcmToken) {
+
+    const customerContent = createNotificationContent(customerNotificationData, status);
+
+    // Send push notification to customer
+    if (customerPreferences.pushNotifications && customerPreferences.fcmToken) {
       const pushResult = await sendPushNotification(
-        preferences.fcmToken,
-        content.title,
-        content.body,
+        customerPreferences.fcmToken,
+        customerContent.title,
+        customerContent.body,
         {
           orderId,
           status,
           type: 'order_status',
-          clickAction: '/my-orders'
+          clickAction: '/my-orders',
+          userId: customerId // Add userId for badge counting
         }
       );
       results.push(pushResult);
     }
-    
-    // Send SMS notification
-    if (preferences.smsNotifications && preferences.hasValidPhone && preferences.phone) {
-      const smsResult = await sendOrderStatusSMS(preferences.phone, notificationData, status);
+
+    // Send SMS notification to customer
+    if (customerPreferences.smsNotifications && customerPreferences.hasValidPhone && customerPreferences.phone) {
+      const smsResult = await sendOrderStatusSMS(customerPreferences.phone, customerNotificationData, status);
       results.push(smsResult);
     }
-    
-    // Record notification sent
+
+    // Record notification sent to customer
     await db.collection('sentNotifications').add({
       userId: customerId,
       orderId,
       type: 'order_status',
       status,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      content,
-      results,
-      success: results.some(r => r.success)
+      content: customerContent,
+      results: results.filter(r => r),
+      success: results.some(r => r.success),
+      recipient: 'customer',
+      read: false // Initialize as unread for badge counting
     });
-    
-    logger.info(`📱 Order status notifications sent for ${orderId} (${status}):`, {
+
+    logger.info(`📱 Customer order status notifications sent for ${orderId} (${status}):`, {
       push: results.find(r => r.method === 'push')?.success || false,
       sms: results.find(r => r.method === 'sms')?.success || false,
       estimatedTime
     });
-    
+
     return {
       success: true,
       results,
       estimatedTime,
-      notificationsSent: results.filter(r => r.success).length
+      notificationsSent: results.filter(r => r.success).length,
+      recipient: 'customer'
     };
     
   } catch (error) {
@@ -342,6 +473,43 @@ const sendOrderStatusNotification = async (orderId, status, customData = {}) => 
       success: false,
       error: error.message
     };
+  }
+};
+
+/**
+ * Mark notifications as read for badge count management
+ */
+const markNotificationsAsRead = async (userId, orderId = null) => {
+  try {
+    const db = admin.firestore();
+    
+    let query = db.collection('sentNotifications')
+      .where('userId', '==', userId)
+      .where('read', '==', false);
+    
+    // If orderId provided, only mark that order's notifications as read
+    if (orderId) {
+      query = query.where('orderId', '==', orderId);
+    }
+    
+    const unreadDocs = await query.get();
+    
+    const batch = db.batch();
+    unreadDocs.forEach(doc => {
+      batch.update(doc.ref, { 
+        read: true, 
+        readAt: admin.firestore.FieldValue.serverTimestamp() 
+      });
+    });
+    
+    await batch.commit();
+    
+    logger.info(`📖 Marked ${unreadDocs.size} notifications as read for user ${userId}`);
+    return unreadDocs.size;
+    
+  } catch (error) {
+    logger.error('Error marking notifications as read:', error);
+    return 0;
   }
 };
 
@@ -396,5 +564,7 @@ export {
   sendPushNotification,
   createNotificationContent,
   shouldSendNotification,
-  getNotificationStatus
+  getNotificationStatus,
+  getUserUnreadCount,
+  markNotificationsAsRead
 };

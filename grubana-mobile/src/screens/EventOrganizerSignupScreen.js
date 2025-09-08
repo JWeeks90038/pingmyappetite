@@ -151,7 +151,6 @@ export default function EventOrganizerSignupScreen({ navigation }) {
               onPress: () => {
                 // Don't navigate manually - let the auth system handle it
                 // The user is already logged in and will be redirected automatically
-                console.log('✅ Event organizer account created successfully');
               },
             },
           ]
@@ -165,15 +164,12 @@ export default function EventOrganizerSignupScreen({ navigation }) {
               text: 'Continue',
               onPress: () => {
                 // Don't navigate manually - let the auth system handle it
-                console.log('✅ Event organizer account created, payment required');
               },
             },
           ]
         );
       }
     } catch (error) {
-      console.error('Signup error:', error);
-      
       if (error.code === 'auth/email-already-in-use') {
         Alert.alert(
           'Email Already Registered',

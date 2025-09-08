@@ -58,7 +58,7 @@ const Checkout = () => {
   const planDetails = {
     pro: {
       name: 'Pro Plan',
-      price: '$9/month',
+      price: '$9.99/month',
       amount: 999,
       features: [
         '✅ Everything in Starter',
@@ -68,7 +68,7 @@ const Checkout = () => {
     },
     'all-access': {
       name: 'All Access Plan',
-      price: '$19/month',
+      price: '$19.99/month',
       amount: 1999,
       features: [
         '✅ Everything in Starter & Pro',

@@ -33,9 +33,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
   // Prevent navigation away from checkout
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔒 SecureCheckoutScreen focused - NO MODAL PAYMENT');
       return () => {
-        console.log('🔒 SecureCheckoutScreen losing focus - payment still required');
       };
     }, [])
   );
@@ -55,7 +53,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
               try {
                 await signOut(auth);
               } catch (error) {
-                console.error('Error signing out:', error);
                 Alert.alert('Error', 'Failed to sign out. Please try again.');
               }
             }
@@ -125,16 +122,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
   const buttonText = isValidReferralTrial ? 'Start 30-Day Trial' : `Pay ${currentPlan.price}`;
   const priceDisplayText = isValidReferralTrial ? '' : currentPlan.price;
   const subscriptionText = isValidReferralTrial ? 'FREE 30-day trial' : '/month';
-
-  console.log('🎁 Referral Check:', {
-    hasValidReferral,
-    referralCode,
-    isValidReferralTrial,
-    buttonText,
-    priceDisplayText,
-    subscriptionText
-  });
-
   // Function to go back to previous plan
   const handleGoBackToPreviousPlan = async () => {
     const currentUserPlan = userData?.plan || 'basic';
@@ -180,7 +167,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
               }
               
             } catch (error) {
-              console.error('Error returning to previous plan:', error);
               Alert.alert('Error', 'Failed to return to previous plan. Please try again.');
             } finally {
               setLoading(false);
@@ -211,22 +197,10 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       Alert.alert('Error', 'Please enter a valid postal code');
       return;
     }
-
-    console.log('🔍 Starting INLINE payment process (NO MODAL OVERLAY)');
-    console.log('🔍 Card validation details:', {
-      complete: cardDetails.complete,
-      validNumber: cardDetails.validNumber,
-      validExpiryDate: cardDetails.validExpiryDate,
-      validCVC: cardDetails.validCVC,
-      postalCode: cardDetails.postalCode,
-      brand: cardDetails.brand
-    });
-    
     setLoading(true);
     setPaymentInProgress(true);
     
     try {
-      console.log('🔍 Creating payment intent...');
       // Create payment intent using Firebase Functions
       const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createPaymentIntent', {
         method: 'POST',
@@ -245,17 +219,12 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       });
 
       const result = await response.json();
-      console.log('🔍 Payment intent response:', result);
-
       if (!response.ok || result.error) {
         Alert.alert('Error', result.error || 'Failed to create payment');
         setLoading(false);
         setPaymentInProgress(false);
         return;
       }
-
-      console.log('🔍 Creating payment method from card field...');
-      
       // Create payment method from the card field
       const { error: createError, paymentMethod } = await createPaymentMethod({
         paymentMethodType: 'Card',
@@ -267,8 +236,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       });
 
       if (createError) {
-        console.error('🔍 Payment method creation error:', createError);
-        console.error('🔍 Card details at time of error:', cardDetails);
         Alert.alert(
           'Card Error', 
           `Payment method creation failed: ${createError.message}. Please verify your card details and try again.`
@@ -277,13 +244,8 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         setPaymentInProgress(false);
         return;
       }
-
-      console.log('🔍 Confirming payment INLINE (no modal)...');
-      
       // Check if this is a Setup Intent (for trials) or Payment Intent (for regular payments)
       if (result.isSetupIntent) {
-        console.log('🔍 Confirming Setup Intent for trial subscription...');
-        
         // For Setup Intents (trials), use confirmSetupIntent
         const { error: confirmError, setupIntent } = await confirmSetupIntent(result.clientSecret, {
           paymentMethodType: 'Card',
@@ -295,15 +257,11 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         });
 
         if (confirmError) {
-          console.error('🔍 Setup Intent confirmation error:', confirmError);
           Alert.alert('Setup Failed', confirmError.message);
           setLoading(false);
           setPaymentInProgress(false);
           return;
         }
-
-        console.log('🔍 Setup Intent successful:', setupIntent);
-
         // For trials, the subscription is already created, just update payment status
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, {
@@ -315,8 +273,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
           stripeSubscriptionId: result.subscriptionId,
           lastPaymentUpdate: new Date().toISOString()
         });
-
-        console.log('✅ Trial setup completed successfully!');
         Alert.alert(
           'Trial Started!',
           'Your 30-day free trial has started. Enjoy premium features!',
@@ -331,8 +287,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         );
 
       } else {
-        console.log('🔍 Confirming Payment Intent for regular subscription...');
-        
         // For Payment Intents (regular payments), use confirmPayment
         const { error: confirmError, paymentIntent } = await confirmPayment(result.clientSecret, {
           paymentMethodType: 'Card',
@@ -344,15 +298,11 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         });
 
         if (confirmError) {
-          console.error('🔍 Payment confirmation error:', confirmError);
           Alert.alert('Payment Failed', confirmError.message);
           setLoading(false);
           setPaymentInProgress(false);
           return;
         }
-
-        console.log('🔍 Payment successful:', paymentIntent);
-
         // For regular payments, call the subscription update function
         const subscriptionResponse = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/handleSubscriptionUpdate', {
           method: 'POST',
@@ -368,14 +318,11 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         const subscriptionResult = await subscriptionResponse.json();
         
         if (!subscriptionResponse.ok || subscriptionResult.error) {
-          console.error('Subscription update failed:', subscriptionResult.error);
           Alert.alert('Error', 'Payment succeeded but subscription setup failed. Please contact support.');
           setLoading(false);
           setPaymentInProgress(false);
           return;
         }
-
-        console.log('✅ Payment and subscription completed successfully!');
         Alert.alert(
           'Payment Successful!',
           'Your subscription is now active. Welcome to premium features!',
@@ -391,7 +338,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       }
 
     } catch (error) {
-      console.error('❌ Payment error:', error);
       Alert.alert('Payment Error', error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -476,7 +422,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
                 marginVertical: 10,
               }}
               onCardChange={(cardDetails) => {
-                console.log('Card details changed:', cardDetails);
                 setCardDetails(cardDetails);
                 setCardComplete(cardDetails.complete);
               }}
@@ -552,7 +497,6 @@ export default function SecureCheckoutScreen({ route, navigation }) {
                     try {
                       await signOut(auth);
                     } catch (error) {
-                      console.error('Error signing out:', error);
                       Alert.alert('Error', 'Failed to sign out. Please try again.');
                     }
                   }

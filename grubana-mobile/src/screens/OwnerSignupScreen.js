@@ -245,7 +245,6 @@ export default function OwnerSignupScreen({ navigation }) {
       }
 
     } catch (error) {
-      console.error('Signup error:', error);
       Alert.alert('Error', error.message || 'Failed to create account');
     } finally {
       setLoading(false);
@@ -299,9 +298,6 @@ export default function OwnerSignupScreen({ navigation }) {
           <TouchableOpacity 
             style={[styles.backButton, { zIndex: 1000 }]}
             onPress={() => {
-              console.log('🔥 BACK BUTTON PRESSED!');
-              console.log('Back button pressed - canGoBack:', navigation.canGoBack());
-              console.log('Navigation state:', navigation.getState?.());
               navigation.navigate('SignupSelection');
             }}
             activeOpacity={0.7}

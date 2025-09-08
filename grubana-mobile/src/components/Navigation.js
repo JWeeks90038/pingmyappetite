@@ -165,28 +165,12 @@ const AppNavigator = () => {
   const { user, userRole, userData } = useAuth();
 
   // Enhanced debug logging
-  console.log('🔍 AppNavigator Render:', {
-    timestamp: new Date().toISOString(),
-    hasUser: !!user,
-    userId: user?.uid,
-    userRole,
-    hasUserData: !!userData,
-    userData: userData ? {
-      plan: userData.plan,
-      subscriptionStatus: userData.subscriptionStatus,
-      role: userData.role,
-      uid: userData.uid
-    } : null
-  });
-
   if (!user) {
-    console.log('🔍 No user - showing AuthStack');
-    return <AuthStack />;
+        return <AuthStack />;
   }
 
   if (!userData) {
-    console.log('🔍 User exists but no userData yet - showing AuthStack while loading');
-    return <AuthStack />;
+        return <AuthStack />;
   }
 
   // CRITICAL SECURITY CHECK: Users with paid plans MUST complete payment
@@ -194,17 +178,6 @@ const AppNavigator = () => {
   const needsPayment = userData && 
     (userData.plan === 'pro' || userData.plan === 'all-access' || userData.plan === 'event-premium') && 
     (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus || userData.paymentCompleted !== true);
-
-  console.log('🔍 Payment Check:', {
-    needsPayment,
-    plan: userData?.plan,
-    subscriptionStatus: userData?.subscriptionStatus,
-    paymentCompleted: userData?.paymentCompleted,
-    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium',
-    condition2: userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus || userData?.paymentCompleted !== true,
-    bothConditions: (userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium') && (userData?.subscriptionStatus === 'pending' || !userData?.subscriptionStatus || userData?.paymentCompleted !== true)
-  });
-
   // Additional security check - if user has a paid plan but no active subscription, force payment
   const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
   
@@ -220,29 +193,9 @@ const AppNavigator = () => {
   // ADDITIONAL SECURITY: Block trialing status without payment completion
   const hasTrialWithoutPayment = userData?.subscriptionStatus === 'trialing' && userData?.paymentCompleted !== true;
   
-  console.log('🔒 ULTRA-STRICT Security Check:', {
-    hasPaidPlan,
-    hasCompletedPayment,
-    hasActiveOrTrialSubscription,
-    hasTrialWithoutPayment,
-    shouldForcePayment: shouldForcePayment || hasTrialWithoutPayment,
-    subscriptionStatus: userData?.subscriptionStatus,
-    paymentCompleted: userData?.paymentCompleted,
-    SECURITY_RULE: 'Payment completion required BEFORE any access',
-    ENFORCING_PAYMENT: shouldForcePayment || hasTrialWithoutPayment
-  });
-
-  // If user needs payment, show payment in a stack
+    // If user needs payment, show payment in a stack
   if (needsPayment || shouldForcePayment || hasTrialWithoutPayment) {
-    console.log('🚨 CHECKOUT REQUIRED - Access Denied:', {
-      plan: userData?.plan,
-      subscriptionStatus: userData?.subscriptionStatus,
-      paymentCompleted: userData?.paymentCompleted,
-      reason: needsPayment ? 'needsPayment' : 'shouldForcePayment',
-      securityLevel: 'STRICT - Payment before trial access'
-    });
-    
-    return (
+        return (
       <NavigationContainer>
         <Stack.Navigator
           screenOptions={{
@@ -288,13 +241,7 @@ const AppNavigator = () => {
 
   // ADDITIONAL SAFETY CHECK: Explicit event-premium payment enforcement
   if (userData?.plan === 'event-premium' && userData?.paymentCompleted !== true) {
-    console.log('🚨 EVENT PREMIUM PAYMENT REQUIRED - Explicit Block:', {
-      plan: userData.plan,
-      paymentCompleted: userData.paymentCompleted,
-      subscriptionStatus: userData.subscriptionStatus
-    });
-    
-    return (
+        return (
       <NavigationContainer>
         <Stack.Navigator
           screenOptions={{
@@ -339,23 +286,10 @@ const AppNavigator = () => {
   }
 
   // Return different navigators based on user role
-  console.log('🔍 Final Navigation Decision:', {
-    userRole: userRole === 'owner' ? 'OwnerTabs' : userRole === 'event-organizer' ? 'OwnerTabs' : 'CustomerTabs',
-    plan: userData?.plan,
-    subscriptionStatus: userData?.subscriptionStatus,
-    paymentCompleted: userData?.paymentCompleted
-  });
-
-  // FINAL SECURITY CHECK: Block any event-premium users without COMPLETED payment
+    // FINAL SECURITY CHECK: Block any event-premium users without COMPLETED payment
   // Even trialing status requires payment completion first
   if (userData?.plan === 'event-premium' && userData?.paymentCompleted !== true) {
-    console.log('🚨 FINAL SECURITY BLOCK: Event Premium user without completed payment detected', {
-      subscriptionStatus: userData?.subscriptionStatus,
-      paymentCompleted: userData?.paymentCompleted,
-      BLOCKING_REASON: 'Payment not completed regardless of subscription status'
-    });
-    
-    return (
+        return (
       <NavigationContainer>
         <Stack.Navigator
           screenOptions={{

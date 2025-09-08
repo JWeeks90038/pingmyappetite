@@ -6,16 +6,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { calculateStripeConnectPayment, preparePaymentIntentData } from '../utils/paymentConfig';
-import { colors } from '../theme/colors'; // Import the centralized color theme
+import { useTheme } from '../theme/ThemeContext';
+import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
+import { colors } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
 export default function MapScreen() {
+  const theme = useTheme();
+  const styles = useMemo(() => createThemedStyles(theme), [theme]);
+  
   // DEBUG: Console log to confirm code changes are active
   console.log('🔧 DEBUG: MapScreen loaded with UPDATED code - Menu Management changes should be active');
   
@@ -60,8 +65,7 @@ export default function MapScreen() {
     }
   }, [user]);
   
-  // TEMPORARILY DISABLED: Load user's favorites - commenting out to test if this causes map issues
-  /*
+  // Load user's favorites - re-enabled
   useEffect(() => {
     if (!user?.uid) {
       setUserFavorites(new Set());
@@ -84,7 +88,8 @@ export default function MapScreen() {
         }
       });
       
-      console.log('❤️ FAVORITES: Loaded', favoriteSet.size, 'favorites for user');
+      console.log('❤️ FAVORITES: Real-time update - Loaded', favoriteSet.size, 'favorites for user');
+      console.log('❤️ FAVORITES: Favorite truck IDs:', Array.from(favoriteSet));
       setUserFavorites(favoriteSet);
     }, (error) => {
       console.error('❤️ FAVORITES: Error loading favorites:', error);
@@ -94,15 +99,8 @@ export default function MapScreen() {
 
     return () => unsubscribe();
   }, [user?.uid]);
-  */
   
-  // Set empty favorites as fallback while disabled
-  useEffect(() => {
-    setUserFavorites(new Set());
-  }, []);
-
-  // TEMPORARILY DISABLED: Load favorite counts for all trucks (for owners to see analytics)
-  /*
+  // Load favorite counts for all trucks (for owners to see analytics)
   useEffect(() => {
     if (!foodTrucks.length) return;
 
@@ -135,7 +133,6 @@ export default function MapScreen() {
 
     loadFavoriteCounts();
   }, [foodTrucks]);
-  */
   
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -158,7 +155,7 @@ export default function MapScreen() {
   const [showCartModal, setShowCartModal] = useState(false);
   const [webViewReady, setWebViewReady] = useState(false);
   const [pendingCuisineFilter, setPendingCuisineFilter] = useState(null);
-  const [showTruckIcon, setShowTruckIcon] = useState(true); // Toggle for truck icon visibility (owners only)
+  const [showTruckIcon, setShowTruckIcon] = useState(null); // Toggle for truck icon visibility (owners only) - null until loaded from Firebase
   const [lastActivityTime, setLastActivityTime] = useState(Date.now()); // Track user activity
   const [imageAspectRatio, setImageAspectRatio] = useState(null);
   
@@ -199,6 +196,16 @@ export default function MapScreen() {
 
   // Catering booking states
   const [showCateringModal, setShowCateringModal] = useState(false);
+  
+  // Reviews states
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [newReview, setNewReview] = useState({
+    rating: 5,
+    comment: '',
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
   
   // NEW item tracking (client-side workaround)
   const [newItemIds, setNewItemIds] = useState(new Set());
@@ -662,6 +669,10 @@ export default function MapScreen() {
       console.log('🔍 Are they the same?', selectedTruck.ownerId === user?.uid);
       loadMenuItems(selectedTruck.ownerId);
       
+      // Load reviews for rating display
+      console.log('⭐ TRUCK MODAL DEBUG: About to load reviews for truck:', selectedTruck.ownerId);
+      loadReviews(selectedTruck.ownerId);
+      
       // Drops will be loaded by the real-time listener useEffect
     } else {
       console.log('🍽️ MODAL DEBUG: Not loading menu items because:', {
@@ -876,9 +887,11 @@ export default function MapScreen() {
 
     try {
       const isFavorited = userFavorites.has(truckId);
+      console.log('❤️ FAVORITES: Toggle action - truckId:', truckId, 'isFavorited:', isFavorited);
+      console.log('❤️ FAVORITES: Current favorites before action:', Array.from(userFavorites));
       
       if (isFavorited) {
-        // Remove from favorites
+        // Remove from favorites - delete ALL matching records (handles duplicates)
         console.log('❤️ FAVORITES: Removing favorite for truck:', truckName);
         
         const favoritesQuery = query(
@@ -888,9 +901,17 @@ export default function MapScreen() {
         );
         
         const snapshot = await getDocs(favoritesQuery);
+        console.log('❤️ FAVORITES: Found', snapshot.size, 'favorite records to delete');
+        
+        // Delete ALL matching records (handles duplicates)
         if (!snapshot.empty) {
-          await deleteDoc(doc(db, 'favorites', snapshot.docs[0].id));
-          console.log('❤️ FAVORITES: Successfully removed favorite');
+          const deletePromises = snapshot.docs.map(docSnapshot => 
+            deleteDoc(doc(db, 'favorites', docSnapshot.id))
+          );
+          await Promise.all(deletePromises);
+          console.log('❤️ FAVORITES: Successfully removed', snapshot.size, 'favorite records from Firebase');
+        } else {
+          console.log('❤️ FAVORITES: No favorite record found to delete');
         }
       } else {
         // Add to favorites
@@ -903,12 +924,330 @@ export default function MapScreen() {
           createdAt: serverTimestamp(),
         });
         
-        console.log('❤️ FAVORITES: Successfully added favorite');
+        console.log('❤️ FAVORITES: Successfully added favorite to Firebase');
       }
     } catch (error) {
       console.error('❤️ FAVORITES: Error toggling favorite:', error);
       Alert.alert('Error', 'Failed to update favorite. Please try again.');
     }
+  };
+
+  // Helper function to get rating summary for a truck (for map markers)
+  const getTruckRatingSummary = async (truckId) => {
+    if (!truckId) return { averageRating: 0, reviewCount: 0 };
+    
+    try {
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('truckId', '==', truckId)
+      );
+      
+      const snapshot = await getDocs(reviewsQuery);
+      const reviewsData = snapshot.docs.map(doc => doc.data());
+      
+      if (reviewsData.length === 0) {
+        return { averageRating: 0, reviewCount: 0 };
+      }
+      
+      const total = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
+      const average = total / reviewsData.length;
+      
+      return {
+        averageRating: parseFloat(average.toFixed(1)),
+        reviewCount: reviewsData.length
+      };
+    } catch (error) {
+      console.error('❌ Error loading rating summary for truck:', truckId, error);
+      return { averageRating: 0, reviewCount: 0 };
+    }
+  };
+
+  // Reviews functionality
+  const loadReviews = async (truckId) => {
+    if (!truckId) {
+      console.log('⭐ REVIEWS DEBUG: No truckId provided to loadReviews');
+      return;
+    }
+    
+    console.log('⭐ REVIEWS DEBUG: Starting loadReviews for truck:', truckId);
+    setLoadingReviews(true);
+    try {
+      console.log('⭐ Loading reviews for truck:', truckId);
+      console.log('⭐ Current user:', user?.uid);
+      console.log('⭐ User auth state:', !!user);
+      console.log('⭐ Reviews collection reference created');
+      
+      // Try with orderBy first, fallback to simple query if index not ready
+      let reviewsQuery;
+      try {
+        console.log('⭐ Query created (with orderBy), executing...');
+        reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId),
+          orderBy('createdAt', 'desc')
+        );
+      } catch (indexError) {
+        console.log('⭐ Index not ready, using simple query without orderBy');
+        reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId)
+        );
+      }
+      
+      const snapshot = await getDocs(reviewsQuery);
+      const reviewsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let createdAt = new Date();
+        
+        if (data.createdAt) {
+          if (typeof data.createdAt.toDate === 'function') {
+            createdAt = data.createdAt.toDate();
+          } else if (data.createdAt.seconds) {
+            // Handle Firestore timestamp object
+            createdAt = new Date(data.createdAt.seconds * 1000);
+          } else if (data.createdAt instanceof Date) {
+            createdAt = data.createdAt;
+          } else {
+            createdAt = new Date(data.createdAt);
+          }
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: createdAt,
+        };
+      });
+      
+      // Sort manually if we couldn't use orderBy
+      reviewsData.sort((a, b) => b.createdAt - a.createdAt);
+      
+      console.log('⭐ Loaded', reviewsData.length, 'reviews');
+      console.log('⭐ Reviews data:', reviewsData);
+      setReviews(reviewsData);
+    } catch (error) {
+      console.error('⭐ Error loading reviews:', error);
+      console.error('⭐ Error code:', error.code);
+      console.error('⭐ Error message:', error.message);
+      
+      if (error.code === 'permission-denied') {
+        console.log('⭐ Permission denied - checking auth state');
+        console.log('⭐ User authenticated:', !!user);
+        console.log('⭐ User UID:', user?.uid);
+      }
+      
+      // Try simple query without any ordering if the complex query fails
+      try {
+        console.log('⭐ Retrying with simple query...');
+        const simpleQuery = query(
+          collection(db, 'reviews'),
+          where('truckId', '==', truckId)
+        );
+        const simpleSnapshot = await getDocs(simpleQuery);
+        const simpleReviewsData = simpleSnapshot.docs.map(doc => {
+          const data = doc.data();
+          let createdAt = new Date();
+          
+          if (data.createdAt) {
+            if (typeof data.createdAt.toDate === 'function') {
+              createdAt = data.createdAt.toDate();
+            } else if (data.createdAt.seconds) {
+              // Handle Firestore timestamp object
+              createdAt = new Date(data.createdAt.seconds * 1000);
+            } else if (data.createdAt instanceof Date) {
+              createdAt = data.createdAt;
+            } else {
+              createdAt = new Date(data.createdAt);
+            }
+          }
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: createdAt,
+          };
+        });
+        
+        // Sort manually
+        simpleReviewsData.sort((a, b) => b.createdAt - a.createdAt);
+        
+        console.log('⭐ Simple query successful, loaded', simpleReviewsData.length, 'reviews');
+        setReviews(simpleReviewsData);
+      } catch (fallbackError) {
+        console.error('⭐ Fallback query also failed:', fallbackError);
+        Alert.alert('Error', 'Failed to load reviews. Please try again later.');
+      }
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const submitReview = async () => {
+    console.log('⭐ REVIEW DEBUG: Starting review submission');
+    console.log('⭐ REVIEW DEBUG: User:', user?.uid);
+    console.log('⭐ REVIEW DEBUG: Truck ownerId:', selectedTruck?.ownerId);
+    console.log('⭐ REVIEW DEBUG: User role:', userRole);
+    console.log('⭐ REVIEW DEBUG: Is user the truck owner?', user?.uid === selectedTruck?.ownerId);
+    
+    if (!user || !selectedTruck?.ownerId) {
+      Alert.alert('Error', 'Unable to submit review. Please try again.');
+      return;
+    }
+
+    // Check if user is trying to review their own truck
+    if (user.uid === selectedTruck.ownerId) {
+      Alert.alert('Error', 'You cannot review your own food truck.');
+      return;
+    }
+
+    if (!newReview.comment.trim()) {
+      Alert.alert('Error', 'Please write a comment for your review.');
+      return;
+    }
+
+    // Check if user already reviewed this truck
+    try {
+      console.log('⭐ REVIEW DEBUG: Checking for existing reviews...');
+      const existingReviewQuery = query(
+        collection(db, 'reviews'),
+        where('truckId', '==', selectedTruck.ownerId),
+        where('userId', '==', user.uid)
+      );
+      
+      const existingSnapshot = await getDocs(existingReviewQuery);
+      if (!existingSnapshot.empty) {
+        Alert.alert('Info', 'You have already reviewed this food truck. You can only submit one review per truck.');
+        return;
+      }
+
+      console.log('⭐ REVIEW DEBUG: No existing review found, proceeding with submission...');
+      setSubmittingReview(true);
+      
+      const reviewData = {
+        truckId: selectedTruck.ownerId,
+        truckName: selectedTruck.name || 'Food Truck',
+        userId: user.uid,
+        userName: userData?.username || userData?.displayName || user?.displayName || 'Anonymous',
+        rating: newReview.rating,
+        comment: newReview.comment.trim(),
+        createdAt: serverTimestamp(),
+      };
+      
+      console.log('⭐ REVIEW DEBUG: Review data to submit:', {
+        ...reviewData,
+        createdAt: 'serverTimestamp()'
+      });
+      
+      console.log('⭐ REVIEW DEBUG: User auth state details:', {
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        isAnonymous: user.isAnonymous,
+        accessToken: user.accessToken ? 'Present' : 'Missing',
+        auth: auth?.currentUser ? 'Active' : 'Inactive'
+      });
+      
+      console.log('⭐ REVIEW DEBUG: About to attempt Firestore write...');
+      console.log('⭐ REVIEW DEBUG: Firebase app instance:', !!db);
+      console.log('⭐ REVIEW DEBUG: Collection reference creating...');
+      
+      // Test Firebase connectivity first
+      console.log('⭐ CONNECTIVITY TEST: Testing basic Firestore write...');
+      try {
+        const testCollection = collection(db, 'test');
+        await addDoc(testCollection, { 
+          test: 'connectivity', 
+          timestamp: new Date().toISOString(),
+          user: user.uid 
+        });
+        console.log('⭐ CONNECTIVITY TEST: Basic write successful');
+      } catch (testError) {
+        console.error('⭐ CONNECTIVITY TEST: Basic write failed:', testError);
+        throw new Error(`Firebase connectivity issue: ${testError.message}`);
+      }
+      
+      // Test writing to reviews collection specifically
+      console.log('⭐ CONNECTIVITY TEST: Testing reviews collection write...');
+      try {
+        const reviewsCollection = collection(db, 'reviews');
+        const testReviewData = {
+          userId: user.uid,
+          truckId: selectedTruck.ownerId,
+          rating: 5,
+          comment: 'Test review',
+          createdAt: new Date().toISOString(),
+          truckName: selectedTruck.name,
+          userName: userData?.username || userData?.displayName || user?.displayName || 'Anonymous'
+        };
+        await addDoc(reviewsCollection, testReviewData);
+        console.log('⭐ CONNECTIVITY TEST: Reviews collection write successful');
+      } catch (testError) {
+        console.error('⭐ CONNECTIVITY TEST: Reviews collection write failed:', testError);
+        throw new Error(`Reviews collection issue: ${testError.message}`);
+      }
+      
+      const reviewsCollection = collection(db, 'reviews');
+      console.log('⭐ REVIEW DEBUG: Collection reference created successfully');
+      
+      await addDoc(reviewsCollection, reviewData);
+      
+      console.log('⭐ Review submitted successfully');
+      Alert.alert('Success', 'Your review has been submitted!');
+      
+      // Reset form and reload reviews with a small delay to ensure document is saved
+      setNewReview({ rating: 5, comment: '' });
+      
+      // Small delay to ensure the review document is properly written before reloading
+      setTimeout(() => {
+        loadReviews(selectedTruck.ownerId);
+      }, 500);
+      
+    } catch (error) {
+      console.error('⭐ Error submitting review:', error);
+      console.error('⭐ Error details:', {
+        code: error.code,
+        message: error.message,
+        name: error.name,
+        stack: error.stack?.substring(0, 200),
+        customData: error.customData
+      });
+      
+      // Try to get more Firebase-specific error details
+      if (error.code) {
+        console.error('⭐ Firebase error code:', error.code);
+      }
+      
+      Alert.alert('Error', `Failed to submit review: ${error.message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const renderStarRating = (rating, onPress = null, size = 24) => {
+    return (
+      <View style={styles.starRating}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => onPress && onPress(star)}
+            disabled={!onPress}
+            style={styles.starButton}
+          >
+            <Ionicons
+              name={star <= rating ? 'star' : 'star-outline'}
+              size={size}
+              color={star <= rating ? '#FFD700' : '#ddd'}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  const getAverageRating = () => {
+    if (reviews.length === 0) return 0;
+    const sum = reviews.reduce((total, review) => total + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
   };
 
   // Drops functionality
@@ -1436,6 +1775,22 @@ export default function MapScreen() {
   // Cart functionality
   const addToCart = (item) => {
     console.log('🛒 Adding item to cart:', item.name);
+    
+    // Check if truck is currently open before allowing pre-order
+    if (selectedTruck?.businessHours) {
+      const truckOpenStatus = checkTruckOpenStatus(selectedTruck.businessHours);
+      console.log('🔒 PRE-ORDER CHECK: Truck open status:', truckOpenStatus);
+      
+      if (truckOpenStatus === 'closed') {
+        Alert.alert(
+          '🚫 Mobile Kitchen Closed', 
+          'Sorry, this mobile kitchen is currently closed and not accepting pre-orders. Pre-orders are only available during their open hours.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+    }
+    
     setCart(prevCart => {
       const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
       if (existingItem) {
@@ -1586,6 +1941,9 @@ export default function MapScreen() {
   const loadTruckVisibilityState = async () => {
     if (!user || userRole !== 'owner') return;
     
+    console.log('🔒 PRIVACY: ===== LOADING TRUCK VISIBILITY STATE =====');
+    console.log('🔒 PRIVACY: User ID:', user.uid);
+    
     try {
       // Check truckLocations first (primary collection for map display)
       const truckLocationRef = doc(db, 'truckLocations', user.uid);
@@ -1595,31 +1953,36 @@ export default function MapScreen() {
       
       if (truckLocationDoc.exists()) {
         visibilityData = truckLocationDoc.data();
+        console.log('🔒 PRIVACY: Found visibility data in truckLocations:', visibilityData.visible);
       } else {
         // Fallback to trucks collection
         const truckDocRef = doc(db, 'trucks', user.uid);
         const truckDoc = await getDoc(truckDocRef);
         if (truckDoc.exists()) {
           visibilityData = truckDoc.data();
+          console.log('🔒 PRIVACY: Found visibility data in trucks collection:', visibilityData.visible);
         }
       }
       
       if (visibilityData) {
         const isVisible = visibilityData.visible !== false; // Default to true if not set
         setShowTruckIcon(isVisible);
-        console.log('🚚 Loaded truck visibility state from Firebase:', isVisible);
+        console.log('� PRIVACY: ✅ Loaded truck visibility state from Firebase:', isVisible);
+        console.log('🔒 PRIVACY: showTruckIcon state updated - location saves can now preserve this setting');
         
         // Check if truck should be auto-hidden due to inactivity
         await checkTruckExpiry();
       } else {
         // For users with no existing visibility data, default to visible (all plans)
-        console.log('🚚 User with no visibility data - defaulting to visible');
+        console.log('� PRIVACY: User with no visibility data - defaulting to visible');
         setShowTruckIcon(true);
         // Also save this default to Firebase
         await updateTruckVisibility(true);
       }
+      
+      console.log('🔒 PRIVACY: ===== VISIBILITY STATE LOADING COMPLETE =====');
     } catch (error) {
-      console.error('❌ Error loading truck visibility state:', error);
+      console.error('❌ PRIVACY ERROR: Error loading truck visibility state:', error);
     }
   };
 
@@ -1662,8 +2025,11 @@ export default function MapScreen() {
     if (!selectedTruck?.menuUrl || !selectedTruck?.name) return;
     
     try {
+      // For now, we'll share the URL. In a full implementation, you might want to
+      // use react-native-share to share the actual image
       const shareText = `Check out the menu for ${selectedTruck.name}! 🍽️\n\n${selectedTruck.menuUrl}`;
       
+      // Simple sharing approach - you can enhance this with react-native-share
       Alert.alert(
         '📤 Share Menu',
         shareText,
@@ -1671,6 +2037,7 @@ export default function MapScreen() {
           {
             text: 'Copy Link',
             onPress: () => {
+              // In a full implementation, you'd copy to clipboard
               Alert.alert('Link copied!', 'Menu link has been copied to clipboard');
             }
           },
@@ -1740,10 +2107,33 @@ export default function MapScreen() {
       return;
     }
 
+    console.log('🔍 PAYMENT DEBUG: selectedTruck data:', JSON.stringify(selectedTruck, null, 2));
+    console.log('🔍 PAYMENT DEBUG: selectedTruck.stripeConnectAccountId:', selectedTruck?.stripeConnectAccountId);
+    console.log('🔍 PAYMENT DEBUG: selectedTruck keys:', Object.keys(selectedTruck || {}));
+
     if (!selectedTruck?.stripeConnectAccountId) {
+      console.log('❌ PAYMENT DEBUG: Missing stripeConnectAccountId - payment blocked');
+      
       Alert.alert(
-        'Payment Not Available', 
-        'This business has not set up payment processing yet. Please try again later or contact the business owner directly.'
+        'Payment Setup In Progress', 
+        'This business is still setting up payment processing. Please try again in a few minutes, or contact the business owner if this persists.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Refresh & Retry', 
+            onPress: async () => {
+              console.log('🔄 USER REQUESTED: Refreshing truck data...');
+              // Force reload the map data which will fetch fresh truck information
+              try {
+                // Trigger a map refresh by updating the trucks data hash
+                setTrucksDataHash(Date.now().toString());
+                console.log('🔄 Map refresh triggered by user');
+              } catch (error) {
+                console.error('❌ Error refreshing map:', error);
+              }
+            }
+          }
+        ]
       );
       return;
     }
@@ -1769,7 +2159,8 @@ export default function MapScreen() {
 
       // Create order in Firebase first to get order ID
       const orderData = {
-        userId: user.uid,
+        customerId: user.uid, // Changed from userId to customerId to match security rules
+        userId: user.uid, // Keep userId for backward compatibility
         userEmail: user.email,
         userName: userData?.displayName || user.displayName || 'Customer',
         userPlan: userPlan,
@@ -1796,9 +2187,41 @@ export default function MapScreen() {
         deliveryMethod: 'pickup'
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      const orderId = docRef.id;
-      console.log('📝 Order created with ID:', orderId);
+      console.log('🔐 ORDER DEBUG: About to create order with data:', orderData);
+      console.log('🔐 ORDER DEBUG: Current user UID:', user.uid);
+      console.log('🔐 ORDER DEBUG: User auth state:', !!user);
+      console.log('🔐 ORDER DEBUG: User email:', user.email);
+      console.log('🔐 ORDER DEBUG: Auth token exists:', !!user.accessToken);
+      
+      // Test basic Firebase connection first
+      try {
+        console.log('🔥 Testing Firebase connection...');
+        const testDoc = await addDoc(collection(db, 'test'), { test: true, timestamp: new Date() });
+        console.log('✅ Firebase test write successful:', testDoc.id);
+      } catch (testError) {
+        console.error('❌ Firebase test write failed:', testError);
+      }
+      
+      // Declare orderId outside try block for broader scope
+      let orderId;
+      
+      try {
+        const docRef = await addDoc(collection(db, 'orders'), orderData);
+        orderId = docRef.id;
+        console.log('📝 Order created with ID:', orderId);
+      } catch (orderError) {
+        console.error('❌ ORDER CREATION ERROR:', orderError);
+        console.error('❌ ORDER ERROR CODE:', orderError.code);
+        console.error('❌ ORDER ERROR MESSAGE:', orderError.message);
+        console.error('❌ ORDER ERROR DETAILS:', {
+          code: orderError.code,
+          message: orderError.message,
+          stack: orderError.stack,
+          serverResponse: orderError.serverResponse
+        });
+        console.error('❌ ORDER DATA ATTEMPTED:', JSON.stringify(orderData, null, 2));
+        throw orderError;
+      }
 
       // Prepare payment intent data with customer's total amount (including tax)
       const customPaymentBreakdown = {
@@ -1817,20 +2240,14 @@ export default function MapScreen() {
 
       // Call your server to create payment intent
       console.log('🌐 Creating payment intent on server...');
-      console.log('🌐 Request payload:', JSON.stringify(paymentIntentData, null, 2));
+      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
+      console.log('🌐 Using server URL:', apiUrl);
       
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add bypass token if available for Vercel deployment protection
-      if (process.env.EXPO_PUBLIC_VERCEL_BYPASS_TOKEN) {
-        headers['x-vercel-protection-bypass'] = process.env.EXPO_PUBLIC_VERCEL_BYPASS_TOKEN;
-      }
-      
-      const response = await fetch(`${process.env.EXPO_PUBLIC_SERVER_URL || 'https://grubana-dugv014wb-jws-projects-e7f4947b.vercel.app'}/api/create-payment-intent`, {
+      const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(paymentIntentData)
       });
 
@@ -1842,18 +2259,19 @@ export default function MapScreen() {
         console.error('❌ Server error response:', errorText);
         throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 200)}`);
       }
-
+      
       const responseText = await response.text();
-      console.log('🌐 Raw server response (first 500 chars):', responseText.substring(0, 500));
+      console.log('🌐 Raw server response:', responseText.substring(0, 500));
       
       let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('❌ JSON parse error. Raw response:', responseText);
-        throw new Error('Server returned invalid JSON response');
+        console.error('❌ JSON parse error:', parseError);
+        console.error('❌ Response was:', responseText);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
       }
-
+      
       const { client_secret, payment_intent_id } = responseData;
       
       if (!client_secret) {
@@ -2427,9 +2845,29 @@ export default function MapScreen() {
           continue;
         }
         
-        // Get complete owner data for each truck
+        // Get complete owner data and payment data for each truck
         try {
+          // Get owner data from users collection
           const ownerDoc = await getDoc(doc(db, 'users', truckData.ownerUid || truckData.id));
+          
+          // Get payment data from trucks collection 
+          const paymentDoc = await getDoc(doc(db, 'trucks', truckData.ownerUid || truckData.id));
+          
+          console.log('🔍 PAYMENT DEBUG: Getting payment data for truck:', truckData.id);
+          console.log('🔍 PAYMENT DEBUG: Payment doc exists:', paymentDoc.exists());
+          
+          let paymentData = {};
+          if (paymentDoc.exists()) {
+            paymentData = paymentDoc.data();
+            console.log('🔍 PAYMENT DEBUG: Payment data loaded:', {
+              stripeConnectAccountId: paymentData.stripeConnectAccountId,
+              paymentEnabled: paymentData.paymentEnabled,
+              stripeAccountStatus: paymentData.stripeAccountStatus
+            });
+          } else {
+            console.log('⚠️ PAYMENT DEBUG: No payment document found for truck:', truckData.id);
+          }
+          
           if (ownerDoc.exists()) {
             const ownerData = ownerDoc.data();
             console.log('📊 Retrieved owner data for truck:', truckData.id, {
@@ -2442,17 +2880,16 @@ export default function MapScreen() {
               menuUrl: ownerData.menuUrl ? 'Yes' : 'No',
               socialCount: [ownerData.instagram, ownerData.facebook, ownerData.twitter, ownerData.tiktok].filter(Boolean).length,
               uid: ownerData.uid,
-              role: ownerData.role,
-              stripeAccountId: ownerData.stripeAccountId,
-              hasStripeAccount: !!ownerData.stripeAccountId
+              role: ownerData.role
             });
             
-            // Merge truck location data with complete owner profile data
+            // Merge truck location data with complete owner profile data AND payment data
             // Prioritize 'cuisine' field over 'cuisineType' field
             console.log(`🍽️ Cuisine data for ${ownerData.truckName}: cuisine="${ownerData.cuisine}", cuisineType="${ownerData.cuisineType}"`);
             const actualCuisine = ownerData.cuisine || ownerData.cuisineType || inferCuisineType(ownerData.truckName || ownerData.username);
             const finalTruckData = {
               ...truckData,
+              ...paymentData, // Include payment data from trucks collection
               uid: truckData.id, // Ensure uid field is available for filtering
               ownerId: ownerData.uid || truckData.ownerUid || truckData.id, // Use actual owner UID from user data
               truckName: ownerData.truckName || ownerData.username || 'Food Truck',
@@ -2465,8 +2902,7 @@ export default function MapScreen() {
               tiktok: ownerData.tiktok,
               email: ownerData.email, // Add email for catering requests
               kitchenType: ownerData.kitchenType || truckData.kitchenType || 'truck',
-              businessHours: ownerData.businessHours, // Add business hours for status calculation
-              stripeConnectAccountId: ownerData.stripeAccountId // Use stripeAccountId field from Firestore
+              businessHours: ownerData.businessHours // Add business hours for status calculation
             };
             
             console.log(`🎯 Final truck data for ${finalTruckData.truckName}:`, {
@@ -2474,15 +2910,22 @@ export default function MapScreen() {
               coverUrl: finalTruckData.coverUrl,
               hasCoverUrl: !!finalTruckData.coverUrl,
               stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
-              hasStripeAccount: !!finalTruckData.stripeConnectAccountId
+              paymentEnabled: finalTruckData.paymentEnabled,
+              stripeAccountStatus: finalTruckData.stripeAccountStatus
+            });
+            
+            console.log(`🔍 PAYMENT DEBUG: Final truck has payment data:`, {
+              stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
+              paymentEnabled: finalTruckData.paymentEnabled
             });
             
             trucksWithOwnerData.push(finalTruckData);
           } else {
             console.log('⚠️ No owner data found for truck:', truckData.id);
-            // Include truck with basic data and sensible defaults
+            // Include truck with basic data and sensible defaults INCLUDING payment data
             trucksWithOwnerData.push({
               ...truckData,
+              ...paymentData, // Include payment data even if owner data is missing
               ownerId: truckData.id, // Add ownerId for menu item loading
               truckName: truckData.truckName || 'Food Truck',
               cuisineType: truckData.cuisine || truckData.cuisineType || 'General Food',
@@ -2494,8 +2937,7 @@ export default function MapScreen() {
               tiktok: null,
               email: null,
               kitchenType: truckData.kitchenType || 'truck',
-              businessHours: null,
-              stripeConnectAccountId: truckData.stripeAccountId || null // Use stripeAccountId field if available in truck data
+              businessHours: null
             });
           }
         } catch (error) {
@@ -2521,8 +2963,7 @@ export default function MapScreen() {
             tiktok: null,
             email: null,
             kitchenType: truckData.kitchenType || 'truck',
-            businessHours: null,
-            stripeConnectAccountId: truckData.stripeAccountId || null // Use stripeAccountId field if available in truck data
+            businessHours: null
           });
         }
       }
@@ -2740,11 +3181,13 @@ export default function MapScreen() {
           try {
             // Save to Firestore as truck location
             const truckDocRef = doc(db, 'truckLocations', user.uid);
+            
+            // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
+            // This prevents overwriting the saved visibility preference during initial load
             const locationData = {
               lat: location.coords.latitude,
               lng: location.coords.longitude,
               isLive: true,
-              visible: showTruckIcon !== false, // Respect user's visibility choice for ALL plans
               updatedAt: serverTimestamp(),
               lastActive: Date.now(),
               lastActivityTime: Date.now(),
@@ -2756,6 +3199,15 @@ export default function MapScreen() {
               truckName: ownerData?.username || ownerData?.businessName || "Food Truck",
               coverUrl: ownerData?.coverUrl || ownerData?.coverURL || null, // Check both case variations
             };
+            
+            // Only set visible field if showTruckIcon has been loaded from Firebase
+            // This prevents overwriting the saved visibility preference during initial load
+            if (showTruckIcon !== null) {
+              locationData.visible = showTruckIcon;
+              console.log('🔒 PRIVACY: Setting visible field to loaded preference:', showTruckIcon);
+            } else {
+              console.log('🔒 PRIVACY: Preserving existing visible field - showTruckIcon still loading');
+            }
             
             // Save to trucks collection for persistence and visibility management
             const trucksDocRef = doc(db, 'trucks', user.uid);
@@ -2794,11 +3246,13 @@ export default function MapScreen() {
         
         try {
           const truckDocRef = doc(db, 'truckLocations', user.uid);
+          
+          // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
+          // This prevents overwriting the saved visibility preference during initial load
           const locationData = {
             lat: location.coords.latitude,
             lng: location.coords.longitude,
             isLive: true,
-            visible: showTruckIcon !== false, // Respect user's visibility choice for ALL plans
             updatedAt: serverTimestamp(),
             lastActive: Date.now(),
             lastActivityTime: Date.now(),
@@ -2810,6 +3264,15 @@ export default function MapScreen() {
             truckName: ownerData.username || ownerData.businessName || "Food Truck",
             coverUrl: ownerData.coverUrl || ownerData.coverURL || null,
           };
+          
+          // Only set visible field if showTruckIcon has been loaded from Firebase
+          // This prevents overwriting the saved visibility preference during initial load
+          if (showTruckIcon !== null) {
+            locationData.visible = showTruckIcon;
+            console.log('🔒 PRIVACY: Late-loading - Setting visible field to loaded preference:', showTruckIcon);
+          } else {
+            console.log('🔒 PRIVACY: Late-loading - Preserving existing visible field - showTruckIcon still loading');
+          }
           
           // Save to both collections
           const trucksDocRef = doc(db, 'trucks', user.uid);
@@ -3141,6 +3604,11 @@ export default function MapScreen() {
               console.log('⚡ Skipping image processing for distant truck:', truck.truckName);
             }
             
+            // Load rating data for this truck (in batch processing)
+            console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+            const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
+            console.log('⭐ Rating data loaded:', ratingData);
+            
             const personalizedIcon = generatePersonalizedIcon({
               ...truck,
               base64CoverImage: base64Image
@@ -3150,7 +3618,10 @@ export default function MapScreen() {
               ...truck,
               base64CoverImage: base64Image,
               hasCustomIcon: !!base64Image,
-              personalizedIcon: personalizedIcon
+              personalizedIcon: personalizedIcon,
+              // Add rating data
+              averageRating: ratingData.averageRating,
+              reviewCount: ratingData.reviewCount
             };
           })
         );
@@ -3169,6 +3640,11 @@ export default function MapScreen() {
             base64Image = await convertImageToBase64(truck.coverUrl);
           }
           
+          // Load rating data for this truck
+          console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+          const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
+          console.log('⭐ Rating data loaded:', ratingData);
+          
           const personalizedIcon = generatePersonalizedIcon({
             ...truck,
             base64CoverImage: base64Image
@@ -3178,7 +3654,10 @@ export default function MapScreen() {
             ...truck,
             base64CoverImage: base64Image,
             hasCustomIcon: !!base64Image,
-            personalizedIcon: personalizedIcon
+            personalizedIcon: personalizedIcon,
+            // Add rating data
+            averageRating: ratingData.averageRating,
+            reviewCount: ratingData.reviewCount
           };
         })
       );
@@ -3313,9 +3792,9 @@ export default function MapScreen() {
                 padding: 0;
                 text-align: center;
                 border-radius: 12px;
-                background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Updated to dark neon theme gradient */
-                box-shadow: 0 8px 24px rgba(255, 78, 201, 0.15); /* Neon pink shadow */
-                border: 2px solid #FF4EC9; /* Neon pink border */
+                background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%);
+                box-shadow: 0 8px 24px rgba(255, 78, 201, 0.15), 0 0 20px rgba(77, 191, 255, 0.1);
+                border: 1px solid #FF4EC9;
                 overflow: hidden;
             }
             
@@ -3330,16 +3809,44 @@ export default function MapScreen() {
                 object-fit: cover;
                 border-radius: 8px;
                 margin-bottom: 10px;
-                box-shadow: 0 2px 8px rgba(255, 78, 201, 0.2); /* Neon pink shadow */
-                border: 1px solid #4DBFFF; /* Neon blue border */
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }
             
             .truck-name {
                 font-size: 18px;
                 font-weight: 700;
-                color: #FFFFFF; /* Updated to white text */
+                color: #FFFFFF;
                 margin-bottom: 8px;
-                text-shadow: 0 1px 2px rgba(255, 78, 201, 0.3); /* Neon pink text shadow */
+                text-shadow: 0 0 8px rgba(255, 78, 201, 0.5);
+            }
+            
+            .truck-rating-popup {
+                margin: 0 15px 12px 15px;
+                padding: 8px 12px;
+                background: linear-gradient(135deg, #1A1036 0%, #2D1B4E 100%);
+                border-radius: 8px;
+                border: 1px solid #4DBFFF;
+                box-shadow: 0 0 10px rgba(77, 191, 255, 0.3);
+            }
+            
+            .rating-stars {
+                font-size: 16px;
+                margin-bottom: 4px;
+                letter-spacing: 2px;
+            }
+            
+            .rating-text {
+                font-size: 12px;
+                font-weight: 600;
+                color: #4DBFFF;
+                text-align: center;
+            }
+            
+            .no-rating {
+                font-size: 11px;
+                color: #B0B3C2;
+                font-style: italic;
+                text-align: center;
             }
             
             .truck-status {
@@ -3349,33 +3856,29 @@ export default function MapScreen() {
                 padding: 6px 12px;
                 border-radius: 20px;
                 display: inline-block;
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
             }
             
             .status-open {
-                background: linear-gradient(135deg, #00E676 0%, #00C853 100%); /* Updated to neon green gradient */
-                color: #0B0B1A; /* Dark text for contrast */
-                box-shadow: 0 2px 12px rgba(0, 230, 118, 0.4); /* Neon green glow */
-                border: 2px solid #00E676;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
             }
             
             .status-busy {
-                background: linear-gradient(135deg, #FFB74D 0%, #FF9800 100%); /* Updated to warning orange gradient */
-                color: #0B0B1A; /* Dark text for contrast */
-                box-shadow: 0 2px 12px rgba(255, 183, 77, 0.4); /* Orange glow */
-                border: 2px solid #FFB74D;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
             }
             
             .status-closed {
-                background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%); /* Updated to error red gradient */
-                color: #FFFFFF; /* White text for contrast */
-                box-shadow: 0 2px 12px rgba(244, 67, 54, 0.4); /* Red glow */
-                border: 2px solid #F44336;
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                color: white;
+                box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
             }
             
             .truck-details {
                 font-size: 13px;
-                color: #B0B3C2; /* Updated to secondary text color */
+                color: #B0B3C2;
                 margin: 4px 15px;
                 display: flex;
                 align-items: center;
@@ -3384,8 +3887,8 @@ export default function MapScreen() {
             }
             
             .view-details-btn {
-                background: linear-gradient(135deg, #FF4EC9 0%, #C6426E 100%); /* Updated to neon pink gradient */
-                color: #FFFFFF; /* White text */
+                background: linear-gradient(135deg, #FF4EC9 0%, #E91E63 100%);
+                color: white;
                 border: none;
                 padding: 12px 16px;
                 border-radius: 0 0 12px 12px;
@@ -3393,35 +3896,36 @@ export default function MapScreen() {
                 font-weight: 600;
                 cursor: pointer;
                 transition: all 0.2s ease;
-                box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3); /* Neon pink shadow */
+                box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3), 0 0 20px rgba(255, 78, 201, 0.2);
                 width: 100%;
                 margin-top: 15px;
             }
             
             .view-details-btn:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 6px 16px rgba(255, 78, 201, 0.5); /* Updated to neon pink hover shadow */
+                box-shadow: 0 6px 16px rgba(255, 78, 201, 0.4), 0 0 25px rgba(255, 78, 201, 0.3);
             }
             
             .leaflet-popup-content-wrapper {
                 border-radius: 12px;
                 overflow: hidden;
-                background: #1A1036 !important; /* Force dark theme background */
+                background: #0B0B1A !important;
+                border: 1px solid #FF4EC9 !important;
             }
             
             .leaflet-popup-tip {
-                background: #1A1036 !important; /* Updated to dark theme */
+                background: #0B0B1A !important;
+                border: 1px solid #FF4EC9 !important;
             }
             .controls {
                 position: fixed;
                 top: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(11, 11, 26, 0.95);
+                background: #1A1036;
                 padding: 10px;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(255, 78, 201, 0.3);
-                border: 2px solid #4DBFFF;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
                 max-width: 150px;
                 pointer-events: auto;
             }
@@ -3430,7 +3934,7 @@ export default function MapScreen() {
                 width: 100%;
                 padding: 8px;
                 margin: 5px 0;
-                border: 2px solid #4DBFFF;
+                border: 2px solid #FF4EC9;
                 border-radius: 8px;
                 background: #1A1036;
                 color: #FFFFFF;
@@ -3440,22 +3944,25 @@ export default function MapScreen() {
                 user-select: none;
                 -webkit-user-select: none;
                 touch-action: manipulation;
-                box-shadow: 0 0 10px rgba(77, 191, 255, 0.3);
+                box-shadow: 0 0 10px rgba(255, 78, 201, 0.3);
             }
             .control-btn:hover { 
                 background: #FF4EC9; 
-                border-color: #FF4EC9;
-                box-shadow: 0 0 15px rgba(255, 78, 201, 0.5);
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.6);
+                transform: translateY(-1px);
             }
             .control-btn:active { 
                 background: #4DBFFF; 
                 border-color: #4DBFFF;
-                transform: scale(0.95);
-                box-shadow: 0 0 20px rgba(77, 191, 255, 0.7);
+                box-shadow: 0 0 15px rgba(77, 191, 255, 0.5);
+                transform: scale(0.98);
             }
             .control-btn:disabled {
                 opacity: 0.5;
                 cursor: not-allowed;
+                background: #B0B3C2;
+                border-color: #B0B3C2;
+                box-shadow: none;
             }
             .plan-notice {
                 position: absolute;
@@ -3466,22 +3973,21 @@ export default function MapScreen() {
                 background: rgba(26, 16, 54, 0.95);
                 color: #FFFFFF;
                 padding: 10px;
-                border-radius: 12px;
+                border-radius: 8px;
+                border: 2px solid #FF4EC9;
                 text-align: center;
                 font-size: 12px;
-                border: 2px solid #4DBFFF;
-                box-shadow: 0 4px 20px rgba(77, 191, 255, 0.3);
+                box-shadow: 0 0 15px rgba(255, 78, 201, 0.4);
             }
             .heatmap-controls {
                 position: absolute;
                 bottom: 80px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(11, 11, 26, 0.95);
+                background: #1A1036;
                 padding: 10px;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(255, 78, 201, 0.3);
-                border: 2px solid #4DBFFF;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             }
         </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -3505,14 +4011,13 @@ export default function MapScreen() {
             body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
             #map { width: 100%; height: 100vh; }
             .truck-popup {
-                background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Updated to dark neon theme gradient */
+                background: white;
                 padding: 10px;
                 border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(255, 78, 201, 0.3); /* Neon pink shadow */
-                border: 2px solid #FF4EC9; /* Neon pink border */
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
                 min-width: 200px;
             }
-            .truck-name { font-weight: bold; color: #FF4EC9; margin-bottom: 5px; } /* Updated to neon pink */
+            .truck-name { font-weight: bold; color: #2c6f57; margin-bottom: 5px; }
             .truck-status { 
                 padding: 3px 8px; 
                 border-radius: 12px; 
@@ -3520,9 +4025,9 @@ export default function MapScreen() {
                 display: inline-block;
                 margin-bottom: 5px;
             }
-            .status-open { background: #00E676; color: #FFFFFF; } /* Updated to success green with white text */
-            .status-busy { background: #FFB74D; color: #0B0B1A; } /* Updated warning color with dark text */
-            .status-closed { background: #F44336; color: #FFFFFF; } /* Updated to error red with white text */
+            .status-open { background: #d4edda; color: #155724; }
+            .status-busy { background: #fff3cd; color: #856404; }
+            .status-closed { background: #f8d7da; color: #721c24; }
             .popularity-bar {
                 width: 100%;
                 height: 6px;
@@ -3533,7 +4038,7 @@ export default function MapScreen() {
             }
             .popularity-fill {
                 height: 100%;
-                background: linear-gradient(90deg, #FF4EC9, #4DBFFF); /* Updated to neon gradient */
+                background: linear-gradient(90deg, #2c6f57, #4a9b6e);
                 transition: width 0.3s ease;
             }
             .controls {
@@ -3541,30 +4046,33 @@ export default function MapScreen() {
                 top: 10px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(11, 11, 26, 0.95);
+                background: #0B0B1A;
                 padding: 10px;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(255, 78, 201, 0.3);
-                border: 2px solid #4DBFFF;
+                border-radius: 8px;
+                border: 2px solid #FF4EC9;
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.3);
             }
             .control-btn {
                 display: block;
                 width: 100%;
                 padding: 8px;
                 margin: 5px 0;
-                border: 2px solid #4DBFFF;
+                border: 2px solid #FF4EC9;
                 border-radius: 8px;
                 background: #1A1036;
                 color: #FFFFFF;
                 cursor: pointer;
                 font-size: 12px;
                 transition: all 0.2s ease;
-                box-shadow: 0 0 10px rgba(77, 191, 255, 0.3);
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: manipulation;
+                box-shadow: 0 0 10px rgba(255, 78, 201, 0.3);
             }
             .control-btn:hover { 
                 background: #FF4EC9; 
-                border-color: #FF4EC9;
-                box-shadow: 0 0 15px rgba(255, 78, 201, 0.5);
+                box-shadow: 0 0 20px rgba(255, 78, 201, 0.6);
+                transform: translateY(-1px);
             }
             .plan-notice {
                 position: absolute;
@@ -3575,22 +4083,22 @@ export default function MapScreen() {
                 background: rgba(26, 16, 54, 0.95);
                 color: #FFFFFF;
                 padding: 10px;
-                border-radius: 12px;
+                border-radius: 8px;
+                border: 2px solid #FF4EC9;
                 text-align: center;
                 font-size: 12px;
-                border: 2px solid #4DBFFF;
-                box-shadow: 0 4px 20px rgba(77, 191, 255, 0.3);
+                box-shadow: 0 0 15px rgba(255, 78, 201, 0.4);
             }
             .heatmap-controls {
                 position: absolute;
                 bottom: 80px;
                 right: 10px;
                 z-index: 1000;
-                background: rgba(11, 11, 26, 0.95);
+                background: #0B0B1A;
                 padding: 10px;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(255, 78, 201, 0.3);
+                border-radius: 8px;
                 border: 2px solid #4DBFFF;
+                box-shadow: 0 0 20px rgba(77, 191, 255, 0.3);
             }
         </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -3735,6 +4243,32 @@ export default function MapScreen() {
             }
 
             console.log('🔧 WEBVIEW: About to define checkTruckOpenStatus function...');
+            
+            // Star rating generator function for popup
+            function generateStarRating(rating) {
+                const fullStars = Math.floor(rating);
+                const hasHalfStar = rating % 1 >= 0.5;
+                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+                
+                let stars = '';
+                
+                // Full stars
+                for (let i = 0; i < fullStars; i++) {
+                    stars += '⭐';
+                }
+                
+                // Half star
+                if (hasHalfStar) {
+                    stars += '⭐'; // Using full star for simplicity in popup
+                }
+                
+                // Empty stars
+                for (let i = 0; i < emptyStars; i++) {
+                    stars += '☆';
+                }
+                
+                return stars;
+            }
             
             // Business hours status checking function
             function checkTruckOpenStatus(businessHours) {
@@ -4313,11 +4847,26 @@ export default function MapScreen() {
                                     \${truck.base64CoverImage ? \`<img src="\${truck.base64CoverImage}" class="truck-cover-image" />\` : truck.coverUrl ? \`<img src="\${truck.coverUrl}" class="truck-cover-image" onerror="this.style.display='none'" />\` : ''}
                                     <div class="truck-name">\${truckName}</div>
                                 </div>
+                                
+                                <!-- Rating Display in Popup -->
+                                <div class="truck-rating-popup">
+                                    \${truck.reviewCount > 0 ? \`
+                                        <div class="rating-stars">
+                                            \${generateStarRating(truck.averageRating)}
+                                        </div>
+                                        <div class="rating-text">
+                                            \${truck.averageRating}/5 (\${truck.reviewCount} review\${truck.reviewCount !== 1 ? 's' : ''})
+                                        </div>
+                                    \` : \`
+                                        <div class="no-rating">No reviews yet</div>
+                                    \`}
+                                </div>
+                                
                                 <div class="truck-status \${statusClass}">\${statusEmoji} \${truckStatus.toUpperCase()}</div>
                                 <div class="truck-details">\${(truck.cuisine || truck.cuisineType || truck.type || 'American').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'American').slice(1)}</div>
                                 <div class="truck-details"> Type: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                 \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.ownerId || truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}', '\${truck.stripeConnectAccountId || ''}')">
+                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.ownerId || truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
                                     📋 View Full Details
                                 </button>
                             </div>
@@ -4441,10 +4990,9 @@ export default function MapScreen() {
             }
 
             // Function to handle truck details modal (communicates with React Native)
-            function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok, stripeConnectAccountId) {
+            function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok) {
                 console.log('🚛 WEBVIEW: Opening truck details for:', truckName);
                 console.log('🆔 WEBVIEW: Using truck ID (should be ownerId):', truckId);
-                console.log('💳 WEBVIEW: Stripe Connect Account ID:', stripeConnectAccountId);
                 
                 const socialLinks = {
                     instagram: instagram && instagram !== 'undefined' ? instagram : null,
@@ -4457,8 +5005,7 @@ export default function MapScreen() {
                     id: truckId,
                     name: truckName,
                     cuisine: cuisine,
-                    coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null,
-                    stripeConnectAccountId: stripeConnectAccountId && stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null
+                    coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null
                 });
                 
                 // Send message to React Native to open enhanced truck details modal
@@ -4470,8 +5017,7 @@ export default function MapScreen() {
                         cuisine: cuisine,
                         coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null,
                         menuUrl: menuUrl && menuUrl !== 'undefined' ? menuUrl : null,
-                        socialLinks: socialLinks,
-                        stripeConnectAccountId: stripeConnectAccountId && stripeConnectAccountId !== 'undefined' ? stripeConnectAccountId : null
+                        socialLinks: socialLinks
                     }
                 }));
             }
@@ -5003,14 +5549,26 @@ export default function MapScreen() {
                 
                 console.log('📊 New status filter:', statusFilter);
                 
-                // Update button text
+                // Update button text and styling
                 if (button) {
                     if (statusFilter === 'all') {
                         button.textContent = '📊 Show All';
+                        // Default styling for "Show All" state
+                        button.style.background = '#1A1036';
+                        button.style.borderColor = '#FF4EC9';
+                        button.style.boxShadow = '0 0 10px rgba(255, 78, 201, 0.3)';
                     } else if (statusFilter === 'hide-open') {
                         button.textContent = '📊 Hide Open';
+                        // Active filtering state - neon pink background
+                        button.style.background = '#FF4EC9';
+                        button.style.borderColor = '#FF4EC9';
+                        button.style.boxShadow = '0 0 20px rgba(255, 78, 201, 0.6)';
                     } else if (statusFilter === 'hide-closed') {
                         button.textContent = '📊 Hide Closed';
+                        // Active filtering state - neon blue background
+                        button.style.background = '#4DBFFF';
+                        button.style.borderColor = '#4DBFFF';
+                        button.style.boxShadow = '0 0 20px rgba(77, 191, 255, 0.6)';
                     }
                 }
                 
@@ -5337,7 +5895,7 @@ export default function MapScreen() {
                                     <div class="truck-details">🍽️ \${(truck.cuisine || truck.cuisineType || truck.type || 'General Food').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'General Food').slice(1)}</div>
                                     <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                     \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}', '\${truck.stripeConnectAccountId || ''}')">
+                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
                                         📋 View Full Details
                                     </button>
                                 </div>
@@ -5442,7 +6000,7 @@ export default function MapScreen() {
   }
 
   // Handle messages from WebView
-  const handleWebViewMessage = (event) => {
+  const handleWebViewMessage = async (event) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
       
@@ -5473,16 +6031,36 @@ export default function MapScreen() {
       }
       
       if (message.type === 'OPEN_TRUCK_DETAILS') {
-        const { id, name, cuisine, coverUrl, menuUrl, socialLinks, stripeConnectAccountId } = message.data;
+        const { id, name, cuisine, coverUrl, menuUrl, socialLinks } = message.data;
         
         console.log('🚛 TRUCK DETAILS: Opening modal for truck:', {
           id,
           name, 
           cuisine,
           coverUrl: coverUrl ? 'Present' : 'Missing',
-          menuUrl: menuUrl ? 'Present' : 'Missing',
-          stripeConnectAccountId: stripeConnectAccountId ? stripeConnectAccountId : 'Missing'
+          menuUrl: menuUrl ? 'Present' : 'Missing'
         });
+
+        // Fetch payment data from trucks collection for this specific truck
+        console.log('🔍 PAYMENT DEBUG: Fetching payment data for truck:', id);
+        let paymentData = {};
+        
+        try {
+          const paymentDoc = await getDoc(doc(db, 'trucks', id));
+          if (paymentDoc.exists()) {
+            paymentData = paymentDoc.data();
+            console.log('🔍 PAYMENT DEBUG: Payment data fetched for selected truck:', {
+              truckId: id,
+              stripeConnectAccountId: paymentData.stripeConnectAccountId,
+              paymentEnabled: paymentData.paymentEnabled,
+              stripeAccountStatus: paymentData.stripeAccountStatus
+            });
+          } else {
+            console.log('⚠️ PAYMENT DEBUG: No payment data found for truck:', id);
+          }
+        } catch (error) {
+          console.error('❌ PAYMENT DEBUG: Error fetching payment data for truck:', id, error);
+        }
         
         // Build social media links display
         let socialText = '';
@@ -5506,11 +6084,16 @@ export default function MapScreen() {
           activeSocials,
           socialText,
           ownerId: id,
-          stripeConnectAccountId
+          // Include payment data for pre-order processing
+          ...paymentData
         };
         
         console.log('🍽️ MENU DEBUG: Setting selected truck with ownerId:', id);
         console.log('🍽️ MENU DEBUG: This will trigger menu loading for ownerId:', id);
+        console.log('🔍 PAYMENT DEBUG: Selected truck now has payment data:', {
+          stripeConnectAccountId: truckData.stripeConnectAccountId,
+          paymentEnabled: truckData.paymentEnabled
+        });
         
         setSelectedTruck(truckData);
         setShowMenuModal(true);
@@ -5601,7 +6184,7 @@ export default function MapScreen() {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/logo.png')} 
+          source={require('../../assets/2.png')} 
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -5625,37 +6208,26 @@ export default function MapScreen() {
       {userRole === 'owner' && (
         <View style={styles.ownerControlsContainer}>
           <TouchableOpacity
-            style={styles.truckToggleButton}
+            style={[styles.truckToggleButton, { 
+              opacity: showTruckIcon === null ? 0.6 : 1 
+            }]}
+            disabled={showTruckIcon === null}
             onPress={async () => {
+              if (showTruckIcon === null) return; // Don't allow toggle while loading
+              
               try {
                 const newVisibility = !showTruckIcon;
                 console.log('🚚 Toggling truck visibility from', showTruckIcon, 'to', newVisibility);
-                console.log('🔄 CRITICAL FIX: Force updating truck visibility in WebView');
                 
-                // Update local state first
+                // Update local state first - this will trigger map regeneration via useEffect
                 setShowTruckIcon(newVisibility);
                 
-                // Update database
+                // Update database to persist the preference
                 await updateTruckVisibility(newVisibility);
                 await updateLastActivity(); // Update activity when user interacts
                 
-                // Force map refresh by sending direct message to WebView
-                if (webViewRef.current) {
-                  console.log('🔄 DIRECT WEBVIEW MESSAGE: Forcing visibility update via WebView message');
-                  const message = {
-                    type: 'updateTruckVisibility',
-                    ownerId: user.uid,
-                    visible: newVisibility
-                  };
-                  webViewRef.current.postMessage(JSON.stringify(message));
-                  
-                  // Truck visibility updates are now handled entirely through WebView messages
-                  console.log('🔄 Truck visibility update sent to WebView, no map regeneration needed');
-                } else {
-                  console.log('❌ WebView reference not available for direct message');
-                }
-                
-                console.log('🚚 Truck visibility toggle completed successfully:', newVisibility);
+                console.log('� Truck visibility toggle completed successfully:', newVisibility);
+                console.log('�️ Map will regenerate automatically due to showTruckIcon state change');
               } catch (error) {
                 console.error('❌ Error toggling truck visibility:', error);
                 // Revert state on error
@@ -5664,21 +6236,29 @@ export default function MapScreen() {
             }}
             activeOpacity={0.8}
           >
-            <View style={[styles.toggleContainer, { backgroundColor: showTruckIcon ? '#4DBFFF' : '#FF4EC9' }]}>
+            <View style={[styles.toggleContainer, { 
+              backgroundColor: showTruckIcon === null ? theme.colors.background.tertiary : 
+                             showTruckIcon ? theme.colors.accent.pink : theme.colors.background.secondary,
+              borderColor: showTruckIcon === null ? theme.colors.border :
+                          showTruckIcon ? theme.colors.accent.pink : theme.colors.border,
+              ...(showTruckIcon === true ? theme.shadows.neonPink : {})
+            }]}>
               <Ionicons 
-                name={showTruckIcon ? 'car' : 'car-outline'} 
+                name={showTruckIcon === null ? 'hourglass-outline' : 
+                     showTruckIcon ? 'car' : 'car-outline'} 
                 size={18} 
-                color="#FFFFFF" // White icon color
+                color={theme.colors.text.primary}
               />
               <Text style={styles.toggleText}>
-                {showTruckIcon ? 'Hide Truck' : 'Show Truck'}
+                {showTruckIcon === null ? 'Loading...' : 
+                 showTruckIcon ? 'Hide Icon' : 'Show Icon'}
               </Text>
             </View>
           </TouchableOpacity>
           
           {/* Visibility Info Text */}
           <Text style={styles.visibilityInfoText}>
-            💡 Your truck icon stays visible to customers even when you log out, unless "Hide Truck" is enabled
+            💡 Your map icon stays visible to customers and event organizers even when you log out, unless "Hide Icon" is enabled
           </Text>
         </View>
       )}
@@ -5715,6 +6295,51 @@ export default function MapScreen() {
               <Text style={styles.modalSubtitle}>
                 {getCuisineDisplayName(selectedTruck?.cuisine)} Cuisine
               </Text>
+              
+              {/* Open/Closed Status Indicator */}
+              {selectedTruck?.businessHours && (
+                <View style={[
+                  styles.statusIndicator,
+                  checkTruckOpenStatus(selectedTruck.businessHours) === 'open' 
+                    ? styles.statusOpen 
+                    : styles.statusClosed
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    checkTruckOpenStatus(selectedTruck.businessHours) === 'open' 
+                      ? styles.statusTextOpen 
+                      : styles.statusTextClosed
+                  ]}>
+                    {checkTruckOpenStatus(selectedTruck.businessHours) === 'open' ? '🟢 OPEN' : '🔴 CLOSED'}
+                  </Text>
+                  {checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' && (
+                    <Text style={styles.statusSubtext}>Pre-orders unavailable</Text>
+                  )}
+                </View>
+              )}
+              
+              {/* Clean Rating Display */}
+              {(() => {
+                console.log('⭐ RATING DEBUG: Rendering rating display');
+                console.log('⭐ RATING DEBUG: reviews.length:', reviews.length);
+                console.log('⭐ RATING DEBUG: selectedTruck ownerId:', selectedTruck?.ownerId);
+                console.log('⭐ RATING DEBUG: reviews data:', reviews);
+                return null;
+              })()}
+              {reviews.length > 0 ? (
+                <View style={styles.ratingContainer}>
+                  <View style={styles.starRatingContainer}>
+                    {renderStarRating(parseFloat(getAverageRating()), null, 20)}
+                  </View>
+                  <Text style={styles.averageRatingText}>
+                    {getAverageRating()} ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.averageRatingText, {opacity: 0.7, marginTop: 8}]}>
+                  No reviews yet
+                </Text>
+              )}
             </View>
             
             <View style={styles.headerButtonsContainer}>
@@ -5727,7 +6352,7 @@ export default function MapScreen() {
                 <Ionicons 
                   name="restaurant" 
                   size={20} 
-                  color="#4DBFFF" // Updated to neon blue
+                  color={colors.accent.blue} 
                 />
                 <Text style={styles.quickMenuButtonText}>Menu</Text>
               </TouchableOpacity>
@@ -5750,7 +6375,7 @@ export default function MapScreen() {
                   <Ionicons 
                     name={userFavorites.has(selectedTruck.ownerId) ? "heart" : "heart-outline"} 
                     size={20} 
-                    color={userFavorites.has(selectedTruck.ownerId) ? "#ff6b6b" : "#2c6f57"} 
+                    color={userFavorites.has(selectedTruck.ownerId) ? colors.accent.pink : colors.accent.blue} 
                   />
                   <Text style={[
                     styles.favoriteButtonText,
@@ -5761,17 +6386,58 @@ export default function MapScreen() {
                 </TouchableOpacity>
               )}
               
+              {/* Reviews Button - Show for all users */}
+              <TouchableOpacity 
+                style={styles.reviewsButton}
+                onPress={() => {
+                  console.log('⭐ Reviews button pressed for truck:', selectedTruck?.name);
+                  console.log('⭐ About to set showReviewsModal to true');
+                  
+                  // Close truck modal first to prevent modal conflicts
+                  setShowMenuModal(false);
+                  
+                  // Small delay to ensure truck modal closes before opening reviews modal
+                  setTimeout(() => {
+                    setShowReviewsModal(true);
+                    console.log('⭐ Called setShowReviewsModal(true)');
+                    loadReviews(selectedTruck?.ownerId);
+                  }, 100);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons 
+                  name="star" 
+                  size={20} 
+                  color={colors.accent.blue} 
+                />
+                <Text style={styles.reviewsButtonText}>Reviews</Text>
+              </TouchableOpacity>
+              
               {/* Cart Button */}
               <TouchableOpacity 
                 style={[
                   styles.cartButton,
-                  getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive
+                  getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive,
+                  selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                    ? styles.cartButtonDisabled 
+                    : null
                 ]}
                 onPress={() => {
+                  // Check if truck is open before accessing cart
+                  if (selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed') {
+                    Alert.alert(
+                      '🚫 Mobile Kitchen Closed', 
+                      'This mobile kitchen is currently closed. Pre-orders are only available during their open hours.',
+                      [{ text: 'OK', style: 'default' }]
+                    );
+                    return;
+                  }
+                  
                   console.log('🛒 Cart button pressed! Current cart items:', cart.length);
                   console.log('🛒 Opening cart modal...');
                   setShowCartModal(true);
                 }}
+                disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
                 activeOpacity={0.8}
               >
                 <View style={styles.cartButtonContent}>
@@ -5788,7 +6454,12 @@ export default function MapScreen() {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.cartButtonText}>Pre-order Cart</Text>
+                  <Text style={styles.cartButtonText}>
+                    {selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                      ? 'Closed' 
+                      : 'Pre-order Cart'
+                    }
+                  </Text>
                 </View>
               </TouchableOpacity>
               
@@ -5804,7 +6475,7 @@ export default function MapScreen() {
                 <Ionicons 
                   name="calendar" 
                   size={20} 
-                  color="#2c6f57" 
+                  color={colors.accent.blue} 
                 />
                 <Text style={styles.cateringButtonText}>Book Catering</Text>
               </TouchableOpacity>
@@ -5828,7 +6499,7 @@ export default function MapScreen() {
                   <Ionicons 
                     name="musical-notes" 
                     size={20} 
-                    color="#7c2d12" 
+                    color={colors.accent.pink} 
                   />
                   <Text style={[styles.cateringButtonText, styles.festivalButtonText]}>Book Festival</Text>
                 </TouchableOpacity>
@@ -5851,7 +6522,7 @@ export default function MapScreen() {
                     }
                   ]}>
                     {loadingImageSize && (
-                      <ActivityIndicator size="small" color="#B0B3C2" style={styles.imageLoadingIndicator} />
+                      <ActivityIndicator size="small" color="#666" style={styles.imageLoadingIndicator} />
                     )}
                     <Image 
                       source={{ uri: selectedTruck.coverUrl }} 
@@ -6264,11 +6935,31 @@ export default function MapScreen() {
                           <Text style={styles.menuItemDescription}>{item.description}</Text>
                         )}
                         <TouchableOpacity 
-                          style={styles.addToCartButton}
+                          style={[
+                            styles.addToCartButton,
+                            selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                              ? styles.addToCartButtonDisabled 
+                              : null
+                          ]}
                           onPress={() => addToCart({ ...item, id: item.id || `item_${index}` })}
+                          disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
                         >
-                          <Ionicons name="add-circle" size={16} color="#fff" />
-                          <Text style={styles.addToCartButtonText}>Add to Cart</Text>
+                          <Ionicons 
+                            name={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' ? "lock-closed" : "add-circle"} 
+                            size={16} 
+                            color={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' ? "#999" : "#fff"} 
+                          />
+                          <Text style={[
+                            styles.addToCartButtonText,
+                            selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                              ? styles.addToCartButtonTextDisabled 
+                              : null
+                          ]}>
+                            {selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                              ? 'Closed' 
+                              : 'Add to Cart'
+                            }
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -6321,16 +7012,15 @@ export default function MapScreen() {
               alignItems: 'center'
             }}>
               <View style={{ 
-                backgroundColor: '#ffffff', 
+                backgroundColor: theme.colors.background.primary, 
                 marginTop: 60,
                 borderRadius: 20,
                 margin: 20,
                 width: '90%',
                 maxHeight: '80%',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.3,
-                shadowRadius: 20,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                ...theme.shadows.neonPink,
                 elevation: 10
               }}>
                 {/* Cart Header */}
@@ -6340,12 +7030,12 @@ export default function MapScreen() {
                   alignItems: 'center',
                   padding: 20,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee'
+                  borderBottomColor: theme.colors.border
                 }}>
                   <Text style={{ 
                     fontSize: 24, 
                     fontWeight: 'bold',
-                    color: '#000'
+                    color: colors.text.primary
                   }}>
                     🛒 Your Cart
                   </Text>
@@ -6355,12 +7045,14 @@ export default function MapScreen() {
                       setShowCartModal(false);
                     }}
                     style={{
-                      padding: 10,
-                      backgroundColor: '#f0f0f0',
-                      borderRadius: 20
+                      padding: 8,
+                      borderRadius: 20,
+                      backgroundColor: theme.colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Text style={{ fontSize: 18, color: '#666' }}>✕</Text>
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -6368,10 +7060,10 @@ export default function MapScreen() {
                 <ScrollView style={{ maxHeight: 300, padding: 20 }}>
                   {cart.length === 0 ? (
                     <View style={{ alignItems: 'center', padding: 30 }}>
-                      <Text style={{ fontSize: 18, color: '#666', textAlign: 'center' }}>
+                      <Text style={{ fontSize: 18, color: theme.colors.text.secondary, textAlign: 'center' }}>
                         Your cart is empty
                       </Text>
-                      <Text style={{ fontSize: 14, color: '#999', textAlign: 'center', marginTop: 10 }}>
+                      <Text style={{ fontSize: 14, color: theme.colors.text.secondary, textAlign: 'center', marginTop: 10 }}>
                         Add some delicious items from the menu!
                       </Text>
                     </View>
@@ -6383,13 +7075,13 @@ export default function MapScreen() {
                         alignItems: 'center',
                         paddingVertical: 15,
                         borderBottomWidth: index < cart.length - 1 ? 1 : 0,
-                        borderBottomColor: '#f0f0f0'
+                        borderBottomColor: theme.colors.border
                       }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#000' }}>
+                          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text.primary }}>
                             {item.name}
                           </Text>
-                          <Text style={{ fontSize: 14, color: '#666', marginTop: 2 }}>
+                          <Text style={{ fontSize: 14, color: colors.text.secondary, marginTop: 2 }}>
                             ${item.price.toFixed(2)} each
                           </Text>
                         </View>
@@ -6397,14 +7089,14 @@ export default function MapScreen() {
                         <View style={{ 
                           flexDirection: 'row', 
                           alignItems: 'center',
-                          backgroundColor: '#f8f8f8',
+                          backgroundColor: theme.colors.background.secondary,
                           borderRadius: 8,
                           padding: 5
                         }}>
                           <TouchableOpacity 
                             onPress={() => updateQuantity(item.id, item.quantity - 1)}
                             style={{
-                              backgroundColor: '#e74c3c',
+                              backgroundColor: theme.colors.accent.pink,
                               borderRadius: 15,
                               width: 30,
                               height: 30,
@@ -6412,14 +7104,14 @@ export default function MapScreen() {
                               alignItems: 'center'
                             }}
                           >
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>-</Text>
+                            <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: 'bold' }}>-</Text>
                           </TouchableOpacity>
                           
                           <Text style={{ 
                             marginHorizontal: 15, 
                             fontSize: 16, 
                             fontWeight: 'bold',
-                            color: '#000',
+                            color: colors.text.primary,
                             minWidth: 20,
                             textAlign: 'center'
                           }}>
@@ -6429,7 +7121,7 @@ export default function MapScreen() {
                           <TouchableOpacity 
                             onPress={() => updateQuantity(item.id, item.quantity + 1)}
                             style={{
-                              backgroundColor: '#27ae60',
+                              backgroundColor: theme.colors.accent.blue,
                               borderRadius: 15,
                               width: 30,
                               height: 30,
@@ -6437,14 +7129,14 @@ export default function MapScreen() {
                               alignItems: 'center'
                             }}
                           >
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>+</Text>
+                            <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: 'bold' }}>+</Text>
                           </TouchableOpacity>
                         </View>
                         
                         <Text style={{ 
                           fontSize: 16, 
                           fontWeight: 'bold',
-                          color: '#2c6f57',
+                          color: colors.accent.blue,
                           marginLeft: 15,
                           minWidth: 60,
                           textAlign: 'right'
@@ -6460,7 +7152,7 @@ export default function MapScreen() {
                 {cart.length > 0 && (
                   <View style={{
                     borderTopWidth: 1,
-                    borderTopColor: '#eee',
+                    borderTopColor: theme.colors.border,
                     padding: 20
                   }}>
                     {/* Order Summary */}
@@ -6471,10 +7163,10 @@ export default function MapScreen() {
                         alignItems: 'center',
                         marginBottom: 8
                       }}>
-                        <Text style={{ fontSize: 16, color: '#666' }}>
+                        <Text style={{ fontSize: 16, color: colors.text.secondary }}>
                           Subtotal:
                         </Text>
-                        <Text style={{ fontSize: 16, color: '#000' }}>
+                        <Text style={{ fontSize: 16, color: colors.text.primary }}>
                           ${getTotalPrice()}
                         </Text>
                       </View>
@@ -6486,10 +7178,10 @@ export default function MapScreen() {
                         alignItems: 'center',
                         marginBottom: 8
                       }}>
-                        <Text style={{ fontSize: 14, color: '#666' }}>
+                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                           Sales Tax (8.75%):
                         </Text>
-                        <Text style={{ fontSize: 14, color: '#666' }}>
+                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                           ${getSalesTax()}
                         </Text>
                       </View>
@@ -6500,12 +7192,12 @@ export default function MapScreen() {
                         alignItems: 'center',
                         paddingTop: 8,
                         borderTopWidth: 1,
-                        borderTopColor: '#f0f0f0'
+                        borderTopColor: theme.colors.border
                       }}>
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#000' }}>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text.primary }}>
                           Total:
                         </Text>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2c6f57' }}>
+                        <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.accent.blue }}>
                           ${getFinalTotal()}
                         </Text>
                       </View>
@@ -6514,19 +7206,20 @@ export default function MapScreen() {
                     <TouchableOpacity 
                       onPress={placeOrder}
                       style={{
-                        backgroundColor: '#2c6f57',
+                        backgroundColor: theme.colors.accent.pink,
                         borderRadius: 12,
                         padding: 18,
                         alignItems: 'center',
-                        marginBottom: 10
+                        marginBottom: 10,
+                        ...theme.shadows.neonPink,
                       }}
                     >
                       <Text style={{ 
                         fontSize: 18, 
-                        color: '#fff',
+                        color: colors.text.primary,
                         fontWeight: 'bold'
                       }}>
-                        💳 Pay with Stripe (${getFinalTotal()})
+                        Pay with Stripe (${getFinalTotal()})
                       </Text>
                     </TouchableOpacity>
 
@@ -6536,15 +7229,17 @@ export default function MapScreen() {
                         setShowCartModal(false);
                       }}
                       style={{
-                        backgroundColor: '#f8f8f8',
+                        backgroundColor: theme.colors.background.secondary,
                         borderRadius: 12,
                         padding: 15,
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
                       }}
                     >
                       <Text style={{ 
                         fontSize: 16, 
-                        color: '#666',
+                        color: colors.text.secondary,
                         fontWeight: '500'
                       }}>
                         Continue Shopping
@@ -6564,7 +7259,7 @@ export default function MapScreen() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.8)',
+              backgroundColor: 'rgba(11, 11, 26, 0.95)',
               zIndex: 9999,
               justifyContent: 'flex-start',
               alignItems: 'center',
@@ -6576,13 +7271,15 @@ export default function MapScreen() {
                 style={{
                   width: '100%',
                   flex: 1,
-                  backgroundColor: '#ffffff',
+                  backgroundColor: colors.background.primary,
                   borderRadius: 20,
-                  shadowColor: '#000',
+                  borderWidth: 1,
+                  borderColor: colors.accent.pink,
+                  shadowColor: colors.accent.pink,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 4,
-                  elevation: 5,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 10,
+                  elevation: 15,
                 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -6602,12 +7299,12 @@ export default function MapScreen() {
                   marginBottom: 20,
                   paddingBottom: 15,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee',
+                  borderBottomColor: colors.accent.pink,
                 }}>
                   <Text style={{
                     fontSize: 18,
                     fontWeight: 'bold',
-                    color: '#2c6f57',
+                    color: colors.text.primary,
                     flex: 1,
                   }}>
                     🎉 Book {selectedTruck?.name} for Catering
@@ -6617,10 +7314,12 @@ export default function MapScreen() {
                     style={{
                       padding: 8,
                       borderRadius: 20,
-                      backgroundColor: '#f5f5f5',
+                      backgroundColor: colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Ionicons name="close" size={20} color="#666" />
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -6633,21 +7332,23 @@ export default function MapScreen() {
                 >
                   {/* Customer Name */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Your Name *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerName}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerName: text }))}
                       placeholder="Enter your full name"
+                      placeholderTextColor={theme.colors.text.secondary}
                       autoCapitalize="words"
                       returnKeyType="next"
                     />
@@ -6655,21 +7356,23 @@ export default function MapScreen() {
 
                   {/* Email */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Email Address *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerEmail}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerEmail: text }))}
                       placeholder="your.email@example.com"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="email-address"
                       autoCapitalize="none"
                       returnKeyType="next"
@@ -6678,21 +7381,23 @@ export default function MapScreen() {
 
                   {/* Phone */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Phone Number *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.customerPhone}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, customerPhone: text }))}
                       placeholder="(555) 123-4567"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="phone-pad"
                       returnKeyType="next"
                     />
@@ -6700,65 +7405,71 @@ export default function MapScreen() {
 
                   {/* Event Date */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Date *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.eventDate}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventDate: text }))}
                       placeholder="MM/DD/YYYY"
+                      placeholderTextColor={theme.colors.text.secondary}
                       returnKeyType="next"
                     />
                   </View>
 
                   {/* Event Time */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Time *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.eventTime}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventTime: text }))}
                       placeholder="e.g., 12:00 PM - 3:00 PM"
+                      placeholderTextColor={theme.colors.text.secondary}
                       returnKeyType="next"
                     />
                   </View>
 
                   {/* Event Location */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Event Location *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                         minHeight: 50,
                         textAlignVertical: 'top',
                       }}
                       value={cateringFormData.eventLocation}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, eventLocation: text }))}
                       placeholder="Full address or venue name"
+                      placeholderTextColor={theme.colors.text.secondary}
                       multiline={true}
                       numberOfLines={2}
                       returnKeyType="next"
@@ -6767,21 +7478,23 @@ export default function MapScreen() {
 
                   {/* Guest Count */}
                   <View style={{ marginBottom: 15 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Estimated Guest Count *
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                       }}
                       value={cateringFormData.guestCount}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, guestCount: text }))}
                       placeholder="e.g., 50-75 people"
+                      placeholderTextColor={theme.colors.text.secondary}
                       keyboardType="numeric"
                       returnKeyType="next"
                     />
@@ -6789,23 +7502,25 @@ export default function MapScreen() {
 
                   {/* Special Requests */}
                   <View style={{ marginBottom: 25 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 5 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.primary, marginBottom: 5 }}>
                       Special Requests or Details
                     </Text>
                     <TextInput
                       style={{
                         borderWidth: 1,
-                        borderColor: '#ddd',
+                        borderColor: theme.colors.border,
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
-                        backgroundColor: '#fff',
+                        backgroundColor: theme.colors.background.secondary,
+                        color: theme.colors.text.primary,
                         minHeight: 100,
                         textAlignVertical: 'top',
                       }}
                       value={cateringFormData.specialRequests}
                       onChangeText={(text) => setCateringFormData(prev => ({ ...prev, specialRequests: text }))}
                       placeholder="Any dietary restrictions, special menu requests, or other details..."
+                      placeholderTextColor={theme.colors.text.secondary}
                       multiline={true}
                       numberOfLines={4}
                       returnKeyType="done"
@@ -6815,11 +7530,12 @@ export default function MapScreen() {
                   {/* Submit Button */}
                   <TouchableOpacity
                     style={{
-                      backgroundColor: submittingCateringForm ? '#ccc' : '#2c6f57',
+                      backgroundColor: submittingCateringForm ? theme.colors.text.secondary : theme.colors.accent.pink,
                       padding: 15,
                       borderRadius: 10,
                       alignItems: 'center',
                       marginBottom: 15,
+                      ...(!submittingCateringForm ? theme.shadows.neonPink : {}),
                     }}
                     onPress={() => handleCateringSubmit()}
                     disabled={submittingCateringForm || !cateringFormData.customerName || !cateringFormData.customerEmail || !cateringFormData.customerPhone}
@@ -6841,7 +7557,7 @@ export default function MapScreen() {
                   {/* Info Text */}
                   <Text style={{
                     fontSize: 12,
-                    color: '#666',
+                    color: colors.text.secondary,
                     textAlign: 'center',
                     lineHeight: 16,
                     marginBottom: 10,
@@ -6862,7 +7578,7 @@ export default function MapScreen() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.8)',
+              backgroundColor: 'rgba(11, 11, 26, 0.95)',
               zIndex: 9999,
               justifyContent: 'flex-start',
               alignItems: 'center',
@@ -6874,13 +7590,15 @@ export default function MapScreen() {
                 style={{
                   width: '100%',
                   flex: 1,
-                  backgroundColor: '#ffffff',
+                  backgroundColor: colors.background.primary,
                   borderRadius: 20,
-                  shadowColor: '#000',
+                  borderWidth: 1,
+                  borderColor: colors.accent.pink,
+                  shadowColor: colors.accent.pink,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 4,
-                  elevation: 5,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 10,
+                  elevation: 15,
                 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -6900,12 +7618,12 @@ export default function MapScreen() {
                   marginBottom: 20,
                   paddingBottom: 15,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#eee',
+                  borderBottomColor: colors.accent.pink,
                 }}>
                   <Text style={{
                     fontSize: 18,
                     fontWeight: 'bold',
-                    color: '#7c2d12',
+                    color: colors.text.primary,
                     flex: 1,
                   }}>
                     🎪 Book {selectedTruck?.name} for Festival
@@ -6915,10 +7633,12 @@ export default function MapScreen() {
                     style={{
                       padding: 8,
                       borderRadius: 20,
-                      backgroundColor: '#f5f5f5',
+                      backgroundColor: colors.background.secondary,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
                     }}
                   >
-                    <Ionicons name="close" size={20} color="#666" />
+                    <Ionicons name="close" size={20} color={colors.accent.pink} />
                   </TouchableOpacity>
                 </View>
 
@@ -6928,7 +7648,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       📋 Organizer Information
@@ -6939,7 +7659,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Organization/Contact Name *
@@ -6947,13 +7667,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter organization or contact name"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerName}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerName: text }))}
                         autoCapitalize="words"
@@ -6965,7 +7687,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Contact Email *
@@ -6973,13 +7695,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter your email address"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerEmail}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerEmail: text }))}
                         keyboardType="email-address"
@@ -6992,7 +7716,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Contact Phone *
@@ -7000,13 +7724,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter your phone number"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.organizerPhone}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, organizerPhone: text }))}
                         keyboardType="phone-pad"
@@ -7019,7 +7745,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       🎪 Event Information
@@ -7030,7 +7756,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Name *
@@ -7038,13 +7764,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter event name"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventName}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventName: text }))}
                         autoCapitalize="words"
@@ -7056,7 +7784,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Date *
@@ -7064,13 +7792,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="MM/DD/YYYY"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDate}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDate: text }))}
                       />
@@ -7081,7 +7811,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Time *
@@ -7089,13 +7819,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 10:00 AM - 6:00 PM"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventTime}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventTime: text }))}
                       />
@@ -7106,7 +7838,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Location *
@@ -7114,13 +7846,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter event location/venue"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventLocation}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventLocation: text }))}
                         autoCapitalize="words"
@@ -7132,7 +7866,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Address
@@ -7140,13 +7874,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="Enter full address (optional)"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventAddress}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventAddress: text }))}
                         autoCapitalize="words"
@@ -7158,7 +7894,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Expected Attendance *
@@ -7166,13 +7902,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 500-1000 people"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.expectedAttendance}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, expectedAttendance: text }))}
                       />
@@ -7183,7 +7921,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Duration
@@ -7191,13 +7929,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 1 day, 2 days, weekend"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDuration}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDuration: text }))}
                       />
@@ -7209,7 +7949,7 @@ export default function MapScreen() {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: colors.text.primary,
                       marginBottom: 15,
                     }}>
                       📋 Event Details
@@ -7220,7 +7960,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Available Vendor Spaces
@@ -7228,13 +7968,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 20 food trucks, 10x10 spaces"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.spacesAvailable}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, spacesAvailable: text }))}
                       />
@@ -7245,7 +7987,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 10,
                       }}>
                         Amenities Provided
@@ -7257,19 +7999,19 @@ export default function MapScreen() {
                           alignItems: 'center',
                           padding: 10,
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           marginBottom: 8,
-                          backgroundColor: festivalFormData.electricityProvided ? '#e6f3e6' : '#fff',
+                          backgroundColor: festivalFormData.electricityProvided ? colors.background.secondary : theme.colors.background.secondary,
                         }}
                         onPress={() => setFestivalFormData(prev => ({ ...prev, electricityProvided: !prev.electricityProvided }))}
                       >
                         <Ionicons 
                           name={festivalFormData.electricityProvided ? "checkbox" : "square-outline"} 
                           size={20} 
-                          color={festivalFormData.electricityProvided ? "#2c6f57" : "#666"} 
+                          color={festivalFormData.electricityProvided ? colors.accent.blue : colors.text.secondary} 
                         />
-                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: colors.text.primary }}>
                           Electricity provided
                         </Text>
                       </TouchableOpacity>
@@ -7280,18 +8022,18 @@ export default function MapScreen() {
                           alignItems: 'center',
                           padding: 10,
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
-                          backgroundColor: festivalFormData.waterProvided ? '#e6f3e6' : '#fff',
+                          backgroundColor: festivalFormData.waterProvided ? colors.background.secondary : theme.colors.background.secondary,
                         }}
                         onPress={() => setFestivalFormData(prev => ({ ...prev, waterProvided: !prev.waterProvided }))}
                       >
                         <Ionicons 
                           name={festivalFormData.waterProvided ? "checkbox" : "square-outline"} 
                           size={20} 
-                          color={festivalFormData.waterProvided ? "#2c6f57" : "#666"} 
+                          color={festivalFormData.waterProvided ? colors.accent.blue : colors.text.secondary} 
                         />
-                        <Text style={{ marginLeft: 10, fontSize: 16, color: '#333' }}>
+                        <Text style={{ marginLeft: 10, fontSize: 16, color: colors.text.primary }}>
                           Water access provided
                         </Text>
                       </TouchableOpacity>
@@ -7302,7 +8044,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Booth Fee Structure
@@ -7310,13 +8052,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. $200/day, $500/weekend, or negotiable"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.boothFee}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, boothFee: text }))}
                       />
@@ -7327,7 +8071,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Sales Percentage (if applicable)
@@ -7335,13 +8079,15 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                         }}
                         placeholder="e.g. 10% of sales, or none"
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.salesPercentage}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, salesPercentage: text }))}
                       />
@@ -7352,7 +8098,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Event Description
@@ -7360,15 +8106,17 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                           height: 80,
                           textAlignVertical: 'top',
                         }}
                         placeholder="Describe your event, theme, target audience, etc."
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.eventDescription}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, eventDescription: text }))}
                         multiline
@@ -7381,7 +8129,7 @@ export default function MapScreen() {
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '600',
-                        color: '#333',
+                        color: colors.text.primary,
                         marginBottom: 5,
                       }}>
                         Special Requirements
@@ -7389,15 +8137,17 @@ export default function MapScreen() {
                       <TextInput
                         style={{
                           borderWidth: 1,
-                          borderColor: '#ddd',
+                          borderColor: theme.colors.border,
                           borderRadius: 8,
                           padding: 12,
                           fontSize: 16,
-                          backgroundColor: '#fff',
+                          backgroundColor: theme.colors.background.secondary,
+                          color: theme.colors.text.primary,
                           height: 60,
                           textAlignVertical: 'top',
                         }}
                         placeholder="Any special setup requirements, restrictions, etc."
+                        placeholderTextColor={theme.colors.text.secondary}
                         value={festivalFormData.specialRequirements}
                         onChangeText={(text) => setFestivalFormData(prev => ({ ...prev, specialRequirements: text }))}
                         multiline
@@ -7409,21 +8159,28 @@ export default function MapScreen() {
                   {/* Submit Button */}
                   <TouchableOpacity
                     style={{
-                      backgroundColor: submittingFestivalForm ? '#ccc' : '#7c2d12',
+                      backgroundColor: submittingFestivalForm ? colors.background.tertiary : colors.accent.pink,
                       padding: 15,
                       borderRadius: 10,
                       alignItems: 'center',
                       marginBottom: 15,
+                      borderWidth: 1,
+                      borderColor: colors.accent.pink,
+                      shadowColor: colors.accent.pink,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      elevation: 5,
                     }}
                     onPress={() => handleFestivalSubmit()}
                     disabled={submittingFestivalForm || !festivalFormData.organizerName || !festivalFormData.organizerEmail || !festivalFormData.organizerPhone || !festivalFormData.eventName}
                     activeOpacity={0.8}
                   >
                     {submittingFestivalForm ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={colors.text.primary} />
                     ) : (
                       <Text style={{
-                        color: '#fff',
+                        color: colors.text.primary,
                         fontSize: 16,
                         fontWeight: 'bold',
                       }}>
@@ -7435,7 +8192,7 @@ export default function MapScreen() {
                   {/* Info Text */}
                   <Text style={{
                     fontSize: 12,
-                    color: '#666',
+                    color: colors.text.secondary,
                     textAlign: 'center',
                     lineHeight: 16,
                     marginBottom: 10,
@@ -7573,6 +8330,142 @@ export default function MapScreen() {
         </View>
       </Modal>
 
+      {/* Reviews Modal */}
+      <Modal
+        visible={showReviewsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowReviewsModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          {/* Close Button - Positioned relative to modalContainer, not modalHeader */}
+          <TouchableOpacity 
+            style={styles.reviewsCloseButton}
+            onPress={() => {
+              console.log('❌ Reviews modal close button pressed - returning to menu modal');
+              setShowReviewsModal(false);
+              // Small delay to ensure reviews modal closes before opening menu modal
+              setTimeout(() => {
+                setShowMenuModal(true);
+              }, 100);
+            }}
+            activeOpacity={0.6}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          >
+            <Text style={styles.reviewsCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.modalHeader}>
+            {/* Grubana Logo - Centered in header */}
+            <View style={styles.headerLogoContainer}>
+              <Image 
+                source={require('../../assets/2.png')}
+                style={styles.headerLogo}
+                resizeMode="center"
+              />
+            </View>
+            
+            <View style={styles.modalTitleContainer}>
+              <Text style={styles.modalTitle}>
+                ⭐ Reviews for {selectedTruck?.name || 'Food Truck'}
+              </Text>
+              {reviews.length > 0 && (
+                <Text style={styles.modalSubtitle}>
+                  {getAverageRating()} ⭐ ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Truck Logo/Cover Image - Positioned below header */}
+          {selectedTruck?.coverUrl && (
+            <View style={styles.reviewModalImageContainer}>
+              <Image 
+                source={{ uri: selectedTruck.coverUrl }}
+                style={styles.reviewModalTruckImage}
+                resizeMode="cover"
+              />
+            </View>
+          )}
+
+          <ScrollView style={styles.modalContent}>
+            {/* Write Review Section - Only for customers */}
+            {userRole === 'customer' && (
+              <View style={styles.reviewFormSection}>
+                <Text style={styles.sectionTitle}>
+                  {selectedTruck?.name || 'Food Truck'} 
+                </Text>
+                <View style={styles.reviewForm}>
+                  <Text style={styles.ratingLabel}>Select Rating:</Text>
+                  {renderStarRating(newReview.rating, (rating) => setNewReview(prev => ({ ...prev, rating })))}
+                  
+                  <Text style={styles.commentLabel}>Write a Review:</Text>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Share your experience with this food truck..."
+                    value={newReview.comment}
+                    onChangeText={(text) => setNewReview(prev => ({ ...prev, comment: text }))}
+                    multiline
+                    numberOfLines={4}
+                    maxLength={500}
+                  />
+                  <Text style={styles.characterCount}>{newReview.comment.length}/500</Text>
+                  
+                  <TouchableOpacity
+                    style={[styles.submitReviewButton, submittingReview && styles.disabledButton]}
+                    onPress={submitReview}
+                    disabled={submittingReview}
+                  >
+                    {submittingReview ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.submitReviewButtonText}>Submit Review</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Reviews List */}
+            <View style={styles.reviewsListSection}>
+              <Text style={styles.sectionTitle}>📝 Customer Reviews</Text>
+              
+              {loadingReviews ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#2c6f57" />
+                  <Text style={styles.loadingText}>Loading reviews...</Text>
+                </View>
+              ) : reviews.length === 0 ? (
+                <View style={styles.emptyReviewsContainer}>
+                  <Text style={styles.emptyReviewsIcon}>⭐</Text>
+                  <Text style={styles.emptyReviewsTitle}>No Reviews Yet</Text>
+                  <Text style={styles.emptyReviewsText}>
+                    Be the first to share your experience with this food truck!
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.reviewsList}>
+                  {reviews.map((review) => (
+                    <View key={review.id} style={styles.reviewCard}>
+                      <View style={styles.reviewHeader}>
+                        <Text style={styles.reviewerName}>{review.userName}</Text>
+                        <View style={styles.reviewRating}>
+                          {renderStarRating(review.rating, null, 16)}
+                        </View>
+                      </View>
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                      <Text style={styles.reviewDate}>
+                        {review.createdAt.toLocaleDateString()}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* Cuisine Filter Modal */}
       <Modal
         animationType="slide"
@@ -7663,55 +8556,49 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-
-
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+// Create themed styles function
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0B1A', // Updated to dark neon theme primary background
+    backgroundColor: theme.colors.background.primary,
   },
   webview: {
     flex: 1,
   },
   header: {
     padding: 15,
-    backgroundColor: '#1A1036', // Updated to dark neon theme secondary background
+    backgroundColor: theme.colors.background.secondary,
     paddingTop: 50,
     alignItems: 'center',
     borderBottomWidth: 3,
-    borderBottomColor: '#FF4EC9', // Updated to neon pink accent
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   headerLogo: {
-    width: 120,
-    height: 48,
+    width: 240,
+    height: 132,
+    marginTop: -20,
+    marginBottom: -35,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text for dark theme
+    color: theme.colors.text.primary,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#B0B3C2', // Updated to secondary text color
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     marginTop: 10,
   },
   infoText: {
     fontSize: 14,
-    color: '#4DBFFF', // Updated to neon blue accent
+    color: '#2c6f57',
     textAlign: 'center',
     marginTop: 15,
     fontWeight: '600',
@@ -7724,13 +8611,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#F44336', // Updated to error color from theme
+    color: '#ff4444',
     textAlign: 'center',
     marginBottom: 10,
   },
   loadingText: {
     fontSize: 18,
-    color: '#4DBFFF', // Updated to neon blue accent
+    color: '#2c6f57',
     textAlign: 'center',
   },
   mapOverlay: {
@@ -7738,68 +8625,78 @@ const styles = StyleSheet.create({
     top: 50,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(26, 16, 54, 0.95)', // Updated to dark theme overlay
+    backgroundColor: 'rgba(11, 11, 26, 0.95)',
     padding: 15,
     borderRadius: 10,
-    shadowColor: '#FF4EC9', // Neon pink shadow
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
     elevation: 5,
     borderWidth: 2,
-    borderColor: '#FF4EC9', // Neon pink border
+    borderColor: '#FF4EC9',
     borderLeftWidth: 4,
-    borderLeftColor: '#4DBFFF', // Neon blue accent left border
+    borderLeftColor: '#4DBFFF', // Blue accent left border
   },
   overlayTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text
+    color: 'white',
     marginBottom: 5,
   },
   overlaySubtitle: {
     fontSize: 14,
-    color: '#B0B3C2', // Secondary text color
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   overlayFeature: {
     fontSize: 12,
-    color: '#7B7D8A', // Tertiary text color
+    color: theme.colors.text.secondary,
     marginTop: 5,
     fontStyle: 'italic',
   },
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0B0B1A', // Dark theme background
+    backgroundColor: theme.colors.background.primary,
     borderWidth: 3,
-    borderColor: '#FF4EC9', // Neon pink border
+    borderColor: theme.colors.accent.pink,
     borderTopWidth: 5,
-    borderTopColor: '#4DBFFF', // Neon blue accent top border
+    borderTopColor: theme.colors.accent.blue,
   },
   modalHeader: {
-    backgroundColor: '#1A1036', // Dark theme secondary background
+    backgroundColor: theme.colors.background.secondary,
     padding: 15,
-    paddingTop: 50,
+    paddingTop: 35,
     paddingRight: 60,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     position: 'relative',
     borderBottomWidth: 3,
-    borderBottomColor: '#FF4EC9', // Neon pink accent
-    shadowColor: '#FF4EC9', // Neon pink shadow
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
+    borderBottomColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
     elevation: 5,
+  },
+  headerLogoContainer: {
+    position: 'absolute',
+    top: 5,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  headerLogo: {
+    width: 180,
+    height: 60,
+    backgroundColor: 'transparent',
+    marginBottom: 15,
   },
   closeButton: {
     position: 'absolute',
     top: 60,
     right: 20,
-    backgroundColor: '#4DBFFF', // Neon blue close button
+    backgroundColor: '#4682b4', // Steel blue close button
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -7808,7 +8705,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     elevation: 5,
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border for contrast
+    borderColor: '#000000', // Black border
   },
   closeButtonText: {
     color: '#ffffff',
@@ -7818,13 +8715,79 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text for dark theme
+    color: '#ffffff', // White text on green background
     marginBottom: 5,
+    textAlign: 'center',
+  },
+  reviewModalImageContainer: {
+    alignItems: 'center',
+    paddingVertical: 15,
+    backgroundColor: theme.colors.background.secondary,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  reviewModalTruckImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   modalSubtitle: {
     fontSize: 16,
-    color: '#B0B3C2', // Secondary text color
+    color: theme.colors.text.secondary,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  statusIndicator: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+    alignSelf: 'center',
+    borderWidth: 1,
+  },
+  statusOpen: {
+    backgroundColor: '#d4edda',
+    borderColor: '#c3e6cb',
+  },
+  statusClosed: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  statusTextOpen: {
+    color: '#155724',
+  },
+  statusTextClosed: {
+    color: '#721c24',
+  },
+  statusSubtext: {
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
+    color: '#721c24',
+    fontStyle: 'italic',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    justifyContent: 'center',
+  },
+  starRatingContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  averageRatingText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    fontWeight: '500',
   },
   modalContent: {
     flex: 1,
@@ -7836,12 +8799,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF4EC9', // Neon pink for section titles
+    color: theme.colors.accent.pink,
     marginBottom: 10,
+    textAlign: 'center',
   },
   loadingMenuText: {
     fontSize: 14,
-    color: '#7B7D8A', // Tertiary text color
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   coverPhotoSection: {
@@ -7850,11 +8814,13 @@ const styles = StyleSheet.create({
   coverImageContainer: {
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#1A1036', // Dark theme surface color
+    backgroundColor: theme.colors.background.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 200,
     width: '100%',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   coverImage: {
     width: '100%',
@@ -7912,35 +8878,35 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   socialButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#4DBFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 120,
   },
   instagramButton: {
-    backgroundColor: '#fef7f7',
+    backgroundColor: '#1A1036',
     borderColor: '#E4405F',
   },
   facebookButton: {
-    backgroundColor: '#f7f9ff',
+    backgroundColor: '#1A1036',
     borderColor: '#1877F2',
   },
   twitterButton: {
-    backgroundColor: '#f7fcff',
+    backgroundColor: '#1A1036',
     borderColor: '#1DA1F2',
   },
   xButton: {
-    backgroundColor: '#f8f8f8',
-    borderColor: '#000000',
+    backgroundColor: '#1A1036',
+    borderColor: '#FFFFFF',
   },
   tiktokButton: {
-    backgroundColor: '#f8f8f8',
-    borderColor: '#000000',
+    backgroundColor: '#1A1036',
+    borderColor: '#FFFFFF',
   },
   socialButtonText: {
     fontWeight: 'bold',
@@ -7950,11 +8916,12 @@ const styles = StyleSheet.create({
   // Drops Section Styles
   dropsSection: {
     marginBottom: 20,
-    backgroundColor: '#1A1036', // Dark theme surface
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#4DBFFF', // Neon blue border
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   dropsHeader: {
     flexDirection: 'row',
@@ -7970,17 +8937,18 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   createDropButton: {
-    backgroundColor: '#4682b4',
+    backgroundColor: theme.colors.accent.blue,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   createDropButtonText: {
-    color: '#fff',
+    color: theme.colors.text.primary,
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 5,
@@ -7997,34 +8965,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dropForm: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: theme.colors.background.secondary,
     padding: 15,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   dropFormTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text.primary,
     marginBottom: 15,
     textAlign: 'center',
   },
   dropFieldLabel: {
     fontSize: 14,
-    color: '#4682b4',
+    color: theme.colors.accent.blue,
     fontWeight: '600',
     marginBottom: 5,
     marginTop: 10,
   },
   dropInputContainer: {
-    backgroundColor: '#1A1036', // Dark theme surface
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4DBFFF', // Neon blue border
+    borderColor: theme.colors.accent.blue,
   },
   dropInput: {
-    color: '#FFFFFF', // White text
+    color: theme.colors.text.primary,
     fontSize: 16,
     padding: 12,
     minHeight: 45,
@@ -8042,25 +9011,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   submitDropButton: {
-    backgroundColor: '#FF4EC9', // Neon pink primary button
+    backgroundColor: theme.colors.accent.pink,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
-    shadowColor: '#FF4EC9', // Neon pink glow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
   },
   submitDropButtonDisabled: {
-    backgroundColor: '#2A2A3A', // Disabled button color
-    borderColor: '#7B7D8A', // Disabled border
+    backgroundColor: theme.colors.text.secondary,
+    borderColor: theme.colors.border,
+    opacity: 0.5,
   },
   submitDropButtonText: {
-    color: '#FFFFFF', // White text
+    color: theme.colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -8068,24 +9034,28 @@ const styles = StyleSheet.create({
   // Customer Drops Section Styles
   customerDropsSection: {
     marginBottom: 20,
-    backgroundColor: '#1A1036', // Dark theme surface
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 15,
     marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   claimedDropCard: {
-    backgroundColor: '#d4edda',
+    backgroundColor: 'rgba(255, 78, 201, 0.1)',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#c3e6cb',
+    borderColor: theme.colors.accent.pink,
     alignItems: 'center',
+    ...theme.shadows.neonPink,
   },
   claimedDropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#155724',
+    color: theme.colors.accent.pink,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -8097,40 +9067,42 @@ const styles = StyleSheet.create({
   claimCode: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#155724',
+    color: theme.colors.background.primary,
     letterSpacing: 2,
     marginVertical: 10,
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#c3e6cb',
+    borderColor: theme.colors.accent.pink,
     borderStyle: 'dashed',
+    ...theme.shadows.neonPink,
   },
   claimedDropExpires: {
     fontSize: 12,
-    color: '#155724',
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   claimMessageContainer: {
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 8,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
   },
   claimMessage: {
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '500',
+    color: theme.colors.text.primary,
   },
   noDropsContainer: {
     padding: 20,
     alignItems: 'center',
   },
   noDropsText: {
-    color: '#666',
+    color: theme.colors.text.secondary,
     fontSize: 14,
     fontStyle: 'italic',
   },
@@ -8138,30 +9110,23 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   dropCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 10,
     padding: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
   },
   dropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: theme.colors.accent.pink,
     marginBottom: 6,
   },
   dropDescription: {
     fontSize: 14,
-    color: '#555',
+    color: theme.colors.text.secondary,
     marginBottom: 10,
     lineHeight: 18,
   },
@@ -8172,7 +9137,7 @@ const styles = StyleSheet.create({
   },
   dropDetail: {
     fontSize: 12,
-    color: '#B0B3C2', // Secondary text color
+    color: theme.colors.text.secondary,
     flex: 1,
   },
   claimDropButton: {
@@ -8180,22 +9145,24 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   claimDropButtonActive: {
-    backgroundColor: '#FF4EC9', // Neon pink active button
+    backgroundColor: '#2c6f57',
   },
   claimDropButtonDisabled: {
-    backgroundColor: '#2A2A3A', // Disabled background
+    backgroundColor: '#cccccc',
   },
   claimDropButtonText: {
     fontSize: 14,
     fontWeight: 'bold',
   },
   claimDropButtonTextActive: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
   },
   claimDropButtonTextDisabled: {
-    color: '#7B7D8A', // Tertiary text color
+    color: '#666',
   },
   
   menuSection: {
@@ -8213,7 +9180,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: '#B0B3C2', // Secondary text color
+    color: '#666',
     fontSize: 16,
   },
   menuGrid: {
@@ -8223,12 +9190,12 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     width: '48%',
-    backgroundColor: '#1A1036', // Dark theme surface
+    backgroundColor: colors.background.secondary,
     borderRadius: 10,
     marginBottom: 15,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2A2A3A', // Border color
+    borderColor: colors.border,
   },
   menuItemImageContainer: {
     position: 'relative',
@@ -8242,21 +9209,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#FFD700', // Gold for new items
+    backgroundColor: '#f39c12',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 3,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    shadowColor: '#FFD700',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
     elevation: 5,
   },
   newItemBadgeText: {
-    color: '#0B0B1A', // Dark text on gold background
+    color: '#fff',
     fontSize: 9,
     fontWeight: 'bold',
     letterSpacing: 0.5,
@@ -8267,18 +9234,18 @@ const styles = StyleSheet.create({
   menuItemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text for dark theme
+    color: colors.text.primary,
     marginBottom: 4,
   },
   menuItemPrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF4EC9', // Neon pink for prices
+    color: colors.accent.blue,
     marginBottom: 4,
   },
   menuItemDescription: {
     fontSize: 12,
-    color: '#B0B3C2', // Secondary text color
+    color: colors.text.secondary,
     lineHeight: 16,
   },
   emptyMenuContainer: {
@@ -8287,7 +9254,7 @@ const styles = StyleSheet.create({
   },
   emptyMenuText: {
     textAlign: 'center',
-    color: '#B0B3C2', // Secondary text color
+    color: '#666',
     fontSize: 16,
     fontStyle: 'italic',
   },
@@ -8297,56 +9264,47 @@ const styles = StyleSheet.create({
   },
   emptyMenuSubtext: {
     textAlign: 'center',
-    color: '#7B7D8A', // Tertiary text color
+    color: '#999',
     fontSize: 14,
     fontStyle: 'italic',
     marginTop: 10,
   },
   addMenuButton: {
-    backgroundColor: '#FF4EC9', // Neon pink button
+    backgroundColor: '#2c6f57',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 15,
-    shadowColor: '#FF4EC9',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
   },
   addMenuButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   // Cuisine Modal Styles
   cuisineModalContent: {
-    backgroundColor: '#1A1036', // Updated to dark neon theme secondary background
+    backgroundColor: theme.colors.background.primary,
     borderRadius: 12,
     padding: 20,
     margin: 20,
     maxHeight: '80%',
-    borderWidth: 3,
-    borderColor: '#FF4EC9', // Updated to neon pink border
-    shadowColor: '#FF4EC9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    borderWidth: 2,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cuisineModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 10,
-    color: '#FFFFFF', // Updated to white text
+    color: theme.colors.accent.pink,
   },
   cuisineModalSubtitle: {
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
-    color: '#B0B3C2', // Updated to secondary text color
+    color: theme.colors.text.secondary,
     fontStyle: 'italic',
   },
   cuisineScrollView: {
@@ -8360,9 +9318,9 @@ const styles = StyleSheet.create({
   },
   cuisineOption: {
     width: '48%',
-    backgroundColor: '#0B0B1A', // Updated to dark theme primary background
+    backgroundColor: theme.colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#4DBFFF', // Updated to neon blue border
+    borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -8370,17 +9328,19 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cuisineOptionSelected: {
-    borderColor: '#00E676', // Updated to success green
-    backgroundColor: '#00E676',
+    borderColor: theme.colors.accent.pink,
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cuisineOptionExcluded: {
-    borderColor: '#F44336', // Updated to error red
-    backgroundColor: 'rgba(244, 67, 54, 0.2)', // Semi-transparent red
+    borderColor: theme.colors.accent.pink,
+    backgroundColor: theme.colors.background.primary,
     opacity: 0.7,
   },
   cuisineOptionAll: {
-    borderColor: '#FF4EC9', // Updated to neon pink
-    backgroundColor: '#FF4EC9',
+    borderColor: theme.colors.accent.blue,
+    backgroundColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   cuisineOptionContent: {
     alignItems: 'center',
@@ -8397,34 +9357,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-    color: '#FFFFFF', // Updated to white text
+    color: theme.colors.text.primary,
     lineHeight: 14,
   },
   cuisineNameSelected: {
-    color: '#0B0B1A', // Dark text for selected items with light background
+    color: theme.colors.text.primary,
   },
   cuisineNameAll: {
-    color: '#0B0B1A', // Dark text for all items with light background
+    color: theme.colors.text.primary,
   },
   cuisineNameExcluded: {
-    color: '#B0B3C2', // Secondary text color for excluded items
+    color: theme.colors.text.secondary,
     textDecorationLine: 'line-through',
   },
   cuisineCheckmark: {
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#00E676', // Updated to success green
+    backgroundColor: theme.colors.accent.pink,
     borderRadius: 10,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
+    borderColor: theme.colors.text.primary,
   },
   cuisineCheckmarkText: {
-    color: '#FFFFFF', // White text
+    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -8432,17 +9392,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#F44336', // Updated to error red
+    backgroundColor: '#e74c3c',
     borderRadius: 10,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
+    borderColor: 'white',
   },
   cuisineExcludedText: {
-    color: '#FFFFFF', // White text
+    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -8450,17 +9410,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#FF4EC9', // Updated to neon pink
+    backgroundColor: '#4682b4',
     borderRadius: 10,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
+    borderColor: 'white',
   },
   cuisineAllText: {
-    color: '#FFFFFF', // White text
+    color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -8469,8 +9429,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginTop: 20,
     paddingTop: 15,
-    borderTopWidth: 2,
-    borderTopColor: '#4DBFFF', // Updated to neon blue
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   cuisineModalButton: {
     paddingVertical: 10,
@@ -8478,36 +9438,41 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     minWidth: 80,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   cancelButton: {
-    backgroundColor: '#F44336', // Updated to error red
+    backgroundColor: theme.colors.background.secondary,
   },
   clearButton: {
-    backgroundColor: '#FFB74D', // Updated to warning orange
+    backgroundColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
   },
   applyButton: {
-    backgroundColor: '#00E676', // Updated to success green
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF', // Updated to white text
+    color: theme.colors.text.secondary,
   },
   clearButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0B0B1A', // Dark text for contrast
+    color: theme.colors.text.primary,
   },
   applyButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0B0B1A', // Dark text for contrast
+    color: theme.colors.text.primary,
   },
   
   // Cart-related styles
   modalTitleContainer: {
     flex: 1,
     alignItems: 'center',
+    marginTop: 25,
   },
   cartButton: {
     borderRadius: 25,
@@ -8516,24 +9481,28 @@ const styles = StyleSheet.create({
     minWidth: 90,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF4EC9', // Neon pink shadow
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 0,
+      height: 4,
     },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   cartButtonActive: {
-    backgroundColor: '#00E676', // Success green for active cart
+    backgroundColor: '#27ae60',
     borderWidth: 3,
-    borderColor: '#FFFFFF', // White border
+    borderColor: '#fff',
   },
   cartButtonInactive: {
-    backgroundColor: '#F44336', // Error red for inactive cart
+    backgroundColor: '#e74c3c',
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
+    borderColor: '#fff',
+  },
+  cartButtonDisabled: {
+    backgroundColor: '#cccccc',
+    opacity: 0.6,
   },
   cartButtonContent: {
     position: 'relative',
@@ -8550,7 +9519,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cartButtonLabel: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
     marginTop: 2,
@@ -8559,7 +9528,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
   cartButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
     marginLeft: 6,
@@ -8671,6 +9640,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  reviewsButton: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 2,
+    borderColor: '#2c6f57',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  reviewsButtonText: {
+    color: '#2c6f57',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   cartBadgeText: {
     color: '#fff',
     fontSize: 12,
@@ -8680,7 +9673,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
   addToCartButton: {
-    backgroundColor: '#4DBFFF', // Neon blue for add to cart
+    backgroundColor: '#e74c3c',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -8689,18 +9682,20 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#FFFFFF', // White border
-    shadowColor: '#4DBFFF', // Neon blue glow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 4,
+    borderColor: '#000000',
   },
   addToCartButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 5,
+  },
+  addToCartButtonDisabled: {
+    backgroundColor: '#cccccc',
+    opacity: 0.6,
+  },
+  addToCartButtonTextDisabled: {
+    color: '#999',
   },
   emptyCartContainer: {
     flex: 1,
@@ -8711,12 +9706,12 @@ const styles = StyleSheet.create({
   emptyCartText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#B0B3C2', // Secondary text color
+    color: '#666',
     marginTop: 20,
   },
   emptyCartSubtext: {
     fontSize: 16,
-    color: '#7B7D8A', // Tertiary text color
+    color: '#999',
     marginTop: 10,
     textAlign: 'center',
   },
@@ -8792,30 +9787,25 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text for dark theme
+    color: '#333',
   },
   totalPrice: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FF4EC9', // Neon pink for prices
+    color: '#e74c3c',
   },
   checkoutButton: {
-    backgroundColor: '#FF4EC9', // Neon pink checkout button
+    backgroundColor: '#2c6f57',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border
-    shadowColor: '#FF4EC9', // Neon pink glow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
+    borderColor: '#000000',
   },
   checkoutButtonText: {
-    color: '#FFFFFF', // White text
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
@@ -8829,11 +9819,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   truckToggleButton: {
-    shadowColor: '#FF4EC9', // Neon pink shadow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -8842,35 +9832,28 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#FFFFFF', // White border for contrast
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background.secondary,
   },
   toggleText: {
-    color: '#FFFFFF', // White text
+    color: theme.colors.text.primary,
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   visibilityInfoText: {
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(26, 16, 54, 0.9)', // Dark theme overlay
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderRadius: 8,
     maxWidth: 280,
     fontSize: 11,
-    color: '#B0B3C2', // Secondary text color
+    color: '#fff',
     textAlign: 'center',
     lineHeight: 14,
     borderWidth: 1,
-    borderColor: '#4DBFFF', // Neon blue border
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   
   // Owner drops list styles
@@ -8884,12 +9867,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   ownerDropCard: {
-    backgroundColor: '#2c2c54',
+    backgroundColor: theme.colors.background.secondary,
     borderRadius: 12,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#40407a',
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
   },
   ownerDropHeader: {
     marginBottom: 8,
@@ -8897,16 +9881,16 @@ const styles = StyleSheet.create({
   ownerDropTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.text.primary,
     marginBottom: 4,
   },
   ownerDropExpiry: {
     fontSize: 12,
-    color: '#bbb',
+    color: theme.colors.text.secondary,
   },
   ownerDropDescription: {
     fontSize: 14,
-    color: '#ddd',
+    color: theme.colors.text.secondary,
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -8955,31 +9939,25 @@ const styles = StyleSheet.create({
   
   // Claim codes modal styles
   claimCodesModalContent: {
-    backgroundColor: '#1A1036', // Updated to dark neon theme secondary background
+    backgroundColor: '#2c2c54',
     borderRadius: 20,
     margin: 20,
     maxHeight: '80%',
-    borderWidth: 3,
-    borderColor: '#FF4EC9', // Updated to neon pink border
-    shadowColor: '#FF4EC9',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
+    borderWidth: 2,
+    borderColor: '#e74c3c',
   },
   claimCodesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: '#4DBFFF', // Updated to neon blue accent
-    backgroundColor: '#0B0B1A', // Dark background
+    borderBottomWidth: 1,
+    borderBottomColor: '#40407a',
   },
   claimCodesTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF', // White text
+    color: '#fff',
   },
   closeButton: {
     padding: 5,
@@ -8993,24 +9971,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noCodesText: {
-    color: '#B0B3C2', // Updated to secondary text color
+    color: '#bbb',
     fontSize: 16,
   },
   claimCodesList: {
     maxHeight: 400,
   },
   claimCodeCard: {
-    backgroundColor: '#1A1036', // Updated to dark neon theme secondary background
+    backgroundColor: '#1a1a2e',
     borderRadius: 12,
     padding: 15,
     margin: 10,
-    borderWidth: 2,
-    borderColor: '#4DBFFF', // Updated to neon blue border
-    shadowColor: '#4DBFFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#40407a',
   },
   claimCodeHeader: {
     flexDirection: 'row',
@@ -9021,20 +9994,381 @@ const styles = StyleSheet.create({
   claimCodeValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF4EC9', // Updated to neon pink
+    color: '#e74c3c',
     fontFamily: 'monospace',
   },
   claimCodeExpiry: {
     fontSize: 12,
-    color: '#FFFFFF', // Updated to white for better readability
+    color: '#bbb',
   },
   claimCodeUserId: {
     fontSize: 12,
-    color: '#B0B3C2', // Updated to secondary text color
+    color: '#ddd',
     marginBottom: 4,
   },
   claimCodeCreated: {
     fontSize: 12,
-    color: '#7B7D8A', // Updated to tertiary text color
+    color: '#bbb',
   },
+  
+  // Reviews Modal Styles
+  reviewFormSection: {
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
+  },
+  reviewForm: {
+    gap: 15,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  starRating: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 15,
+  },
+  starButton: {
+    padding: 4,
+  },
+  commentLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    minHeight: 100,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  submitReviewButton: {
+    backgroundColor: '#2c6f57',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  submitReviewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reviewsListSection: {
+    marginBottom: 20,
+  },
+  emptyReviewsContainer: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  emptyReviewsIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyReviewsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  reviewsList: {
+    gap: 15,
+  },
+  reviewCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  
+  // Reviews Modal Styles
+  reviewsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewsModalContent: {
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 15,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    borderWidth: 2,
+    borderColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
+  },
+  reviewsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  reviewsModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+  },
+  reviewsCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 12,
+    backgroundColor: theme.colors.accent.pink,
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99999,
+    elevation: 30,
+    borderWidth: 3,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
+  },
+  reviewsCloseButtonText: {
+    fontSize: 24,
+    color: theme.colors.text.primary,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  averageRatingContainer: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.background.primary,
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
+  },
+  averageRatingText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.accent.pink,
+    marginBottom: 5,
+  },
+  averageStars: {
+    flexDirection: 'row',
+    marginBottom: 5,
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+  },
+  leaveReviewSection: {
+    backgroundColor: theme.colors.background.primary,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
+  },
+  starRatingContainer: {
+    marginBottom: 15,
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.accent.blue,
+    marginBottom: 8,
+  },
+  starRatingInput: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  commentInputContainer: {
+    marginBottom: 15,
+  },
+  commentLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.accent.blue,
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: theme.colors.background.secondary,
+    color: theme.colors.text.primary,
+    textAlignVertical: 'top',
+    minHeight: 100,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  submitReviewButton: {
+    backgroundColor: theme.colors.accent.pink,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonPink,
+  },
+  submitReviewButtonText: {
+    color: theme.colors.text.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  reviewsListSection: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  reviewsList: {
+    maxHeight: 300,
+  },
+  reviewCard: {
+    backgroundColor: theme.colors.background.primary,
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.neonBlue,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    flex: 1,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: theme.colors.text.secondary,
+  },
+  emptyReviewsContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyReviewsIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyReviewsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
+  },
+  emptyReviewsText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+  },
+
 });

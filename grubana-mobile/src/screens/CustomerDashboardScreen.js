@@ -36,8 +36,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 const CustomerDashboardScreen = () => {
-  console.log('🏠 CustomerDashboardScreen: Component mounted/rendered');
-  const { user } = useAuth();
+    const { user } = useAuth();
   const [username, setUsername] = useState('');
   const [cuisineType, setCuisineType] = useState('');
   const [manualAddress, setManualAddress] = useState('');
@@ -78,8 +77,7 @@ const CustomerDashboardScreen = () => {
           setUsername(user.displayName || '');
         }
       } catch (error) {
-        console.error('Error fetching user info:', error);
-        setUsername(user.displayName || '');
+                setUsername(user.displayName || '');
       }
     };
     
@@ -89,12 +87,8 @@ const CustomerDashboardScreen = () => {
   // Get user location
   useEffect(() => {
     const getUserLocation = async () => {
-      console.log('🔄 CustomerDashboard: Starting location acquisition process...');
-      console.log('🔄 CustomerDashboard: useGeoLocation state:', useGeoLocation);
-      
-      if (!useGeoLocation) {
-        console.log('📍 CustomerDashboard: Geolocation disabled by user, using default location');
-        setUserLocation({
+                  if (!useGeoLocation) {
+                setUserLocation({
           latitude: 39.8283,
           longitude: -98.5795,
           latitudeDelta: 15,
@@ -104,13 +98,9 @@ const CustomerDashboardScreen = () => {
       }
 
       try {
-        console.log('🌍 CustomerDashboard: Requesting location permission...');
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        console.log('🌍 CustomerDashboard: Permission status:', status);
-        
-        if (status !== 'granted') {
-          console.log('❌ CustomerDashboard: Location permission denied, using default location');
-          setUserLocation({
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    setUserLocation({
             latitude: 39.8283,
             longitude: -98.5795,
             latitudeDelta: 15,
@@ -120,19 +110,12 @@ const CustomerDashboardScreen = () => {
           return;
         }
 
-        console.log('✅ CustomerDashboard: Location permission granted, getting current position...');
-        const location = await Location.getCurrentPositionAsync({
+                const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
           timeout: 15000,
         });
         
-        console.log('✅ CustomerDashboard: Got user location:', {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          accuracy: location.coords.accuracy
-        });
-        
-        const newLocation = {
+                const newLocation = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           latitudeDelta: 0.01,
@@ -140,17 +123,8 @@ const CustomerDashboardScreen = () => {
         };
         
         setUserLocation(newLocation);
-        console.log('✅ CustomerDashboard: User location state updated:', newLocation);
-        
-      } catch (error) {
-        console.error('❌ CustomerDashboard: Error getting location:', error);
-        console.error('❌ CustomerDashboard: Error details:', {
-          name: error.name,
-          message: error.message,
-          code: error.code
-        });
-        
-        // Use default location as fallback
+              } catch (error) {
+                        // Use default location as fallback
         const fallbackLocation = {
           latitude: 39.8283,
           longitude: -98.5795,
@@ -159,9 +133,7 @@ const CustomerDashboardScreen = () => {
         };
         
         setUserLocation(fallbackLocation);
-        console.log('📍 CustomerDashboard: Set fallback location:', fallbackLocation);
-        
-        Alert.alert('Location Error', `Unable to get your current location: ${error.message}. Showing nationwide view.`);
+                Alert.alert('Location Error', `Unable to get your current location: ${error.message}. Showing nationwide view.`);
       }
     };
 
@@ -172,8 +144,7 @@ const CustomerDashboardScreen = () => {
   // Animate map to new location when userLocation changes
   useEffect(() => {
     if (userLocation && mapRef.current && mapReady) {
-      console.log('🗺️ CustomerDashboard: Animating map to new location:', userLocation);
-      mapRef.current.animateToRegion(userLocation, 1000);
+            mapRef.current.animateToRegion(userLocation, 1000);
     }
   }, [userLocation, mapReady]);
 
@@ -245,22 +216,6 @@ const CustomerDashboardScreen = () => {
         // DEBUG: Show ALL trucks for debugging
         const debugShowAll = true;
         const finalShouldShow = debugShowAll || shouldShow;
-        
-        console.log('🚚 Mobile: Processing truck:', doc.id, {
-          truckName: data.truckName || 'Unknown',
-          isLive,
-          visible,
-          lastActive: new Date(lastActive).toLocaleString(),
-          timeSinceActive: Math.round(timeSinceActive / (60 * 1000)) + ' minutes',
-          sessionDuration: Math.round(sessionDuration / (60 * 1000)) + ' minutes',
-          isRecentlyActive,
-          withinEightHourWindow,
-          shouldShow,
-          debugShowAll,
-          finalShouldShow,
-          hasCoordinates: !!(data.lat && data.lng)
-        });
-
         if (finalShouldShow) {
           // Apply distance filter if user location is available
           if (userLocation) {
@@ -271,9 +226,7 @@ const CustomerDashboardScreen = () => {
               data.lng
             );
             
-            console.log('🚚 Mobile: Distance calculated for truck', doc.id, ':', distance, 'miles');
-            
-            // DEBUG: Relax distance filter for debugging
+                        // DEBUG: Relax distance filter for debugging
             const debugMaxDistance = 1000; // Much larger radius for debugging
             const maxDistance = debugShowAll ? debugMaxDistance : MAX_DISTANCE_MILES;
             
@@ -287,9 +240,7 @@ const CustomerDashboardScreen = () => {
                 },
                 distance: distance
               });
-              console.log('🚚 Mobile: Added truck within range:', doc.id, data.truckName || 'Unknown', 'Distance:', distance, 'miles');
-            } else {
-              console.log('🚚 Mobile: Truck too far away:', doc.id, distance, 'miles (max:', maxDistance, ')');
+                          } else {
             }
           } else {
             // If no user location, show all trucks
@@ -301,15 +252,12 @@ const CustomerDashboardScreen = () => {
                 longitude: data.lng,
               }
             });
-            console.log('🚚 Mobile: Added truck (no location filter):', doc.id, data.truckName || 'Unknown');
-          }
+                      }
         } else {
-          console.log('🚚 Mobile: Truck filtered out (shouldShow=false):', doc.id, data.truckName || 'Unknown');
-        }
+                  }
       });
 
-      console.log('🚚 Mobile: Final truck count:', trucks.length, 'out of', snapshot.docs.length, 'total trucks');
-      setFoodTrucks(trucks);
+            setFoodTrucks(trucks);
     });
 
     return () => unsubscribe();
@@ -371,8 +319,7 @@ const CustomerDashboardScreen = () => {
       setCuisineType('');
       Alert.alert('Success', 'Ping sent successfully!');
     } catch (error) {
-      console.error('Error sending ping:', error);
-      Alert.alert('Error', 'Failed to send ping');
+            Alert.alert('Error', 'Failed to send ping');
     } finally {
       setLoading(false);
       sendingRef.current = false;
@@ -381,9 +328,7 @@ const CustomerDashboardScreen = () => {
 
   // Load events
   useEffect(() => {
-    console.log('🎉 Mobile: Setting up events listener');
-    
-    const unsubscribe = onSnapshot(collection(db, "events"), 
+        const unsubscribe = onSnapshot(collection(db, "events"), 
       (snapshot) => {
         const eventsData = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -395,26 +340,14 @@ const CustomerDashboardScreen = () => {
                              event.status === 'upcoming' ||
                              event.status === 'live';
           
-          console.log('🔍 Mobile: Event filter check:', {
-            id: event.id,
-            title: event.title,
-            status: event.status,
-            hasLocation,
-            validStatus,
-            included: hasLocation && validStatus
-          });
-          
-          return hasLocation && validStatus;
+                    return hasLocation && validStatus;
         });
 
-        console.log("🎉 Mobile: Active events fetched:", eventsData.length, 'events');
-        setEvents(eventsData);
+                setEvents(eventsData);
       },
       (error) => {
-        console.error('❌ Mobile: Events listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('📋 User may not have permission to read events collection');
-          setEvents([]); // Set empty array as fallback
+                if (error.code === 'permission-denied') {
+                    setEvents([]); // Set empty array as fallback
         }
       }
     );
@@ -424,8 +357,7 @@ const CustomerDashboardScreen = () => {
 
   // Load demand pins
   useEffect(() => {
-    console.log('📍 Mobile: Setting up demand pins listener');
-    const unsubscribe = onSnapshot(collection(db, "demandPins"), 
+        const unsubscribe = onSnapshot(collection(db, "demandPins"), 
       (snapshot) => {
         const pinsData = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -437,14 +369,11 @@ const CustomerDashboardScreen = () => {
           return pinTime > twentyFourHoursAgo;
         });
 
-        console.log("📍 Mobile: Active demand pins fetched:", pinsData.length, 'pins');
-        setDemandPins(pinsData);
+                setDemandPins(pinsData);
       },
       (error) => {
-        console.error('❌ Mobile: Demand pins listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('📋 User may not have permission to read demand pins collection');
-          setDemandPins([]); // Set empty array as fallback
+                if (error.code === 'permission-denied') {
+                    setDemandPins([]); // Set empty array as fallback
         }
       }
     );
@@ -454,15 +383,9 @@ const CustomerDashboardScreen = () => {
 
   // Load customer pings for map display
   useEffect(() => {
-    console.log('📍 Mobile: Setting up customer pings listener');
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    console.log('📍 Mobile: One day ago timestamp:', oneDayAgo.toISOString());
-    
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const unsubscribe = onSnapshot(collection(db, "pings"), 
       (snapshot) => {
-        console.log('📍 Mobile: Raw Firebase snapshot size:', snapshot.size);
-        console.log('📍 Mobile: Raw Firebase docs:', snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
-        
         const pingsData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data()
@@ -470,47 +393,18 @@ const CustomerDashboardScreen = () => {
           // Only show pings from the last 24 hours
           const pingTimestamp = ping.timestamp?.toDate ? ping.timestamp.toDate() : null;
           const isRecent = pingTimestamp && pingTimestamp > oneDayAgo;
-          
-          console.log('📍 Mobile: Checking ping:', ping.id, {
-            timestamp: pingTimestamp?.toISOString(),
-            isRecent,
-            lat: ping.lat,
-            lng: ping.lng
-          });
-          
           // Ensure we have valid coordinates
           const lat = Number(ping.lat ?? ping.latitude);
           const lng = Number(ping.lng ?? ping.longitude);
           const hasValidCoords = isFinite(lat) && isFinite(lng);
           
-          console.log('📍 Mobile: Ping validation:', {
-            id: ping.id,
-            hasValidCoords,
-            lat,
-            lng,
-            isRecent,
-            passesFilter: isRecent && hasValidCoords
-          });
-          
-          return isRecent && hasValidCoords;
+                    return isRecent && hasValidCoords;
         });
-
-        console.log("📍 Mobile: Customer pings fetched:", pingsData.length, 'pings');
-        console.log("📍 Mobile: Ping data details:", pingsData.map(p => ({ 
-          id: p.id, 
-          lat: p.lat, 
-          lng: p.lng, 
-          cuisineType: p.cuisineType, 
-          username: p.username,
-          timestamp: p.timestamp?.toDate?.()?.toISOString() 
-        })));
         setCustomerPings(pingsData);
       },
       (error) => {
-        console.error('❌ Mobile: Customer pings listener error:', error);
-        if (error.code === 'permission-denied') {
-          console.log('📋 User may not have permission to read pings collection');
-          setCustomerPings([]); // Set empty array as fallback
+                if (error.code === 'permission-denied') {
+                    setCustomerPings([]); // Set empty array as fallback
         }
       }
     );
@@ -527,19 +421,16 @@ const CustomerDashboardScreen = () => {
     setExcludedCuisines(prev => {
       if (prev.includes(cuisineId)) {
         // Remove from excluded (show this cuisine)
-        console.log('🍽️ Including cuisine:', cuisineId);
-        return prev.filter(id => id !== cuisineId);
+                return prev.filter(id => id !== cuisineId);
       } else {
         // Add to excluded (hide this cuisine)
-        console.log('🍽️ Excluding cuisine:', cuisineId);
-        return [...prev, cuisineId];
+                return [...prev, cuisineId];
       }
     });
   };
 
   const handleApplyCuisineFilter = () => {
-    console.log('🍽️ Applying cuisine exclusion filter:', excludedCuisines);
-    setShowCuisineModal(false);
+        setShowCuisineModal(false);
   };
 
   const filterPingsByCuisine = (pings) => {
@@ -556,16 +447,13 @@ const CustomerDashboardScreen = () => {
                pingCuisine?.includes(excludedLower) ||
                excludedLower.includes(pingCuisine);
       });
-      
-      console.log(`🍽️ Ping cuisine "${pingCuisine}" excluded:`, isExcluded);
       return !isExcluded; // Include if NOT excluded
     });
   };
 
   // Handle event marker press
   const handleEventPress = (event) => {
-    console.log('🎉 Mobile: Event marker pressed:', event.id);
-    setSelectedEvent(event);
+        setSelectedEvent(event);
     setShowEventModal(true);
   };
 
@@ -613,8 +501,7 @@ const CustomerDashboardScreen = () => {
 
               Alert.alert('Success', 'Demand pin dropped! Trucks can see your request.');
             } catch (error) {
-              console.error('Error dropping demand pin:', error);
-              Alert.alert('Error', 'Failed to drop demand pin');
+                            Alert.alert('Error', 'Failed to drop demand pin');
             }
           },
         },
@@ -767,8 +654,7 @@ const CustomerDashboardScreen = () => {
               longitudeDelta: 15,
             }}
             onMapReady={() => {
-              console.log('🗺️ CustomerDashboard: Map is ready');
-              setMapReady(true);
+                            setMapReady(true);
             }}
             onPress={handleMapPress}
             showsUserLocation={true}
@@ -776,10 +662,8 @@ const CustomerDashboardScreen = () => {
           >
               {/* Business Markers */}
               {(() => {
-                console.log('🗺️ Mobile: Rendering', foodTrucks.length, 'business markers');
-                return foodTrucks.map((truck) => {
-                  console.log('🗺️ Mobile: Rendering truck marker:', truck.id, 'at', truck.coordinate?.latitude, truck.coordinate?.longitude);
-                  return (
+                                return foodTrucks.map((truck) => {
+                                    return (
                     <Marker
                       key={truck.id}
                       coordinate={truck.coordinate}
@@ -831,10 +715,7 @@ const CustomerDashboardScreen = () => {
               {/* Customer Ping Markers */}
               {(() => {
                 const filteredPings = filterPingsByCuisine(customerPings);
-                console.log('📍 Mobile: Rendering', filteredPings.length, 'filtered ping markers (of', customerPings.length, 'total)');
-                console.log('📍 Mobile: Excluded cuisines:', excludedCuisines);
-                return filteredPings.map((ping) => {
-                  console.log('📍 Mobile: Rendering ping marker:', ping.id, 'cuisine:', ping.cuisineType, 'at', Number(ping.lat ?? ping.latitude), Number(ping.lng ?? ping.longitude));
+                                return filteredPings.map((ping) => {
                   return (
                   <Marker
                     key={ping.id}

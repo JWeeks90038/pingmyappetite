@@ -47,6 +47,7 @@ export default function ProfileScreen({ navigation }) {
     menuUrl: userData?.menuUrl || '',
     coverUrl: userData?.coverUrl || '',
     logoUrl: userData?.logoUrl || '',
+    profileUrl: userData?.profileUrl || '',
   });
   const [socialLinks, setSocialLinks] = useState({
     instagram: userData?.instagram || '',
@@ -108,6 +109,7 @@ export default function ProfileScreen({ navigation }) {
         menuUrl: userData.menuUrl || '',
         coverUrl: userData.coverUrl || '',
         logoUrl: userData.logoUrl || '',
+        profileUrl: userData.profileUrl || '',
       });
       setSocialLinks({
         instagram: userData.instagram || '',
@@ -150,6 +152,7 @@ export default function ProfileScreen({ navigation }) {
           menuUrl: freshUserData.menuUrl || '',
           coverUrl: freshUserData.coverUrl || '',
           logoUrl: freshUserData.logoUrl || '',
+          profileUrl: freshUserData.profileUrl || '',
         });
         
         setSocialLinks({
@@ -234,8 +237,18 @@ export default function ProfileScreen({ navigation }) {
       
       setLoading(true);
       try {
-        await updateDoc(doc(db, 'users', user.uid), { [field]: value });
-        setUserProfile(prev => ({ ...prev, [field]: value }));
+        // If updating username, also update displayName to keep them in sync
+        const updateData = { [field]: value };
+        if (field === 'username') {
+          updateData.displayName = value;
+        }
+        
+        await updateDoc(doc(db, 'users', user.uid), updateData);
+        setUserProfile(prev => ({ 
+          ...prev, 
+          [field]: value,
+          ...(field === 'username' ? { displayName: value } : {})
+        }));
         Alert.alert('Success', `${field === 'phone' ? 'Phone number' : 'Information'} updated successfully!`);
       } catch (error) {
         console.error('Error updating field:', error);
@@ -436,6 +449,8 @@ export default function ProfileScreen({ navigation }) {
       if (imageType === 'coverUrl') successMessage = 'Cover image uploaded successfully!';
       else if (imageType === 'menuUrl') successMessage = 'Menu image uploaded successfully!';
       else if (imageType === 'logoUrl') successMessage = 'Organization logo uploaded successfully!';
+      else if (imageType === 'profileUrl') successMessage = 'Profile picture uploaded successfully!';
+      else successMessage = 'Image uploaded successfully!';
       
       Alert.alert('Success', successMessage);
       
@@ -970,11 +985,27 @@ export default function ProfileScreen({ navigation }) {
       {/* Profile Section */}
       <View style={styles.section}>
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(userProfile.username || user?.email || 'U').charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.avatar} onPress={() => pickImage('profileUrl')}>
+            {userProfile.profileUrl ? (
+              <Image 
+                source={{ uri: userProfile.profileUrl }} 
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>
+                {(userProfile.username || user?.email || 'U').charAt(0).toUpperCase()}
+              </Text>
+            )}
+          </TouchableOpacity>
+          {!userProfile.profileUrl && (
+            <TouchableOpacity 
+              style={styles.addPhotoButton} 
+              onPress={() => pickImage('profileUrl')}
+            >
+              <Text style={styles.addPhotoText}>📷 Add Photo</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.displayName}>
           {userProfile.username || user?.displayName || user?.email}
@@ -1016,7 +1047,7 @@ export default function ProfileScreen({ navigation }) {
           { key: 'hours', label: 'Hours' },
           { key: 'description', label: 'Description' },
           { key: 'menuUrl', label: 'Menu Image', isImage: true },
-          { key: 'coverUrl', label: 'Cover Image', isImage: true },
+          { key: 'coverUrl', label: 'Logo Image', isImage: true },
         ] : [
           { key: 'username', label: 'Username' },
           { key: 'phone', label: 'Phone Number' },
@@ -1537,6 +1568,26 @@ const createThemedStyles = (theme) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.neonPink,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  addPhotoButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+  },
+  addPhotoText: {
+    color: theme.colors.text.secondary,
+    fontSize: 12,
+    fontWeight: '500',
   },
   avatarText: {
     fontSize: 32,

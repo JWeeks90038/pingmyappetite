@@ -853,12 +853,12 @@ export default function TruckOnboardingScreen({ navigation }) {
               
               <View style={styles.planCard}>
                 <Text style={styles.planTitle}>⭐ Pro Plan</Text>
-                <Text style={styles.planDetails}>$9/month • 2.5% platform fee per order</Text>
+                <Text style={styles.planDetails}>$9.99/month • 2.5% platform fee per order</Text>
               </View>
               
               <View style={styles.planCard}>
                 <Text style={styles.planTitle}>🏆 All-Access Plan</Text>
-                <Text style={styles.planDetails}>$19/month • 0% platform fee per order</Text>
+                <Text style={styles.planDetails}>$19.99/month • 0% platform fee per order</Text>
               </View>
               
               <Text style={styles.infoNote}>

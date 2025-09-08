@@ -54,6 +54,9 @@ export default function AnalyticsScreen() {
     last30DaysRevenue: 0,
     last7DaysOrders: 0,
     last7DaysRevenue: 0,
+    completedOrders: 0,
+    planRequired: false,
+    indexBuilding: false
   });
 
   const [eventStats, setEventStats] = useState({
@@ -242,135 +245,25 @@ export default function AnalyticsScreen() {
     return unsubscribeFavorites;
   }, [userData?.uid]);
 
-  // Orders analytics
+  // Orders analytics - All-Access Plan Required
   useEffect(() => {
     if (!userData?.uid || userRole !== 'owner') {
       console.log('🚫 Skipping orders analytics - not owner');
       return;
     }
 
-    console.log('💰 Setting up orders analytics for:', userData.uid);
+    console.log('💰 Setting up orders analytics for truck:', userData.uid);
+    console.log('📋 User plan:', userData.plan);
+    console.log('🔒 Plan restriction check:', {
+      currentPlan: userData.plan,
+      requiredPlan: 'all-access',
+      hasAccess: userData.plan === 'all-access'
+    });
 
-    // Using orderBy for better performance with composite index
-    // Note: orderBy works best with consistent data types (prefer Timestamp over string)
-    const ordersQuery = query(
-      collection(db, 'orders'),
-      where('truckId', '==', userData.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('📦 Found orders:', orders.length);
-
-      if (orders.length === 0) {
-        console.log('📦 No orders found - resetting to zero');
-        setOrderStats({
-          totalOrders: 0,
-          totalRevenue: 0,
-          last30DaysOrders: 0,
-          last30DaysRevenue: 0,
-          last7DaysOrders: 0,
-          last7DaysRevenue: 0,
-        });
-        return;
-      }
-
-      // Get current time and calculate date thresholds
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-      console.log('📅 Date filters:', {
-        now: now.toISOString(),
-        sevenDaysAgo: sevenDaysAgo.toISOString(),
-        thirtyDaysAgo: thirtyDaysAgo.toISOString()
-      });
-
-      // Filter orders by time periods
-      const last7DaysOrders = orders.filter(order => {
-        let orderDate;
-        if (order.createdAt?.toDate) {
-          // Firestore Timestamp
-          orderDate = order.createdAt.toDate();
-        } else if (order.createdAt?.seconds) {
-          // Firestore Timestamp object
-          orderDate = new Date(order.createdAt.seconds * 1000);
-        } else if (typeof order.createdAt === 'string') {
-          // String date - parse it
-          orderDate = new Date(order.createdAt);
-        } else {
-          // Fallback to current date if invalid
-          console.warn('Invalid createdAt format for order:', order.id, order.createdAt);
-          orderDate = new Date();
-        }
-        return orderDate >= sevenDaysAgo;
-      });
-
-      const last30DaysOrders = orders.filter(order => {
-        let orderDate;
-        if (order.createdAt?.toDate) {
-          // Firestore Timestamp
-          orderDate = order.createdAt.toDate();
-        } else if (order.createdAt?.seconds) {
-          // Firestore Timestamp object
-          orderDate = new Date(order.createdAt.seconds * 1000);
-        } else if (typeof order.createdAt === 'string') {
-          // String date - parse it
-          orderDate = new Date(order.createdAt);
-        } else {
-          // Fallback to current date if invalid
-          console.warn('Invalid createdAt format for order:', order.id, order.createdAt);
-          orderDate = new Date();
-        }
-        return orderDate >= thirtyDaysAgo;
-      });
-
-      console.log('📊 Filtered orders:', {
-        total: orders.length,
-        last7Days: last7DaysOrders.length,
-        last30Days: last30DaysOrders.length
-      });
-
-      // Calculate revenue (convert from cents to dollars)
-      const calculateRevenue = (orderList) => {
-        return orderList.reduce((sum, order) => {
-          // Handle both cents (number) and dollar (string) formats
-          let amount = 0;
-          if (typeof order.totalAmount === 'number') {
-            // Assume it's in cents, convert to dollars
-            amount = order.totalAmount / 100;
-          } else if (typeof order.totalAmount === 'string') {
-            // Parse as dollar amount
-            amount = parseFloat(order.totalAmount) || 0;
-          } else if (order.total) {
-            // Fallback to 'total' field
-            amount = typeof order.total === 'number' ? order.total / 100 : parseFloat(order.total) || 0;
-          }
-          
-          console.log(`💰 Order ${order.id}: amount=${amount}, originalTotal=${order.totalAmount || order.total}`);
-          return sum + amount;
-        }, 0);
-      };
-
-      const totalRevenue = calculateRevenue(orders);
-      const last7DaysRevenue = calculateRevenue(last7DaysOrders);
-      const last30DaysRevenue = calculateRevenue(last30DaysOrders);
-
-      const newOrderStats = {
-        totalOrders: orders.length,
-        totalRevenue: totalRevenue,
-        last30DaysOrders: last30DaysOrders.length,
-        last30DaysRevenue: last30DaysRevenue,
-        last7DaysOrders: last7DaysOrders.length,
-        last7DaysRevenue: last7DaysRevenue,
-      };
-
-      console.log('💰 Final order stats:', newOrderStats);
-      setOrderStats(newOrderStats);
-    }, (error) => {
-      console.error('❌ Error fetching orders:', error);
-      // Reset to zero on error
+    // Check if user has All-Access plan
+    if (userData.plan !== 'all-access') {
+      console.log('🚫 Orders analytics requires All-Access plan, current plan:', userData.plan);
+      console.log('🔒 Setting planRequired = true for orders analytics');
       setOrderStats({
         totalOrders: 0,
         totalRevenue: 0,
@@ -378,11 +271,158 @@ export default function AnalyticsScreen() {
         last30DaysRevenue: 0,
         last7DaysOrders: 0,
         last7DaysRevenue: 0,
+        completedOrders: 0,
+        planRequired: true,
+        indexBuilding: false
       });
+      return;
+    }
+
+    console.log('✅ User has All-Access plan, enabling orders analytics');
+
+    // Query orders for this truck (using simple query first, then filter by time)
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      where('truckId', '==', userData.uid)
+    );
+
+    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      console.log('📊 Orders analytics: Found', snapshot.size, 'orders');
+      
+      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('📊 Sample order data:', orders[0] || 'No orders');
+
+      // Calculate time ranges
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Filter orders by time periods
+      const last7DaysOrders = orders.filter(order => {
+        const orderDate = getOrderDate(order);
+        return orderDate >= sevenDaysAgo;
+      });
+
+      const last30DaysOrders = orders.filter(order => {
+        const orderDate = getOrderDate(order);
+        return orderDate >= thirtyDaysAgo;
+      });
+
+      // Count completed orders
+      const completedOrders = orders.filter(order => 
+        order.status === 'completed' || order.status === 'picked_up'
+      );
+
+      // Calculate revenues
+      const totalRevenue = calculateRevenue(orders);
+      const last7DaysRevenue = calculateRevenue(last7DaysOrders);
+      const last30DaysRevenue = calculateRevenue(last30DaysOrders);
+
+      console.log('📊 Orders Analytics Results:', {
+        totalOrders: orders.length,
+        totalRevenue: totalRevenue.toFixed(2),
+        last7DaysOrders: last7DaysOrders.length,
+        last7DaysRevenue: last7DaysRevenue.toFixed(2),
+        last30DaysOrders: last30DaysOrders.length,
+        last30DaysRevenue: last30DaysRevenue.toFixed(2),
+        completedOrders: completedOrders.length
+      });
+
+      setOrderStats({
+        totalOrders: orders.length,
+        totalRevenue: totalRevenue,
+        last30DaysOrders: last30DaysOrders.length,
+        last30DaysRevenue: last30DaysRevenue,
+        last7DaysOrders: last7DaysOrders.length,
+        last7DaysRevenue: last7DaysRevenue,
+        completedOrders: completedOrders.length,
+        planRequired: false,
+        indexBuilding: false
+      });
+    }, (error) => {
+      console.error('❌ Error fetching orders:', error);
+      if (error.code === 'failed-precondition') {
+        console.log('📊 Orders index is building, will try again...');
+        setOrderStats({
+          totalOrders: 0,
+          totalRevenue: 0,
+          last30DaysOrders: 0,
+          last30DaysRevenue: 0,
+          last7DaysOrders: 0,
+          last7DaysRevenue: 0,
+          completedOrders: 0,
+          planRequired: false,
+          indexBuilding: true
+        });
+      }
     });
 
-    return unsubscribeOrders;
-  }, [userData?.uid, userRole]);
+    return () => {
+      if (unsubscribeOrders) unsubscribeOrders();
+    };
+  }, [userData?.uid, userData?.plan, userRole]);
+
+  // Helper function to extract order date
+  const getOrderDate = (order) => {
+    // Try different date fields in order of preference
+    if (order.timestamp?.toDate) {
+      return order.timestamp.toDate();
+    } else if (order.timestamp?.seconds) {
+      return new Date(order.timestamp.seconds * 1000);
+    } else if (typeof order.timestamp === 'string') {
+      return new Date(order.timestamp);
+    } else if (order.createdAt?.toDate) {
+      return order.createdAt.toDate();
+    } else if (order.createdAt?.seconds) {
+      return new Date(order.createdAt.seconds * 1000);
+    } else if (typeof order.createdAt === 'string') {
+      return new Date(order.createdAt);
+    } else if (order.orderDate) {
+      return new Date(order.orderDate);
+    } else {
+      console.warn('No valid date field found for order:', order.id, {
+        timestamp: order.timestamp,
+        createdAt: order.createdAt,
+        orderDate: order.orderDate
+      });
+      return new Date();
+    }
+  };
+
+  // Helper function to calculate revenue
+  const calculateRevenue = (orderList) => {
+    return orderList.reduce((sum, order) => {
+      let amount = 0;
+      
+      // Try different amount fields in order of preference
+      if (typeof order.totalAmount === 'number') {
+        amount = order.totalAmount;
+      } else if (typeof order.totalAmount === 'string') {
+        amount = parseFloat(order.totalAmount) || 0;
+      } else if (typeof order.vendorReceives === 'number') {
+        amount = order.vendorReceives;
+      } else if (typeof order.subtotal === 'number') {
+        amount = order.subtotal;
+      } else if (order.total) {
+        amount = typeof order.total === 'number' ? order.total : parseFloat(order.total) || 0;
+      }
+      
+      // Handle case where amounts might be in cents (if > 1000, likely in cents)
+      if (amount > 1000 && order.totalAmount) {
+        amount = amount / 100;
+      }
+      
+      console.log('📊 Order revenue calculation:', {
+        orderId: order.id?.substring(0, 8) || 'unknown',
+        totalAmount: order.totalAmount,
+        vendorReceives: order.vendorReceives,
+        subtotal: order.subtotal,
+        calculatedAmount: amount
+      });
+      
+      return sum + amount;
+    }, 0);
+  };
 
   // Event organizer analytics
   useEffect(() => {
@@ -901,10 +941,49 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        {/* Orders Analytics */}
+        {/* Orders Analytics - All-Access Feature */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💰 Orders & Revenue</Text>
-          {orderStats.totalOrders > 0 ? (
+          <Text style={styles.sectionTitle}>💰 Orders & Revenue Analytics</Text>
+          
+          {orderStats.planRequired ? (
+            <View style={styles.upgradePrompt}>
+              <Ionicons name="lock-closed" size={48} color="#ff6b6b" style={styles.lockIcon} />
+              <Text style={styles.upgradeTitle}>🚀 All-Access Feature</Text>
+              <Text style={styles.upgradeText}>
+                Orders & Revenue Analytics is available exclusively for All-Access subscribers.
+              </Text>
+              <Text style={styles.currentPlanText}>
+                Current Plan: {userData?.plan?.charAt(0).toUpperCase() + userData?.plan?.slice(1) || 'Basic'}
+              </Text>
+              <Text style={styles.upgradeFeatures}>
+                Upgrade to All-Access to unlock:{'\n'}
+                • Real-time order tracking{'\n'}
+                • Revenue analytics with time periods{'\n'}
+                • Average order value calculations{'\n'}
+                • Order completion rates{'\n'}
+                • Historical performance trends{'\n'}
+                • Advanced customer insights
+              </Text>
+              <TouchableOpacity style={styles.upgradeButton}>
+                <Text style={styles.upgradeButtonText}>Upgrade to All-Access</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : orderStats.indexBuilding ? (
+            <View style={styles.upgradePrompt}>
+              <Ionicons name="hourglass" size={48} color="#ff9800" style={styles.lockIcon} />
+              <Text style={styles.upgradeTitle}>⏳ Setting Up Analytics</Text>
+              <Text style={styles.upgradeText}>
+                We're building the database indexes needed for your order analytics. This process usually takes 5-10 minutes.
+              </Text>
+              <Text style={styles.upgradeFeatures}>
+                Your analytics will automatically appear once indexing is complete.{'\n'}
+                • Real-time order tracking{'\n'}
+                • Revenue analytics{'\n'}
+                • Performance metrics
+              </Text>
+            </View>
+          ) : orderStats.totalOrders > 0 ? (
             <>
               {/* Overall Stats */}
               <View style={styles.statsGrid}>
@@ -912,64 +991,60 @@ export default function AnalyticsScreen() {
                   <Ionicons name="receipt" size={24} color="#2c6f57" style={styles.statIcon} />
                   <Text style={styles.statNumber}>{orderStats.totalOrders}</Text>
                   <Text style={styles.statLabel}>Total Orders</Text>
-                  <Text style={styles.statSubtext}>All time</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="cash" size={24} color="#4CAF50" style={styles.statIcon} />
+                  <Ionicons name="card" size={24} color="#4CAF50" style={styles.statIcon} />
                   <Text style={styles.statNumber}>${orderStats.totalRevenue.toFixed(2)}</Text>
                   <Text style={styles.statLabel}>Total Revenue</Text>
-                  <Text style={styles.statSubtext}>All time</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Ionicons name="checkmark-circle" size={24} color="#2c6f57" style={styles.statIcon} />
+                  <Text style={styles.statNumber}>{orderStats.completedOrders || 0}</Text>
+                  <Text style={styles.statLabel}>Completed Orders</Text>
                 </View>
               </View>
 
-              {/* 30-Day Stats */}
+              {/* Time Period Stats */}
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
-                  <Ionicons name="calendar" size={24} color="#FF9800" style={styles.statIcon} />
+                  <Ionicons name="calendar" size={20} color="#FF9800" style={styles.statIcon} />
                   <Text style={styles.statNumber}>{orderStats.last30DaysOrders}</Text>
                   <Text style={styles.statLabel}>Orders (30 days)</Text>
-                  <Text style={styles.statSubtext}>Recent activity</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="trending-up" size={24} color="#2196F3" style={styles.statIcon} />
+                  <Ionicons name="trending-up" size={20} color="#2196F3" style={styles.statIcon} />
                   <Text style={styles.statNumber}>${orderStats.last30DaysRevenue.toFixed(2)}</Text>
                   <Text style={styles.statLabel}>Revenue (30 days)</Text>
-                  <Text style={styles.statSubtext}>Recent earnings</Text>
                 </View>
               </View>
 
-              {/* 7-Day Stats */}
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
-                  <Ionicons name="time" size={24} color="#8A2BE2" style={styles.statIcon} />
+                  <Ionicons name="time" size={20} color="#8A2BE2" style={styles.statIcon} />
                   <Text style={styles.statNumber}>{orderStats.last7DaysOrders}</Text>
                   <Text style={styles.statLabel}>Orders (7 days)</Text>
-                  <Text style={styles.statSubtext}>This week</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="card" size={24} color="#E91E63" style={styles.statIcon} />
+                  <Ionicons name="cash" size={20} color="#E91E63" style={styles.statIcon} />
                   <Text style={styles.statNumber}>${orderStats.last7DaysRevenue.toFixed(2)}</Text>
                   <Text style={styles.statLabel}>Revenue (7 days)</Text>
-                  <Text style={styles.statSubtext}>This week</Text>
                 </View>
               </View>
 
-              {/* Average Order Value */}
+              {/* Performance Metrics */}
               {orderStats.totalOrders > 0 && (
                 <View style={styles.statsGrid}>
                   <View style={styles.statCard}>
-                    <Ionicons name="calculator" size={24} color="#795548" style={styles.statIcon} />
+                    <Ionicons name="calculator" size={20} color="#795548" style={styles.statIcon} />
                     <Text style={styles.statNumber}>${(orderStats.totalRevenue / orderStats.totalOrders).toFixed(2)}</Text>
-                    <Text style={styles.statLabel}>Average Order Value</Text>
-                    <Text style={styles.statSubtext}>Per order</Text>
+                    <Text style={styles.statLabel}>Avg Order Value</Text>
                   </View>
                   <View style={styles.statCard}>
-                    <Ionicons name="stats-chart" size={24} color="#607D8B" style={styles.statIcon} />
+                    <Ionicons name="trophy" size={20} color="#607D8B" style={styles.statIcon} />
                     <Text style={styles.statNumber}>
-                      {orderStats.last7DaysOrders > 0 ? (orderStats.last7DaysRevenue / orderStats.last7DaysOrders).toFixed(2) : '0.00'}
+                      {orderStats.totalOrders > 0 ? ((orderStats.completedOrders || 0) / orderStats.totalOrders * 100).toFixed(1) : '0.0'}%
                     </Text>
-                    <Text style={styles.statLabel}>Weekly Avg Order</Text>
-                    <Text style={styles.statSubtext}>Last 7 days</Text>
+                    <Text style={styles.statLabel}>Completion Rate</Text>
                   </View>
                 </View>
               )}
@@ -978,10 +1053,10 @@ export default function AnalyticsScreen() {
             <View style={styles.placeholderContainer}>
               <Ionicons name="receipt-outline" size={64} color="#ccc" />
               <Text style={styles.placeholderText}>
-                📊 No orders yet! Your order analytics will appear here once customers start placing pre-orders through your mobile ordering system.
+                📊 No orders yet! Your order analytics will appear here once customers start placing orders.
               </Text>
               <Text style={styles.placeholderSubtext}>
-                Make sure your menu is set up and customers can find your truck on the map to start receiving orders.
+                Make sure your menu is set up and customers can find your truck to start receiving orders.
               </Text>
             </View>
           )}
@@ -1158,6 +1233,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 8,
+    lineHeight: 20,
+  },
+  upgradePrompt: {
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  lockIcon: {
+    marginBottom: 15,
+  },
+  upgradeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  upgradeText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 22,
+  },
+  currentPlanText: {
+    fontSize: 14,
+    color: '#ff6b6b',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 15,
+    backgroundColor: '#fff5f5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ff6b6b',
+  },
+  upgradeFeatures: {
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  upgradeButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  upgradeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  placeholderContainer: {
+    alignItems: 'center',
+    padding: 30,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 15,
+    marginBottom: 10,
+    lineHeight: 22,
+  },
+  placeholderSubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
     lineHeight: 20,
   },
 });

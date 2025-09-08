@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -9,6 +9,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthContextProvider, useAuth } from './src/components/AuthContext';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import theme from './src/theme/colors';
+import NotificationService from './src/services/notificationService';
 
 // Import screens
 import LoginScreen from './src/screens/LoginScreen.js';
@@ -27,6 +28,8 @@ import EventsScreen from './src/screens/EventsScreen.js';
 import MenuManagementScreen from './src/screens/MenuManagementScreen.js';
 import LocationManagementScreen from './src/screens/LocationManagementScreen.js';
 import TruckOnboardingScreen from './src/screens/TruckOnboardingScreen.js';
+import OrderManagementScreen from './src/screens/OrderManagementScreen.js';
+import CustomerOrdersScreen from './src/screens/CustomerOrdersScreen.js';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -57,6 +60,8 @@ function CustomerTabs() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Map') {
             iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Orders') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Ping') {
@@ -90,6 +95,11 @@ function CustomerTabs() {
         name="Map" 
         component={MapScreen}
         options={{ title: 'Map' }}
+      />
+      <Tab.Screen 
+        name="Orders" 
+        component={CustomerOrdersScreen}
+        options={{ title: 'Orders' }}
       />
       <Tab.Screen 
         name="Events" 
@@ -140,7 +150,7 @@ function EventOrganizerTabs() {
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
-        options={{ title: 'Event Dashboard' }}
+        options={{ title: 'Home' }}
       />
       <Tab.Screen 
         name="Map" 
@@ -176,6 +186,8 @@ function OwnerTabs() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Orders') {
+            iconName = focused ? 'restaurant' : 'restaurant-outline';
           } else if (route.name === 'Map') {
             iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Events') {
@@ -205,7 +217,12 @@ function OwnerTabs() {
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
-        options={{ title: 'Dashboard' }}
+        options={{ title: 'Home' }}
+      />
+      <Tab.Screen 
+        name="Orders" 
+        component={OrderManagementScreen}
+        options={{ title: 'Orders' }}
       />
       <Tab.Screen 
         name="Map" 
@@ -233,7 +250,7 @@ function OwnerTabs() {
 
 // Main Stack Navigator that contains tabs and business tool screens
 function MainStackNavigator() {
-  const { userRole } = useAuth();
+  const { userRole, userData } = useAuth();
   
   // Function to determine which tab navigator to show based on user role
   const getTabNavigator = () => {
@@ -280,6 +297,39 @@ function MainStackNavigator() {
 // Inner app component that uses auth context
 function AppContent() {
   const { user, loading, userData } = useAuth();
+  const notificationsInitialized = useRef(false);
+
+  // Initialize notifications when user is authenticated
+  useEffect(() => {
+    if (user && userData && userData.uid && !notificationsInitialized.current) {
+      console.log('🔔 Initializing notifications for user:', userData.uid);
+      
+      // Clear badge count when app opens
+      NotificationService.clearBadgeCount();
+      
+      NotificationService.initialize(userData.uid)
+        .then((success) => {
+          if (success) {
+            console.log('✅ Notifications initialized successfully');
+            notificationsInitialized.current = true;
+          } else {
+            console.warn('⚠️ Failed to initialize notifications');
+          }
+        })
+        .catch((error) => {
+          console.error('❌ Error initializing notifications:', error);
+        });
+    }
+
+    // Cleanup notifications when component unmounts or user changes
+    return () => {
+      if (!user) {
+        console.log('🧹 Notification listeners cleaned up');
+        NotificationService.cleanup();
+        notificationsInitialized.current = false;
+      }
+    };
+  }, [user?.uid]); // Only depend on user ID, not the entire userData object
 
   console.log('🔍 AppContent Debug:', {
     hasUser: !!user,

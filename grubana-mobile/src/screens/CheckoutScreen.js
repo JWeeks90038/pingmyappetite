@@ -28,21 +28,17 @@ export default function CheckoutScreen({ navigation, route }) {
   // Ensure this screen is always focused and cannot be navigated away from
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔒 CheckoutScreen focused - enforcing payment security');
-      
-      // Check if user has somehow gained access without paying
+            // Check if user has somehow gained access without paying
       const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
       const paymentCompleted = userData?.paymentCompleted === true;
       const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
       
       if (hasPaidPlan && (!hasActiveSubscription || !paymentCompleted)) {
-        console.log('🔒 SECURITY: User on paid plan without payment - enforcing checkout screen');
-        // User must stay on this screen
+                // User must stay on this screen
       }
       
       return () => {
-        console.log('🔒 CheckoutScreen losing focus - payment still required');
-      };
+              };
     }, [userData])
   );
 
@@ -61,8 +57,7 @@ export default function CheckoutScreen({ navigation, route }) {
               try {
                 await signOut(auth);
               } catch (error) {
-                console.error('Error signing out:', error);
-                Alert.alert('Error', 'Failed to sign out. Please try again.');
+                                Alert.alert('Error', 'Failed to sign out. Please try again.');
               }
             }
           }
@@ -77,28 +72,19 @@ export default function CheckoutScreen({ navigation, route }) {
 
   // Security check: Ensure user cannot bypass payment
   useEffect(() => {
-    console.log('🔒 CheckoutScreen Security Check:', {
-      plan: selectedPlan,
-      userPlan: userData?.plan,
-      subscriptionStatus: userData?.subscriptionStatus,
-      paymentCompleted: userData?.paymentCompleted
-    });
-
-    // If user somehow has an active subscription or payment completed, they shouldn't be here
+        // If user somehow has an active subscription or payment completed, they shouldn't be here
     const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
     const paymentCompleted = userData?.paymentCompleted === true;
     
     if (hasActiveSubscription && paymentCompleted) {
-      console.log('🔒 User has completed payment, should not be on checkout screen');
-      // They've already paid, let navigation handle the redirect
+            // They've already paid, let navigation handle the redirect
       return;
     }
 
     // If they have a paid plan but no active subscription, they must stay here
     const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
     if (hasPaidPlan && !hasActiveSubscription) {
-      console.log('🔒 User has paid plan but no active subscription - enforcing payment');
-    }
+          }
   }, [userData, selectedPlan]);
 
   const planDetails = {
@@ -131,12 +117,10 @@ export default function CheckoutScreen({ navigation, route }) {
   const currentPlan = planDetails[selectedPlan];
 
   const handlePayment = async () => {
-    console.log('🔍 handlePayment started from CheckoutScreen');
-    setLoading(true);
+        setLoading(true);
     
     try {
-      console.log('🔍 Creating payment intent...');
-      // Create payment intent using Firebase Functions
+            // Create payment intent using Firebase Functions
       const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createPaymentIntent', {
         method: 'POST',
         headers: {
@@ -154,17 +138,13 @@ export default function CheckoutScreen({ navigation, route }) {
       });
 
       const result = await response.json();
-      console.log('🔍 Payment intent response:', result);
-
-      if (!response.ok || result.error) {
+            if (!response.ok || result.error) {
         Alert.alert('Error', result.error || 'Failed to create payment');
         setLoading(false);
         return;
       }
 
-      console.log('🔍 Initializing payment sheet...');
-      
-      let initResponse;
+            let initResponse;
       if (result.isSetupIntent) {
         // For free trials, use Setup Intent
         initResponse = await initPaymentSheet({
@@ -209,25 +189,18 @@ export default function CheckoutScreen({ navigation, route }) {
         });
       }
 
-      console.log('🔍 Payment sheet init response:', initResponse);
-
-      if (initResponse.error) {
-        console.error('🔍 Payment sheet init error:', initResponse.error);
-        Alert.alert('Error', initResponse.error.message);
+            if (initResponse.error) {
+                Alert.alert('Error', initResponse.error.message);
         setLoading(false);
         return;
       }
 
-      console.log('🔍 Presenting payment sheet...');
-      // Present payment sheet
+            // Present payment sheet
       const paymentResponse = await presentPaymentSheet();
 
-      console.log('🔍 Payment response:', paymentResponse);
-
-      if (paymentResponse.error) {
+            if (paymentResponse.error) {
         if (paymentResponse.error.code === 'Canceled') {
-          console.log('🔍 Payment was cancelled by user');
-          Alert.alert(
+                    Alert.alert(
             'Payment Required',
             'Payment was cancelled. You must complete payment to access premium features. Please try again.',
             [
@@ -239,8 +212,7 @@ export default function CheckoutScreen({ navigation, route }) {
                   try {
                     await signOut(auth);
                   } catch (error) {
-                    console.error('Error signing out:', error);
-                    Alert.alert('Error', 'Failed to sign out. Please try again.');
+                                        Alert.alert('Error', 'Failed to sign out. Please try again.');
                   }
                 }
               }
@@ -294,8 +266,7 @@ export default function CheckoutScreen({ navigation, route }) {
       );
 
     } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Error', 'Payment failed. Please try again.');
+            Alert.alert('Error', 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -395,8 +366,7 @@ export default function CheckoutScreen({ navigation, route }) {
                     try {
                       await signOut(auth);
                     } catch (error) {
-                      console.error('Error signing out:', error);
-                      Alert.alert('Error', 'Failed to sign out. Please try again.');
+                                            Alert.alert('Error', 'Failed to sign out. Please try again.');
                     }
                   }
                 }

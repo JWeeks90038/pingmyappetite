@@ -90,6 +90,8 @@ router.post('/trucks/emergency-sync', async (req, res) => {
     const userData = userDoc.data();
     const stripeAccountId = userData.stripeAccountId;
     
+    console.log('🚨 EMERGENCY SYNC: Found stripeAccountId:', stripeAccountId);
+    
     if (!stripeAccountId) {
       return res.status(400).json({ 
         error: 'No Stripe account found. Please complete Stripe onboarding first.' 
@@ -112,6 +114,7 @@ router.post('/trucks/emergency-sync', async (req, res) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
     
+    console.log('🚨 EMERGENCY SYNC: Updating with data:', updateData);
     await db.collection('trucks').doc(truckId).update(updateData);
     
     // Verify the update worked
@@ -119,19 +122,83 @@ router.post('/trucks/emergency-sync', async (req, res) => {
     const verifyData = verifyDoc.data();
 
     console.log(`🚨 EMERGENCY SYNC: Completed for truck ${truckId} with Stripe account ${stripeAccountId}`);
+    console.log('🚨 EMERGENCY SYNC: Verified stripeConnectAccountId:', verifyData.stripeConnectAccountId);
 
     res.json({
       success: true,
       message: 'Emergency sync completed - payment should now work!',
       stripeAccountId,
       truckId,
-      verifiedUpdate: verifyData.stripeConnectAccountId === stripeAccountId
+      verifiedUpdate: verifyData.stripeConnectAccountId === stripeAccountId,
+      trucksData: {
+        stripeConnectAccountId: verifyData.stripeConnectAccountId,
+        paymentEnabled: verifyData.paymentEnabled,
+        emergencySync: verifyData.emergencySync
+      }
     });
 
   } catch (error) {
     console.error('🚨 EMERGENCY SYNC ERROR:', error);
     res.status(500).json({ 
       error: 'Emergency sync failed',
+      details: error.message 
+    });
+  }
+});
+
+// Force sync endpoint for existing accounts (can be called by truck owners)
+router.post('/trucks/force-sync', async (req, res) => {
+  try {
+    console.log('🔧 FORCE SYNC: Starting force sync for existing account...');
+    const truckId = req.user?.uid;
+    
+    if (!truckId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const db = admin.firestore();
+    
+    // Get user data
+    const userDoc = await db.collection('users').doc(truckId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    console.log('🔧 FORCE SYNC: User role:', userData.role);
+    console.log('🔧 FORCE SYNC: Stripe account ID:', userData.stripeAccountId);
+    
+    if (userData.role !== 'owner') {
+      return res.status(403).json({ error: 'Only mobile kitchen owners can sync payment data' });
+    }
+
+    if (!userData.stripeAccountId) {
+      return res.status(400).json({ error: 'No Stripe account found' });
+    }
+
+    // Update trucks collection
+    const updateData = {
+      stripeConnectAccountId: userData.stripeAccountId,
+      paymentEnabled: true,
+      stripeAccountStatus: userData.stripeAccountStatus || 'pending',
+      forceSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection('trucks').doc(truckId).update(updateData);
+    
+    console.log('✅ FORCE SYNC: Successfully updated trucks collection');
+
+    res.json({
+      success: true,
+      message: 'Payment data synced successfully! Customers can now place orders.',
+      syncedData: updateData
+    });
+
+  } catch (error) {
+    console.error('❌ FORCE SYNC ERROR:', error);
+    res.status(500).json({ 
+      error: 'Force sync failed',
       details: error.message 
     });
   }

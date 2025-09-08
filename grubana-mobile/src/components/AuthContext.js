@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
@@ -12,6 +12,7 @@ export const AuthContextProvider = ({ children }) => {
   const [userPlan, setUserPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const auth = getAuth();
+  const userDataListenerRef = useRef(null);
 
   useEffect(() => {
     let unsubUserDoc = null;
@@ -33,33 +34,33 @@ export const AuthContextProvider = ({ children }) => {
 
       unsubUserDoc = onSnapshot(userDocRef, async (userSnap) => {
         if (!userSnap.exists()) {
-          const userData = {
-            uid: userDoc.id,
-            username: data.username || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            role: data.role || 'customer',
-            plan: data.plan || 'basic',
-            menuUrl: data.menuUrl || '',
-            facebook: data.facebook || '',
-            instagram: data.instagram || '',
-            twitter: data.twitter || '',
-            website: data.website || '',
+          const newUser = {
+            uid: currentUser.uid,
+            username: '',
+            email: currentUser.email || '',
+            phone: '',
+            role: 'customer',
+            plan: 'basic',
+            menuUrl: '',
+            facebook: '',
+            instagram: '',
+            twitter: '',
+            website: '',
             // CRITICAL PAYMENT FIELDS FOR NAVIGATION SECURITY
-            subscriptionStatus: data.subscriptionStatus || 'inactive',
-            paymentCompleted: data.paymentCompleted || false,
-            hasValidReferral: data.hasValidReferral || false,
-            referralCode: data.referralCode || null,
-            stripeCustomerId: data.stripeCustomerId || null,
-            subscriptionId: data.subscriptionId || null
+            subscriptionStatus: 'inactive',
+            paymentCompleted: false,
+            hasValidReferral: false,
+            referralCode: null,
+            stripeCustomerId: null,
+            subscriptionId: null
           };
           
-          console.log('👤 AuthContext loaded user data:', {
-            uid: userData.uid,
-            plan: userData.plan,
-            subscriptionStatus: userData.subscriptionStatus,
-            paymentCompleted: userData.paymentCompleted,
-            role: userData.role
+          console.log('👤 AuthContext creating new user data:', {
+            uid: newUser.uid,
+            plan: newUser.plan,
+            subscriptionStatus: newUser.subscriptionStatus,
+            paymentCompleted: newUser.paymentCompleted,
+            role: newUser.role
           });
           await setDoc(userDocRef, newUser);
           setUserData(newUser);
@@ -73,9 +74,21 @@ export const AuthContextProvider = ({ children }) => {
             paymentCompleted: data.paymentCompleted,
             role: data.role
           });
-          setUserData(data);
-          setUserRole(data.role || "customer");
-          setUserPlan(data.plan || "basic");
+          
+          // Only update state if data actually changed to prevent unnecessary re-renders
+          const newUserData = { ...data, uid: currentUser.uid };
+          const currentRole = data.role || "customer";
+          const currentPlan = data.plan || "basic";
+          
+          setUserData(prevData => {
+            if (JSON.stringify(prevData) !== JSON.stringify(newUserData)) {
+              return newUserData;
+            }
+            return prevData;
+          });
+          
+          setUserRole(prevRole => prevRole !== currentRole ? currentRole : prevRole);
+          setUserPlan(prevPlan => prevPlan !== currentPlan ? currentPlan : prevPlan);
         }
         setLoading(false);
       });
@@ -86,7 +99,7 @@ export const AuthContextProvider = ({ children }) => {
       unsubscribe();
       if (unsubUserDoc) unsubUserDoc();
     };
-  }, [auth]);
+  }, []); // Remove auth dependency to prevent re-initialization
 
   return (
     <AuthContext.Provider value={{ user, userData, userRole, userPlan, loading }}>

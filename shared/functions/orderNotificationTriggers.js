@@ -58,25 +58,31 @@ export const onOrderStatusChanged = onDocumentUpdated({
  * Send notifications to truck owners when new orders are placed
  */
 export const onOrderCreated = onDocumentCreated({
+  document: 'orders/{orderId}',
   region: 'us-central1'
-}, async (request) => {
+}, async (event) => {
   try {
-    const { orderId, status, customData } = request.data;
+    const orderId = event.params.orderId;
+    const orderData = event.data?.data();
     
-    if (!orderId || !status) {
-      throw new Error('orderId and status are required');
+    if (!orderData) {
+      logger.warn(`No order data found for order ${orderId}`);
+      return;
     }
     
-    const result = await sendOrderStatusNotification(orderId, status, customData);
+    logger.info(`🚚 New order created: ${orderId} for truck: ${orderData.truckId}`);
     
-    return {
-      success: true,
-      result
-    };
+    // Notify truck owner about new order
+    const result = await sendOrderStatusNotification(orderId, 'new_order');
+    
+    if (result.success) {
+      logger.info(`✅ Truck owner notified for new order ${orderId}: ${result.notificationsSent} methods successful`);
+    } else {
+      logger.error(`❌ Failed to notify truck owner for order ${orderId}:`, result.error);
+    }
     
   } catch (error) {
-    logger.error('Error in sendOrderNotification:', error);
-    throw error;
+    logger.error('Error in onOrderCreated:', error);
   }
 });
 
