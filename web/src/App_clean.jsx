@@ -311,8 +311,57 @@ function App() {
       <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
         <BrowserRouter>
           <NetworkStatus />
-          <div style={{padding: '20px', background: '#fff3cd', textAlign: 'center'}}>
-            ⚠️ Payment system temporarily unavailable. Please try again later.
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            padding: '16px 20px',
+            textAlign: 'center',
+            color: 'white',
+            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+            overflow: 'hidden',
+            position: 'relative',
+            borderBottom: '3px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{
+                fontSize: '24px',
+                animation: 'mobileAppBounce 2s infinite'
+              }}>
+                📱
+              </div>
+              <span style={{
+                fontSize: '18px',
+                fontWeight: 'bold',
+                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                letterSpacing: '0.5px',
+                background: 'linear-gradient(45deg, #fff, #f0f8ff)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                Mobile App Launching Very Soon!!
+              </span>
+              <div style={{
+                fontSize: '20px',
+                animation: 'mobileAppPulse 1.5s infinite'
+              }}>
+                🚀
+              </div>
+            </div>
+            <div style={{
+              position: 'absolute',
+              top: '0',
+              left: '-100%',
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+              animation: 'mobileAppShimmer 3s infinite'
+            }}></div>
           </div>
           <Navbar />
           <ScrollToTop />
