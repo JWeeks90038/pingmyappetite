@@ -1355,7 +1355,7 @@ const updateTruckMarkers = useCallback(async () => {
         const cuisine = cuisineRaw.toLowerCase().trim();
   
         if (!filters.hasOwnProperty(cuisine)) {
-          console.warn("Unknown cuisine type:", cuisine);
+ 
           return false;
         }
   

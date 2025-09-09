@@ -35,10 +35,10 @@ router.post('/login', async (req, res) => {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-       // console.log("User logged in:", user.uid);
+  
         res.status(200).send({ message: "Login successful", userId: user.uid });
     } catch (error) {
-        console.error("Login failed:", error.message);
+
         res.status(401).send({ error: "Invalid credentials" });
     }
 });

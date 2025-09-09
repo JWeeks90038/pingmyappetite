@@ -489,7 +489,7 @@ const createCustomMarker = (position, content, map) => {
           await cleanupNonOwnerTruckLocations(user.uid, data.role);
         }
       } else {
-        console.warn("📋 Owner document not found for UID:", user.uid);
+
       }
     };
 
@@ -990,7 +990,7 @@ useEffect(() => {
         ownerData = ownerDoc.data();
         console.log('🗺️ Dashboard: Owner data found:', ownerData.truckName || ownerData.ownerName);
       } else {
-        console.warn('🗺️ Dashboard: No owner document found for truck:', truck.id);
+   
       }
 
       // Fetch drops for this truck

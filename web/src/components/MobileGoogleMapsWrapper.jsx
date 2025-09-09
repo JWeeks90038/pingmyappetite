@@ -162,7 +162,7 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
   useEffect(() => {
     const emergencyTimeout = setTimeout(() => {
       if (isLoading) {
-        console.warn('🚨 Emergency fallback: Forcing app to continue without maps after 10s timeout');
+  
         setIsLoading(false);
         setMapsError(new Error('Maps loading timeout - continuing without maps'));
       }

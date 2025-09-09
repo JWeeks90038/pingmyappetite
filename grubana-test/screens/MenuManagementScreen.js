@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
   TextInput,
   Modal,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,6 +43,37 @@ export default function MenuManagementScreen({ navigation }) {
     category: 'Main'
   });
 
+  // Toast and Modal state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [toastVisible, setToastVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
   const categories = ['Appetizer', 'Main', 'Side', 'Dessert', 'Beverage'];
 
   useEffect(() => {
@@ -50,28 +81,21 @@ export default function MenuManagementScreen({ navigation }) {
     let authUnsubscribe;
     let timeoutId;
     
-    console.log('MenuManagementScreen: Component mounted, setting up auth listener');
-    
     authUnsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('MenuManagementScreen: Auth state changed, user:', !!user);
       
       if (user) {
-        console.log('MenuManagementScreen: User authenticated, loading data...');
         
         // Set a timeout to prevent infinite loading
         timeoutId = setTimeout(() => {
-          console.log('MenuManagementScreen: Timeout reached, stopping loading');
           setLoading(false);
         }, 10000); // 10 seconds timeout
         
         try {
           unsubscribe = await loadMenuData(user);
         } catch (error) {
-          console.error('MenuManagementScreen: Error during initialization:', error);
           setLoading(false);
         }
       } else {
-        console.log('MenuManagementScreen: No user authenticated');
         setLoading(false);
       }
     });
@@ -91,63 +115,47 @@ export default function MenuManagementScreen({ navigation }) {
 
   const loadMenuData = async (user) => {
     try {
-      console.log('MenuManagementScreen: loadMenuData called for user:', user.uid);
       setLoading(true);
 
       // Test basic Firebase connection first
-      console.log('MenuManagementScreen: Testing Firebase connection...');
       try {
         const testQuery = query(collection(db, 'users'));
-        console.log('MenuManagementScreen: Firebase query created successfully');
       } catch (testError) {
-        console.error('MenuManagementScreen: Firebase connection test failed:', testError);
         setLoading(false);
         return;
       }
 
       // Load menu photo and basic info
       try {
-        console.log('MenuManagementScreen: Loading user document...');
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        console.log('MenuManagementScreen: User doc exists:', userDoc.exists());
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('MenuManagementScreen: User data loaded, has menuUrl:', !!userData.menuUrl);
           // Use menuUrl field (same as web app) for consistency
           setMenuPhoto(userData.menuUrl || null);
         } else {
-          console.log('MenuManagementScreen: User document does not exist');
         }
       } catch (userDocError) {
-        console.error('MenuManagementScreen: Error loading user doc:', userDocError);
       }
 
       // Load menu items with real-time updates
-      console.log('MenuManagementScreen: Setting up menu items listener for ownerId:', user.uid);
       
       try {
         const menuItemsQuery = query(
           collection(db, 'menuItems'),
           where('ownerId', '==', user.uid)
         );
-        console.log('MenuManagementScreen: Menu items query created');
 
         const unsubscribe = onSnapshot(menuItemsQuery, 
           (snapshot) => {
-            console.log('MenuManagementScreen: Menu items snapshot received, count:', snapshot.size);
-            console.log('MenuManagementScreen: Snapshot empty:', snapshot.empty);
             
             const items = [];
             snapshot.forEach((doc) => {
-              console.log('MenuManagementScreen: Processing doc:', doc.id);
               items.push({
                 id: doc.id,
                 ...doc.data()
               });
             });
-            
-            console.log('MenuManagementScreen: Total processed items:', items.length);
             
             // Sort by category and name
             items.sort((a, b) => {
@@ -159,24 +167,17 @@ export default function MenuManagementScreen({ navigation }) {
             
             setMenuItems(items);
             setLoading(false);
-            console.log('MenuManagementScreen: Loading completed, final items count:', items.length);
           }, 
           (error) => {
-            console.error('MenuManagementScreen: Error in menu items snapshot:', error);
-            console.error('MenuManagementScreen: Error code:', error.code);
-            console.error('MenuManagementScreen: Error message:', error.message);
             setLoading(false);
           }
         );
 
-        console.log('MenuManagementScreen: Snapshot listener attached');
         return unsubscribe;
       } catch (queryError) {
-        console.error('MenuManagementScreen: Error creating menu items query:', queryError);
         setLoading(false);
       }
     } catch (error) {
-      console.error('MenuManagementScreen: Error in loadMenuData:', error);
       setLoading(false);
     }
   };
@@ -187,7 +188,7 @@ export default function MenuManagementScreen({ navigation }) {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Please allow access to your photo library to upload menu photos.');
+        showToast('Please allow access to your photo library to upload menu photos.');
         return;
       }
 
@@ -203,52 +204,38 @@ export default function MenuManagementScreen({ navigation }) {
         setUploadingPhoto(true);
         
         try {
-          console.log('MenuManagementScreen: Starting photo upload...');
           
           // Create a unique filename
           const timestamp = Date.now();
           const filename = `menu-photos/${auth.currentUser.uid}-${timestamp}.jpg`;
-          console.log('MenuManagementScreen: Upload filename:', filename);
           
           // Convert URI to blob for upload
-          console.log('MenuManagementScreen: Converting image to blob...');
           const response = await fetch(result.assets[0].uri);
           const blob = await response.blob();
-          console.log('MenuManagementScreen: Blob created, size:', blob.size);
           
           // Upload to Firebase Storage
-          console.log('MenuManagementScreen: Uploading to Firebase Storage...');
           const storageRef = ref(storage, filename);
           await uploadBytes(storageRef, blob);
-          console.log('MenuManagementScreen: Upload successful');
           
           // Get download URL
-          console.log('MenuManagementScreen: Getting download URL...');
           const downloadURL = await getDownloadURL(storageRef);
-          console.log('MenuManagementScreen: Download URL obtained:', downloadURL.substring(0, 50) + '...');
           
           // Update user document in Firestore (using same field as web app)
-          console.log('MenuManagementScreen: Updating Firestore document...');
           await updateDoc(doc(db, 'users', auth.currentUser.uid), {
             menuUrl: downloadURL,
             lastUpdated: new Date()
           });
-          console.log('MenuManagementScreen: Firestore update successful');
           
           // Update local state
           setMenuPhoto(downloadURL);
           
-          Alert.alert('Success', 'Menu photo updated successfully!');
+          showToast('Menu photo updated successfully!', 'success');
         } catch (uploadError) {
-          console.error('MenuManagementScreen: Error uploading menu photo:', uploadError);
-          console.error('MenuManagementScreen: Error code:', uploadError.code);
-          console.error('MenuManagementScreen: Error message:', uploadError.message);
-          Alert.alert('Error', `Failed to upload menu photo: ${uploadError.message}`);
+          showToast(`Failed to upload menu photo: ${uploadError.message}`);
         }
       }
     } catch (error) {
-      console.error('MenuManagementScreen: Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image');
+      showToast('Failed to select image');
     } finally {
       setUploadingPhoto(false);
     }
@@ -256,7 +243,7 @@ export default function MenuManagementScreen({ navigation }) {
 
   const addMenuItem = async () => {
     if (!newItem.name.trim() || !newItem.price.trim()) {
-      Alert.alert('Error', 'Please fill in item name and price');
+      showToast('Please fill in item name and price');
       return;
     }
 
@@ -276,34 +263,29 @@ export default function MenuManagementScreen({ navigation }) {
         category: 'Main'
       });
       setShowAddItemModal(false);
-      Alert.alert('Success', 'Menu item added successfully!');
+      showToast('Menu item added successfully!', 'success');
     } catch (error) {
-      console.error('Error adding menu item:', error);
-      Alert.alert('Error', 'Failed to add menu item');
+      showToast('Failed to add menu item');
     }
   };
 
   const deleteMenuItem = async (itemId) => {
-    Alert.alert(
-      'Delete Item',
-      'Are you sure you want to delete this menu item?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, 'menuItems', itemId));
-              Alert.alert('Success', 'Menu item deleted successfully!');
-            } catch (error) {
-              console.error('Error deleting menu item:', error);
-              Alert.alert('Error', 'Failed to delete menu item');
-            }
-          }
-        }
-      ]
-    );
+    setItemToDelete(itemId);
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    
+    try {
+      await deleteDoc(doc(db, 'menuItems', itemToDelete));
+      showToast('Menu item deleted successfully!', 'success');
+    } catch (error) {
+      showToast('Failed to delete menu item');
+    } finally {
+      setDeleteConfirmVisible(false);
+      setItemToDelete(null);
+    }
   };
 
   const renderMenuItemsByCategory = (category) => {
@@ -512,6 +494,50 @@ export default function MenuManagementScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteConfirmVisible}
+        onRequestClose={() => setDeleteConfirmVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContainer}>
+            <Text style={styles.confirmModalTitle}>Delete Menu Item</Text>
+            <Text style={styles.confirmModalMessage}>
+              Are you sure you want to delete this menu item? This action cannot be undone.
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={styles.confirmModalCancelButton}
+                onPress={() => setDeleteConfirmVisible(false)}
+              >
+                <Text style={styles.confirmModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmModalDeleteButton}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.confirmModalDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -771,5 +797,97 @@ const styles = StyleSheet.create({
   },
   categoryButtonTextActive: {
     color: '#fff',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 80, // Below the green header
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#dc3545',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Confirmation Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmModalContainer: {
+    backgroundColor: '#fff',
+    padding: 25,
+    borderRadius: 15,
+    margin: 20,
+    alignItems: 'center',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  confirmModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmModalCancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#f8f9fa',
+    minWidth: 80,
+  },
+  confirmModalCancelText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  confirmModalDeleteButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#dc3545',
+    minWidth: 80,
+  },
+  confirmModalDeleteText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

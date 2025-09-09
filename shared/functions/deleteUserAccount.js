@@ -65,7 +65,7 @@ export const deleteUserAccount = onRequest({
       return;
     }
 
-    console.log(`🗑️ Starting account deletion for user: ${userId}`);
+
 
     // Get user data from Firestore to check for Stripe information
     const userDoc = await db.collection("users").doc(userId).get();
@@ -81,15 +81,15 @@ export const deleteUserAccount = onRequest({
       // Cancel subscription if exists
       if (userData.stripeSubscriptionId) {
         try {
-          console.log(`🔄 Canceling Stripe subscription: ${userData.stripeSubscriptionId}`);
+
           const subscription = await stripe.subscriptions.cancel(userData.stripeSubscriptionId, {
             prorate: false, // Don't prorate charges
             invoice_now: false // Don't invoice immediately
           });
           stripeCleanupResults.subscription = `Canceled subscription: ${subscription.id}`;
-          console.log(`✅ Subscription canceled: ${subscription.id}`);
+       
         } catch (stripeError) {
-          console.log(`⚠️ Error canceling subscription: ${stripeError.message}`);
+     
           stripeCleanupResults.subscription = `Error canceling subscription: ${stripeError.message}`;
         }
       }
@@ -97,12 +97,12 @@ export const deleteUserAccount = onRequest({
       // Delete Stripe customer if exists
       if (userData.stripeCustomerId) {
         try {
-          console.log(`🔄 Deleting Stripe customer: ${userData.stripeCustomerId}`);
+         
           const deletedCustomer = await stripe.customers.del(userData.stripeCustomerId);
           stripeCleanupResults.customer = `Deleted customer: ${deletedCustomer.id}`;
-          console.log(`✅ Customer deleted: ${deletedCustomer.id}`);
+         
         } catch (stripeError) {
-          console.log(`⚠️ Error deleting customer: ${stripeError.message}`);
+        
           stripeCleanupResults.customer = `Error deleting customer: ${stripeError.message}`;
         }
       }
@@ -133,9 +133,9 @@ export const deleteUserAccount = onRequest({
           });
           await batch.commit();
           firestoreCleanup.events = eventsQuery.docs.length;
-          console.log(`✅ Deleted ${eventsQuery.docs.length} events`);
+         
         } catch (error) {
-          console.log(`⚠️ Error deleting events: ${error.message}`);
+         
         }
       }
 
@@ -144,17 +144,17 @@ export const deleteUserAccount = onRequest({
       try {
         await db.collection('truckLocations').doc(userId).delete();
         firestoreCleanup.truckLocation = true;
-        console.log('✅ Deleted truck location document');
+        
       } catch (error) {
-        console.log(`ℹ️ No truck location document to delete: ${error.message}`);
+      
       }
 
       try {
         await db.collection('trucks').doc(userId).delete();
         firestoreCleanup.truckDocument = true;
-        console.log('✅ Deleted truck document');
+   
       } catch (error) {
-        console.log(`ℹ️ No truck document to delete: ${error.message}`);
+ 
       }
 
       try {
@@ -165,9 +165,9 @@ export const deleteUserAccount = onRequest({
         });
         await batch.commit();
         firestoreCleanup.menuItems = menuItemsQuery.docs.length;
-        console.log(`✅ Deleted ${menuItemsQuery.docs.length} menu items`);
+ 
       } catch (error) {
-        console.log(`⚠️ Error deleting menu items: ${error.message}`);
+  
       }
 
       // Delete events for event organizers (keep role-specific logic for events)
@@ -180,9 +180,9 @@ export const deleteUserAccount = onRequest({
           });
           await batch.commit();
           firestoreCleanup.events = eventsQuery.docs.length;
-          console.log(`✅ Deleted ${eventsQuery.docs.length} events`);
+       
         } catch (error) {
-          console.log(`⚠️ Error deleting events: ${error.message}`);
+     
         }
       }
 
@@ -195,9 +195,9 @@ export const deleteUserAccount = onRequest({
         });
         await batch.commit();
         firestoreCleanup.pings = pingsQuery.docs.length;
-        console.log(`✅ Deleted ${pingsQuery.docs.length} pings`);
+     
       } catch (error) {
-        console.log(`⚠️ Error deleting pings: ${error.message}`);
+ 
       }
 
       // Delete favorites for all user types
@@ -209,18 +209,18 @@ export const deleteUserAccount = onRequest({
         });
         await batch.commit();
         firestoreCleanup.favorites = favoritesQuery.docs.length;
-        console.log(`✅ Deleted ${favoritesQuery.docs.length} favorites`);
+
       } catch (error) {
-        console.log(`⚠️ Error deleting favorites: ${error.message}`);
+
       }
 
       // Delete referral document
       try {
         await db.collection('referrals').doc(userId).delete();
         firestoreCleanup.referrals = true;
-        console.log('✅ Deleted referral document');
+  
       } catch (error) {
-        console.log(`ℹ️ No referral document to delete: ${error.message}`);
+
       }
     }
 
@@ -228,21 +228,21 @@ export const deleteUserAccount = onRequest({
     try {
       await db.collection('users').doc(userId).delete();
       firestoreCleanup.userDocument = true;
-      console.log('✅ Deleted user document from Firestore');
+ 
     } catch (error) {
-      console.log(`⚠️ Error deleting user document: ${error.message}`);
+ 
     }
 
     // Delete Firebase Auth user
     try {
       await auth.deleteUser(userId);
-      console.log('✅ Deleted Firebase Auth user');
+   
     } catch (error) {
-      console.log(`⚠️ Error deleting Firebase Auth user: ${error.message}`);
+
       // Don't fail the entire operation if auth deletion fails
     }
 
-    console.log(`🎉 Account deletion completed for user: ${userId}`);
+
 
     res.set(corsHeaders);
     res.status(200).json({
@@ -255,7 +255,7 @@ export const deleteUserAccount = onRequest({
     });
 
   } catch (error) {
-    console.error("Error deleting user account:", error);
+
     res.set(corsHeaders);
     res.status(500).json({ 
       error: "Failed to delete account",

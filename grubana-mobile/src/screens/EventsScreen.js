@@ -5,14 +5,14 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity, 
-  Alert,
   Dimensions,
   RefreshControl,
   Modal,
   TextInput,
   Platform,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import NotificationService from '../services/notificationService';
@@ -89,7 +89,37 @@ const EventsScreen = () => {
   // Logo upload states
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
-  console.log('🎪 EventsScreen: Component rendering with userRole:', userRole);
+  // Toast and Modal states for production-safe alerts
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [toastOpacity] = useState(new Animated.Value(0));
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalData, setConfirmModalData] = useState({ title: '', message: '', onConfirm: null });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToast({ visible: false, message: '', type: 'success' });
+    });
+  };
+
+  const showConfirmDialog = (title, message, onConfirm) => {
+    setConfirmModalData({ title, message, onConfirm });
+    setShowConfirmModal(true);
+  };
+
+
 
   // Simple time picker state
   const [selectedHour, setSelectedHour] = useState(9);
@@ -148,30 +178,30 @@ const EventsScreen = () => {
 
   // Geocoding function to convert address to coordinates
   const geocodeAddress = async (address) => {
-    console.log('🗺️ EventsScreen: geocodeAddress called with:', address);
+
     
     if (!address || address.trim().length < 5) {
-      console.log('🗺️ EventsScreen: Address too short or empty, skipping geocoding');
+   
       return null;
     }
 
     try {
-      console.log('🗺️ EventsScreen: Starting geocoding for address:', address);
+
       
       // Add User-Agent header and delay to respect rate limits
       const encodedAddress = encodeURIComponent(address.trim());
       const geocodingUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
-      console.log('🗺️ EventsScreen: Geocoding URL:', geocodingUrl);
+
       
       const response = await fetch(geocodingUrl, {
         headers: {
           'User-Agent': 'FoodTruckFinder/1.0 (events@foodtruckfinder.com)'
         }
       });
-      console.log('🗺️ EventsScreen: Geocoding response status:', response.status);
+
       
       if (!response.ok) {
-        console.log('❌ EventsScreen: Geocoding service response not ok:', response.status);
+  
         if (response.status === 429) {
           throw new Error('Rate limit exceeded - please wait before trying again');
         }
@@ -179,7 +209,7 @@ const EventsScreen = () => {
       }
       
       const data = await response.json();
-      console.log('🗺️ EventsScreen: Geocoding response data:', data);
+
       
       if (data && data.length > 0) {
         const result = data[0];
@@ -188,29 +218,22 @@ const EventsScreen = () => {
           longitude: parseFloat(result.lon)
         };
         
-        console.log('✅ EventsScreen: Geocoding successful!');
-        console.log('🗺️ EventsScreen: Raw result:', { lat: result.lat, lon: result.lon });
-        console.log('🗺️ EventsScreen: Parsed coordinates:', coordinates);
-        console.log('🗺️ EventsScreen: Display name:', result.display_name);
+
         
         return coordinates;
       } else {
-        console.log('❌ EventsScreen: No geocoding results found for address:', address);
-        console.log('🗺️ EventsScreen: Empty data array returned from geocoding service');
+
         return null;
       }
     } catch (error) {
-      console.error('❌ EventsScreen: Geocoding error details:', error);
-      console.error('❌ EventsScreen: Error message:', error.message);
-      console.error('❌ EventsScreen: Error stack:', error.stack);
+
       return null;
     }
   };
 
   // Debounced address change handler to prevent excessive API calls
   const handleAddressChange = (text) => {
-    console.log('🗺️ EventsScreen: handleAddressChange called with:', text);
-    console.log('🗺️ EventsScreen: Text length:', text ? text.length : 0);
+
     
     // Update form immediately for UI responsiveness
     setEventForm(prev => ({ ...prev, address: text }));
@@ -222,23 +245,23 @@ const EventsScreen = () => {
     
     // Only geocode if address is substantial enough - debounced by 1.5 seconds
     if (text && text.trim().length > 10) {
-      console.log('🗺️ EventsScreen: Setting up debounced geocoding...');
+ 
       
       const newTimeout = setTimeout(async () => {
-        console.log('🗺️ EventsScreen: Executing debounced geocoding for:', text);
+  
         const coordinates = await geocodeAddress(text);
-        console.log('🗺️ EventsScreen: Geocoding completed, result:', coordinates);
+   
         
         if (coordinates && coordinates.latitude && coordinates.longitude) {
-          console.log('✅ EventsScreen: Updating form with new coordinates...');
+         
           setEventForm(prev => ({ 
             ...prev, 
             latitude: coordinates.latitude,
             longitude: coordinates.longitude 
           }));
-          console.log('✅ EventsScreen: Form coordinates updated successfully');
+  
         } else {
-          console.log('❌ EventsScreen: Invalid or null coordinates from geocoding');
+      
           // Clear coordinates if geocoding failed
           setEventForm(prev => ({ 
             ...prev, 
@@ -250,7 +273,7 @@ const EventsScreen = () => {
       
       setGeocodingTimeout(newTimeout);
     } else {
-      console.log('🗺️ EventsScreen: Address too short, clearing coordinates');
+ 
       // Clear coordinates if address is too short
       setEventForm(prev => ({ 
         ...prev, 
@@ -308,7 +331,7 @@ const EventsScreen = () => {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        showToast('Permission to access camera roll is required!', 'error');
         return;
       }
 
@@ -325,8 +348,8 @@ const EventsScreen = () => {
         await uploadEventLogo(result.assets[0]);
       }
     } catch (error) {
-      console.error('Error picking logo image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+
+      showToast('Failed to pick image. Please try again.', 'error');
     }
   };
 
@@ -348,7 +371,7 @@ const EventsScreen = () => {
       const storagePath = `uploads/event-organizers/${fileName}`;
       const storageRef = ref(storage, storagePath);
       
-      console.log('🔄 Uploading event logo to Firebase Storage...');
+   
       
       // Upload the blob
       await uploadBytes(storageRef, blob);
@@ -356,16 +379,16 @@ const EventsScreen = () => {
       // Get the download URL
       const downloadURL = await getDownloadURL(storageRef);
       
-      console.log('✅ Event logo uploaded successfully:', downloadURL);
+    
       
       // Update the event form with the new logo URL
       setEventForm(prev => ({ ...prev, organizerLogoUrl: downloadURL }));
       
-      Alert.alert('Success', 'Event logo uploaded successfully!');
+      showToast('Event logo uploaded successfully!', 'success');
       
     } catch (error) {
-      console.error('Error uploading event logo:', error);
-      Alert.alert('Error', 'Failed to upload logo. Please try again.');
+    
+      showToast('Failed to upload logo. Please try again.', 'error');
     } finally {
       setUploadingLogo(false);
     }
@@ -379,7 +402,7 @@ const EventsScreen = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('🎪 EventsScreen: Setting up events listener');
+
     
     // Clear badge count when viewing events screen - role-specific clearing
     if (userRole) {
@@ -401,11 +424,11 @@ const EventsScreen = () => {
         ...doc.data()
       }));
       
-      console.log('🎪 EventsScreen: Found events:', eventsData.length);
+   
       setEvents(eventsData);
       setLoading(false);
     }, (error) => {
-      console.error('🎪 EventsScreen: Error fetching events:', error);
+
       setLoading(false);
     });
 
@@ -416,8 +439,7 @@ const EventsScreen = () => {
   useEffect(() => {
     if (!user || (userRole !== 'event-organizer' && userRole !== 'owner')) return;
 
-    console.log('🎪 EventsScreen: Setting up my events listener for organizer');
-    console.log('🎪 EventsScreen: User ID:', user.uid);
+
     
     // Temporarily use a simpler query without orderBy to avoid index requirement
     // TODO: Re-enable orderBy once the composite index is fully built
@@ -428,16 +450,11 @@ const EventsScreen = () => {
     );
 
     const unsubscribe = onSnapshot(myEventsQuery, (snapshot) => {
-      console.log('🎪 EventsScreen: Raw snapshot received, docs count:', snapshot.docs.length);
+ 
       
       let myEventsData = snapshot.docs.map(doc => {
         const data = { id: doc.id, ...doc.data() };
-        console.log('🎪 EventsScreen: Event doc data:', {
-          id: data.id,
-          title: data.title,
-          organizerId: data.organizerId,
-          startDate: data.startDate
-        });
+      
         return data;
       });
       
@@ -448,10 +465,10 @@ const EventsScreen = () => {
         return aDate.getTime() - bDate.getTime();
       });
       
-      console.log('🎪 EventsScreen: Found my events:', myEventsData.length);
+
       setMyEvents(myEventsData);
     }, (error) => {
-      console.error('🎪 EventsScreen: Error fetching my events:', error);
+
     });
 
     return unsubscribe;
@@ -461,7 +478,6 @@ const EventsScreen = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('🎪 EventsScreen: Setting up attended events listener');
     
     const attendanceQuery = query(
       collection(db, 'eventAttendance'),
@@ -474,10 +490,10 @@ const EventsScreen = () => {
         ...doc.data()
       }));
       
-      console.log('🎪 EventsScreen: Found attended events:', attendanceData.length);
+
       setAttendedEvents(attendanceData);
     }, (error) => {
-      console.error('🎪 EventsScreen: Error fetching attended events:', error);
+
     });
 
     return unsubscribe;
@@ -487,7 +503,7 @@ const EventsScreen = () => {
   useEffect(() => {
     if (!user) return;
 
-    console.log('🎪 EventsScreen: Setting up attending events listener');
+
     
     const interestQuery = query(
       collection(db, 'eventInterest'),
@@ -499,11 +515,10 @@ const EventsScreen = () => {
         id: doc.id,
         ...doc.data()
       }));
-      
-      console.log('🎪 EventsScreen: Found attending events:', interestData.length);
+
       setAttendingEvents(interestData);
     }, (error) => {
-      console.error('🎪 EventsScreen: Error fetching attending events:', error);
+
     });
 
     return unsubscribe;
@@ -513,7 +528,7 @@ const EventsScreen = () => {
   useEffect(() => {
     if (!user || userRole !== 'event-organizer') return;
 
-    console.log('🎪 EventsScreen: Setting up attendance counts listener for event organizer');
+
     
     // Listen to both attended and attending counts
     const attendedQuery = query(collection(db, 'eventAttendance'));
@@ -540,7 +555,7 @@ const EventsScreen = () => {
           attendedCounts[eventId].attending++;
         });
 
-        console.log('🎪 EventsScreen: Event attendance counts:', attendedCounts);
+    
         setEventAttendanceCounts(attendedCounts);
       });
 
@@ -645,44 +660,35 @@ const EventsScreen = () => {
   // Save event (create or update)
   const saveEvent = async () => {
     try {
-      console.log('🎪 EventsScreen: Starting save event process...');
-      console.log('🎪 EventsScreen: Current eventForm state:', {
-        title: eventForm.title,
-        address: eventForm.address,
-        latitude: eventForm.latitude,
-        longitude: eventForm.longitude,
-        hasLatitude: !!eventForm.latitude,
-        hasLongitude: !!eventForm.longitude
-      });
+
 
       if (!eventForm.title.trim()) {
-        console.log('❌ EventsScreen: Missing title');
-        Alert.alert('Error', 'Please enter an event title');
+ 
+        showToast('Please enter an event title', 'error');
         return;
       }
 
       if (!eventForm.location.trim()) {
-        console.log('❌ EventsScreen: Missing location');
-        Alert.alert('Error', 'Please enter an event location');
+    
+        showToast('Please enter an event location', 'error');
         return;
       }
 
       if (!eventForm.address.trim()) {
-        console.log('❌ EventsScreen: Missing address');
-        Alert.alert('Error', 'Please enter a full address');
+      
+        showToast('Please enter a full address', 'error');
         return;
       }
 
       // Ensure we have coordinates for map display
       if (!eventForm.latitude || !eventForm.longitude) {
-        console.log('🗺️ EventsScreen: Missing coordinates, attempting to geocode address:', eventForm.address);
-        console.log('🗺️ EventsScreen: Address length:', eventForm.address.length);
+    
         
         const coordinates = await geocodeAddress(eventForm.address);
-        console.log('🗺️ EventsScreen: Geocoding result:', coordinates);
+     
         
         if (coordinates && coordinates.latitude && coordinates.longitude) {
-          console.log('✅ EventsScreen: Geocoding successful, updating form...');
+       
           setEventForm(prev => ({ 
             ...prev, 
             latitude: coordinates.latitude,
@@ -691,26 +697,17 @@ const EventsScreen = () => {
           // Use the coordinates for this save
           eventForm.latitude = coordinates.latitude;
           eventForm.longitude = coordinates.longitude;
-          console.log('✅ EventsScreen: Form updated with coordinates:', {
-            latitude: eventForm.latitude,
-            longitude: eventForm.longitude
-          });
+  
         } else {
-          console.log('❌ EventsScreen: Geocoding failed or returned invalid coordinates');
-          Alert.alert(
-            'Address Error', 
-            'Could not find coordinates for the provided address. Please check the address and try again, or ensure you have an internet connection.'
-          );
+ 
+          showToast('Could not find coordinates for the provided address. Please check the address and try again, or ensure you have an internet connection.', 'error');
           return;
         }
       } else {
-        console.log('✅ EventsScreen: Coordinates already available:', {
-          latitude: eventForm.latitude,
-          longitude: eventForm.longitude
-        });
+
       }
 
-      console.log('🎪 EventsScreen: Preparing event data for save...');
+
       
       const eventData = {
         title: eventForm.title.trim(),
@@ -742,110 +739,69 @@ const EventsScreen = () => {
         monthlyRecurrenceType: eventForm.isRecurring && eventForm.recurrenceType === 'monthly' ? eventForm.monthlyRecurrenceType : null,
       };
 
-      console.log('🎪 EventsScreen: Final event data prepared:');
-      console.log('🎪 EventsScreen: - Title:', eventData.title);
-      console.log('🎪 EventsScreen: - Address:', eventData.address);
-      console.log('🎪 EventsScreen: - Latitude:', eventData.latitude, '(type:', typeof eventData.latitude, ')');
-      console.log('🎪 EventsScreen: - Longitude:', eventData.longitude, '(type:', typeof eventData.longitude, ')');
-      console.log('🎪 EventsScreen: - Has valid coordinates:', !!(eventData.latitude && eventData.longitude));
+
 
       // Double-check coordinates before saving
       if (!eventData.latitude || !eventData.longitude || 
           isNaN(eventData.latitude) || isNaN(eventData.longitude)) {
-        console.log('❌ EventsScreen: Invalid coordinates detected before save!');
-        console.log('❌ EventsScreen: Latitude:', eventData.latitude, 'valid:', !isNaN(eventData.latitude));
-        console.log('❌ EventsScreen: Longitude:', eventData.longitude, 'valid:', !isNaN(eventData.longitude));
-        Alert.alert(
-          'Coordinates Error', 
-          'Event coordinates are invalid. Please check the address and try again.'
-        );
+
+        showToast('Event coordinates are invalid. Please check the address and try again.', 'error');
         return;
       }
 
-      console.log('🎪 EventsScreen: Saving event with coordinates:', {
-        latitude: eventData.latitude,
-        longitude: eventData.longitude,
-        address: eventData.address
-      });
+
 
       if (editingEvent) {
         // Update existing event
-        console.log('🎪 EventsScreen: Updating existing event:', editingEvent.id);
+    
         await updateDoc(doc(db, 'events', editingEvent.id), eventData);
-        console.log('✅ EventsScreen: Event updated successfully!');
-        Alert.alert('Success', 'Event updated successfully!');
+     
+        showToast('Event updated successfully!', 'success');
       } else {
         // Create new event
-        console.log('🎪 EventsScreen: Creating new event...');
-        console.log('🎪 EventsScreen: Event data being sent to Firebase:', JSON.stringify({
-          title: eventData.title,
-          address: eventData.address,
-          latitude: eventData.latitude,
-          longitude: eventData.longitude,
-          organizerId: eventData.organizerId
-        }, null, 2));
+
         
         eventData.createdAt = serverTimestamp();
         const docRef = await addDoc(collection(db, 'events'), eventData);
         
-        console.log('✅ EventsScreen: Event created successfully!');
-        console.log('✅ EventsScreen: New event ID:', docRef.id);
-        console.log('✅ EventsScreen: Event should appear on map with coordinates:', {
-          latitude: eventData.latitude,
-          longitude: eventData.longitude
-        });
+
         
-        Alert.alert('Success', `Event created successfully with ID: ${docRef.id}! It should now appear on the map.`);
+        showToast(`Event created successfully! It should now appear on the map.`, 'success');
       }
 
       setShowEventModal(false);
       resetEventForm();
     } catch (error) {
-      console.error('🎪 EventsScreen: Error saving event:', error);
-      Alert.alert('Error', 'Failed to save event. Please try again.');
+
+      showToast('Failed to save event. Please try again.', 'error');
     }
   };
 
   // Delete event
   const deleteEvent = async (eventId, eventTitle) => {
-    Alert.alert(
+    showConfirmDialog(
       'Delete Event',
       `Are you sure you want to delete "${eventTitle}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🎪 EventsScreen: Deleting event:', eventId);
-              await deleteDoc(doc(db, 'events', eventId));
-              Alert.alert('Success', 'Event deleted successfully');
-            } catch (error) {
-              console.error('🎪 EventsScreen: Error deleting event:', error);
-              Alert.alert('Error', 'Failed to delete event. Please try again.');
-            }
-          }
+      async () => {
+        try {
+         
+          await deleteDoc(doc(db, 'events', eventId));
+          showToast('Event deleted successfully', 'success');
+        } catch (error) {
+
+          showToast('Failed to delete event. Please try again.', 'error');
         }
-      ]
+      }
     );
   };
   const markEventAttended = async (event) => {
     try {
-      console.log('🎪 EventsScreen: Marking event as attended:', event.id);
-      console.log('🎪 EventsScreen: User role:', userRole);
-      console.log('🎪 EventsScreen: User data:', {
-        uid: user.uid,
-        email: user.email,
-        role: userRole,
-        businessName: userData?.businessName,
-        username: userData?.username
-      });
+
 
       // Check if already marked as attended
       const existingAttendance = attendedEvents.find(a => a.eventId === event.id);
       if (existingAttendance) {
-        Alert.alert('Already Marked', 'You have already marked this event as attended.');
+        showToast('You have already marked this event as attended.', 'error');
         return;
       }
 
@@ -867,51 +823,51 @@ const EventsScreen = () => {
         review: null
       };
 
-      console.log('🎪 EventsScreen: Creating attendance record:', attendanceData);
+   
 
       // Add to eventAttendance collection
       await addDoc(collection(db, 'eventAttendance'), attendanceData);
 
-      Alert.alert('Success', 'Event marked as attended!');
-      console.log('🎪 EventsScreen: Event attendance recorded successfully for mobile kitchen owner');
+      showToast('Event marked as attended!', 'success');
+
 
     } catch (error) {
-      console.error('🎪 EventsScreen: Error marking event as attended:', error);
-      Alert.alert('Error', 'Failed to mark event as attended. Please try again.');
+
+      showToast('Failed to mark event as attended. Please try again.', 'error');
     }
   };
 
   // Remove event attendance
   const removeEventAttendance = async (eventId) => {
     try {
-      console.log('🎪 EventsScreen: Removing event attendance:', eventId);
+
 
       const attendanceRecord = attendedEvents.find(a => a.eventId === eventId);
       if (!attendanceRecord) {
-        Alert.alert('Error', 'Attendance record not found.');
+        showToast('Attendance record not found.', 'error');
         return;
       }
 
       await deleteDoc(doc(db, 'eventAttendance', attendanceRecord.id));
       
-      Alert.alert('Success', 'Event attendance removed.');
-      console.log('🎪 EventsScreen: Event attendance removed successfully');
+      showToast('Event attendance removed.', 'success');
+
 
     } catch (error) {
-      console.error('🎪 EventsScreen: Error removing event attendance:', error);
-      Alert.alert('Error', 'Failed to remove event attendance. Please try again.');
+
+      showToast('Failed to remove event attendance. Please try again.', 'error');
     }
   };
 
   // Mark event as attending (for upcoming events)
   const markEventAttending = async (event) => {
     try {
-      console.log('🎪 EventsScreen: Marking event as attending:', event.id);
+
 
       // Check if already marked as attending
       const existingAttending = attendingEvents.find(a => a.eventId === event.id);
       if (existingAttending) {
-        Alert.alert('Already Marked', 'You have already marked this event as attending.');
+        showToast('You have already marked this event as attending.', 'error');
         return;
       }
 
@@ -930,39 +886,39 @@ const EventsScreen = () => {
         status: 'attending' // attending, maybe, not-attending
       };
 
-      console.log('🎪 EventsScreen: Creating attending record:', attendingData);
+   
 
       // Add to eventInterest collection
       await addDoc(collection(db, 'eventInterest'), attendingData);
 
-      Alert.alert('Success', 'Marked as attending!');
-      console.log('🎪 EventsScreen: Event interest recorded successfully');
+      showToast('Marked as attending!', 'success');
+
 
     } catch (error) {
-      console.error('🎪 EventsScreen: Error marking event as attending:', error);
-      Alert.alert('Error', 'Failed to mark as attending. Please try again.');
+
+      showToast('Failed to mark as attending. Please try again.', 'error');
     }
   };
 
   // Remove attending status
   const removeEventAttending = async (eventId) => {
     try {
-      console.log('🎪 EventsScreen: Removing attending status:', eventId);
+
 
       const attendingRecord = attendingEvents.find(a => a.eventId === eventId);
       if (!attendingRecord) {
-        Alert.alert('Error', 'Attending record not found.');
+        showToast('Attending record not found.', 'error');
         return;
       }
 
       await deleteDoc(doc(db, 'eventInterest', attendingRecord.id));
       
-      Alert.alert('Success', 'Attending status removed.');
-      console.log('🎪 EventsScreen: Attending status removed successfully');
+      showToast('Attending status removed.', 'success');
+  
 
     } catch (error) {
-      console.error('🎪 EventsScreen: Error removing attending status:', error);
-      Alert.alert('Error', 'Failed to remove attending status. Please try again.');
+
+      showToast('Failed to remove attending status. Please try again.', 'error');
     }
   };
 
@@ -990,6 +946,13 @@ const EventsScreen = () => {
   // Format time for display
   const formatTime = (timeString) => {
     if (!timeString) return '';
+    
+    // If time already contains AM/PM, return as-is
+    if (timeString.includes('AM') || timeString.includes('PM')) {
+      return timeString;
+    }
+    
+    // Otherwise, format as 24-hour to 12-hour
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -1003,7 +966,7 @@ const EventsScreen = () => {
   };
 
   // Check if event is in the past
-  const isEventPast = (eventDate) => {
+  const isEventPast = (eventDate, eventTime = null, eventEndTime = null) => {
     const now = new Date();
     let date;
     
@@ -1017,7 +980,61 @@ const EventsScreen = () => {
       return false;
     }
     
-    return date < now;
+    // Set the date to start of day for comparison
+    const eventDateOnly = new Date(date);
+    eventDateOnly.setHours(0, 0, 0, 0);
+    
+    const todayOnly = new Date(now);
+    todayOnly.setHours(0, 0, 0, 0);
+    
+    // If event is on a future date, it's not past
+    if (eventDateOnly > todayOnly) {
+      return false;
+    }
+    
+    // If event is on a past date, it's definitely past
+    if (eventDateOnly < todayOnly) {
+      return true;
+    }
+    
+    // Event is today - check time if available
+    if (eventDateOnly.getTime() === todayOnly.getTime()) {
+      // If we have end time, use that for comparison (event is past when it ends)
+      const timeToCheck = eventEndTime || eventTime;
+      
+      if (timeToCheck) {
+        try {
+          // Parse time string (handles both "5:00 PM" and "17:00" formats)
+          const timeStr = timeToCheck.replace(/\s+(AM|PM)/i, ' $1'); // Normalize spacing
+          let [timePart, period] = timeStr.split(' ');
+          const [hours, minutes] = timePart.split(':');
+          let hour = parseInt(hours);
+          
+          // Convert to 24-hour format if needed
+          if (period) {
+            if (period.toUpperCase() === 'PM' && hour !== 12) {
+              hour += 12;
+            } else if (period.toUpperCase() === 'AM' && hour === 12) {
+              hour = 0;
+            }
+          }
+          
+          // Create event end time for today
+          const eventDateTime = new Date(date);
+          eventDateTime.setHours(hour, parseInt(minutes), 0, 0);
+          
+          // Event is past if current time is after event end time
+          return now > eventDateTime;
+        } catch (error) {
+    
+          // Fall back to just date comparison if time parsing fails
+          return false; // Assume not past if we can't parse time for today's events
+        }
+      }
+    }
+    
+    // Default: not past (if no time info for today's event, assume it's still upcoming)
+    return false;
   };
 
   // Filter events based on selected filter
@@ -1026,9 +1043,9 @@ const EventsScreen = () => {
 
     switch (selectedFilter) {
       case 'upcoming':
-        return events.filter(event => !isEventPast(event.startDate || event.date));
+        return events.filter(event => !isEventPast(event.startDate || event.date, event.time, event.endTime));
       case 'past':
-        return events.filter(event => isEventPast(event.startDate || event.date));
+        return events.filter(event => isEventPast(event.startDate || event.date, event.time, event.endTime));
       case 'attended':
         const attendedEventIds = attendedEvents.map(a => a.eventId);
         return events.filter(event => attendedEventIds.includes(event.id));
@@ -1048,8 +1065,8 @@ const EventsScreen = () => {
 
     const myEventsList = myEvents;
     const totalEvents = myEventsList.length;
-    const upcomingEvents = myEventsList.filter(event => !isEventPast(event.startDate || event.date));
-    const pastEvents = myEventsList.filter(event => isEventPast(event.startDate || event.date));
+    const upcomingEvents = myEventsList.filter(event => !isEventPast(event.startDate || event.date, event.time, event.endTime));
+    const pastEvents = myEventsList.filter(event => isEventPast(event.startDate || event.date, event.time, event.endTime));
 
     // Calculate total attendance across all events
     let totalAttendance = 0;
@@ -1059,7 +1076,7 @@ const EventsScreen = () => {
 
     myEventsList.forEach(event => {
       const eventCounts = eventAttendanceCounts[event.id] || { attended: 0, attending: 0 };
-      const isPast = isEventPast(event.startDate || event.date);
+      const isPast = isEventPast(event.startDate || event.date, event.time, event.endTime);
       
       if (isPast) {
         totalAttendance += eventCounts.attended;
@@ -2066,7 +2083,7 @@ const EventsScreen = () => {
   const renderEventCard = (event) => {
     const attended = isEventAttended(event.id);
     const attending = attendingEvents.some(a => a.eventId === event.id);
-    const isPast = isEventPast(event.startDate || event.date);
+    const isPast = isEventPast(event.startDate || event.date, event.time, event.endTime);
     const canEdit = canEditEvent(event);
     const attendanceCount = eventAttendanceCounts[event.id] || { attended: 0, attending: 0 };
 
@@ -2372,16 +2389,19 @@ const EventsScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Events</Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity
-            onPress={async () => {
-              // Test event organizer notifications and badge functionality
-              await NotificationService.testNotification(userRole || 'event-organizer');
-              await NotificationService.testBadgeCount();
-            }}
-            style={styles.testNotificationButton}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#666" />
-          </TouchableOpacity>
+          {/* Development-only test notification button */}
+          {__DEV__ && (
+            <TouchableOpacity
+              onPress={async () => {
+                // Test event organizer notifications and badge functionality
+                await NotificationService.testNotification(userRole || 'event-organizer');
+                await NotificationService.testBadgeCount();
+              }}
+              style={styles.testNotificationButton}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#666" />
+            </TouchableOpacity>
+          )}
           {canManageEvents() && (
             <TouchableOpacity
               style={styles.createButton}
@@ -2461,6 +2481,53 @@ const EventsScreen = () => {
 
       {/* Event Management Modal */}
       {renderEventModal()}
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmModalTitle}>{confirmModalData.title}</Text>
+            <Text style={styles.confirmModalMessage}>{confirmModalData.message}</Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.cancelButton]}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmButton]}
+                onPress={() => {
+                  if (confirmModalData.onConfirm) {
+                    confirmModalData.onConfirm();
+                  }
+                  setShowConfirmModal(false);
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toast.type === 'error' ? styles.toastError : styles.toastSuccess,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -3257,6 +3324,102 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
+  },
+  // Toast and Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 25,
+    marginHorizontal: 20,
+    maxWidth: 350,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  confirmModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  confirmModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#FF3B30',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

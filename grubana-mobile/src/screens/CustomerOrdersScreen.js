@@ -5,7 +5,8 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
-  TouchableOpacity
+  TouchableOpacity,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { 
@@ -13,7 +14,9 @@ import {
   query, 
   where, 
   orderBy, 
-  onSnapshot 
+  onSnapshot,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../components/AuthContext';
@@ -25,11 +28,12 @@ const CustomerOrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [mobileKitchenProfiles, setMobileKitchenProfiles] = useState({});
 
   useEffect(() => {
     if (!userData?.uid) return;
 
-    console.log('📱 Setting up customer orders listener for user:', userData.uid);
+
     
     // Clear badge count when viewing orders screen - role-specific clearing
     NotificationService.clearBadgeForUserRole('customer', 'Orders');
@@ -43,7 +47,7 @@ const CustomerOrdersScreen = () => {
     // Set up real-time listener
     const unsubscribe = onSnapshot(ordersQuery, 
       (snapshot) => {
-        console.log('📱 Customer orders updated, got', snapshot.docs.length, 'orders');
+ 
         
         const ordersData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -83,17 +87,40 @@ const CustomerOrdersScreen = () => {
         });
 
         setOrders(ordersData);
+        
+        // Fetch mobile kitchen profiles for orders that have truckId
+        ordersData.forEach(order => {
+          if (order.truckId) {
+            // Use truck name from order data as fallback if available
+            const fallbackTruckName = order.truckName || 'Restaurant';
+            
+            // Pre-populate with order data to avoid loading states
+            setMobileKitchenProfiles(prev => ({
+              ...prev,
+              [order.truckId]: prev[order.truckId] || { 
+                truckName: fallbackTruckName, 
+                coverImageUrl: null 
+              }
+            }));
+            
+            fetchMobileKitchenProfile(order.truckId);
+          }
+        });
+        
         setLoading(false);
         setRefreshing(false);
       },
       (error) => {
-        console.error('❌ Error fetching customer orders:', error);
+ 
         setLoading(false);
         setRefreshing(false);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      setMobileKitchenProfiles({});
+    };
   }, [userData?.uid]);
 
   const handleRefresh = () => {
@@ -113,7 +140,7 @@ const CustomerOrdersScreen = () => {
         default: return '#757575';
       }
     })();
-    console.log(`Status: ${status}, Color: ${color}`);
+
     return color;
   };
 
@@ -151,6 +178,62 @@ const CustomerOrdersScreen = () => {
     return typeof price === 'number' ? `$${price.toFixed(2)}` : '$0.00';
   };
 
+  const fetchMobileKitchenProfile = async (truckId) => {
+
+    
+    if (!truckId || mobileKitchenProfiles[truckId]) {
+
+      return;
+    }
+
+    try {
+ 
+      const userRef = doc(db, 'users', truckId);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+   
+ 
+        
+        const profileData = {
+          truckName: userData.truckName || userData.businessName || userData.username || 'Unknown Restaurant',
+          coverImageUrl: userData.coverUrl || null
+        };
+        
+        setMobileKitchenProfiles(prev => {
+          const updated = {
+            ...prev,
+            [truckId]: profileData
+          };
+
+          return updated;
+        });
+      } else {
+  
+        setMobileKitchenProfiles(prev => ({
+          ...prev,
+          [truckId]: { truckName: 'Unknown Restaurant', coverImageUrl: null }
+        }));
+      }
+    } catch (error) {
+      // Handle permission errors gracefully - this is expected for cross-user data access
+      if (error.code === 'permission-denied') {
+ 
+        setMobileKitchenProfiles(prev => ({
+          ...prev,
+          [truckId]: { truckName: 'Restaurant', coverImageUrl: null }
+        }));
+      } else {
+
+        setMobileKitchenProfiles(prev => ({
+          ...prev,
+          [truckId]: { truckName: 'Unknown Restaurant', coverImageUrl: null }
+        }));
+      }
+    }
+  };
+
   const renderOrderItem = ({ item }) => (
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
@@ -169,9 +252,29 @@ const CustomerOrdersScreen = () => {
       </View>
 
       <View style={styles.orderDetails}>
-        <Text style={styles.truckName}>
-          🚚 {item.truckName || 'Unknown Restaurant'}
-        </Text>
+        <View style={styles.truckInfo}>
+          {mobileKitchenProfiles[item.truckId]?.coverImageUrl ? (
+            <Image 
+              source={{ uri: mobileKitchenProfiles[item.truckId].coverImageUrl }} 
+              style={styles.truckAvatar}
+              onError={(error) => {
+              
+              }}
+              onLoad={() => {
+        
+              }}
+            />
+          ) : (
+            <View style={styles.truckAvatarPlaceholder}>
+              <Text style={styles.truckAvatarText}>
+                🚚
+              </Text>
+            </View>
+          )}
+          <Text style={styles.truckName}>
+            {mobileKitchenProfiles[item.truckId]?.truckName || item.truckName || 'Unknown Restaurant'}
+          </Text>
+        </View>
         <Text style={styles.orderTime}>
           📅 {item.createdAt.toLocaleTimeString()} • {item.createdAt.toLocaleDateString()}
         </Text>
@@ -354,11 +457,40 @@ const styles = StyleSheet.create({
   orderDetails: {
     marginBottom: 16,
   },
+  truckInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  truckAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border around avatar
+  },
+  truckAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF4EC9', // Neon pink background
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#4DBFFF', // Neon blue border
+  },
+  truckAvatarText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   truckName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF', // White text
-    marginBottom: 8,
+    flex: 1,
   },
   orderTime: {
     fontSize: 14,

@@ -19,32 +19,9 @@ const db = getFirestore(app);
 
 async function debugEventOrganizerAccess() {
   try {
-    console.log('🔍 Debug: Testing event organizer access...');
-    
-    // Test if we can access the event organizer route without login
-    console.log('Testing direct route access to /event-dashboard...');
-    
-    // Check if there are any existing event organizer users
-    console.log('Looking for event organizer test accounts...');
-    
-    // For now, let's just log the expected flow
-    console.log(`
-📋 Expected Event Organizer Flow:
-1. User signs up with role: 'event-organizer'
-2. AuthContext loads user data and sets userRole to 'event-organizer'
-3. App.jsx route protection allows access to /event-dashboard
-4. EventDashboard component loads and checks user role again
-5. If role matches, dashboard loads; otherwise redirects
-
-🧐 Potential Issues:
-- AuthContext userRole loading delay
-- Route protection logic timing
-- EventDashboard role validation
-- Firestore rules or permissions
-    `);
     
   } catch (error) {
-    console.error('Debug error:', error);
+
   }
 }
 

@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -25,6 +26,41 @@ export default function CustomerSignupScreen({ navigation }) {
   });
   const [loading, setLoading] = useState(false);
 
+  // Toast and Modal state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [toastVisible, setToastVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Success modal function
+  const showSuccessModal = () => {
+    setSuccessModalVisible(true);
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -34,17 +70,17 @@ export default function CustomerSignupScreen({ navigation }) {
 
   const handleSignup = async () => {
     if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('Please fill in all fields');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      showToast('Password must be at least 6 characters long');
       return;
     }
 
@@ -65,11 +101,9 @@ export default function CustomerSignupScreen({ navigation }) {
         stripeCustomerId: null,
       }, { merge: true }); // Use merge to allow updates without overwriting
 
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) }
-      ]);
+      showSuccessModal();
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showToast(error.message);
     }
     setLoading(false);
   };
@@ -90,7 +124,7 @@ export default function CustomerSignupScreen({ navigation }) {
           
           <View style={styles.logoContainer}>
             <Image 
-              source={require('../assets/grubana-logo.png')} 
+              source={require('../assets/logo.png')} 
               style={styles.logo}
               resizeMode="contain"
             />
@@ -168,6 +202,45 @@ export default function CustomerSignupScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Welcome to Grubana!</Text>
+            <Text style={styles.modalMessage}>
+              Your account has been created successfully! You can now discover amazing food trucks and connect with local mobile kitchens.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+              }}
+            >
+              <Text style={styles.modalButtonText}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -257,5 +330,77 @@ const styles = StyleSheet.create({
     color: '#2c6f57',
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#dc3545',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 20,
+    margin: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 120,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -60,7 +60,7 @@ const createCustomerPortalSession = onRequest(async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error creating customer portal session:", error);
+ 
     res.set(corsHeaders);
     res.status(500).json({ error: "Internal server error" });
   }

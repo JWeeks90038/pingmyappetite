@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   ScrollView, 
   TouchableOpacity, 
-  Alert, 
   TextInput, 
   Image, 
   Modal,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,11 +23,6 @@ import { db, storage } from '../firebase';
 import { colors } from '../theme/colors';
 
 export default function MenuManagementScreen() {
-  console.log('🔧 DEBUG: MenuManagementScreen loaded - NEW ITEM feature should be visible!');
-  
-  // SUPER AGGRESSIVE DEBUG - This should be impossible to miss
-  alert('🚨 MENU MANAGEMENT SCREEN LOADED! 🚨\nThe New Item feature should be visible!');
-  
   const navigation = useNavigation();
   const { user, userData } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
@@ -45,9 +40,54 @@ export default function MenuManagementScreen() {
   });
   const [uploading, setUploading] = useState(false);
 
+  // Toast notification system (replaces Alert.alert)
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
   const categories = [
     'Appetizers', 'Entree', 'Sides', 'Desserts', 'Beverages', 'Specials'
   ];
+
+  // Toast notification function (replaces simple Alert.alert)
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+    }, 3000);
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, buttons = []) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons.length > 0 ? buttons : [
+      { text: 'OK', onPress: () => setModalVisible(false), style: 'default' }
+    ]);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     loadMenuItems();
@@ -58,14 +98,12 @@ export default function MenuManagementScreen() {
     
     try {
       setLoading(true);
-      console.log('DEBUG: Loading menu items for user:', user.uid);
       const menuItemsRef = collection(db, 'menuItems');
       const menuSnapshot = await getDocs(query(menuItemsRef, where('ownerId', '==', user.uid)));
       
       const items = [];
       menuSnapshot.forEach(doc => {
         const itemData = { id: doc.id, ...doc.data() };
-        console.log('DEBUG: Menu item loaded:', itemData.name, 'ImageURL:', itemData.imageUrl, 'IsNew:', itemData.isNewItem);
         items.push(itemData);
       });
 
@@ -77,11 +115,10 @@ export default function MenuManagementScreen() {
         return (a.name || '').localeCompare(b.name || '');
       });
 
-      console.log('DEBUG: Total menu items loaded:', items.length);
       setMenuItems(items);
     } catch (error) {
-      console.error('Error loading menu items:', error);
-      Alert.alert('Error', 'Failed to load menu items');
+
+      showToastMessage('Failed to load menu items', 'error');
     } finally {
       setLoading(false);
     }
@@ -124,7 +161,7 @@ export default function MenuManagementScreen() {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        showToastMessage('Permission to access camera roll is required!', 'error');
         return;
       }
 
@@ -139,8 +176,7 @@ export default function MenuManagementScreen() {
         setFormData(prev => ({ ...prev, image: result.assets[0] }));
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      showToastMessage('Failed to pick image', 'error');
     }
   };
 
@@ -166,7 +202,7 @@ export default function MenuManagementScreen() {
       return downloadURL;
       
     } catch (error) {
-      console.error('Error uploading image:', error);
+
       throw error;
     } finally {
       setUploading(false);
@@ -174,17 +210,14 @@ export default function MenuManagementScreen() {
   };
 
   const saveMenuItem = async () => {
-    // DEBUG: Log the formData to see if isNewItem is recognized
-    console.log('DEBUG - Saving Menu Item with formData:', formData);
-    
     if (!formData.name.trim() || !formData.price.trim()) {
-      Alert.alert('Missing Information', 'Please fill in the name and price');
+      showToastMessage('Please fill in the name and price', 'error');
       return;
     }
 
     const price = parseFloat(formData.price);
     if (isNaN(price) || price <= 0) {
-      Alert.alert('Invalid Price', 'Please enter a valid price');
+      showToastMessage('Please enter a valid price', 'error');
       return;
     }
 
@@ -212,12 +245,12 @@ export default function MenuManagementScreen() {
       if (editingItem) {
         // Update existing item
         await updateDoc(doc(db, 'menuItems', editingItem.id), itemData);
-        Alert.alert('Success', 'Menu item updated successfully!');
+        showToastMessage('Menu item updated successfully!', 'success');
       } else {
         // Add new item
         itemData.createdAt = serverTimestamp();
         await addDoc(collection(db, 'menuItems'), itemData);
-        Alert.alert('Success', 'Menu item added successfully!');
+        showToastMessage('Menu item added successfully!', 'success');
       }
 
       setShowAddModal(false);
@@ -225,28 +258,29 @@ export default function MenuManagementScreen() {
       await loadMenuItems();
       
     } catch (error) {
-      console.error('Error saving menu item:', error);
-      Alert.alert('Error', 'Failed to save menu item');
+
+      showToastMessage('Failed to save menu item', 'error');
     }
   };
 
   const deleteMenuItem = (item) => {
-    Alert.alert(
+    showCustomModal(
       'Delete Menu Item',
       `Are you sure you want to delete "${item.name}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
+            setModalVisible(false);
             try {
               await deleteDoc(doc(db, 'menuItems', item.id));
-              Alert.alert('Success', 'Menu item deleted successfully!');
+              showToastMessage('Menu item deleted successfully!', 'success');
               await loadMenuItems();
             } catch (error) {
-              console.error('Error deleting menu item:', error);
-              Alert.alert('Error', 'Failed to delete menu item');
+ 
+              showToastMessage('Failed to delete menu item', 'error');
             }
           }
         }
@@ -267,12 +301,6 @@ export default function MenuManagementScreen() {
             <Image 
               source={{ uri: item.imageUrl }} 
               style={styles.menuItemImage}
-              onError={(error) => {
-                console.log('DEBUG: Image load error for item:', item.name, 'URL:', item.imageUrl, 'Error:', error.nativeEvent.error);
-              }}
-              onLoad={() => {
-                console.log('DEBUG: Image loaded successfully for:', item.name, 'URL:', item.imageUrl);
-              }}
             />
           ) : (
             <View style={[styles.menuItemImage, {backgroundColor: colors.background.primary, justifyContent: 'center', alignItems: 'center'}]}>
@@ -449,10 +477,8 @@ export default function MenuManagementScreen() {
                   marginVertical: 10
                 }}
                 onPress={() => {
-                  console.log('🔥 NEW ITEM BUTTON PRESSED - Current value:', formData.isNewItem);
                   const newValue = !formData.isNewItem;
                   setFormData(prev => ({ ...prev, isNewItem: newValue }));
-                  console.log('🔥 NEW ITEM VALUE CHANGED TO:', newValue);
                 }}
               >
                 <Text style={{
@@ -491,11 +517,9 @@ export default function MenuManagementScreen() {
                 onPress={() => {
                   setFormData(prev => ({ ...prev, isNewItem: !prev.isNewItem }));
                   // Show feedback when pressed
-                  Alert.alert(
-                    formData.isNewItem ? "Item Unmarked" : "Item Marked as NEW", 
-                    formData.isNewItem 
-                      ? "This item will no longer display a NEW badge" 
-                      : "This item will display a NEW badge when saved"
+                  showToastMessage(
+                    formData.isNewItem ? "Item unmarked as NEW" : "Item marked as NEW", 
+                    'success'
                   );
                 }}
               >
@@ -561,6 +585,57 @@ export default function MenuManagementScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Toast Notification (replaces simple Alert.alert) */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastOpacity,
+              backgroundColor: toastType === 'error' ? '#dc3545' : '#28a745'
+            }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{modalTitle}</Text>
+            <Text style={styles.customModalMessage}>{modalMessage}</Text>
+            <View style={styles.customModalButtons}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.customModalButton,
+                    button.style === 'cancel' && styles.customModalButtonCancel,
+                    button.style === 'destructive' && styles.customModalButtonDestructive
+                  ]}
+                  onPress={button.onPress}
+                >
+                  <Text style={[
+                    styles.customModalButtonText,
+                    button.style === 'cancel' && styles.customModalButtonTextCancel,
+                    button.style === 'destructive' && styles.customModalButtonTextDestructive
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -941,5 +1016,80 @@ const styles = StyleSheet.create({
   },
   newItemButtonTextInactive: {
     color: colors.accent.pink,
+  },
+  // Toast notification styles (replaces Alert.alert)
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  customModalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+  },
+  customModalButtonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  customModalButtonDestructive: {
+    backgroundColor: '#dc3545',
+  },
+  customModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  customModalButtonTextCancel: {
+    color: '#fff',
+  },
+  customModalButtonTextDestructive: {
+    color: '#fff',
   },
 });

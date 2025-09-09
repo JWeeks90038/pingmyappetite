@@ -35,7 +35,7 @@ const NewDropForm = ({ truckLat, truckLng }) => {
         console.log("🔍 NewDropForm - Has isTruckOwner:", !!idTokenResult.claims.isTruckOwner);
       })
       .catch((error) => {
-        console.error("❌ Error fetching ID token result:", error);
+  
       });
   }
 
@@ -47,7 +47,7 @@ const NewDropForm = ({ truckLat, truckLng }) => {
           lng: pos.coords.longitude,
         });
       },
-      (err) => console.warn("Geolocation error:", err)
+   
     );
   }
 }, [currentUser, truckLat, truckLng]);

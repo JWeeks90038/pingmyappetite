@@ -50,7 +50,7 @@ const handleSubmit = async (e) => {
       setError('Failed to send message. Please try again later.');
     }
   } catch (err) {
-    console.error('Contact form error:', err);
+
     setError('Failed to send message. Please try again later.');
   }
 };

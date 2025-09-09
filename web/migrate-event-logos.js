@@ -26,7 +26,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function migrateEventLogos() {
-  console.log('🔄 Starting event logo migration...');
+
   
   try {
     // Get all events that have an organizerId but no organizerLogoUrl
@@ -34,7 +34,7 @@ async function migrateEventLogos() {
     const eventsQuery = query(eventsRef, where('organizerId', '!=', null));
     const eventsSnapshot = await getDocs(eventsQuery);
     
-    console.log(`📊 Found ${eventsSnapshot.size} events with organizers`);
+
     
     let updatedCount = 0;
     let errorCount = 0;
@@ -44,7 +44,7 @@ async function migrateEventLogos() {
       
       // Skip if already has organizerLogoUrl
       if (eventData.organizerLogoUrl) {
-        console.log(`⏭️ Event ${eventDoc.id} already has organizerLogoUrl, skipping`);
+
         continue;
       }
       
@@ -60,21 +60,21 @@ async function migrateEventLogos() {
             organizerLogoUrl: logoUrl
           });
           
-          console.log(`✅ Updated event ${eventDoc.id} with logo URL`);
+  
           updatedCount++;
         } else {
-          console.log(`⚠️ No logo found for organizer ${eventData.organizerId} (event ${eventDoc.id})`);
+
         }
       } catch (error) {
-        console.error(`❌ Error updating event ${eventDoc.id}:`, error.message);
+
         errorCount++;
       }
     }
     
-    console.log(`🎉 Migration complete: ${updatedCount} events updated, ${errorCount} errors`);
+
     
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+
   }
 }
 

@@ -6,10 +6,11 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Switch,
   ActivityIndicator,
   Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
@@ -48,6 +49,49 @@ export default function PingScreen() {
   const [locationStatus, setLocationStatus] = useState('Getting location...');
   
   const sendingRef = useRef(false);
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
+  // Toast functions
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Modal functions
+  const showModal = (title, message, buttons = [{ text: 'OK', onPress: () => setModalVisible(false) }]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
 
   // Available cuisine types for selection (matching MapScreen)
   const cuisineTypes = [
@@ -95,7 +139,7 @@ export default function PingScreen() {
           setUsername(user.displayName || '');
         }
       } catch (error) {
-        console.error('Error fetching user info:', error);
+
         setUsername(user.displayName || '');
       }
     };
@@ -106,10 +150,10 @@ export default function PingScreen() {
   // Get user location
   useEffect(() => {
     const getUserLocation = async () => {
-      console.log('🔄 PingScreen: Starting location acquisition...');
+
       
       if (!useGeoLocation) {
-        console.log('📍 PingScreen: Geolocation disabled by user');
+
         setLocationStatus('Using manual address');
         return;
       }
@@ -119,9 +163,9 @@ export default function PingScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         
         if (status !== 'granted') {
-          console.log('❌ PingScreen: Location permission denied');
+
           setLocationStatus('Location permission denied');
-          Alert.alert('Location Permission', 'Location permission denied. Please enable to use current location or enter address manually.');
+          showToast('Location permission denied. Please enable to use current location or enter address manually.');
           return;
         }
 
@@ -137,12 +181,12 @@ export default function PingScreen() {
         });
         
         setLocationStatus(`Location: ${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`);
-        console.log('✅ PingScreen: Got user location');
+     
         
       } catch (error) {
-        console.error('❌ PingScreen: Error getting location:', error);
+     
         setLocationStatus('Location unavailable - use manual address');
-        Alert.alert('Location Error', 'Could not get your location. Please enter address manually or check location settings.');
+        showToast('Could not get your location. Please enter address manually or check location settings.');
       }
     };
     
@@ -167,7 +211,7 @@ export default function PingScreen() {
         const querySnapshot = await getDocs(pingsQuery);
         setDailyPingCount(querySnapshot.size);
       } catch (error) {
-        console.error('Error checking daily ping count:', error);
+
       }
     };
     
@@ -177,7 +221,7 @@ export default function PingScreen() {
   // Function to geocode address to coordinates
   const geocodeAddress = async (address) => {
     try {
-      console.log('🌍 Geocoding address:', address);
+
       
       // Use Nominatim (OpenStreetMap) geocoding service - free and reliable
       const encodedAddress = encodeURIComponent(address);
@@ -196,12 +240,7 @@ export default function PingScreen() {
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
         
-        console.log('✅ Geocoding successful:', {
-          address: address,
-          lat: lat,
-          lng: lng,
-          displayName: result.display_name
-        });
+  
         
         return {
           success: true,
@@ -210,14 +249,14 @@ export default function PingScreen() {
           formattedAddress: result.display_name || address
         };
       } else {
-        console.log('❌ No geocoding results found for:', address);
+
         return {
           success: false,
           error: 'Address not found. Please check the address and try again.'
         };
       }
     } catch (error) {
-      console.error('❌ Geocoding error:', error);
+
       return {
         success: false,
         error: 'Unable to locate address. Please check your internet connection and try again.'
@@ -230,13 +269,13 @@ export default function PingScreen() {
     sendingRef.current = true;
 
     if (!user || !cuisineType) {
-      Alert.alert('Error', 'Please select a cuisine type');
+      showToast('Please select a cuisine type');
       sendingRef.current = false;
       return;
     }
 
     if (dailyPingCount >= 3) {
-      Alert.alert('Limit Reached', 'You can only send 3 pings in a 24-hour period.');
+      showToast('You can only send 3 pings in a 24-hour period.');
       sendingRef.current = false;
       return;
     }
@@ -250,7 +289,7 @@ export default function PingScreen() {
         lng = userLocation.longitude;
         address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       } else if (manualAddress.trim()) {
-        console.log('🏠 Using manual address:', manualAddress);
+
         
         // Geocode the manual address
         const geocodeResult = await geocodeAddress(manualAddress.trim());
@@ -259,15 +298,15 @@ export default function PingScreen() {
           lat = geocodeResult.latitude;
           lng = geocodeResult.longitude;
           address = geocodeResult.formattedAddress;
-          console.log('✅ Successfully geocoded manual address');
+
         } else {
-          Alert.alert('Address Error', geocodeResult.error);
+          showToast(geocodeResult.error);
           sendingRef.current = false;
           setLoading(false);
           return;
         }
       } else {
-        Alert.alert('Error', 'Please provide a location');
+        showToast('Please provide a location');
         sendingRef.current = false;
         setLoading(false);
         return;
@@ -289,11 +328,11 @@ export default function PingScreen() {
       // Reset form and update count
       setCuisineType('');
       setDailyPingCount(prev => prev + 1);
-      Alert.alert('Success', 'Ping sent successfully! Food trucks in your area will be notified of your craving.');
+      showModal('Success', 'Ping sent successfully! Food trucks in your area will be notified of your craving.');
       
     } catch (error) {
-      console.error('Error sending ping:', error);
-      Alert.alert('Error', 'Failed to send ping. Please try again.');
+
+      showToast('Failed to send ping. Please try again.');
     } finally {
       setLoading(false);
       sendingRef.current = false;
@@ -440,6 +479,61 @@ export default function PingScreen() {
           
         </View>
       </View>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toastType === 'success' ? styles.toastSuccess : styles.toastError,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{modalTitle}</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+            </View>
+            <View style={styles.modalFooter}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.modalButton,
+                    button.style === 'destructive' ? styles.modalButtonDestructive : styles.modalButtonDefault,
+                    modalButtons.length > 1 && index === 0 ? styles.modalButtonFirst : null
+                  ]}
+                  onPress={() => {
+                    setModalVisible(false);
+                    if (button.onPress) button.onPress();
+                  }}
+                >
+                  <Text style={[
+                    styles.modalButtonText,
+                    button.style === 'destructive' ? styles.modalButtonTextDestructive : styles.modalButtonTextDefault
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -636,5 +730,100 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 16,
     color: theme.colors.text.primary,
     flex: 1,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  toastText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#1a1a2e',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: theme.colors.accent.blue,
+    borderTopWidth: 4,
+    borderTopColor: theme.colors.accent.pink,
+    ...theme.shadows.neonBlue,
+  },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.accent.pink,
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonFirst: {
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
+  },
+  modalButtonDefault: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonDestructive: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextDefault: {
+    color: theme.colors.accent.blue,
+  },
+  modalButtonTextDestructive: {
+    color: '#dc3545',
   },
 });

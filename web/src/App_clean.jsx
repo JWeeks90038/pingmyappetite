@@ -79,14 +79,14 @@ const appReadyPromise = import.meta.env.MODE === 'development'
   ? clearAppCache().then(() => {
       console.log('🧹 Cache cleared in development mode');
     }).catch(error => {
-      console.error('🚨 Failed to clear cache:', error);
+
     })
   : Promise.resolve(null);
 
 // Add network connectivity check
 const checkNetworkConnectivity = () => {
   if (!navigator.onLine) {
-    console.warn('🌐 Network: Device appears to be offline');
+
     return false;
   }
   return true;
@@ -98,16 +98,16 @@ window.addEventListener('online', () => {
 });
 
 window.addEventListener('offline', () => {
-  console.warn('🌐 Network: Connection lost');
+
 });
 
 // Global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('🚨 Unhandled Promise Rejection:', event.reason);
+
   
   // Handle Firebase permission-denied errors gracefully
   if (event.reason && event.reason.code === 'permission-denied') {
-    console.log('🚨 Global handler: Firebase permission denied error caught during logout');
+
     event.preventDefault();
     return;
   }
@@ -115,7 +115,7 @@ window.addEventListener('unhandledrejection', (event) => {
   // Handle generic Firebase permission errors
   if (event.reason && typeof event.reason === 'string' && 
       event.reason.includes('Missing or insufficient permissions')) {
-    console.log('🚨 Global handler: Firebase permission error caught during logout');
+
     event.preventDefault();
     return;
   }
@@ -124,7 +124,7 @@ window.addEventListener('unhandledrejection', (event) => {
   if (event.reason && event.reason.constructor && 
       event.reason.constructor.name === 'FirebaseError' &&
       event.reason.message && event.reason.message.includes('Missing or insufficient permissions')) {
-    console.log('🚨 Global handler: FirebaseError permission denied caught during authentication state change');
+
     event.preventDefault();
     return;
   }
@@ -132,7 +132,7 @@ window.addEventListener('unhandledrejection', (event) => {
   // Handle snapshot listener permission errors specifically
   if (event.reason && event.reason.toString && 
       event.reason.toString().includes('Missing or insufficient permissions')) {
-    console.log('🚨 Global handler: Snapshot listener permission error caught - preventing error display');
+
     event.preventDefault();
     return;
   }
@@ -144,7 +144,7 @@ window.addEventListener('unhandledrejection', (event) => {
       event.reason.message?.includes('Bad Request') ||
       event.reason.code === 'unavailable'
     )) {
-    console.log('🚨 Global handler: Firestore connectivity error caught:', event.reason.message);
+
     event.preventDefault();
     return;
   }
@@ -153,14 +153,7 @@ window.addEventListener('unhandledrejection', (event) => {
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 
-  console.log('🚀 LATEST CODE: ProtectedDashboardRoute - Version 8b0c6718');
-  console.log('🔍 ProtectedDashboardRoute DEBUG:', {
-    user: !!user,
-    userPlan,
-    userSubscriptionStatus,
-    loading,
-    userSubscriptionStatusType: typeof userSubscriptionStatus
-  });
+
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
@@ -173,13 +166,7 @@ function ProtectedDashboardRoute({ children }) {
   // Don't block if userSubscriptionStatus is explicitly null (admin override)
   const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === undefined && loading;
   
-  console.log('🔍 Subscription loading check:', {
-    isPaidPlan,
-    subscriptionStatusLoading,
-    userSubscriptionStatus,
-    userSubscriptionStatusIsNull: userSubscriptionStatus === null,
-    userSubscriptionStatusIsUndefined: userSubscriptionStatus === undefined
-  });
+
   
   if (subscriptionStatusLoading) {
     console.log('⏳ Waiting for subscription status to load...');
@@ -202,55 +189,43 @@ function ProtectedDashboardRoute({ children }) {
       userSubscriptionStatus === null
     ));
 
-  console.log('🔍 Access validation:', {
-    hasValidAccess,
-    userPlan,
-    userSubscriptionStatus,
-    isBasic: userPlan === "basic",
-    isPro: userPlan === "pro",
-    isAllAccess: userPlan === "all-access",
-    statusIsActive: userSubscriptionStatus === "active",
-    statusIsTrialing: userSubscriptionStatus === "trialing",
-    statusIsAdminOverride: userSubscriptionStatus === "admin-override",
-    statusIsNull: userSubscriptionStatus === null
-  });
+
 
   if (!hasValidAccess) {
     console.log('🚨 BLOCKING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
     return <Navigate to="/signup" />;
   }
 
-  console.log('✅ ALLOWING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
+
   return children;
 }
 
 function App() {
   const { user, userRole, loading } = useAuth();
   
-  console.log('🏁 App component loading state:', { loading, user: user?.email, userRole });
-  console.log('🗺️ Current URL:', window.location.href);
+
 
   // Check Firebase readiness
   useEffect(() => {
     import('./firebase').then(({ auth, db }) => {
       if (!auth || !db) {
-        console.error('🔥 Firebase services not properly initialized');
+
       } else {
-        console.log('🔥 Firebase services ready');
+   
       }
     }).catch(error => {
-      console.error('🔥 Failed to import Firebase:', error);
+
     });
   }, []);
 
   // Initialize notification service when user is authenticated
   useEffect(() => {
     if (user && userRole === 'customer') {
-      console.log('🔔 Initializing notification service for customer');
+
       
       setTimeout(() => {
         notificationService.setupMessageListener((payload) => {
-          console.log('🔔 Received foreground notification:', payload);
+    
           
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(payload.notification?.title || 'Grubana', {
@@ -305,7 +280,7 @@ function App() {
 
   // Add Stripe validation before rendering Elements
   if (!stripePromise) {
-    console.error('Stripe failed to initialize - check environment variables');
+
     return (
       <ErrorBoundary>
       <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
@@ -422,8 +397,8 @@ function App() {
       <MobileGoogleMapsWrapper
         googleMapsApiKey={safeGoogleMapsKey}
         libraries={LIBRARIES}
-        onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
-        onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
+        onLoad={() => ('')}
+        onError={(error) => ('')}
         loadingElement={<div>Loading Maps...</div>}
       >
         <BrowserRouter>

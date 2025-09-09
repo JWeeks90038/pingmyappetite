@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ScrollView,
   ActivityIndicator,
   BackHandler,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -26,10 +27,22 @@ export default function PaymentScreen({ navigation, route }) {
   
   const { hasValidReferral, referralCode, userId } = route.params || {};
 
+  // Toast notification system (replaces Alert.alert)
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
   // Ensure this screen is always focused and cannot be navigated away from
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔒 PaymentScreen focused - enforcing payment security');
+
       
       // Check if user has somehow gained access without paying
       const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
@@ -37,33 +50,67 @@ export default function PaymentScreen({ navigation, route }) {
       const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
       
       if (hasPaidPlan && (!hasActiveSubscription || !paymentCompleted)) {
-        console.log('🔒 SECURITY: User on paid plan without payment - enforcing payment screen');
+ 
         // User must stay on this screen
       }
       
       return () => {
-        console.log('🔒 PaymentScreen losing focus - payment still required');
+
       };
     }, [userData])
   );
 
+  // Toast notification function (replaces simple Alert.alert)
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+    }, 3000);
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, buttons = []) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons.length > 0 ? buttons : [
+      { text: 'OK', onPress: () => setModalVisible(false), style: 'default' }
+    ]);
+    setModalVisible(true);
+  };
+
   // Prevent Android back button from bypassing payment
   useEffect(() => {
     const backAction = () => {
-      Alert.alert(
+      showCustomModal(
         'Payment Required',
         'You must complete payment to access your account. Would you like to sign out instead?',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
           { 
             text: 'Sign Out', 
             style: 'destructive',
             onPress: async () => {
+              setModalVisible(false);
               try {
                 await signOut(auth);
               } catch (error) {
-                console.error('Error signing out:', error);
-                Alert.alert('Error', 'Failed to sign out. Please try again.');
+    
+                showToastMessage('Failed to sign out. Please try again.', 'error');
               }
             }
           }
@@ -78,19 +125,14 @@ export default function PaymentScreen({ navigation, route }) {
 
   // Security check: Ensure user cannot bypass payment
   useEffect(() => {
-    console.log('🔒 PaymentScreen Security Check:', {
-      plan: selectedPlan,
-      userPlan: userData?.plan,
-      subscriptionStatus: userData?.subscriptionStatus,
-      paymentCompleted: userData?.paymentCompleted
-    });
+
 
     // If user somehow has an active subscription or payment completed, they shouldn't be here
     const hasActiveSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
     const paymentCompleted = userData?.paymentCompleted === true;
     
     if (hasActiveSubscription && paymentCompleted) {
-      console.log('🔒 User has completed payment, should not be on payment screen');
+   
       // They've already paid, let navigation handle the redirect
       return;
     }
@@ -98,7 +140,7 @@ export default function PaymentScreen({ navigation, route }) {
     // If they have a paid plan but no active subscription, they must stay here
     const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
     if (hasPaidPlan && !hasActiveSubscription) {
-      console.log('🔒 User has paid plan but no active subscription - enforcing payment');
+
     }
   }, [userData, selectedPlan]);
 
@@ -199,15 +241,16 @@ export default function PaymentScreen({ navigation, route }) {
       previousPlanName = 'Event Premium Plan';
     }
 
-    Alert.alert(
+    showCustomModal(
       'Return to Previous Plan',
       `Are you sure you want to go back to your ${previousPlanName}? You can always upgrade again later.`,
       [
-        { text: 'Stay Here', style: 'cancel' },
+        { text: 'Stay Here', onPress: () => setModalVisible(false), style: 'cancel' },
         { 
           text: 'Go Back', 
           style: 'default',
           onPress: async () => {
+            setModalVisible(false);
             try {
               setLoading(true);
               
@@ -230,8 +273,8 @@ export default function PaymentScreen({ navigation, route }) {
               }
               
             } catch (error) {
-              console.error('Error returning to previous plan:', error);
-              Alert.alert('Error', 'Failed to return to previous plan. Please try again.');
+           
+              showToastMessage('Failed to return to previous plan. Please try again.', 'error');
             } finally {
               setLoading(false);
             }
@@ -242,11 +285,11 @@ export default function PaymentScreen({ navigation, route }) {
   };
 
   const handlePayment = async () => {
-    console.log('🔍 handlePayment started');
+
     setLoading(true);
     
     try {
-      console.log('🔍 Creating payment intent...');
+
       // Create payment intent using Firebase Functions
       const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createPaymentIntent', {
         method: 'POST',
@@ -265,15 +308,15 @@ export default function PaymentScreen({ navigation, route }) {
       });
 
       const result = await response.json();
-      console.log('🔍 Payment intent response:', result);
+
 
       if (!response.ok || result.error) {
-        Alert.alert('Error', result.error || 'Failed to create payment');
+        showToastMessage(result.error || 'Failed to create payment', 'error');
         setLoading(false);
         return;
       }
 
-      console.log('🔍 Initializing payment sheet...');
+  
       
       let initResponse;
       if (result.isSetupIntent) {
@@ -320,45 +363,45 @@ export default function PaymentScreen({ navigation, route }) {
         });
       }
 
-      console.log('🔍 Payment sheet init response:', initResponse);
 
       if (initResponse.error) {
-        console.error('🔍 Payment sheet init error:', initResponse.error);
-        Alert.alert('Error', initResponse.error.message);
+    
+        showToastMessage(initResponse.error.message, 'error');
         setLoading(false);
         return;
       }
 
-      console.log('🔍 Presenting payment sheet...');
+    
       // Present payment sheet
       const paymentResponse = await presentPaymentSheet();
 
-      console.log('🔍 Payment response:', paymentResponse);
+  
 
       if (paymentResponse.error) {
         if (paymentResponse.error.code === 'Canceled') {
-          console.log('🔍 Payment was cancelled by user');
-          Alert.alert(
+    
+          showCustomModal(
             'Payment Required',
             'Payment was cancelled. You must complete payment to access premium features. Please try again.',
             [
-              { text: 'Try Again', style: 'default' },
+              { text: 'Try Again', onPress: () => setModalVisible(false), style: 'default' },
               { 
                 text: 'Sign Out', 
                 style: 'destructive',
                 onPress: async () => {
+                  setModalVisible(false);
                   try {
                     await signOut(auth);
                   } catch (error) {
-                    console.error('Error signing out:', error);
-                    Alert.alert('Error', 'Failed to sign out. Please try again.');
+      
+                    showToastMessage('Failed to sign out. Please try again.', 'error');
                   }
                 }
               }
             ]
           );
         } else {
-          Alert.alert('Payment failed', paymentResponse.error.message);
+          showToastMessage(`Payment failed: ${paymentResponse.error.message}`, 'error');
         }
         setLoading(false);
         return;
@@ -395,18 +438,19 @@ export default function PaymentScreen({ navigation, route }) {
         successMessage = `Welcome to ${plans[selectedPlan].name}! Your subscription is now active.`;
       }
 
-      Alert.alert(
+      showCustomModal(
         result.hasFreeTrial ? 'Free Trial Started!' : 'Payment Successful!',
         successMessage,
         [{ text: 'Continue', onPress: () => {
+          setModalVisible(false);
           // Navigation will automatically switch to owner dashboard
           // since subscriptionStatus is now 'active' or 'trialing'
-        }}]
+        }, style: 'default' }]
       );
 
     } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Error', 'Payment failed. Please try again.');
+
+      showToastMessage('Payment failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -530,14 +574,14 @@ export default function PaymentScreen({ navigation, route }) {
                   paymentCompleted: true
                 });
 
-                Alert.alert(
+                showCustomModal(
                   'Plan Activated!',
                   `Welcome to ${filteredPlans[selectedPlan].name}! Your free plan is now active.`,
-                  [{ text: 'Continue' }]
+                  [{ text: 'Continue', onPress: () => setModalVisible(false), style: 'default' }]
                 );
               } catch (error) {
-                console.error('Error activating free plan:', error);
-                Alert.alert('Error', 'Failed to activate plan. Please try again.');
+     
+                showToastMessage('Failed to activate plan. Please try again.', 'error');
               } finally {
                 setLoading(false);
               }
@@ -579,27 +623,29 @@ export default function PaymentScreen({ navigation, route }) {
                 <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            Alert.alert(
+            showCustomModal(
               'Go Back',
               userRole === 'event-organizer' 
                 ? 'What would you like to do?'
                 : 'What would you like to do?',
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
                 { 
                   text: 'Change Plan', 
                   onPress: () => {
+                    setModalVisible(false);
                     // Allow them to select a different plan or downgrade to free
-                    Alert.alert(
+                    showCustomModal(
                       'Change Plan',
                       userRole === 'event-organizer'
                         ? 'Would you like to switch to the free Event Starter plan instead?'
                         : 'Would you like to switch to the free Starter plan instead?',
                       [
-                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
                         { 
                           text: 'Switch to Free Plan', 
                           onPress: async () => {
+                            setModalVisible(false);
                             try {
                               const userRef = doc(db, 'users', user.uid);
                               const freePlan = userRole === 'event-organizer' ? 'event-basic' : 'basic';
@@ -609,30 +655,33 @@ export default function PaymentScreen({ navigation, route }) {
                                 subscriptionStartDate: new Date(),
                                 paymentCompleted: true
                               });
-                              Alert.alert(
+                              showCustomModal(
                                 'Plan Updated!',
                                 `You've been switched to the free ${userRole === 'event-organizer' ? 'Event Starter' : 'Starter'} plan.`,
-                                [{ text: 'Continue' }]
+                                [{ text: 'Continue', onPress: () => setModalVisible(false), style: 'default' }]
                               );
                             } catch (error) {
-                              console.error('Error updating plan:', error);
-                              Alert.alert('Error', 'Failed to update plan. Please try again.');
+              
+                              showToastMessage('Failed to update plan. Please try again.', 'error');
                             }
-                          }
+                          },
+                          style: 'default'
                         }
                       ]
                     );
-                  }
+                  },
+                  style: 'default'
                 },
                 { 
                   text: 'Sign Out', 
                   style: 'destructive',
                   onPress: async () => {
+                    setModalVisible(false);
                     try {
                       await signOut(auth);
                     } catch (error) {
-                      console.error('Error signing out:', error);
-                      Alert.alert('Error', 'Failed to sign out. Please try again.');
+                  
+                      showToastMessage('Failed to sign out. Please try again.', 'error');
                     }
                   }
                 }
@@ -643,6 +692,57 @@ export default function PaymentScreen({ navigation, route }) {
           <Text style={styles.backText}>Go Back</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Toast Notification (replaces simple Alert.alert) */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastOpacity,
+              backgroundColor: toastType === 'error' ? '#dc3545' : '#28a745'
+            }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{modalTitle}</Text>
+            <Text style={styles.customModalMessage}>{modalMessage}</Text>
+            <View style={styles.customModalButtons}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.customModalButton,
+                    button.style === 'cancel' && styles.customModalButtonCancel,
+                    button.style === 'destructive' && styles.customModalButtonDestructive
+                  ]}
+                  onPress={button.onPress}
+                >
+                  <Text style={[
+                    styles.customModalButtonText,
+                    button.style === 'cancel' && styles.customModalButtonTextCancel,
+                    button.style === 'destructive' && styles.customModalButtonTextDestructive
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -817,5 +917,82 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
     flex: 1,
+  },
+  // Toast notification styles (replaces Alert.alert)
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  customModalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+  },
+  customModalButtonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  customModalButtonDestructive: {
+    backgroundColor: '#dc3545',
+  },
+  customModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  customModalButtonTextCancel: {
+    color: '#fff',
+  },
+  customModalButtonTextDestructive: {
+    color: '#fff',
   },
 });

@@ -156,7 +156,7 @@ vapidKey: 'your-vapid-key-here'
 ```javascript
 // Test in Expo environment
 FCMNotificationService.testNotification('customer');
-console.log('Status:', FCMNotificationService.getStatus());
+
 // Should show: { environment: 'expo', isInitialized: true }
 ```
 
@@ -164,7 +164,7 @@ console.log('Status:', FCMNotificationService.getStatus());
 ```javascript
 // Test in standalone environment
 FCMNotificationService.testNotification('truck_owner');
-console.log('Status:', FCMNotificationService.getStatus());
+
 // Should show: { environment: 'standalone', isInitialized: true }
 ```
 
@@ -246,10 +246,10 @@ The system automatically handles badge counts across platforms:
 
 ```javascript
 // Check service status
-console.log('FCM Status:', FCMNotificationService.getStatus());
+
 
 // Test token generation
-FCMNotificationService.initialize(userId).then(console.log);
+FCMNotificationService.initialize(userId).then();
 
 // Test local notification
 FCMNotificationService.testNotification('customer');

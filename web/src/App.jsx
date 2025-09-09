@@ -79,7 +79,7 @@ const safeGoogleMapsKey = googleMapsKey || 'test-key';
 // Add network connectivity check function
 const checkNetworkConnectivity = () => {
   if (!navigator.onLine) {
-    console.warn('🌐 Network: Device appears to be offline');
+
     return false;
   }
   return true;
@@ -151,11 +151,11 @@ function ProtectedDashboardRoute({ children }) {
   });
 
   if (!hasValidAccess) {
-    console.log('🚨 BLOCKING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
+
     return <Navigate to="/signup" />;
   }
 
-  console.log('✅ ALLOWING ACCESS - Plan:', userPlan, 'Status:', userSubscriptionStatus);
+
   return children;
 }
 
@@ -171,12 +171,12 @@ function App() {
   useEffect(() => {
     import('./firebase').then(({ auth, db }) => {
       if (!auth || !db) {
-        console.error('🔥 Firebase services not properly initialized');
+ 
       } else {
-        console.log('🔥 Firebase services ready');
+
       }
     }).catch(error => {
-      console.error('🔥 Failed to import Firebase:', error);
+    
     });
   }, []);
 
@@ -184,20 +184,20 @@ function App() {
   useEffect(() => {
     // Setup network event listeners
     const handleOnline = () => {
-      console.log('🌐 Network: Connection restored');
+    
     };
 
     const handleOffline = () => {
-      console.warn('🌐 Network: Connection lost');
+  
     };
 
     // Setup global error handler
     const handleUnhandledRejection = (event) => {
-      console.error('🚨 Unhandled Promise Rejection:', event.reason);
+  
       
       // Handle Firebase permission-denied errors gracefully
       if (event.reason && event.reason.code === 'permission-denied') {
-        console.log('🚨 Global handler: Firebase permission denied error caught during logout');
+   
         event.preventDefault();
         return;
       }
@@ -205,7 +205,7 @@ function App() {
       // Handle generic Firebase permission errors
       if (event.reason && typeof event.reason === 'string' && 
           event.reason.includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: Firebase permission error caught during logout');
+      
         event.preventDefault();
         return;
       }
@@ -214,7 +214,7 @@ function App() {
       if (event.reason && event.reason.constructor && 
           event.reason.constructor.name === 'FirebaseError' &&
           event.reason.message && event.reason.message.includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: FirebaseError permission denied caught during authentication state change');
+     
         event.preventDefault();
         return;
       }
@@ -222,7 +222,7 @@ function App() {
       // Handle snapshot listener permission errors specifically
       if (event.reason && event.reason.toString && 
           event.reason.toString().includes('Missing or insufficient permissions')) {
-        console.log('🚨 Global handler: Snapshot listener permission error caught - preventing error display');
+     
         event.preventDefault();
         return;
       }
@@ -234,7 +234,7 @@ function App() {
           event.reason.message?.includes('Bad Request') ||
           event.reason.code === 'unavailable'
         )) {
-        console.log('🚨 Global handler: Firestore connectivity error caught:', event.reason.message);
+  
         event.preventDefault();
         return;
       }
@@ -247,7 +247,7 @@ function App() {
 
     // Development cache clearing (only once per session)
     if (import.meta.env.MODE === 'development' && !window.__cacheCleared) {
-      console.log('🧹 Development mode detected - skipping automatic cache clear to prevent infinite reload');
+ 
       window.__cacheCleared = true;
     }
 
@@ -262,7 +262,7 @@ function App() {
   // Initialize notification service when user is authenticated
   useEffect(() => {
     if (user && userRole === 'customer') {
-      console.log('🔔 Initializing notification service for customer');
+  
       
       setTimeout(() => {
         notificationService.setupMessageListener((payload) => {
@@ -327,15 +327,15 @@ function App() {
   window.auth = getAuth();
   
   if (loading) {
-    console.log('⏳ App in loading state, showing loading screen');
+ 
     return <div>Loading...</div>;
   }
 
-  console.log('✅ App finished loading, rendering main application');
+
 
   // Add Stripe validation before rendering Elements
   if (!stripePromise) {
-    console.error('Stripe failed to initialize - check environment variables');
+
     return (
       <ErrorBoundary>
       <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
@@ -455,8 +455,8 @@ function App() {
       <MobileGoogleMapsWrapper
         googleMapsApiKey={safeGoogleMapsKey}
         libraries={LIBRARIES}
-        onLoad={() => console.log('🗺️ Google Maps API loaded successfully (main)')}
-        onError={(error) => console.error('🗺️ Google Maps API failed to load (main):', error)}
+        onLoad={() => ('')}
+        onError={(error) => ('')}
         loadingElement={<div>Loading Maps...</div>}
       >
         <BrowserRouter>

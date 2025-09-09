@@ -20,7 +20,7 @@ const firebaseConfig = {
 import { db } from './src/firebase.js';
 
 async function initializeEventSystem() {
-  console.log('🏗️ Initializing Event System Database...\n');
+
 
   try {
     // Create sample event organizer (for testing)
@@ -43,9 +43,9 @@ async function initializeEventSystem() {
       createdAt: serverTimestamp(),
     };
 
-    console.log('📋 Creating sample event organizer...');
+
     await setDoc(doc(db, 'users', sampleOrganizerId), sampleOrganizerData);
-    console.log('✅ Sample event organizer created');
+
 
     // Create sample event
     const sampleEventId = 'sample-event-001';
@@ -96,9 +96,9 @@ async function initializeEventSystem() {
       updatedAt: serverTimestamp()
     };
 
-    console.log('🎪 Creating sample event...');
+
     await setDoc(doc(db, 'events', sampleEventId), sampleEventData);
-    console.log('✅ Sample event created');
+
 
     // Create sample event application
     const sampleApplicationId = 'sample-application-001';
@@ -130,31 +130,9 @@ async function initializeEventSystem() {
       notes: ''
     };
 
-    console.log('📄 Creating sample event application...');
-    await setDoc(doc(db, 'eventApplications', sampleApplicationId), sampleApplicationData);
-    console.log('✅ Sample event application created');
-
-    console.log('\n🎉 Event System Database Initialization Complete!');
-    console.log('\n📋 Summary:');
-    console.log('✅ Event organizer role added to signup form');
-    console.log('✅ Firestore security rules updated');
-    console.log('✅ Event Dashboard component created');
-    console.log('✅ Sample data created for testing');
-    console.log('✅ Routing configured for event organizers');
-    
-    console.log('\n🔗 Collections Created:');
-    console.log('- events (for festival/event data)');
-    console.log('- eventApplications (for vendor applications)');
-    console.log('- users (enhanced with event organizer fields)');
-
-    console.log('\n🧪 Test the system:');
-    console.log('1. Sign up as an "Event Organizer"');
-    console.log('2. Navigate to /event-dashboard');
-    console.log('3. View the sample event and application data');
-    console.log('4. Ready for Phase 2: Event Creation Form');
 
   } catch (error) {
-    console.error('❌ Error initializing event system:', error);
+
   }
 }
 

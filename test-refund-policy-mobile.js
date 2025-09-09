@@ -76,6 +76,3 @@
    - Non-refundable policy clearly emphasized
 */
 
-console.log('Refund Policy implementation completed successfully');
-console.log('Complete legal document suite now available in mobile app');
-console.log('Ready for manual testing and deployment');

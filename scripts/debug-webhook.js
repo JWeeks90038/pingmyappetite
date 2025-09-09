@@ -37,20 +37,17 @@ const mockStripeEvent = {
 
 // Test the plan determination function
 function getPlanFromPriceId(priceId) {
-  console.log('Testing plan determination:');
-  console.log('Price ID received:', priceId);
-  console.log('VITE_STRIPE_PRO_PRICE_ID:', process.env.VITE_STRIPE_PRO_PRICE_ID);
-  console.log('VITE_STRIPE_ALL_ACCESS_PRICE_ID:', process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID);
+
   
   if (priceId === process.env.VITE_STRIPE_PRO_PRICE_ID) {
-    console.log('✅ Matched PRO plan');
+
     return 'pro';
   }
   if (priceId === process.env.VITE_STRIPE_ALL_ACCESS_PRICE_ID) {
-    console.log('✅ Matched ALL-ACCESS plan');
+
     return 'all-access';
   }
-  console.log('❌ No match found, defaulting to basic');
+
   return 'basic';
 }
 
@@ -61,11 +58,7 @@ async function testWebhookLogic() {
     const priceId = createdSub.items.data[0].price.id;
     const planType = getPlanFromPriceId(priceId);
     
-    console.log('\n=== Webhook Processing Test ===');
-    console.log('Subscription ID:', createdSub.id);
-    console.log('Customer ID:', createdSub.customer);
-    console.log('Price ID:', priceId);
-    console.log('Determined Plan:', planType);
+
     
     // Test user lookup
     const db = admin.firestore();
@@ -75,14 +68,10 @@ async function testWebhookLogic() {
     const userDoc = await usersRef.doc('Tuu7FCHBbjWIapVKH4omrHMn2Uo2').get();
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      console.log('\n=== User Found ===');
-      console.log('User ID:', userDoc.id);
-      console.log('Current Plan:', userData.plan);
-      console.log('Stripe Customer ID:', userData.stripeCustomerId);
-      console.log('Email:', userData.email);
+
       
-      // Test update
-      console.log('\n=== Testing Update ===');
+
+
       await userDoc.ref.update({
         plan: planType,
         subscriptionId: createdSub.id,
@@ -90,19 +79,19 @@ async function testWebhookLogic() {
         priceId: priceId,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-      console.log('✅ User plan updated successfully');
+
       
       // Verify update
       const updatedDoc = await usersRef.doc('Tuu7FCHBbjWIapVKH4omrHMn2Uo2').get();
-      console.log('New plan:', updatedDoc.data().plan);
+
       
     } else {
-      console.log('❌ User not found with UID: Tuu7FCHBbjWIapVKH4omrHMn2Uo2');
+  
     }
     
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error:', error);
+
     process.exit(1);
   }
 }

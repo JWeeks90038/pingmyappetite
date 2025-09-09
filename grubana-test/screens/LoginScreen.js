@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
+  Animated,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -19,9 +19,36 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Toast notification state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('Please fill in all fields');
       return;
     }
 
@@ -29,7 +56,7 @@ export default function LoginScreen({ navigation }) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showToast(error.message);
     }
     setLoading(false);
   };
@@ -42,7 +69,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../assets/grubana-logo.png')} 
+            source={require('../assets/logo.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
@@ -87,6 +114,18 @@ export default function LoginScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -163,5 +202,23 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#2c6f57',
     fontSize: 14,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 20,
+    right: 20,
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

@@ -6,14 +6,14 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 async function testSMS() {
-  console.log('🔍 Testing Twilio SMS functionality...\n');
+  
   
   // Check configuration first
   const config = checkTwilioConfig();
-  console.log('Configuration check:', config.configured ? '✅ READY' : '❌ NOT READY');
+
   
   if (!config.configured) {
-    console.log('❌ Twilio not properly configured');
+
     return;
   }
   
@@ -25,7 +25,7 @@ async function testSMS() {
   });
   
   rl.question('📱 Enter your phone number (e.g., +1234567890): ', async (phoneNumber) => {
-    console.log(`\n📤 Sending test SMS to ${phoneNumber}...`);
+  
     
     try {
       const result = await sendNotificationSMS(
@@ -36,18 +36,12 @@ async function testSMS() {
       );
       
       if (result.success) {
-        console.log('✅ SMS sent successfully!');
-        console.log('📱 Check your phone for the test message');
-        console.log('Details:', {
-          messageSid: result.messageSid,
-          status: result.status,
-          to: result.to
-        });
+ 
       } else {
-        console.log('❌ Failed to send SMS:', result.error);
+  
       }
     } catch (error) {
-      console.log('❌ Error:', error.message);
+
     }
     
     rl.close();

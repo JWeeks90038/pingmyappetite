@@ -81,7 +81,7 @@ export const AuthContextProvider = ({ children }) => {
                       setUserSubscriptionStatus(newUser.subscriptionStatus);
                     }
                   } catch (timeoutError) {
-                    console.error('🚀 AuthContext: Error creating default user document:', timeoutError);
+                
                     // Set defaults even if creation fails
                     setUserRole("customer");
                     setUserPlan("basic");
@@ -94,7 +94,7 @@ export const AuthContextProvider = ({ children }) => {
                 setUserPlan(null);
                 setUserSubscriptionStatus(null);
               } else {
-                console.log('🚀 LATEST CODE: AuthContext updated - Version 8b0c6718');
+       
                 const data = userSnap.data();
                 console.log('🔍 AuthContext user data:', {
                   plan: data.plan,
@@ -105,9 +105,7 @@ export const AuthContextProvider = ({ children }) => {
                 setUserRole(data.role || "customer");
                 setUserPlan(data.plan || "basic");
                 
-                // Note: Truck location cleanup is handled by the backend/admin functions
-                // No need to clean up here as it causes permission errors for customers
-                console.log('🚀 AuthContext: User role set to:', data.role || "customer");
+   
                 
                 // More defensive subscription status handling
                 let subscriptionStatus = data.subscriptionStatus;
@@ -115,24 +113,24 @@ export const AuthContextProvider = ({ children }) => {
                 // If plan is basic and no subscription status, default to active
                 if (data.plan === "basic" && !subscriptionStatus) {
                   subscriptionStatus = "active";
-                  console.log('🔍 AuthContext: Set basic plan to active status');
+         
                 }
                 
                 // If plan is pro/all-access and no subscription status, keep it null for admin override
                 if ((data.plan === "pro" || data.plan === "all-access") && !subscriptionStatus) {
-                  console.log('🚀 AuthContext: Detected manual plan override for plan:', data.plan, 'keeping status as null');
+         
                   subscriptionStatus = null; // Explicitly keep as null for admin overrides
                 }
                 
-                console.log('🔍 AuthContext: Final subscription status:', subscriptionStatus);
+         
                 setUserSubscriptionStatus(subscriptionStatus);
               }
               setLoading(false);
             } catch (error) {
-              console.error('🚀 AuthContext: Error in user document listener:', error);
+    
               // Don't crash the app on Firestore errors, set safe defaults
               if (error.code === 'permission-denied') {
-                console.log('🚀 AuthContext: Permission denied, user may have logged out');
+            
                 setUserRole(null);
                 setUserPlan(null);
                 setUserSubscriptionStatus(null);
@@ -147,9 +145,9 @@ export const AuthContextProvider = ({ children }) => {
           }, 
           (error) => {
             // Handle listener errors (like permission denied)
-            console.error('🚀 AuthContext: Firestore listener error:', error);
+    
             if (error.code === 'permission-denied') {
-              console.log('🚀 AuthContext: Permission denied on listener, user likely logged out');
+      
               // Clean up the listener
               if (unsubUserDoc) {
                 unsubUserDoc();
@@ -164,7 +162,7 @@ export const AuthContextProvider = ({ children }) => {
           }
         );
       } catch (error) {
-        console.error('🚀 AuthContext: Error setting up user document listener:', error);
+    
         // Set safe defaults if listener setup fails
         setUserRole("customer");
         setUserPlan("basic");
@@ -192,18 +190,18 @@ export const AuthContextProvider = ({ children }) => {
       return;
     }
 
-    console.log('🌍 AuthContext: Starting global live location tracking for owner');
+
 
     const startLiveTracking = () => {
       // Check if geolocation is available and if we're in a secure context (HTTPS or localhost)
       if (!("geolocation" in navigator)) {
-        console.warn("🌍 AuthContext: Geolocation not supported on this device");
+     
         return;
       }
 
       // Check if we're in a secure context (required for geolocation on mobile)
       if (!window.isSecureContext && window.location.protocol !== 'http:') {
-        console.warn("🌍 AuthContext: Geolocation requires HTTPS on mobile devices");
+  
         return;
       }
 
@@ -217,7 +215,7 @@ export const AuthContextProvider = ({ children }) => {
               try {
                 // Check if user is still authenticated before writing to Firestore
                 if (!auth.currentUser) {
-                  console.log("🌍 AuthContext: User not authenticated, skipping location update");
+     
                   return;
                 }
 
@@ -247,9 +245,9 @@ export const AuthContextProvider = ({ children }) => {
                   { merge: true }
                 );
 
-                console.log("🌍 AuthContext: Live GPS position saved:", { latitude, longitude });
+               
               } catch (error) {
-                console.error("🌍 AuthContext: Error saving location:", error);
+              
                 // Check if it's a permission error (user logged out)
                 if (error.code === 'permission-denied') {
                   console.log("🌍 AuthContext: Permission denied - user likely logged out, stopping location tracking");
@@ -262,14 +260,14 @@ export const AuthContextProvider = ({ children }) => {
             }
           },
           (err) => {
-            console.error("🌍 AuthContext: Geolocation error:", err);
+     
             // Don't crash the app on geolocation errors
             if (err.code === err.PERMISSION_DENIED) {
-              console.warn("🌍 AuthContext: Location permission denied by user");
+       
             } else if (err.code === err.POSITION_UNAVAILABLE) {
-              console.warn("🌍 AuthContext: Location information unavailable");
+          
             } else if (err.code === err.TIMEOUT) {
-              console.warn("🌍 AuthContext: Location request timeout");
+       
             }
           },
           { 
@@ -279,7 +277,7 @@ export const AuthContextProvider = ({ children }) => {
           }
         );
       } catch (error) {
-        console.error("🌍 AuthContext: Error setting up geolocation:", error);
+ 
       }
     };
 

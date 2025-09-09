@@ -20,7 +20,7 @@ const functions = getFunctions(app);
 // Test the catering function
 async function testCateringFunction() {
   try {
-    console.log('🧪 Testing catering function...');
+
     
     const sendCateringRequest = httpsCallable(functions, 'sendCateringRequest');
     
@@ -38,13 +38,10 @@ async function testCateringFunction() {
     };
     
     const result = await sendCateringRequest(testData);
-    console.log('✅ Function test successful:', result.data);
+
     
   } catch (error) {
-    console.error('❌ Function test failed:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
-    console.error('Error details:', error.details);
+
   }
 }
 

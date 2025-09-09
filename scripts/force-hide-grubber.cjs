@@ -15,7 +15,7 @@ const db = getFirestore(app);
 
 async function forceHideGrubber() {
   try {
-    console.log('🔍 Searching for The Grubber in users collection...');
+
     
     // Find The Grubber owner in users collection
     const usersRef = collection(db, 'users');
@@ -23,7 +23,7 @@ async function forceHideGrubber() {
     const grubberSnapshot = await getDocs(grubberQuery);
     
     if (grubberSnapshot.empty) {
-      console.log('❌ No user found with truckName "The Grubber"');
+ 
       return;
     }
     
@@ -31,14 +31,10 @@ async function forceHideGrubber() {
     const grubberUserId = grubberUser.id;
     const grubberData = grubberUser.data();
     
-    console.log('✅ Found The Grubber owner:', {
-      id: grubberUserId,
-      truckName: grubberData.truckName,
-      email: grubberData.email
-    });
+ 
     
     // Force hide the truck in truckLocations collection
-    console.log('🔒 Force-hiding The Grubber truck...');
+
     const truckDocRef = doc(db, 'truckLocations', grubberUserId);
     
     await setDoc(truckDocRef, {
@@ -52,12 +48,10 @@ async function forceHideGrubber() {
       lng: -117.0934,
       coordinates: { lat: 33.8309, lng: -117.0934 }
     }, { merge: true });
-    
-    console.log('✅ Successfully force-hid The Grubber truck');
-    console.log('✅ The truck should now be invisible to all users');
+ 
     
   } catch (error) {
-    console.error('❌ Error:', error.message);
+
   }
 }
 

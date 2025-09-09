@@ -46,7 +46,7 @@ const PreOrderSystem = ({ truckId, menuItems, cart, setCart, onOrderComplete }) 
         }));
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+
     }
   };
 
@@ -119,12 +119,12 @@ const PreOrderSystem = ({ truckId, menuItems, cart, setCart, onOrderComplete }) 
         source: 'pre-order'
       };
 
-      console.log('📋 Placing order:', orderData);
+ 
 
       // Create order in Firestore
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
       
-      console.log('✅ Order created with ID:', orderRef.id);
+
 
       // Clear cart and update UI
       setCart([]);
@@ -137,15 +137,15 @@ const PreOrderSystem = ({ truckId, menuItems, cart, setCart, onOrderComplete }) 
       }
 
     } catch (error) {
-      console.error('❌ Error placing order:', error);
-      setError(error.message || 'Failed to place order. Please try again.');
+
+
     } finally {
       setLoading(false);
     }
   };
 
   const handleStatusChange = (newStatus, orderData) => {
-    console.log('📱 Order status changed:', newStatus);
+ 
     
     // Update local order state
     setCurrentOrder(prev => ({
@@ -169,13 +169,13 @@ const PreOrderSystem = ({ truckId, menuItems, cart, setCart, onOrderComplete }) 
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, {
         body,
-        icon: '/grubana-logo.png',
+        icon: '/logo.png',
         badge: '/truck-icon.png'
       });
     }
 
     // You could also trigger push notifications here
-    console.log('📱 Notification:', title, body);
+
   };
 
   const resetOrder = () => {

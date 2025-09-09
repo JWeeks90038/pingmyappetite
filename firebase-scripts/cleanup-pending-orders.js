@@ -17,10 +17,10 @@ const db = admin.firestore();
  */
 async function cleanupOldOrders(minutesOld = 10) {
   try {
-    console.log(`Starting cleanup of orders older than ${minutesOld} minutes...`);
+
     
     const cutoffTime = new Date(Date.now() - (minutesOld * 60 * 1000));
-    console.log(`Cutoff time: ${cutoffTime.toISOString()}`);
+
     
     // Query for pending_payment orders older than cutoff time
     const pendingQuery = db.collection('orders')
@@ -42,23 +42,23 @@ async function cleanupOldOrders(minutesOld = 10) {
     // Collect pending payment orders
     pendingSnapshot.forEach(doc => {
       const data = doc.data();
-      console.log(`Found pending payment order: ${doc.id} from ${data.timestamp?.toDate()}`);
+   
       ordersToDelete.push(doc.ref);
     });
     
     // Collect cancelled orders
     cancelledSnapshot.forEach(doc => {
       const data = doc.data();
-      console.log(`Found cancelled order: ${doc.id} from ${data.timestamp?.toDate()}`);
+
       ordersToDelete.push(doc.ref);
     });
     
     if (ordersToDelete.length === 0) {
-      console.log('No orders to delete.');
+
       return { deleted: 0, errors: 0 };
     }
     
-    console.log(`Deleting ${ordersToDelete.length} orders...`);
+ 
     
     // Delete orders in batches of 500 (Firestore batch limit)
     const batchSize = 500;
@@ -76,18 +76,18 @@ async function cleanupOldOrders(minutesOld = 10) {
       try {
         await batch.commit();
         deletedCount += batchOrders.length;
-        console.log(`Deleted batch of ${batchOrders.length} orders`);
+ 
       } catch (error) {
-        console.error(`Error deleting batch:`, error);
+
         errorCount += batchOrders.length;
       }
     }
     
-    console.log(`Cleanup completed. Deleted: ${deletedCount}, Errors: ${errorCount}`);
+  
     return { deleted: deletedCount, errors: errorCount };
     
   } catch (error) {
-    console.error('Error in cleanup process:', error);
+
     throw error;
   }
 }
@@ -98,7 +98,7 @@ async function cleanupOldOrders(minutesOld = 10) {
  * @param {number} orderAgeMinutes - Delete orders older than this (in minutes)
  */
 function setupAutomaticCleanup(intervalMinutes = 30, orderAgeMinutes = 10) {
-  console.log(`Setting up automatic cleanup every ${intervalMinutes} minutes for orders older than ${orderAgeMinutes} minutes`);
+
   
   // Run immediately
   cleanupOldOrders(orderAgeMinutes);
@@ -114,14 +114,14 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const minutesOld = args[0] ? parseInt(args[0]) : 10;
   
-  console.log('Running order cleanup script...');
+
   cleanupOldOrders(minutesOld)
     .then(result => {
-      console.log('Script completed:', result);
+
       process.exit(0);
     })
     .catch(error => {
-      console.error('Script failed:', error);
+
       process.exit(1);
     });
 }

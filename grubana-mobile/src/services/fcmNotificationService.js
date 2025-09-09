@@ -33,18 +33,18 @@ class FCMNotificationService {
    */
   async initialize(userId) {
     if (!userId) {
-      console.warn('⚠️ Cannot initialize FCM: No user ID provided');
+ 
       return false;
     }
 
     try {
-      console.log('🔔 Initializing FCM for user:', userId);
+
       
       // Use Expo notifications for current development
       return await this.initializeExpoNotifications(userId);
       
     } catch (error) {
-      console.error('❌ Failed to initialize FCM:', error);
+
       return false;
     }
   }
@@ -68,7 +68,7 @@ class FCMNotificationService {
       });
 
       if (!Device.default.isDevice) {
-        console.warn('⚠️ Push notifications only work on physical devices');
+
         return false;
       }
 
@@ -82,7 +82,7 @@ class FCMNotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.warn('⚠️ Notification permission not granted');
+   
         return false;
       }
 
@@ -90,7 +90,7 @@ class FCMNotificationService {
       const tokenResponse = await Notifications.default.getDevicePushTokenAsync();
       const fcmToken = tokenResponse.data || tokenResponse;
 
-      console.log('🔔 FCM Token obtained (Expo):', fcmToken);
+
       this.fcmToken = fcmToken;
 
       // Save token to Firestore
@@ -103,7 +103,7 @@ class FCMNotificationService {
       return true;
 
     } catch (error) {
-      console.error('❌ Error initializing Expo notifications:', error);
+
       return false;
     }
   }
@@ -115,18 +115,18 @@ class FCMNotificationService {
     try {
       // Listen for notifications received while app is in foreground
       this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-        console.log('🔔 FCM Notification received (foreground):', notification);
+   
         this.incrementBadgeCount();
       });
 
       // Listen for notification responses (when user taps notification)
       this.messageListener = Notifications.addNotificationResponseReceivedListener(response => {
-        console.log('🔔 FCM Notification response:', response);
+   
         this.clearBadgeCount();
         this.handleNotificationResponse(response.notification.request.content.data);
       });
     } catch (error) {
-      console.error('❌ Error setting up notification listeners:', error);
+
     }
   }
 
@@ -135,19 +135,18 @@ class FCMNotificationService {
    */
   handleNotificationResponse(data) {
     if (data?.type === 'new_order') {
-      console.log('� New order notification tapped');
+
       // TODO: Navigate to orders screen
-    } else if (data?.type === 'order_status') {
-      console.log('� Order status notification tapped');
+
       // TODO: Navigate to order tracking
     }
   }
   handleNotificationResponse(data) {
     if (data?.type === 'new_order') {
-      console.log('🚚 New order notification tapped');
+
       // TODO: Navigate to orders screen
     } else if (data?.type === 'order_status') {
-      console.log('📱 Order status notification tapped');
+  
       // TODO: Navigate to order tracking
     }
   }
@@ -171,9 +170,9 @@ class FCMNotificationService {
         }
       });
       
-      console.log('✅ FCM token saved to Firestore');
+   
     } catch (error) {
-      console.error('❌ Error saving FCM token to Firestore:', error);
+
       throw error;
     }
   }
@@ -186,9 +185,9 @@ class FCMNotificationService {
       // Use dynamic import to avoid compile errors
       const Notifications = await import('expo-notifications');
       await Notifications.default.setBadgeCountAsync(count);
-      console.log(`🔢 Badge count set to: ${count}`);
+
     } catch (error) {
-      console.error('❌ Error setting badge count:', error);
+
     }
   }
 
@@ -197,7 +196,7 @@ class FCMNotificationService {
       const Notifications = await import('expo-notifications');
       return await Notifications.default.getBadgeCountAsync();
     } catch (error) {
-      console.error('❌ Error getting badge count:', error);
+  
       return 0;
     }
   }
@@ -209,7 +208,7 @@ class FCMNotificationService {
       await this.setBadgeCount(newCount);
       return newCount;
     } catch (error) {
-      console.error('❌ Error incrementing badge count:', error);
+
       return 0;
     }
   }
@@ -217,9 +216,9 @@ class FCMNotificationService {
   async clearBadgeCount() {
     try {
       await this.setBadgeCount(0);
-      console.log('🧹 Badge count cleared');
+
     } catch (error) {
-      console.error('❌ Error clearing badge count:', error);
+
     }
   }
 
@@ -233,9 +232,9 @@ class FCMNotificationService {
         content: { title, body, data },
         trigger: null,
       });
-      console.log('📱 Local notification sent');
+
     } catch (error) {
-      console.error('❌ Error sending local notification:', error);
+
     }
   }
 
@@ -275,7 +274,7 @@ class FCMNotificationService {
       
       return { push: true, sms: false, email: true };
     } catch (error) {
-      console.error('❌ Error getting notification preferences:', error);
+   
       return { push: true, sms: false, email: true };
     }
   }
@@ -292,10 +291,10 @@ class FCMNotificationService {
         notificationPreferencesUpdatedAt: new Date()
       });
       
-      console.log('✅ Notification preferences updated');
+ 
       return true;
     } catch (error) {
-      console.error('❌ Error updating notification preferences:', error);
+
       return false;
     }
   }
@@ -319,9 +318,9 @@ class FCMNotificationService {
       }
       
       this.isInitialized = false;
-      console.log('🧹 FCM notification listeners cleaned up');
+ 
     } catch (error) {
-      console.error('❌ Error cleaning up notifications:', error);
+
     }
   }
 

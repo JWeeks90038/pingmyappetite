@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -37,6 +37,33 @@ export default function AnalyticsScreen({ navigation }) {
     avgOrderValue: 28.50,
     conversionRate: 68.5,
   });
+
+  // Toast notification state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   // Chart data
   const [chartData] = useState({
@@ -93,12 +120,12 @@ export default function AnalyticsScreen({ navigation }) {
 
   const loadAnalytics = async () => {
     try {
-      console.log('AnalyticsScreen: Starting to load analytics...');
+
       setLoading(true);
       const currentUser = auth.currentUser;
       
       if (!currentUser) {
-        console.log('AnalyticsScreen: No authenticated user found');
+
         setLoading(false);
         return;
       }
@@ -106,21 +133,21 @@ export default function AnalyticsScreen({ navigation }) {
       // Get user plan
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (!userDoc.exists()) {
-        console.log('AnalyticsScreen: User document does not exist');
+  
         setLoading(false);
         return;
       }
 
       const userData = userDoc.data();
       const userPlan = userData?.plan || 'basic';
-      console.log('AnalyticsScreen: User plan:', userPlan);
+
       setUserPlan(userPlan);
 
-      console.log('AnalyticsScreen: Analytics data loaded successfully');
+   
 
     } catch (error) {
-      console.error('AnalyticsScreen: Error loading analytics:', error);
-      Alert.alert('Error', `Failed to load analytics data: ${error.message}`);
+     
+      showToast(`Failed to load analytics data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -276,6 +303,18 @@ export default function AnalyticsScreen({ navigation }) {
         {/* Bottom padding */}
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -450,6 +489,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

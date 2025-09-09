@@ -14,7 +14,7 @@ Successfully implemented plan-based access control for the Orders & Revenue Anal
 ```javascript
 // Check if user has All-Access plan
 if (userData.plan !== 'all-access') {
-  console.log('🚫 Orders analytics requires All-Access plan, current plan:', userData.plan);
+
   setOrderStats({
     // ... set planRequired: true
   });

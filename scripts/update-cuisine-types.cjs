@@ -44,11 +44,11 @@ const inferCuisineType = (truckName) => {
 
 const updateCuisineTypes = async () => {
   try {
-    console.log('🍽️ Starting cuisine type analysis and update...');
+
     
     // Get all users from the users collection
     const usersSnapshot = await db.collection('users').get();
-    console.log(`📊 Found ${usersSnapshot.size} users to analyze`);
+
     
     let usersWithoutCuisine = 0;
     let usersUpdated = 0;
@@ -60,7 +60,7 @@ const updateCuisineTypes = async () => {
       
       // Skip if already has a specific cuisine type
       if (userData.cuisineType && userData.cuisineType !== 'Food' && userData.cuisineType !== 'General Food') {
-        console.log(`✅ User ${userData.truckName || userId} already has cuisine type: ${userData.cuisineType}`);
+
         continue;
       }
       
@@ -70,7 +70,7 @@ const updateCuisineTypes = async () => {
       const truckName = userData.truckName || userData.username || '';
       const inferredCuisine = inferCuisineType(truckName);
       
-      console.log(`🔍 User: ${truckName} → Inferred cuisine: ${inferredCuisine}`);
+
       
       // Track statistics
       if (!analysisResults[inferredCuisine]) {
@@ -86,26 +86,23 @@ const updateCuisineTypes = async () => {
       });
       
       usersUpdated++;
-      console.log(`✅ Updated ${truckName} with cuisine type: ${inferredCuisine}`);
+
     }
     
-    console.log('\n📈 ANALYSIS RESULTS:');
-    console.log(`Total users analyzed: ${usersSnapshot.size}`);
-    console.log(`Users without specific cuisine: ${usersWithoutCuisine}`);
-    console.log(`Users updated: ${usersUpdated}`);
+
     
-    console.log('\n🍽️ CUISINE DISTRIBUTION:');
+
     Object.keys(analysisResults).sort().forEach(cuisine => {
-      console.log(`${cuisine}: ${analysisResults[cuisine].length} trucks`);
+
       analysisResults[cuisine].forEach(name => {
-        console.log(`  - ${name}`);
+  
       });
     });
     
-    console.log('\n✅ Cuisine type update completed successfully!');
+   
     
   } catch (error) {
-    console.error('❌ Error updating cuisine types:', error);
+
   }
 };
 

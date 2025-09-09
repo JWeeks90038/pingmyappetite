@@ -29,16 +29,11 @@ function deg2rad(deg) {
 }
 
 export default function AnalyticsScreen() {
-  console.log('🚀🚀🚀 BRAND NEW ANALYTICS SCREEN - COMPLETELY REWRITTEN 🚀🚀🚀');
+
   
   const { user, userData, userRole } = useAuth();
   
-  console.log('🔍 Auth Status:', { 
-    hasUser: !!user, 
-    hasUserData: !!userData, 
-    userRole,
-    userId: userData?.uid 
-  });
+
   
   // State for analytics data
   const [pingStats, setPingStats] = useState({
@@ -94,11 +89,11 @@ export default function AnalyticsScreen() {
   // Real ping analytics
   useEffect(() => {
     if (!userData?.uid || userRole !== 'owner') {
-      console.log('🚫 Skipping ping analytics - not owner');
+  
       return;
     }
 
-    console.log('🎯 Setting up REAL ping analytics for:', userData.uid);
+ 
 
     let unsubscribeUser = null;
     let unsubscribePings = null;
@@ -107,30 +102,30 @@ export default function AnalyticsScreen() {
 
     unsubscribeUser = onSnapshot(userDocRef, async (ownerDoc) => {
       if (!ownerDoc.exists()) {
-        console.log('❌ User document does not exist');
+ 
         return;
       }
       
       const userPlan = ownerDoc.data().plan || 'basic';
-      console.log('📋 User plan:', userPlan);
+
       
       if (userPlan !== 'all-access') {
-        console.log('🚫 User does not have all-access plan');
+     
         return;
       }
 
       // Get truck location
       const truckDoc = await getDoc(doc(db, 'truckLocations', userData.uid));
       if (!truckDoc.exists()) {
-        console.log('❌ Truck location not found');
+     
         return;
       }
 
       const truckData = truckDoc.data();
-      console.log('🚛 Truck location:', { lat: truckData.lat, lng: truckData.lng });
+  
       
       if (!truckData.lat || !truckData.lng) {
-        console.log('❌ Truck coordinates missing');
+     
         return;
       }
 
@@ -143,12 +138,12 @@ export default function AnalyticsScreen() {
       const q = query(collection(db, 'pings'), where('timestamp', '>=', thirtyDaysAgo));
       
       unsubscribePings = onSnapshot(q, (snapshot) => {
-        console.log('📊 Received ping snapshot, total pings:', snapshot.docs.length);
+
         
         const pings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const last7 = pings.filter(p => p.timestamp.seconds >= sevenDaysAgo.seconds);
-        console.log('📅 Pings in last 7 days:', last7.length);
+ 
 
         // Distance filtering
         const getLoc = (p) => p.location || (p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null);
@@ -167,8 +162,7 @@ export default function AnalyticsScreen() {
           return distance <= 80;
         });
 
-        console.log('📍 Nearby pings (≤5km) in last 7 days:', nearbyPings7.length);
-        console.log('📍 Nearby pings (≤80km) in last 30 days:', nearbyPings30.length);
+  
 
         setPingStats({
           last7Days: nearbyPings7.length,
@@ -187,11 +181,11 @@ export default function AnalyticsScreen() {
   // Events analytics
   useEffect(() => {
     if (!userData?.uid) {
-      console.log('🚫 Skipping events analytics - no user data');
+
       return;
     }
 
-    console.log('🎪 Setting up events analytics for:', userData.uid);
+
 
     const eventsQuery = query(
       collection(db, 'eventAttendance'),
@@ -200,7 +194,7 @@ export default function AnalyticsScreen() {
 
     const unsubscribeEvents = onSnapshot(eventsQuery, (snapshot) => {
       const attendance = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('🎭 Found event attendance records:', attendance.length);
+  
 
       const now = new Date();
       const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -230,7 +224,7 @@ export default function AnalyticsScreen() {
   useEffect(() => {
     if (!userData?.uid) return;
 
-    console.log('⭐ Setting up favorites count for:', userData.uid);
+
 
     const favoritesQuery = query(
       collection(db, 'favorites'),
@@ -238,7 +232,7 @@ export default function AnalyticsScreen() {
     );
 
     const unsubscribeFavorites = onSnapshot(favoritesQuery, (snapshot) => {
-      console.log('⭐ Found favorites:', snapshot.size);
+  
       setFavoritesCount(snapshot.size);
     });
 
@@ -248,22 +242,15 @@ export default function AnalyticsScreen() {
   // Orders analytics - All-Access Plan Required
   useEffect(() => {
     if (!userData?.uid || userRole !== 'owner') {
-      console.log('🚫 Skipping orders analytics - not owner');
+
       return;
     }
 
-    console.log('💰 Setting up orders analytics for truck:', userData.uid);
-    console.log('📋 User plan:', userData.plan);
-    console.log('🔒 Plan restriction check:', {
-      currentPlan: userData.plan,
-      requiredPlan: 'all-access',
-      hasAccess: userData.plan === 'all-access'
-    });
+
 
     // Check if user has All-Access plan
     if (userData.plan !== 'all-access') {
-      console.log('🚫 Orders analytics requires All-Access plan, current plan:', userData.plan);
-      console.log('🔒 Setting planRequired = true for orders analytics');
+    
       setOrderStats({
         totalOrders: 0,
         totalRevenue: 0,
@@ -278,7 +265,7 @@ export default function AnalyticsScreen() {
       return;
     }
 
-    console.log('✅ User has All-Access plan, enabling orders analytics');
+
 
     // Query orders for this truck (using simple query first, then filter by time)
     const ordersQuery = query(
@@ -287,10 +274,10 @@ export default function AnalyticsScreen() {
     );
 
     const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-      console.log('📊 Orders analytics: Found', snapshot.size, 'orders');
+    
       
       const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('📊 Sample order data:', orders[0] || 'No orders');
+ 
 
       // Calculate time ranges
       const now = new Date();
@@ -318,15 +305,6 @@ export default function AnalyticsScreen() {
       const last7DaysRevenue = calculateRevenue(last7DaysOrders);
       const last30DaysRevenue = calculateRevenue(last30DaysOrders);
 
-      console.log('📊 Orders Analytics Results:', {
-        totalOrders: orders.length,
-        totalRevenue: totalRevenue.toFixed(2),
-        last7DaysOrders: last7DaysOrders.length,
-        last7DaysRevenue: last7DaysRevenue.toFixed(2),
-        last30DaysOrders: last30DaysOrders.length,
-        last30DaysRevenue: last30DaysRevenue.toFixed(2),
-        completedOrders: completedOrders.length
-      });
 
       setOrderStats({
         totalOrders: orders.length,
@@ -340,9 +318,9 @@ export default function AnalyticsScreen() {
         indexBuilding: false
       });
     }, (error) => {
-      console.error('❌ Error fetching orders:', error);
+
       if (error.code === 'failed-precondition') {
-        console.log('📊 Orders index is building, will try again...');
+    
         setOrderStats({
           totalOrders: 0,
           totalRevenue: 0,
@@ -380,11 +358,7 @@ export default function AnalyticsScreen() {
     } else if (order.orderDate) {
       return new Date(order.orderDate);
     } else {
-      console.warn('No valid date field found for order:', order.id, {
-        timestamp: order.timestamp,
-        createdAt: order.createdAt,
-        orderDate: order.orderDate
-      });
+
       return new Date();
     }
   };
@@ -412,13 +386,7 @@ export default function AnalyticsScreen() {
         amount = amount / 100;
       }
       
-      console.log('📊 Order revenue calculation:', {
-        orderId: order.id?.substring(0, 8) || 'unknown',
-        totalAmount: order.totalAmount,
-        vendorReceives: order.vendorReceives,
-        subtotal: order.subtotal,
-        calculatedAmount: amount
-      });
+ 
       
       return sum + amount;
     }, 0);
@@ -427,11 +395,11 @@ export default function AnalyticsScreen() {
   // Event organizer analytics
   useEffect(() => {
     if (!userData?.uid || userRole !== 'event-organizer') {
-      console.log('🚫 Skipping event organizer analytics - not event organizer');
+  
       return;
     }
 
-    console.log('🎪 Setting up event organizer analytics for:', userData.uid);
+
 
     // Fetch events created by this organizer
     const eventsQuery = query(
@@ -441,7 +409,7 @@ export default function AnalyticsScreen() {
 
     const unsubscribeEvents = onSnapshot(eventsQuery, (snapshot) => {
       const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('🎪 Found events created by organizer:', events.length);
+  
       setMyEvents(events);
     });
 
@@ -454,8 +422,7 @@ export default function AnalyticsScreen() {
       return;
     }
 
-    console.log('🎪 Setting up attendance analytics for', myEvents.length, 'events');
-    console.log('🎪 My event IDs:', myEvents.map(e => e.id));
+
 
     const myEventIds = myEvents.map(event => event.id);
     
@@ -464,14 +431,14 @@ export default function AnalyticsScreen() {
     const attendingQuery = query(collection(db, 'eventInterest'));
 
     const unsubscribeAttended = onSnapshot(attendedQuery, (attendedSnapshot) => {
-      console.log('📊 Total eventAttendance records found:', attendedSnapshot.size);
+      
       
       const attendedCounts = {};
       attendedSnapshot.docs.forEach(doc => {
         const data = doc.data();
         const eventId = data.eventId;
         if (myEventIds.includes(eventId)) {
-          console.log('📊 Found attended record for my event:', eventId, data);
+          
           if (!attendedCounts[eventId]) {
             attendedCounts[eventId] = { attended: 0, attending: 0 };
           }
@@ -480,13 +447,13 @@ export default function AnalyticsScreen() {
       });
 
       const unsubscribeAttending = onSnapshot(attendingQuery, (attendingSnapshot) => {
-        console.log('📊 Total eventInterest records found:', attendingSnapshot.size);
+   
         
         attendingSnapshot.docs.forEach(doc => {
           const data = doc.data();
           const eventId = data.eventId;
           if (myEventIds.includes(eventId)) {
-            console.log('📊 Found interested record for my event:', eventId, data);
+   
             if (!attendedCounts[eventId]) {
               attendedCounts[eventId] = { attended: 0, attending: 0 };
             }
@@ -501,7 +468,7 @@ export default function AnalyticsScreen() {
           }
         });
 
-        console.log('📊 Final attendance counts from both collections:', attendedCounts);
+ 
         setEventAttendanceCounts(attendedCounts);
 
         // Calculate overall statistics
@@ -524,8 +491,7 @@ export default function AnalyticsScreen() {
       return;
     }
 
-    console.log('🚛 Setting up food truck applications analytics for', myEvents.length, 'events');
-    console.log('🚛 My event IDs for applications:', myEvents.map(e => e.id));
+
 
     const myEventIds = myEvents.map(event => event.id);
     
@@ -536,30 +502,30 @@ export default function AnalyticsScreen() {
     );
 
     const unsubscribeApplications = onSnapshot(applicationsQuery, (snapshot) => {
-      console.log('🚛 Total eventApplications records found:', snapshot.size);
+  
       
       // All applications should be for our events since we filtered by organizerId
       const myEventApplications = [];
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        console.log('🚛 Found application for my event:', data.eventId, data);
+    
         myEventApplications.push({ id: doc.id, ...data });
       });
 
-      console.log('🚛 Found applications for my events:', myEventApplications.length);
+    
 
       // Calculate application counts per event
       const applicationCounts = {};
       myEventIds.forEach(eventId => {
         const eventApplications = myEventApplications.filter(app => app.eventId === eventId);
-        console.log(`🚛 Event ${eventId} application records:`, eventApplications.length);
+  
         
         const totalApps = eventApplications.length;
         const approvedApps = eventApplications.filter(app => app.status === 'approved').length;
         const pendingApps = eventApplications.filter(app => app.status === 'pending').length;
         const rejectedApps = eventApplications.filter(app => app.status === 'rejected').length;
         
-        console.log(`🚛 Event ${eventId} application stats: ${totalApps} total, ${approvedApps} approved, ${pendingApps} pending, ${rejectedApps} rejected`);
+       
         
         applicationCounts[eventId] = {
           total: totalApps,
@@ -570,7 +536,7 @@ export default function AnalyticsScreen() {
         };
       });
 
-      console.log('🚛 Final application counts:', applicationCounts);
+
       setEventApplicationCounts(applicationCounts);
 
       // Recalculate overall statistics with truck applications
@@ -589,9 +555,7 @@ export default function AnalyticsScreen() {
 
   // Calculate event organizer statistics
   const calculateEventOrganizerStats = (events, attendanceCounts, applicationCounts = {}) => {
-    console.log('📊 calculateEventOrganizerStats called with:', events.length, 'events');
-    console.log('📊 Attendance counts:', attendanceCounts);
-    console.log('🚛 Application counts:', applicationCounts);
+
     
     const totalEvents = events.length;
     const upcomingEvents = events.filter(event => !isEventPast(event.startDate || event.date));
@@ -612,7 +576,7 @@ export default function AnalyticsScreen() {
       const appCounts = applicationCounts[event.id] || { total: 0, approved: 0, pending: 0, rejected: 0, applications: [] };
       const isPast = isEventPast(event.startDate || event.date);
       
-      console.log(`📊 Processing event ${event.id} (${event.title}): isPast=${isPast}, counts=`, eventCounts, 'apps=', appCounts);
+      
       
       if (isPast) {
         totalAttendance += eventCounts.attended;
@@ -677,13 +641,13 @@ export default function AnalyticsScreen() {
       applicationsByEvent
     };
 
-    console.log('📊 Final calculated stats with truck applications:', stats);
+
     setEventOrganizerStats(stats);
   };
 
   // Check auth
   if (!user || !userData || (userRole !== 'owner' && userRole !== 'event-organizer')) {
-    console.log('🚫 Not showing analytics - user not owner or event organizer, userRole:', userRole);
+
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -696,7 +660,7 @@ export default function AnalyticsScreen() {
     );
   }
 
-  console.log('✅ Showing analytics for:', userRole, userData.uid);
+
 
   // Render Event Organizer Analytics
   if (userRole === 'event-organizer') {

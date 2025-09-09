@@ -171,7 +171,7 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
         notification: {
           title,
           body,
-          icon: '/grubana-logo.png',
+          icon: '/logo.png',
           badge: '/truck-icon.png',
           requireInteraction: true,
           actions: [

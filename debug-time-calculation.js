@@ -47,11 +47,10 @@ const testOrders = [
   }
 ];
 
-console.log('🧪 TESTING ESTIMATED TIME CALCULATIONS\n');
+
 
 testOrders.forEach((testOrder, index) => {
-  console.log(`\n${index + 1}. ${testOrder.name}`);
-  console.log('Items:', testOrder.items.map(item => `${item.quantity}x ${item.name}`).join(', '));
+
   
   // Test during lunch rush (12 PM)
   const lunchTime = new Date();
@@ -64,17 +63,14 @@ testOrders.forEach((testOrder, index) => {
     currentOrders: 3 // Simulate 3 orders in queue
   });
   
-  console.log(`📊 Calculated time: ${calculation.estimatedMinutes} minutes`);
-  console.log(`📝 Description: ${getTimeDescription(calculation.estimatedMinutes)}`);
-  console.log('📈 Breakdown:', calculation.breakdown);
-  
+
   // Show suggested time options
   const options = getSuggestedTimeOptions(calculation.estimatedMinutes);
-  console.log('⏰ Time options for owner:');
+
   options.forEach(option => {
     const marker = option.isDefault ? ' ← Default' : '';
-    console.log(`   ${option.label}${marker}`);
+
   });
 });
 
-console.log('\n✅ Time calculation testing complete!');
+

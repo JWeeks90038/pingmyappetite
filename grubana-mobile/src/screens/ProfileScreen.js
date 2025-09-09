@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -6,13 +6,13 @@ import {
   ScrollView, 
   TouchableOpacity, 
   TextInput,
-  Alert,
   Switch,
   Modal,
   ActivityIndicator,
   Image,
   Linking,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { signOut, sendPasswordResetEmail, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
@@ -95,13 +95,119 @@ export default function ProfileScreen({ navigation }) {
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [paymentMethodsAvailable, setPaymentMethodsAvailable] = useState(true); // Feature availability flag
 
+  // Toast notification system for production-safe alerts
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [showToast, setShowToast] = useState(false);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [customModal, setCustomModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    confirmText: 'OK',
+    cancelText: 'Cancel',
+    showCancel: false,
+  });
+
+  // Input modal system for prompts (replaces Alert.prompt)
+  const [inputModal, setInputModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    placeholder: '',
+    value: '',
+    onConfirm: null,
+    confirmText: 'Save',
+    cancelText: 'Cancel',
+    keyboardType: 'default',
+    secureTextEntry: false,
+  });
+
+  // Toast notification function
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2500),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowToast(false);
+    });
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, onConfirm = null, confirmText = 'OK', cancelText = 'Cancel', showCancel = false) => {
+    setCustomModal({
+      visible: true,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      showCancel,
+    });
+  };
+
+  const hideCustomModal = () => {
+    setCustomModal({
+      visible: false,
+      title: '',
+      message: '',
+      onConfirm: null,
+      confirmText: 'OK',
+      cancelText: 'Cancel',
+      showCancel: false,
+    });
+  };
+
+  // Input modal function (replaces Alert.prompt)
+  const showInputModal = (title, message, onConfirm = null, confirmText = 'Save', cancelText = 'Cancel', keyboardType = 'default', secureTextEntry = false, placeholder = '', defaultValue = '') => {
+    setInputModal({
+      visible: true,
+      title,
+      message,
+      placeholder,
+      value: defaultValue,
+      onConfirm,
+      confirmText,
+      cancelText,
+      keyboardType,
+      secureTextEntry,
+    });
+  };
+
+  const hideInputModal = () => {
+    setInputModal({
+      visible: false,
+      title: '',
+      message: '',
+      placeholder: '',
+      value: '',
+      onConfirm: null,
+      confirmText: 'Save',
+      cancelText: 'Cancel',
+      keyboardType: 'default',
+      secureTextEntry: false,
+    });
+  };
+
   useEffect(() => {
     if (userData) {
-      console.log('🔍 ProfileScreen: Full userData object:', userData);
-      console.log('🔍 ProfileScreen: Available userData fields:', Object.keys(userData));
-      console.log('🔍 ProfileScreen: userData.username:', userData.username);
-      console.log('🔍 ProfileScreen: user.displayName:', user?.displayName);
-      console.log('🔍 ProfileScreen: user.email:', user?.email);
+
       
       setUserProfile({
         username: userData.username || userData.displayName || user?.displayName || user?.email?.split('@')[0] || '',
@@ -137,14 +243,13 @@ export default function ProfileScreen({ navigation }) {
     if (!user?.uid) return;
     
     try {
-      console.log('🔄 Refreshing user data from Firestore...');
+
       const userDocRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userDocRef);
       
       if (userSnap.exists()) {
         const freshUserData = userSnap.data();
-        console.log('🔍 Fresh userData from Firestore:', freshUserData);
-        console.log('🔍 Fresh userData fields:', Object.keys(freshUserData));
+
         
         setUserProfile({
           username: freshUserData.username || freshUserData.displayName || user?.displayName || user?.email?.split('@')[0] || '',
@@ -169,7 +274,7 @@ export default function ProfileScreen({ navigation }) {
         });
       }
     } catch (error) {
-      console.error('Error refreshing user data:', error);
+
     }
   };
 
@@ -209,17 +314,15 @@ export default function ProfileScreen({ navigation }) {
       ? 'Enter your phone number (with or without country code):'
       : `Enter new ${field.toLowerCase()}:`;
     
-    Alert.prompt(
+    showInputModal(
       `Edit ${fieldName}`,
       promptMessage,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Save', 
-          onPress: (value) => handleFieldUpdate(field, value)
-        }
-      ],
-      field === 'phone' ? 'phone-pad' : 'plain-text',
+      (value) => handleFieldUpdate(field, value),
+      'Save',
+      'Cancel',
+      field === 'phone' ? 'phone-pad' : 'default',
+      false,
+      '',
       userProfile[field]
     );
   };
@@ -232,9 +335,13 @@ export default function ProfileScreen({ navigation }) {
         const cleanPhone = value.replace(/[\s\-\(\)\.]/g, ''); // Remove common separators
         
         if (!phoneRegex.test(cleanPhone)) {
-          Alert.alert(
+          showCustomModal(
             'Invalid Phone Number', 
-            'Please enter a valid phone number (e.g., +1234567890 or 1234567890)'
+            'Please enter a valid phone number (e.g., +1234567890 or 1234567890)',
+            null,
+            'OK',
+            '',
+            false
           );
           return;
         }
@@ -255,10 +362,10 @@ export default function ProfileScreen({ navigation }) {
           [field]: value,
           ...(field === 'username' ? { displayName: value } : {})
         }));
-        Alert.alert('Success', `${field === 'phone' ? 'Phone number' : 'Information'} updated successfully!`);
+        showToastMessage(`${field === 'phone' ? 'Phone number' : 'Information'} updated successfully!`, 'success');
       } catch (error) {
-        console.error('Error updating field:', error);
-        Alert.alert('Error', 'Failed to update information. Please try again.');
+     
+        showToastMessage('Failed to update information. Please try again.', 'error');
       } finally {
         setLoading(false);
       }
@@ -278,19 +385,15 @@ export default function ProfileScreen({ navigation }) {
     
     setLoadingPayments(true);
     try {
-      console.log('🔄 Loading payment methods for customer:', user.uid);
-      
-      // Use Stripe-hosted payment methods approach
-      // No server calls needed - we'll handle everything with Stripe directly
-      console.log('💳 Using Stripe-hosted payment methods (no server required)');
+
       
       // For now, start with empty state - payment methods will be managed through Stripe
       setPaymentMethods([]);
       setPaymentMethodsAvailable(true); // Enable the feature
-      console.log('✅ Stripe payment methods ready');
+
       
     } catch (error) {
-      console.error('❌ Error setting up payment methods:', error);
+ 
       setPaymentMethods([]);
     } finally {
       setLoadingPayments(false);
@@ -302,10 +405,10 @@ export default function ProfileScreen({ navigation }) {
     
     try {
       setLoadingPayments(true);
-      console.log('💳 Setting up payment method...');
+
 
       // For now, explain that payment methods are handled at checkout
-      Alert.alert(
+      showCustomModal(
         'Payment Methods',
         'Payment methods are securely managed by Stripe during checkout. When you place an order, you can:\n\n' +
         '• Enter a new card\n' +
@@ -313,29 +416,28 @@ export default function ProfileScreen({ navigation }) {
         '• Use Google Pay\n' +
         '• Stripe securely saves your payment details\n\n' +
         'Your payment information is never stored on our servers - everything is handled securely by Stripe.',
-        [
-          { text: 'Got it!', style: 'default' }
-        ]
+        null,
+        'Got it!',
+        '',
+        false
       );
 
     } catch (error) {
-      console.error('❌ Add payment method error:', error);
-      Alert.alert(
-        'Error', 
-        'Something went wrong. Please try again.'
-      );
+
+      showToastMessage('Something went wrong. Please try again.', 'error');
     } finally {
       setLoadingPayments(false);
     }
   };
 
   const removePaymentMethod = async (paymentMethodId) => {
-    Alert.alert(
+    showCustomModal(
       'Remove Payment Method',
       'Payment methods are managed securely by Stripe during checkout. To remove a saved payment method, you can do so during your next order checkout process.',
-      [
-        { text: 'Got it!', style: 'default' }
-      ]
+      null,
+      'Got it!',
+      '',
+      false
     );
   };
 
@@ -363,14 +465,14 @@ export default function ProfileScreen({ navigation }) {
         if (supported) {
           await Linking.openURL(data.url);
         } else {
-          Alert.alert('Error', 'Unable to open subscription management portal');
+          showToastMessage('Unable to open subscription management portal', 'error');
         }
       } else {
-        Alert.alert('Error', data.error || 'Failed to open subscription management');
+        showToastMessage(data.error || 'Failed to open subscription management', 'error');
       }
     } catch (error) {
-      console.error('Error opening customer portal:', error);
-      Alert.alert('Error', 'Failed to open subscription management portal');
+
+      showToastMessage('Failed to open subscription management portal', 'error');
     } finally {
       setLoading(false);
     }
@@ -380,10 +482,10 @@ export default function ProfileScreen({ navigation }) {
     setLoading(true);
     try {
       await updateDoc(doc(db, 'users', user.uid), socialLinks);
-      Alert.alert('Success', 'Social media links updated successfully!');
+      showToastMessage('Social media links updated successfully!', 'success');
     } catch (error) {
-      console.error('Error updating social links:', error);
-      Alert.alert('Error', 'Failed to update social media links. Please try again.');
+
+      showToastMessage('Failed to update social media links. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -396,7 +498,7 @@ export default function ProfileScreen({ navigation }) {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        showToastMessage('Permission to access camera roll is required!', 'error');
         return;
       }
 
@@ -413,8 +515,8 @@ export default function ProfileScreen({ navigation }) {
         await uploadImage(result.assets[0], imageType);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+
+      showToastMessage('Failed to pick image. Please try again.', 'error');
     }
   };
 
@@ -436,7 +538,7 @@ export default function ProfileScreen({ navigation }) {
       const storagePath = imageType === 'logoUrl' ? `uploads/event-organizers/${fileName}` : `uploads/${fileName}`;
       const storageRef = ref(storage, storagePath);
       
-      console.log('🔄 Uploading image to Firebase Storage...');
+
       
       // Upload the blob
       await uploadBytes(storageRef, blob);
@@ -444,7 +546,7 @@ export default function ProfileScreen({ navigation }) {
       // Get the download URL
       const downloadURL = await getDownloadURL(storageRef);
       
-      console.log('✅ Image uploaded successfully:', downloadURL);
+
       
       // Update user profile in Firestore
       await updateDoc(doc(db, 'users', user.uid), { [imageType]: downloadURL });
@@ -458,11 +560,11 @@ export default function ProfileScreen({ navigation }) {
       else if (imageType === 'profileUrl') successMessage = 'Profile picture uploaded successfully!';
       else successMessage = 'Image uploaded successfully!';
       
-      Alert.alert('Success', successMessage);
+      showToastMessage(successMessage, 'success');
       
     } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image. Please try again.');
+
+      showToastMessage('Failed to upload image. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -474,51 +576,38 @@ export default function ProfileScreen({ navigation }) {
     else if (field === 'menuUrl') fieldLabel = 'Menu Image';
     else if (field === 'logoUrl') fieldLabel = 'Organization Logo';
     
-    Alert.alert(
+    showCustomModal(
       `Update ${fieldLabel}`,
       `Choose how you want to update your ${fieldLabel.toLowerCase()}:`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Upload New Image', 
-          onPress: () => pickImage(field)
-        },
-        { 
-          text: 'Enter URL', 
-          onPress: () => editField(field)
-        }
-      ]
+      () => pickImage(field),
+      'Upload New Image',
+      'Cancel',
+      true
     );
   };
 
   const handleChangeEmail = () => {
-    Alert.prompt(
+    showInputModal(
       'Change Email',
       'Enter your new email address:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Next', 
-          onPress: (email) => {
-            if (email) {
-              setNewEmail(email);
-              Alert.prompt(
-                'Verify Password',
-                'Enter your current password to confirm:',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Change Email', 
-                    onPress: (password) => processEmailChange(email, password)
-                  }
-                ],
-                'secure-text'
-              );
-            }
-          }
+      (email) => {
+        if (email) {
+          setNewEmail(email);
+          showInputModal(
+            'Verify Password',
+            'Enter your current password to confirm:',
+            (password) => processEmailChange(email, password),
+            'Change Email',
+            'Cancel',
+            'default',
+            true
+          );
         }
-      ],
-      'plain-text'
+      },
+      'Next',
+      'Cancel',
+      'email-address',
+      false
     );
   };
 
@@ -530,16 +619,17 @@ export default function ProfileScreen({ navigation }) {
       const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
       await reauthenticateWithCredential(auth.currentUser, credential);
       await verifyBeforeUpdateEmail(auth.currentUser, email);
-      Alert.alert(
+      showCustomModal(
         'Email Change Initiated',
-        'Verification email sent! Please check your new email and follow the link to confirm the change.'
+        'Verification email sent! Please check your new email and follow the link to confirm the change.',
+        null,
+        'OK',
+        '',
+        false
       );
     } catch (error) {
-      console.error('Error updating email:', error);
-      Alert.alert(
-        'Email Change Failed',
-        'Error updating email. Please make sure your password is correct and try again.'
-      );
+  
+      showToastMessage('Error updating email. Please make sure your password is correct and try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -555,212 +645,158 @@ export default function ProfileScreen({ navigation }) {
         email: auth.currentUser.email 
       });
       
-      Alert.alert(
+      showCustomModal(
         'Password Reset',
-        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.'
+        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.',
+        null,
+        'OK',
+        '',
+        false
       );
     } catch (error) {
-      console.error('Error sending reset email:', error);
-      Alert.alert(
-        'Password Reset Failed',
-        'There was an error sending the password reset email. Please try again.'
-      );
+
+      showToastMessage('There was an error sending the password reset email. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showCustomModal(
       'Delete Account',
       'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.\n\nThis will delete:\n• All events you have created\n• All truck location data\n• All menu items\n• All customer pings\n• All favorites\n• Your user profile',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete Account', 
-          style: 'destructive',
-          onPress: () => {
-            // Prompt for password re-authentication
-            Alert.prompt(
-              'Confirm Password',
-              'For security, please enter your password to confirm account deletion:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { 
-                  text: 'Delete Account', 
-                  style: 'destructive',
-                  onPress: async (password) => {
-                    if (!password || password.trim() === '') {
-                      Alert.alert('Error', 'Password is required to delete your account.');
-                      return;
-                    }
-                    
-                    setLoading(true);
-                    try {
-                      const currentUser = auth.currentUser;
-                      
-                      if (!currentUser || !currentUser.email) {
-                        Alert.alert('Error', 'Unable to verify user credentials.');
-                        setLoading(false);
-                        return;
-                      }
-                      
-                      // Re-authenticate the user
-                      console.log('🔐 Re-authenticating user before account deletion');
-                      console.log('🔐 User email:', currentUser.email);
-                      console.log('🔐 Password length:', password?.length || 0);
-                      
-                      // Trim the password to remove any whitespace
-                      const trimmedPassword = password.trim();
-                      
-                      const credential = EmailAuthProvider.credential(currentUser.email, trimmedPassword);
-                      await reauthenticateWithCredential(currentUser, credential);
-                      console.log('✅ Re-authentication successful');
-                      
-                      const userId = currentUser.uid;
-                      
-                      // Get ID token for verification
-                      const idToken = await currentUser.getIdToken();
-                      
-                      // Call Firebase Function to handle complete account deletion
-                      console.log('🗑️ Calling account deletion function...');
-                      const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/deleteUserAccount', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          userId: userId,
-                          idToken: idToken
-                        }),
-                      });
+      () => {
+        // Prompt for password re-authentication
+        showInputModal(
+          'Confirm Password',
+          'For security, please enter your password to confirm account deletion:',
+          async (password) => {
+            if (!password || password.trim() === '') {
+              showToastMessage('Password is required to delete your account.', 'error');
+              return;
+            }
+            
+            setLoading(true);
+            try {
+              const currentUser = auth.currentUser;
+              
+              if (!currentUser || !currentUser.email) {
+                showToastMessage('Unable to verify user credentials.', 'error');
+                setLoading(false);
+                return;
+              }
+              
+              // Re-authenticate the user
+              const trimmedPassword = password.trim();
+              const credential = EmailAuthProvider.credential(currentUser.email, trimmedPassword);
+              await reauthenticateWithCredential(currentUser, credential);
+              
+              const userId = currentUser.uid;
+              const idToken = await currentUser.getIdToken();
+              
+              // Call Firebase Function to handle complete account deletion
+              const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/deleteUserAccount', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: userId,
+                  idToken: idToken
+                }),
+              });
 
-                      const result = await response.json();
-                      
-                      if (!response.ok || result.error) {
-                        console.error('Account deletion failed:', result.error);
-                        Alert.alert('Error', result.error || 'Failed to delete account. Please try again.');
-                        setLoading(false);
-                        return;
-                      }
-                      
-                      console.log('✅ Account deletion completed:', result);
-                      
-                      // The Firebase Function deletes the user from Firebase Auth
-                      // Force sign out to ensure clean state and immediate redirect
-                      console.log('🔄 Signing out user after deletion...');
-                      await signOut(auth);
-                      
-                      // Set loading to false
-                      setLoading(false);
-                      
-                      // Show success message - the AuthContext will handle navigation to login
-                      Alert.alert(
-                        'Account Deleted', 
-                        'Your account and all associated data have been successfully deleted, including any active subscriptions.',
-                        [
-                          {
-                            text: 'OK',
-                            onPress: () => {
-                              console.log('🔄 Account deletion complete - redirecting to login');
-                              
-                              // Add a small delay to ensure auth state change is processed
-                              setTimeout(() => {
-                                // Force a navigation reset as a fallback if AuthContext doesn't handle it
-                                if (navigation) {
-                                  try {
-                                    navigation.dispatch(
-                                      CommonActions.reset({
-                                        index: 0,
-                                        routes: [{ name: 'Login' }],
-                                      })
-                                    );
-                                  } catch (navError) {
-                                    console.log('Navigation fallback not needed - AuthContext handled it');
-                                  }
-                                }
-                              }, 1000);
-                            }
-                          }
-                        ]
-                      );
-                    } catch (error) {
-                      console.error('Error deleting account:', error);
-                      setLoading(false);
-                      
-                      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                        Alert.alert(
-                          'Incorrect Password',
-                          'The password you entered is incorrect. Please try again.'
+              const result = await response.json();
+              
+              if (!response.ok || result.error) {
+                showToastMessage(result.error || 'Failed to delete account. Please try again.', 'error');
+                setLoading(false);
+                return;
+              }
+              
+              // The Firebase Function deletes the user from Firebase Auth
+              // Force sign out to ensure clean state and immediate redirect
+              await signOut(auth);
+              
+              // Set loading to false
+              setLoading(false);
+              
+              // Show success message - the AuthContext will handle navigation to login
+              showCustomModal(
+                'Account Deleted', 
+                'Your account and all associated data have been successfully deleted, including any active subscriptions.',
+                () => {
+                  // Add a small delay to ensure auth state change is processed
+                  setTimeout(() => {
+                    // Force a navigation reset as a fallback if AuthContext doesn't handle it
+                    if (navigation) {
+                      try {
+                        navigation.dispatch(
+                          CommonActions.reset({
+                            index: 0,
+                            routes: [{ name: 'Login' }],
+                          })
                         );
-                      } else if (error.code === 'auth/too-many-requests') {
-                        Alert.alert(
-                          'Too Many Attempts',
-                          'Too many failed attempts. Please try again later.'
-                        );
-                      } else if (error.code === 'auth/requires-recent-login') {
-                        Alert.alert(
-                          'Re-authentication Required',
-                          'Your session has expired. Please log out and log back in, then try deleting your account again.'
-                        );
-                      } else if (error.code === 'auth/user-disabled') {
-                        Alert.alert(
-                          'Account Disabled',
-                          'This account has been disabled. Please contact support.'
-                        );
-                      } else if (error.code === 'auth/user-not-found') {
-                        Alert.alert(
-                          'Account Not Found',
-                          'This account no longer exists.'
-                        );
-                      } else if (error.code === 'auth/network-request-failed') {
-                        Alert.alert(
-                          'Network Error',
-                          'Please check your internet connection and try again.'
-                        );
-                      } else {
-                        Alert.alert(
-                          'Account Deletion Failed',
-                          'There was an error deleting your account. Please try logging out and back in, then try again.\n\nError: ' + (error.message || 'Unknown error')
-                        );
+                      } catch (navError) {
+                
                       }
                     }
-                  }
-                }
-              ],
-              'secure-text'
-            );
-          }
-        }
-      ]
+                  }, 1000);
+                },
+                'OK',
+                '',
+                false
+              );
+            } catch (error) {
+              setLoading(false);
+              
+              if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                showToastMessage('The password you entered is incorrect. Please try again.', 'error');
+              } else if (error.code === 'auth/too-many-requests') {
+                showToastMessage('Too many failed attempts. Please try again later.', 'error');
+              } else if (error.code === 'auth/requires-recent-login') {
+                showToastMessage('Your session has expired. Please log out and log back in, then try deleting your account again.', 'error');
+              } else if (error.code === 'auth/user-disabled') {
+                showToastMessage('This account has been disabled. Please contact support.', 'error');
+              } else if (error.code === 'auth/user-not-found') {
+                showToastMessage('This account no longer exists.', 'error');
+              } else if (error.code === 'auth/network-request-failed') {
+                showToastMessage('Please check your internet connection and try again.', 'error');
+              } else {
+                showToastMessage('There was an error deleting your account. Please try logging out and back in, then try again.\n\nError: ' + (error.message || 'Unknown error'), 'error');
+              }
+            }
+          },
+          'Delete Account',
+          'Cancel',
+          'default',
+          true
+        );
+      },
+      'Delete Account',
+      'Cancel',
+      true
     );
   };
 
   const saveNotificationPreferences = () => {
-    Alert.alert(
-      'Preferences Saved',
-      'Notification preferences saved! (This feature will be enhanced in a future update)'
-    );
+    showToastMessage('Notification preferences saved! (This feature will be enhanced in a future update)', 'success');
   };
 
   const handleLogout = async () => {
-    Alert.alert(
+    showCustomModal(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error('Error signing out:', error);
-            }
-          }
+      async () => {
+        try {
+          await signOut(auth);
+        } catch (error) {
+
         }
-      ]
+      },
+      'Logout',
+      'Cancel',
+      true
     );
   };
 
@@ -838,7 +874,7 @@ export default function ProfileScreen({ navigation }) {
       const [hours, minutes] = timeStr.split(':').map(Number);
       
       if (isNaN(hours) || isNaN(minutes)) {
-        console.log('⚠️ Invalid time format:', timeStr, '- using default');
+ 
         return '9:00 AM';
       }
       
@@ -859,10 +895,10 @@ export default function ProfileScreen({ navigation }) {
       const formattedMinutes = minutes.toString().padStart(2, '0');
       const converted = `${hour12}:${formattedMinutes} ${period}`;
       
-      console.log('🕐 Converted', timeStr, '→', converted);
+
       return converted;
     } catch (error) {
-      console.error('Error converting time format:', error);
+
       return '9:00 AM';
     }
   };
@@ -920,13 +956,6 @@ export default function ProfileScreen({ navigation }) {
       minute: '2-digit' 
     });
 
-    console.log('⏰ ProfileScreen: Setting business hours to 12-hour format:', timeStr);
-    console.log('⏰ ProfileScreen: Full business hours being updated:', {
-      day: selectedDay,
-      type: selectedTimeType,
-      newTime: timeStr,
-      currentBusinessHours: businessHours
-    });
 
     setBusinessHours(prev => ({
       ...prev,
@@ -950,19 +979,19 @@ export default function ProfileScreen({ navigation }) {
   const saveBusinessHours = async () => {
     try {
       setLoading(true);
-      console.log('⏰ ProfileScreen: Saving business hours to Firestore:', businessHours);
+ 
       
       await updateDoc(doc(db, 'users', user.uid), {
         businessHours: businessHours,
         lastUpdated: new Date()
       });
       
-      console.log('✅ ProfileScreen: Business hours saved successfully to Firestore');
-      Alert.alert('Success', 'Business hours updated successfully!');
+
+      showToastMessage('Business hours updated successfully!', 'success');
       setShowBusinessHoursModal(false);
     } catch (error) {
-      console.error('❌ ProfileScreen: Error saving business hours:', error);
-      Alert.alert('Error', 'Failed to save business hours');
+  
+      showToastMessage('Failed to save business hours', 'error');
     } finally {
       setLoading(false);
     }
@@ -973,7 +1002,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/2.png')} 
+          source={require('../../assets/logo.png')} 
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -1496,10 +1525,10 @@ export default function ProfileScreen({ navigation }) {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={handleTimeChange}
                     style={styles.timePicker}
-                    textColor="#000000"
-                    accentColor="#2c6f57"
+                    textColor={theme.colors.text.primary}
+                    accentColor={theme.colors.accent.pink}
                     locale="en_US"
-                    themeVariant="light"
+                    themeVariant="dark"
                   />
                 </View>
               </View>
@@ -1507,6 +1536,104 @@ export default function ProfileScreen({ navigation }) {
           )}
         </Modal>
       )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <Animated.View 
+          style={[
+            styles.toastContainer, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={customModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={hideCustomModal}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{customModal.title}</Text>
+            <Text style={styles.customModalMessage}>{customModal.message}</Text>
+            
+            <View style={styles.customModalButtons}>
+              {customModal.showCancel && (
+                <TouchableOpacity 
+                  style={[styles.customModalButton, styles.customModalCancelButton]}
+                  onPress={hideCustomModal}
+                >
+                  <Text style={styles.customModalCancelText}>{customModal.cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity 
+                style={[styles.customModalButton, styles.customModalConfirmButton]}
+                onPress={() => {
+                  if (customModal.onConfirm) {
+                    customModal.onConfirm();
+                  }
+                  hideCustomModal();
+                }}
+              >
+                <Text style={styles.customModalConfirmText}>{customModal.confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Input Modal (replaces Alert.prompt) */}
+      <Modal
+        visible={inputModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={hideInputModal}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{inputModal.title}</Text>
+            <Text style={styles.customModalMessage}>{inputModal.message}</Text>
+            
+            <TextInput
+              style={styles.inputModalTextInput}
+              value={inputModal.value}
+              onChangeText={(text) => setInputModal(prev => ({ ...prev, value: text }))}
+              placeholder={inputModal.placeholder}
+              keyboardType={inputModal.keyboardType}
+              secureTextEntry={inputModal.secureTextEntry}
+              autoFocus={true}
+            />
+            
+            <View style={styles.customModalButtons}>
+              <TouchableOpacity 
+                style={[styles.customModalButton, styles.customModalCancelButton]}
+                onPress={hideInputModal}
+              >
+                <Text style={styles.customModalCancelText}>{inputModal.cancelText}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.customModalButton, styles.customModalConfirmButton]}
+                onPress={() => {
+                  if (inputModal.onConfirm) {
+                    inputModal.onConfirm(inputModal.value);
+                  }
+                  hideInputModal();
+                }}
+              >
+                <Text style={styles.customModalConfirmText}>{inputModal.confirmText}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -2185,7 +2312,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   timePickerContainer: {
-    backgroundColor: theme.colors.background.secondary,
+    backgroundColor: theme.colors.background.primary,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 40,
@@ -2197,6 +2324,8 @@ const createThemedStyles = (theme) => StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    borderTopWidth: 2,
+    borderTopColor: theme.colors.accent.pink,
   },
   timePickerHeader: {
     flexDirection: 'row',
@@ -2212,10 +2341,11 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: theme.colors.text.primary,
   },
   timePicker: {
-    backgroundColor: theme.colors.background.secondary,
+    backgroundColor: theme.colors.background.primary,
     color: theme.colors.text.primary,
     width: '100%',
     height: Platform.OS === 'ios' ? 200 : 50,
+    paddingHorizontal: 20,
   },
   // Logo Section Styles
   sectionSubtitle: {
@@ -2245,4 +2375,105 @@ const createThemedStyles = (theme) => StyleSheet.create({
     marginTop: 4,
     marginBottom: 12,
   },
+
+  // Toast notification styles
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 9999,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  // Custom modal styles (replaces Alert.alert and Alert.prompt)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  customModalContainer: {
+    backgroundColor: theme.colors.background.primary,
+    borderRadius: 12,
+    padding: 20,
+    minWidth: 280,
+    maxWidth: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  customModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  customModalCancelButton: {
+    backgroundColor: theme.colors.background.secondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  customModalConfirmButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  customModalCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: theme.colors.text.secondary,
+  },
+  customModalConfirmText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+
+  // Input modal specific styles
+  inputModalTextInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: theme.colors.text.primary,
+    backgroundColor: theme.colors.background.secondary,
+    marginBottom: 20,
+  },
+
 });

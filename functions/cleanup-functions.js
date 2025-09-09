@@ -17,12 +17,12 @@ exports.cleanupOldOrders = functions.pubsub
   .timeZone('America/Los_Angeles') // Adjust timezone as needed
   .onRun(async (context) => {
     try {
-      console.log('Starting scheduled cleanup of old orders...');
+
       
       const minutesOld = 10; // Delete orders older than 10 minutes
       const cutoffTime = new Date(Date.now() - (minutesOld * 60 * 1000));
       
-      console.log(`Cutoff time: ${cutoffTime.toISOString()}`);
+
       
       // Query for pending_payment orders older than cutoff time
       const pendingQuery = db.collection('orders')
@@ -44,23 +44,23 @@ exports.cleanupOldOrders = functions.pubsub
       // Collect pending payment orders
       pendingSnapshot.forEach(doc => {
         const data = doc.data();
-        console.log(`Found pending payment order: ${doc.id} from ${data.timestamp?.toDate()}`);
+
         ordersToDelete.push(doc.ref);
       });
       
       // Collect cancelled orders
       cancelledSnapshot.forEach(doc => {
         const data = doc.data();
-        console.log(`Found cancelled order: ${doc.id} from ${data.timestamp?.toDate()}`);
+
         ordersToDelete.push(doc.ref);
       });
       
       if (ordersToDelete.length === 0) {
-        console.log('No orders to delete.');
+  
         return null;
       }
       
-      console.log(`Deleting ${ordersToDelete.length} orders...`);
+ 
       
       // Delete orders in batches
       const batchSize = 500;
@@ -76,14 +76,14 @@ exports.cleanupOldOrders = functions.pubsub
         
         await batch.commit();
         deletedCount += batchOrders.length;
-        console.log(`Deleted batch of ${batchOrders.length} orders`);
+  
       }
       
-      console.log(`Cleanup completed. Deleted: ${deletedCount} orders`);
+
       return null;
       
     } catch (error) {
-      console.error('Error in scheduled cleanup:', error);
+
       throw error;
     }
   });
@@ -96,7 +96,7 @@ exports.manualCleanupOrders = functions.https.onRequest(async (req, res) => {
     // Check for admin auth or API key here if needed
     const minutesOld = req.query.minutes ? parseInt(req.query.minutes) : 10;
     
-    console.log(`Manual cleanup triggered for orders older than ${minutesOld} minutes`);
+
     
     const cutoffTime = new Date(Date.now() - (minutesOld * 60 * 1000));
     
@@ -145,7 +145,7 @@ exports.manualCleanupOrders = functions.https.onRequest(async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error in manual cleanup:', error);
+ 
     res.status(500).json({ 
       success: false, 
       error: error.message 
@@ -165,7 +165,7 @@ exports.scheduleOrderCleanup = functions.firestore
     
     // Only schedule cleanup for pending_payment orders
     if (order.status === 'pending_payment') {
-      console.log(`Scheduling cleanup for pending payment order: ${orderId}`);
+ 
       
       // Schedule a task to check and delete this order after 10 minutes
       const taskQueue = functions.tasks.taskQueue();
@@ -185,13 +185,13 @@ exports.scheduleOrderCleanup = functions.firestore
 exports.cleanupSpecificOrder = functions.tasks.taskQueue().onDispatch(async (data) => {
   try {
     const orderId = data.orderId;
-    console.log(`Checking order ${orderId} for cleanup...`);
+ 
     
     const orderRef = db.collection('orders').doc(orderId);
     const orderDoc = await orderRef.get();
     
     if (!orderDoc.exists) {
-      console.log(`Order ${orderId} no longer exists`);
+   
       return;
     }
     
@@ -200,13 +200,13 @@ exports.cleanupSpecificOrder = functions.tasks.taskQueue().onDispatch(async (dat
     // Only delete if still in pending_payment or cancelled status
     if (order.status === 'pending_payment' || order.status === 'cancelled') {
       await orderRef.delete();
-      console.log(`Deleted old ${order.status} order: ${orderId}`);
+ 
     } else {
-      console.log(`Order ${orderId} has progressed to ${order.status}, keeping it`);
+
     }
     
   } catch (error) {
-    console.error('Error in specific order cleanup:', error);
+
     throw error;
   }
 });

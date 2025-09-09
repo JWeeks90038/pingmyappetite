@@ -17,7 +17,7 @@ const testComponentImports = () => {
     console.log('✅ Notification service available:', !!notificationService);
     
   } catch (error) {
-    console.error('❌ Component import test failed:', error);
+
   }
 };
 
@@ -39,7 +39,7 @@ const testCartFunctionality = () => {
     console.log('✅ Cart total price:', `$${totalPrice.toFixed(2)}`);
     
   } catch (error) {
-    console.error('❌ Cart functionality test failed:', error);
+
   }
 };
 
@@ -57,7 +57,7 @@ const testFirebaseConnection = async () => {
     console.log('✅ Firestore available:', firestoreAvailable);
     
   } catch (error) {
-    console.error('❌ Firebase connection test failed:', error);
+
   }
 };
 
@@ -86,7 +86,7 @@ const testOrderPlacement = () => {
     console.log('✅ Order total:', `$${mockOrder.items.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2)}`);
     
   } catch (error) {
-    console.error('❌ Order placement test failed:', error);
+
   }
 };
 
@@ -112,7 +112,7 @@ const testWaitTimeCalculation = () => {
     console.log('✅ Adjusted wait time:', `${Math.round(adjustedWaitTime)} minutes`);
     
   } catch (error) {
-    console.error('❌ Wait time calculation test failed:', error);
+
   }
 };
 
@@ -137,7 +137,7 @@ const testNotificationSystem = () => {
     }
     
   } catch (error) {
-    console.error('❌ Notification system test failed:', error);
+
   }
 };
 

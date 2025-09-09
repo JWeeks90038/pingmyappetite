@@ -172,7 +172,7 @@ export default function App() {
           const userData = userDoc.data();
           setUserRole(userData?.role || 'customer');
         } catch (error) {
-          console.error('Error fetching user role:', error);
+       
           setUserRole('customer'); // Default to customer
         }
       } else {

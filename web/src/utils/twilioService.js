@@ -53,7 +53,7 @@ export const formatPhoneE164 = (phone) => {
  * @returns {Promise<object>} - Configuration status
  */
 export const checkTwilioConfig = async () => {
-  console.warn('⚠️ Twilio config check should be done server-side via Firebase Functions');
+
   return { 
     isConfigured: false, 
     message: 'Twilio configuration check not available client-side. Use Firebase Functions for actual config validation.' 
@@ -70,7 +70,7 @@ export const checkTwilioConfig = async () => {
  * @returns {Promise<object>} - Result object
  */
 export const sendNotificationSMS = async (phoneNumber, title, body, data = {}) => {
-  console.warn('⚠️ SMS sending should be done server-side via Firebase Functions');
+
   return { 
     success: false, 
     error: 'SMS functionality not available client-side. Use Firebase Functions for actual SMS sending.' 

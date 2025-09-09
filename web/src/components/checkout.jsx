@@ -49,7 +49,7 @@ const Checkout = () => {
         }
         
       } catch (error) {
-        console.error('Error returning to previous plan:', error);
+  
         alert('Failed to return to previous plan. Please try again.');
       }
     }

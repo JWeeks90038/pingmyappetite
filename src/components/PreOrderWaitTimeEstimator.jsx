@@ -84,7 +84,7 @@ const PreOrderWaitTimeEstimator = ({ truckId, cartItems = [], onEstimateUpdate }
       }
 
     } catch (error) {
-      console.error('❌ Error calculating wait time:', error);
+
       setEstimates(prev => ({ ...prev, loading: false }));
     }
   };
@@ -128,7 +128,7 @@ const PreOrderWaitTimeEstimator = ({ truckId, cartItems = [], onEstimateUpdate }
       };
 
     } catch (error) {
-      console.error('Error getting truck metrics:', error);
+
       return {
         averagePrepTime: 15,
         maxCapacity: 3,
@@ -163,7 +163,7 @@ const PreOrderWaitTimeEstimator = ({ truckId, cartItems = [], onEstimateUpdate }
       };
 
     } catch (error) {
-      console.error('Error getting current queue:', error);
+
       return {
         position: 0,
         estimatedWaitMinutes: 0,

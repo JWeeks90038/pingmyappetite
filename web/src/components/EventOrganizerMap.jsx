@@ -69,7 +69,7 @@ const EventOrganizerMap = ({ organizerData }) => {
     // Validate date input
     const dateValue = event.originalDate || event.date;
     if (!dateValue) {
-      console.warn('Event has no date value, using today as fallback:', event);
+    
       return {
         ...event,
         date: today.toISOString().split('T')[0] // Use today as fallback
@@ -80,7 +80,7 @@ const EventOrganizerMap = ({ organizerData }) => {
     
     // Check if date is valid
     if (isNaN(originalDate.getTime())) {
-      console.warn('Invalid date value for event, using today as fallback:', dateValue, event);
+
       return {
         ...event,
         date: today.toISOString().split('T')[0] // Use today as fallback
@@ -100,7 +100,7 @@ const EventOrganizerMap = ({ organizerData }) => {
     
     // Validate end date if provided
     if (endDate && isNaN(endDate.getTime())) {
-      console.warn('Invalid recurring end date for event:', event.recurringEndDate, event);
+      
       // Continue without end date validation
     }
     
@@ -190,7 +190,7 @@ const EventOrganizerMap = ({ organizerData }) => {
         // For non-recurring events, only show if not completed or still active today
         const eventDate = new Date(event.date);
         if (isNaN(eventDate.getTime())) {
-          console.warn('Invalid date for non-recurring event, using today as fallback:', event.date, event);
+     
           // Use today as fallback date for invalid events
           const today = new Date();
           event.date = today.toISOString().split('T')[0];
@@ -1346,7 +1346,7 @@ const EventOrganizerMap = ({ organizerData }) => {
         if (eventData.date) {
           const testDate = new Date(eventData.date);
           if (isNaN(testDate.getTime())) {
-            console.warn('🚨 Invalid date found in event:', doc.id, 'Date value:', eventData.date);
+     
             // Set a default date or skip this event
             eventData.date = new Date().toISOString().split('T')[0]; // Today as fallback
           }
@@ -1355,7 +1355,7 @@ const EventOrganizerMap = ({ organizerData }) => {
         if (eventData.recurringEndDate) {
           const testEndDate = new Date(eventData.recurringEndDate);
           if (isNaN(testEndDate.getTime())) {
-            console.warn('🚨 Invalid recurring end date found in event:', doc.id, 'Date value:', eventData.recurringEndDate);
+           
             eventData.recurringEndDate = null; // Remove invalid end date
           }
         }

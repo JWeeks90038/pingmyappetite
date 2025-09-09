@@ -55,25 +55,14 @@ export const AuthContextProvider = ({ children }) => {
             subscriptionId: null
           };
           
-          console.log('👤 AuthContext creating new user data:', {
-            uid: newUser.uid,
-            plan: newUser.plan,
-            subscriptionStatus: newUser.subscriptionStatus,
-            paymentCompleted: newUser.paymentCompleted,
-            role: newUser.role
-          });
+      
           await setDoc(userDocRef, newUser);
           setUserData(newUser);
           setUserRole(newUser.role);
           setUserPlan(newUser.plan);
         } else {
           const data = userSnap.data();
-          console.log('🔍 Mobile AuthContext: User data loaded:', {
-            plan: data.plan,
-            subscriptionStatus: data.subscriptionStatus,
-            paymentCompleted: data.paymentCompleted,
-            role: data.role
-          });
+       
           
           // Only update state if data actually changed to prevent unnecessary re-renders
           const newUserData = { ...data, uid: currentUser.uid };

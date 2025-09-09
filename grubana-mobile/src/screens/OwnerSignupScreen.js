@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -38,6 +39,18 @@ export default function OwnerSignupScreen({ navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidReferral, setIsValidReferral] = useState(false);
   const [referralMessage, setReferralMessage] = useState('');
+
+  // Toast notification system (replaces Alert.alert)
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
 
   const cuisineTypes = [
     'American',
@@ -95,6 +108,39 @@ export default function OwnerSignupScreen({ navigation }) {
     },
   ];
 
+  // Toast notification function (replaces simple Alert.alert)
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+    }, 3000);
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, buttons = []) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons.length > 0 ? buttons : [
+      { text: 'OK', onPress: () => setModalVisible(false), style: 'default' }
+    ]);
+    setModalVisible(true);
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -131,31 +177,31 @@ export default function OwnerSignupScreen({ navigation }) {
   const handleSignup = async () => {
     // Validation
     if (!formData.ownerName.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+      showToastMessage('Please enter your name', 'error');
       return;
     }
     if (!formData.truckName.trim()) {
-      Alert.alert('Error', 'Please enter your business name');
+      showToastMessage('Please enter your business name', 'error');
       return;
     }
     if (!formData.email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+      showToastMessage('Please enter your email', 'error');
       return;
     }
     if (!formData.password) {
-      Alert.alert('Error', 'Please enter a password');
+      showToastMessage('Please enter a password', 'error');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToastMessage('Passwords do not match', 'error');
       return;
     }
     if (formData.phone && !validatePhoneNumber(formData.phone)) {
-      Alert.alert('Error', 'Please enter a valid US phone number (10 digits)');
+      showToastMessage('Please enter a valid US phone number (10 digits)', 'error');
       return;
     }
     if (!formData.plan) {
-      Alert.alert('Error', 'Please select a plan to continue');
+      showToastMessage('Please select a plan to continue', 'error');
       return;
     }
 
@@ -231,21 +277,21 @@ export default function OwnerSignupScreen({ navigation }) {
       }
 
       if (formData.plan === 'basic') {
-        Alert.alert(
+        showCustomModal(
           'Success!', 
           'Account created successfully! Welcome to Grubana Starter.',
-          [{ text: 'OK' }] // Let navigation handle automatically
+          [{ text: 'OK', onPress: () => setModalVisible(false), style: 'default' }]
         );
       } else {
-        Alert.alert(
+        showCustomModal(
           'Almost Done!', 
           `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`,
-          [{ text: 'Continue' }] // Let navigation handle automatically
+          [{ text: 'Continue', onPress: () => setModalVisible(false), style: 'default' }]
         );
       }
 
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to create account');
+      showToastMessage(error.message || 'Failed to create account', 'error');
     } finally {
       setLoading(false);
     }
@@ -545,6 +591,55 @@ export default function OwnerSignupScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Toast Notification (replaces simple Alert.alert) */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastOpacity,
+              backgroundColor: toastType === 'error' ? '#dc3545' : '#28a745'
+            }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{modalTitle}</Text>
+            <Text style={styles.customModalMessage}>{modalMessage}</Text>
+            <View style={styles.customModalButtons}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.customModalButton,
+                    button.style === 'cancel' && styles.customModalButtonCancel
+                  ]}
+                  onPress={button.onPress}
+                >
+                  <Text style={[
+                    styles.customModalButtonText,
+                    button.style === 'cancel' && styles.customModalButtonTextCancel
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -753,5 +848,74 @@ const styles = {
     fontSize: 16,
     color: '#2c6f57',
     fontWeight: 'bold',
+  },
+  // Toast notification styles (replaces Alert.alert)
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  customModalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+  },
+  customModalButtonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  customModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  customModalButtonTextCancel: {
+    color: '#fff',
   },
 };

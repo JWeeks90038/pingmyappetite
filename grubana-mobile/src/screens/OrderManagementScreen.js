@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  Alert,
   Modal,
   ScrollView,
   Vibration,
-  Image
+  Image,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { 
@@ -46,17 +46,52 @@ const OrderManagementScreen = () => {
   const [selectedOrderForTimeOverride, setSelectedOrderForTimeOverride] = useState(null);
   const [selectedTimeOption, setSelectedTimeOption] = useState(null);
 
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Confirmation modal state
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmModalTitle, setConfirmModalTitle] = useState('');
+  const [confirmModalMessage, setConfirmModalMessage] = useState('');
+  const [confirmModalButtons, setConfirmModalButtons] = useState([]);
+
+  // Toast functions
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Confirmation modal functions
+  const showConfirmModal = (title, message, buttons = [{ text: 'OK', onPress: () => setConfirmModalVisible(false) }]) => {
+    setConfirmModalTitle(title);
+    setConfirmModalMessage(message);
+    setConfirmModalButtons(buttons);
+    setConfirmModalVisible(true);
+  };
+
   useEffect(() => {
     if (!userData?.uid) return;
 
-    console.log('📱 Setting up orders listener for truck:', userData.uid);
-    console.log('📱 Owner userData details:', {
-      uid: userData.uid,
-      role: userData.role,
-      truckName: userData.truckName,
-      plan: userData.plan
-    });
-    
     // Clear badge count when viewing orders screen - role-specific clearing
     NotificationService.clearBadgeForUserRole('owner', 'OrderManagement');
 
@@ -64,7 +99,6 @@ const OrderManagementScreen = () => {
     // TEMPORARY: For testing, show all orders instead of just this truck's orders
     let ordersQuery;
     if (userData.uid === 'Sy3rlEFPLfbWZzY9oO9oECcoXK62') {
-      console.log('🧪 TESTING: Showing all orders for test user');
       ordersQuery = query(collection(db, 'orders'));
     } else {
       // Normal behavior: only show orders for this truck
@@ -74,21 +108,11 @@ const OrderManagementScreen = () => {
       );
     }
 
-    console.log('📱 Query setup - looking for orders where truckId ==', userData.uid);
-
     // Set up real-time listener
     const unsubscribe = onSnapshot(ordersQuery, 
       async (snapshot) => {
-        console.log('📱 Orders query result - received', snapshot.docs.length, 'orders');
-        
         if (snapshot.docs.length > 0) {
-          console.log('📱 Sample order data:', snapshot.docs[0].data());
         } else {
-          console.log('📱 No orders found for truckId:', userData.uid);
-          console.log('📱 This could mean:');
-          console.log('   - No orders have been placed to this truck yet');
-          console.log('   - Orders exist with different truckId values');
-          console.log('   - Firestore index still building');
         }
         
         const ordersData = snapshot.docs.map(doc => ({
@@ -103,7 +127,6 @@ const OrderManagementScreen = () => {
           
           // Auto-remove old cancelled and pending_payment orders after 5 minutes
           if ((order.status === 'cancelled' || order.status === 'pending_payment') && orderAge > fiveMinutes) {
-            console.log(`🗑️ Auto-filtering old ${order.status} order: ${order.id.substring(0, 8)} (${Math.round(orderAge / 60000)}min old)`);
             return false;
           }
           
@@ -137,17 +160,9 @@ const OrderManagementScreen = () => {
           return a.createdAt - b.createdAt;
         });
         
-        console.log('🍳 Kitchen orders (filtered & sorted):', ordersData.map(o => ({
-          id: o.id.substring(0, 8),
-          status: o.status,
-          timeAgo: Math.round((Date.now() - o.createdAt.getTime()) / 60000) + 'min ago',
-          priority: ['confirmed', 'preparing', 'pending', 'ready', 'pending_payment', 'completed', 'cancelled'].indexOf(o.status) + 1
-        })));
-
         // Set up customer profile listeners for orders (only for new userIds)
         ordersData.forEach(order => {
           if (order.userId && !customerListenersRef.current[order.userId]) {
-            console.log(`📱 Setting up profile listener for new userId: ${order.userId}`);
             fetchCustomerProfile(order.userId);
           }
         });
@@ -161,7 +176,6 @@ const OrderManagementScreen = () => {
         if (newOrders.length > 0 && orders.length > 0) {
           // New order received - vibrate and show alert
           Vibration.vibrate([0, 200, 100, 200]);
-          console.log('🚚 NEW ORDER ALERT:', newOrders[0].id);
         }
 
         setOrders(ordersData);
@@ -169,9 +183,6 @@ const OrderManagementScreen = () => {
         setRefreshing(false);
       },
       (error) => {
-        console.error('❌ Error fetching orders:', error);
-        console.error('❌ Error code:', error.code);
-        console.error('❌ Error message:', error.message);
         setLoading(false);
         setRefreshing(false);
       }
@@ -190,46 +201,32 @@ const OrderManagementScreen = () => {
   }, [userData?.uid]);
 
   const fetchCustomerProfile = async (userId) => {
-    console.log(`📱 fetchCustomerProfile called for userId: ${userId}`);
     // If we already have a listener for this customer, don't create another one
     if (customerListenersRef.current[userId]) {
-      console.log(`📱 Listener already exists for userId: ${userId}`);
       return;
     }
     
     try {
       // Set up real-time listener for customer profile
       const userDocRef = doc(db, 'users', userId);
-      console.log(`📱 Setting up Firestore listener for user document: users/${userId}`);
       
       const unsubscribe = onSnapshot(userDocRef, (userDoc) => {
-        console.log(`📱 Firestore listener triggered for ${userId}. Document exists: ${userDoc.exists()}`);
-        
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log(`📱 Raw user data for ${userId}:`, userData);
-          console.log(`📱 Available fields:`, Object.keys(userData));
-          console.log(`📱 Username field (lowercase):`, userData.username);
-          console.log(`📱 DisplayName field:`, userData.displayName);
-          console.log(`📱 ProfileUrl field:`, userData.profileUrl);
           
           const profileData = {
             userName: userData.username || userData.displayName || 'Customer',
             profileUrl: userData.profileUrl || null
           };
           
-          console.log(`📱 Customer profile updated for ${userId}:`, profileData);
-          
           setCustomerProfiles(prev => {
             const updated = {
               ...prev,
               [userId]: profileData
             };
-            console.log(`📱 Updated customerProfiles state:`, updated);
             return updated;
           });
         } else {
-          console.log(`📱 User document does not exist for ${userId}`);
           // User document doesn't exist, set default
           setCustomerProfiles(prev => ({
             ...prev,
@@ -237,17 +234,12 @@ const OrderManagementScreen = () => {
           }));
         }
       }, (error) => {
-        console.error(`📱 Error in Firestore listener for ${userId}:`, error);
-        console.error(`📱 Error code:`, error.code);
-        console.error(`📱 Error message:`, error.message);
         // Set fallback data on error
         setCustomerProfiles(prev => ({
           ...prev,
           [userId]: { userName: 'Customer', profileUrl: null }
         }));
       });
-
-      console.log(`📱 Firestore listener successfully created for ${userId}`);
 
       // Store the unsubscribe function in ref
       customerListenersRef.current[userId] = unsubscribe;
@@ -259,7 +251,6 @@ const OrderManagementScreen = () => {
       }));
 
     } catch (error) {
-      console.log('Error setting up customer profile listener:', error);
       // Set fallback data
       setCustomerProfiles(prev => ({
         ...prev,
@@ -296,7 +287,7 @@ const OrderManagementScreen = () => {
         cancelled: 'Cancel this order? Customer will be notified and refunded.'
       };
 
-      Alert.alert(
+      showConfirmModal(
         'Update Order Status',
         statusMessages[newStatus] || 'Update order status?',
         [
@@ -335,8 +326,6 @@ const OrderManagementScreen = () => {
 
       await updateDoc(orderRef, updateData);
 
-      console.log(`✅ Order ${orderId} status updated to ${newStatus}`);
-      
       // Close modal
       setModalVisible(false);
       setSelectedOrder(null);
@@ -352,33 +341,22 @@ const OrderManagementScreen = () => {
         cancelled: 'Order cancelled. Customer notified.'
       };
 
-      Alert.alert('Success', successMessages[newStatus] || 'Order updated successfully');
+      showToast(successMessages[newStatus] || 'Order updated successfully', 'success');
 
     } catch (error) {
-      console.error('❌ Error updating order status:', error);
-      Alert.alert('Error', 'Failed to update order status. Please try again.');
+      showToast('Failed to update order status. Please try again.');
     } finally {
       setUpdatingOrder(null);
     }
   };
 
   const handleTimeOverride = (order) => {
-    console.log('🔧 TIME OVERRIDE DEBUG: Starting time override for order:', {
-      orderId: order.id,
-      currentEstimatedTime: order.estimatedPrepTime,
-      items: order.items,
-      itemsCount: order.items?.length || 0,
-      createdAt: order.createdAt,
-      createdAtType: typeof order.createdAt
-    });
-    
     setSelectedOrderForTimeOverride(order);
     
     // Recalculate estimated time if not available or to get fresh calculation
     let baseTime = order.estimatedPrepTime;
     
     if (!baseTime || baseTime <= 5) {
-      console.log('🔄 Recalculating time because current time is low or missing');
       
       // Safely get order time
       let orderTime = new Date();
@@ -395,7 +373,6 @@ const OrderManagementScreen = () => {
             orderTime = new Date(order.createdAt);
           }
         } catch (error) {
-          console.log('⚠️ Error parsing order time, using current time:', error);
           orderTime = new Date();
         }
       }
@@ -411,20 +388,10 @@ const OrderManagementScreen = () => {
       });
       baseTime = calculatedTime.estimatedMinutes;
       
-      console.log('🔄 Recalculated time for order override:', {
-        orderId: order.id,
-        items: order.items,
-        originalTime: order.estimatedPrepTime,
-        recalculatedTime: baseTime,
-        orderTime: orderTime.toISOString(),
-        calculation: calculatedTime.breakdown
-      });
     } else {
-      console.log('✅ Using existing estimated time:', baseTime);
     }
     
     const timeOptions = getSuggestedTimeOptions(baseTime);
-    console.log('⏰ Generated time options:', timeOptions);
     
     setSelectedTimeOption(timeOptions.find(option => option.isDefault) || timeOptions[2]);
     setTimeOverrideModalVisible(true);
@@ -447,14 +414,13 @@ const OrderManagementScreen = () => {
       setSelectedOrderForTimeOverride(null);
       setSelectedTimeOption(null);
 
-      Alert.alert(
-        'Time Updated', 
-        `Estimated preparation time updated to ${selectedTimeOption.value} minutes. Customer will be notified.`
+      showToast(
+        `Estimated preparation time updated to ${selectedTimeOption.value} minutes. Customer will be notified.`,
+        'success'
       );
 
     } catch (error) {
-      console.error('❌ Error updating estimated time:', error);
-      Alert.alert('Error', 'Failed to update estimated time. Please try again.');
+      showToast('Failed to update estimated time. Please try again.');
     }
   };
 
@@ -596,12 +562,6 @@ const OrderManagementScreen = () => {
             <Image 
               source={{ uri: customerProfiles[item.userId].profileUrl }} 
               style={styles.customerAvatar}
-              onError={(error) => {
-                console.log(`📱 Image load error for ${item.userId}:`, error);
-              }}
-              onLoad={() => {
-                console.log(`📱 Image loaded successfully for ${item.userId}`);
-              }}
             />
           ) : (
             <View style={styles.customerAvatarPlaceholder}>
@@ -960,6 +920,62 @@ const OrderManagementScreen = () => {
               >
                 <Text style={styles.actionButtonText}>Update Time</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toastType === 'success' ? styles.toastSuccess : styles.toastError,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={confirmModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setConfirmModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{confirmModalTitle}</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.confirmModalMessage}>{confirmModalMessage}</Text>
+            </View>
+            <View style={styles.modalActions}>
+              {confirmModalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.actionButton,
+                    button.style === 'destructive' ? styles.destructiveButton : 
+                    button.style === 'cancel' ? styles.cancelButton : styles.confirmButton,
+                    confirmModalButtons.length > 1 && index === 0 ? styles.modalButtonFirst : null
+                  ]}
+                  onPress={() => {
+                    setConfirmModalVisible(false);
+                    if (button.onPress) button.onPress();
+                  }}
+                >
+                  <Text style={[
+                    styles.actionButtonText,
+                    button.style === 'destructive' ? styles.destructiveButtonText : styles.actionButtonText
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </View>
@@ -1504,6 +1520,62 @@ const styles = StyleSheet.create({
     color: '#FF4EC9', // Neon pink
     fontWeight: '600',
     marginLeft: 4,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 80,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  toastText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#1a1a2e',
+  },
+  // Confirmation modal styles
+  confirmModalContainer: {
+    backgroundColor: '#1A1036', // Deep purple modal background
+    borderRadius: 20,
+    width: '90%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  confirmModalMessage: {
+    fontSize: 16,
+    color: '#FFFFFF', // White text
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalButtonFirst: {
+    marginRight: 10,
+  },
+  destructiveButton: {
+    backgroundColor: '#F44336', // Red for destructive actions
+  },
+  destructiveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

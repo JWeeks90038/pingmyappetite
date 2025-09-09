@@ -10,23 +10,21 @@ const functions = getFunctions(app);
 // Test SMS Function
 export const testSMSFunction = async (phoneNumber) => {
   try {
-    console.log('🧪 Testing SMS function...');
+
     
     // Call the testSMS cloud function
     const testSMS = httpsCallable(functions, 'testSMS');
     const result = await testSMS({ phoneNumber });
     
     if (result.data.success) {
-      console.log('✅ SMS Test Successful!');
-      console.log('Message SID:', result.data.messageSid);
-      console.log('Sent to:', result.data.to);
+ 
       return { success: true, result: result.data };
     } else {
-      console.log('❌ SMS Test Failed:', result.data.error);
+    
       return { success: false, error: result.data.error };
     }
   } catch (error) {
-    console.log('❌ Test Error:', error.message);
+    
     return { success: false, error: error.message };
   }
 };
@@ -34,7 +32,7 @@ export const testSMSFunction = async (phoneNumber) => {
 // Test Welcome SMS Function
 export const testWelcomeSMSFunction = async (phoneNumber, username, role, plan) => {
   try {
-    console.log('🎉 Testing Welcome SMS function...');
+
     
     // Call the sendWelcomeSMS cloud function
     const sendWelcomeSMS = httpsCallable(functions, 'sendWelcomeSMS');
@@ -46,16 +44,13 @@ export const testWelcomeSMSFunction = async (phoneNumber, username, role, plan) 
     });
     
     if (result.data.success) {
-      console.log('✅ Welcome SMS Test Successful!');
-      console.log('Message SID:', result.data.messageSid);
-      console.log('Sent to:', result.data.to);
       return { success: true, result: result.data };
     } else {
-      console.log('❌ Welcome SMS Test Failed:', result.data.error);
+  
       return { success: false, error: result.data.error };
     }
   } catch (error) {
-    console.log('❌ Welcome Test Error:', error.message);
+  
     return { success: false, error: error.message };
   }
 };
@@ -67,11 +62,5 @@ if (typeof window !== 'undefined') {
     testWelcome: testWelcomeSMSFunction
   };
   
-  console.log('🚀 Grubana SMS Test Functions Loaded!');
-  console.log('');
-  console.log('Usage:');
-  console.log('testGrubanaSMS.testSMS("+1234567890")');
-  console.log('testGrubanaSMS.testWelcome("+1234567890", "John", "customer", "basic")');
-  console.log('');
-  console.log('Replace +1234567890 with your actual phone number');
+
 }

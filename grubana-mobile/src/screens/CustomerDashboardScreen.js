@@ -6,11 +6,11 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Switch,
   Modal,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -57,9 +57,75 @@ const CustomerDashboardScreen = () => {
   const [showCuisineModal, setShowCuisineModal] = useState(false); // Cuisine filter modal
   const [excludedCuisines, setExcludedCuisines] = useState([]); // Excluded cuisines (empty = show all)
   const [showContactModal, setShowContactModal] = useState(false); // Contact form modal
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [toastOpacity] = useState(new Animated.Value(0));
+  const [showDemandPinModal, setShowDemandPinModal] = useState(false);
+  const [demandPinLocation, setDemandPinLocation] = useState(null);
+  const [demandPinCuisine, setDemandPinCuisine] = useState('');
   
   const mapRef = useRef(null);
   const sendingRef = useRef(false);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToast({ visible: false, message: '', type: 'success' });
+    });
+  };
+
+  const handleDemandPinPress = (coordinate) => {
+    setDemandPinLocation(coordinate);
+    setShowDemandPinModal(true);
+  };
+
+  const handleCreateDemandPin = async () => {
+    if (!user) {
+      showToast('Please log in to drop demand pins', 'error');
+      return;
+    }
+
+    if (!demandPinCuisine.trim()) {
+      showToast('Please enter what type of food you\'re craving', 'error');
+      return;
+    }
+
+    try {
+      const pinData = {
+        userId: user.uid,
+        username: username || user.displayName || 'Anonymous',
+        latitude: demandPinLocation.latitude,
+        longitude: demandPinLocation.longitude,
+        cuisineRequest: demandPinCuisine.trim(),
+        timestamp: serverTimestamp(),
+        id: uuidv4(),
+      };
+
+      await addDoc(collection(db, 'demandPins'), pinData);
+
+      setDemandPins(prev => [...prev, {
+        ...pinData,
+        timestamp: new Date(),
+      }]);
+
+      showToast('Demand pin dropped! Trucks can see your request.', 'success');
+      setShowDemandPinModal(false);
+      setDemandPinCuisine('');
+    } catch (error) {
+      showToast('Failed to drop demand pin', 'error');
+    }
+  };
 
   // Get user info
   useEffect(() => {
@@ -106,7 +172,7 @@ const CustomerDashboardScreen = () => {
             latitudeDelta: 15,
             longitudeDelta: 15,
           });
-          Alert.alert('Location Permission', 'Location permission denied. Showing nationwide view. Enable location services for better experience.');
+          showToast('Location permission denied. Showing nationwide view. Enable location services for better experience.', 'info');
           return;
         }
 
@@ -133,7 +199,7 @@ const CustomerDashboardScreen = () => {
         };
         
         setUserLocation(fallbackLocation);
-                Alert.alert('Location Error', `Unable to get your current location: ${error.message}. Showing nationwide view.`);
+        showToast(`Unable to get your current location. Showing nationwide view.`, 'error');
       }
     };
 
@@ -268,13 +334,13 @@ const CustomerDashboardScreen = () => {
     sendingRef.current = true;
 
     if (!user || !cuisineType) {
-      Alert.alert('Error', 'Please select a cuisine type');
+      showToast('Please select a cuisine type', 'error');
       sendingRef.current = false;
       return;
     }
 
     if (dailyPingCount >= 3) {
-      Alert.alert('Limit Reached', 'You can only send 3 pings in a 24-hour period.');
+      showToast('You can only send 3 pings in a 24-hour period.', 'error');
       sendingRef.current = false;
       return;
     }
@@ -291,12 +357,12 @@ const CustomerDashboardScreen = () => {
         address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
       } else if (manualAddress.trim()) {
         // For now, we'll need to implement geocoding
-        Alert.alert('Error', 'Manual address geocoding not implemented yet. Please use current location.');
+        showToast('Manual address geocoding not implemented yet. Please use current location.', 'error');
         sendingRef.current = false;
         setLoading(false);
         return;
       } else {
-        Alert.alert('Error', 'Please provide a location');
+        showToast('Please provide a location', 'error');
         sendingRef.current = false;
         setLoading(false);
         return;
@@ -317,9 +383,9 @@ const CustomerDashboardScreen = () => {
 
       // Reset form
       setCuisineType('');
-      Alert.alert('Success', 'Ping sent successfully!');
+      showToast('Ping sent successfully!', 'success');
     } catch (error) {
-            Alert.alert('Error', 'Failed to send ping');
+      showToast('Failed to send ping', 'error');
     } finally {
       setLoading(false);
       sendingRef.current = false;
@@ -460,55 +526,12 @@ const CustomerDashboardScreen = () => {
   // Handle map press to add demand pins
   const handleMapPress = async (event) => {
     if (!user) {
-      Alert.alert('Login Required', 'Please log in to drop demand pins');
+      showToast('Please log in to drop demand pins', 'error');
       return;
     }
 
     const { latitude, longitude } = event.nativeEvent.coordinate;
-    
-    // Show a prompt to get cuisine preference for the pin
-    Alert.prompt(
-      'Drop Demand Pin',
-      'What type of food are you craving at this location?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Drop Pin',
-          onPress: async (cuisineRequest) => {
-            try {
-              // Create demand pin data
-              const pinData = {
-                userId: user.uid,
-                username: username || user.displayName || 'Anonymous',
-                latitude,
-                longitude,
-                cuisineRequest: cuisineRequest || 'Any food',
-                timestamp: serverTimestamp(),
-                id: uuidv4(),
-              };
-
-              // Add to Firebase
-              await addDoc(collection(db, 'demandPins'), pinData);
-
-              // Add to local state
-              setDemandPins(prev => [...prev, {
-                ...pinData,
-                timestamp: new Date(), // Use local timestamp for immediate display
-              }]);
-
-              Alert.alert('Success', 'Demand pin dropped! Trucks can see your request.');
-            } catch (error) {
-                            Alert.alert('Error', 'Failed to drop demand pin');
-            }
-          },
-        },
-      ],
-      'plain-text',
-      'Tacos, BBQ, Asian, etc.'
-    );
+    handleDemandPinPress({ latitude, longitude });
   };
 
   // Calculate distance between two points in miles
@@ -529,7 +552,7 @@ const CustomerDashboardScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Image 
-            source={require('../../assets/grubana-logo.png')}
+            source={require('../../assets/logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -934,11 +957,74 @@ const CustomerDashboardScreen = () => {
         </View>
       </Modal>
 
+      {/* Demand Pin Modal */}
+      <Modal
+        visible={showDemandPinModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDemandPinModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Drop Demand Pin</Text>
+              <TouchableOpacity onPress={() => setShowDemandPinModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.modalSubtitle}>
+              What type of food are you craving at this location?
+            </Text>
+            
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g., Tacos, BBQ, Asian, etc."
+                value={demandPinCuisine}
+                onChangeText={setDemandPinCuisine}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowDemandPinModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleCreateDemandPin}
+              >
+                <Text style={styles.confirmButtonText}>Drop Pin</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Contact Form Modal */}
       <ContactFormModal 
         visible={showContactModal}
         onClose={() => setShowContactModal(false)}
       />
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toast.type === 'error' ? styles.toastError : styles.toastSuccess,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </Animated.View>
+      )}
     </ScrollView>
   );
 };
@@ -1291,6 +1377,87 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  // Demand Pin Modal Styles
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#2c6f57',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Toast Notification Styles
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

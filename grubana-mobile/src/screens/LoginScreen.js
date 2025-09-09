@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
@@ -22,11 +23,54 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
 
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
   const styles = createThemedStyles(theme);
+
+  // Toast functions
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Modal functions
+  const showModal = (title, message, buttons = [{ text: 'OK', onPress: () => setModalVisible(false) }]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('Please fill in all fields');
       return;
     }
 
@@ -35,8 +79,7 @@ const LoginScreen = ({ navigation }) => {
       await signInWithEmailAndPassword(auth, email, password);
       // Navigation will be handled automatically by AuthContext
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Login Failed', error.message);
+      showToast(error.message);
     } finally {
       setLoading(false);
     }
@@ -44,7 +87,7 @@ const LoginScreen = ({ navigation }) => {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert('Email Required', 'Please enter your email address first');
+      showToast('Please enter your email address first');
       return;
     }
 
@@ -54,14 +97,12 @@ const LoginScreen = ({ navigation }) => {
         email: email 
       });
       
-      Alert.alert(
+      showModal(
         'Password Reset Email Sent',
-        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.',
-        [{ text: 'OK' }]
+        'Password reset email sent from flavor@grubana.com! Please check your inbox and follow the link to reset your password.'
       );
     } catch (error) {
-      console.error('Password reset error:', error);
-      Alert.alert('Error', 'Failed to send password reset email. Please try again.');
+      showToast('Failed to send password reset email. Please try again.');
     }
   };
 
@@ -73,7 +114,7 @@ const LoginScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <Image 
-            source={require('../../assets/2.png')} 
+            source={require('../../assets/logo.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
@@ -141,6 +182,61 @@ const LoginScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Toast Notification */}
+        {toastVisible && (
+          <Animated.View 
+            style={[
+              styles.toast, 
+              toastType === 'success' ? styles.toastSuccess : styles.toastError,
+              { opacity: toastOpacity }
+            ]}
+          >
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </Animated.View>
+        )}
+
+        {/* Custom Modal */}
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{modalTitle}</Text>
+              </View>
+              <View style={styles.modalBody}>
+                <Text style={styles.modalMessage}>{modalMessage}</Text>
+              </View>
+              <View style={styles.modalFooter}>
+                {modalButtons.map((button, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.modalButton,
+                      button.style === 'destructive' ? styles.modalButtonDestructive : styles.modalButtonDefault,
+                      modalButtons.length > 1 && index === 0 ? styles.modalButtonFirst : null
+                    ]}
+                    onPress={() => {
+                      setModalVisible(false);
+                      if (button.onPress) button.onPress();
+                    }}
+                  >
+                    <Text style={[
+                      styles.modalButtonText,
+                      button.style === 'destructive' ? styles.modalButtonTextDestructive : styles.modalButtonTextDefault
+                    ]}>
+                      {button.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -263,6 +359,101 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textDecorationLine: 'underline',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  toastText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#1a1a2e',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: theme.colors.accent.blue,
+    borderTopWidth: 4,
+    borderTopColor: theme.colors.accent.pink,
+    ...theme.shadows.neonBlue,
+  },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: theme.colors.accent.pink,
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonFirst: {
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
+  },
+  modalButtonDefault: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonDestructive: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextDefault: {
+    color: theme.colors.accent.blue,
+  },
+  modalButtonTextDestructive: {
+    color: '#dc3545',
   },
 });
 

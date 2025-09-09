@@ -76,7 +76,7 @@ function checkTruckOpenStatus(businessHours) {
 
 async function verifyBusinessHoursAcrossPlans() {
   try {
-    console.log('🔍 Verifying business hours work correctly across all plan tiers...\n');
+
     
     // Get all users with their plan information
     const usersSnapshot = await db.collection('users').get();
@@ -116,36 +116,29 @@ async function verifyBusinessHoursAcrossPlans() {
       }
     }
     
-    // Report results
-    console.log('📊 BUSINESS HOURS VERIFICATION REPORT');
-    console.log('=====================================\n');
+   
     
     const currentTime = new Date().toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
     const currentDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()];
     
-    console.log(`🕐 Analysis Time: ${currentDay}, ${currentTime}\n`);
+ 
     
     Object.entries(planStats).forEach(([plan, stats]) => {
-      console.log(`📦 ${plan.toUpperCase()} PLAN:`);
-      console.log(`   👥 Total users: ${stats.total}`);
-      console.log(`   📅 With business hours: ${stats.withBusinessHours}`);
-      console.log(`   📈 Coverage: ${stats.total > 0 ? Math.round((stats.withBusinessHours / stats.total) * 100) : 0}%`);
+
       
       if (stats.users.length > 0) {
-        console.log(`   🏪 Active trucks with business hours:`);
+      
         stats.users.slice(0, 3).forEach(user => { // Show first 3 examples
-          console.log(`      • ${user.truckName}: ${user.status.toUpperCase()}`);
+    
         });
         if (stats.users.length > 3) {
-          console.log(`      ... and ${stats.users.length - 3} more`);
+ 
         }
       }
-      console.log('');
+ 
     });
     
-    // Business Hours Format Verification
-    console.log('🔧 BUSINESS HOURS FORMAT VERIFICATION');
-    console.log('====================================\n');
+
     
     let formatIssues = 0;
     let totalChecked = 0;
@@ -163,11 +156,11 @@ async function verifyBusinessHoursAcrossPlans() {
           if (dayHours && !dayHours.closed) {
             // Check if times are in 12-hour format
             if (dayHours.open && !(dayHours.open.includes('AM') || dayHours.open.includes('PM'))) {
-              console.log(`⚠️ Format issue: ${userData.truckName || userDoc.id} - ${day} open time: ${dayHours.open}`);
+            
               formatIssues++;
             }
             if (dayHours.close && !(dayHours.close.includes('AM') || dayHours.close.includes('PM'))) {
-              console.log(`⚠️ Format issue: ${userData.truckName || userDoc.id} - ${day} close time: ${dayHours.close}`);
+  
               formatIssues++;
             }
           }
@@ -175,43 +168,33 @@ async function verifyBusinessHoursAcrossPlans() {
       }
     }
     
-    console.log(`📋 Format check results:`);
-    console.log(`   ✅ Business hours checked: ${totalChecked}`);
-    console.log(`   ${formatIssues === 0 ? '✅' : '⚠️'} Format issues found: ${formatIssues}`);
-    console.log(`   📊 Format compliance: ${totalChecked > 0 ? Math.round(((totalChecked * 7 - formatIssues) / (totalChecked * 7)) * 100) : 100}%\n`);
+   
     
-    // Verification Summary
-    console.log('🎯 VERIFICATION SUMMARY');
-    console.log('======================\n');
+ 
     
     const totalUsersWithHours = Object.values(planStats).reduce((sum, plan) => sum + plan.withBusinessHours, 0);
     const totalUsers = Object.values(planStats).reduce((sum, plan) => sum + plan.total, 0);
     
-    console.log('✅ Business hours system is PLAN-AGNOSTIC');
-    console.log('✅ Same logic applies to Basic, Pro, and All-Access plans');
-    console.log('✅ Business hours stored in users collection (not plan-specific)');
-    console.log('✅ checkTruckOpenStatus() function works identically for all plans');
-    console.log(`✅ ${formatIssues === 0 ? 'All business hours are in correct 12-hour format' : 'Most business hours are properly formatted'}`);
-    console.log(`✅ ${totalUsersWithHours} of ${totalUsers} users have business hours configured\n`);
+
     
     if (formatIssues === 0) {
-      console.log('🏆 RESULT: Business hours system is working correctly across ALL PLAN TIERS!');
+
     } else {
-      console.log(`⚠️ RESULT: Minor format issues detected (${formatIssues}), but system works across all plan tiers`);
+
     }
     
   } catch (error) {
-    console.error('❌ Error verifying business hours across plans:', error);
+
   }
 }
 
 // Run the verification
 verifyBusinessHoursAcrossPlans()
   .then(() => {
-    console.log('\n✅ Verification complete');
+
     process.exit(0);
   })
   .catch((error) => {
-    console.error('💥 Verification failed:', error);
+
     process.exit(1);
   });

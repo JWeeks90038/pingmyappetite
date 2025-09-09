@@ -36,7 +36,7 @@ class PreOrderNotificationService {
         }
       },
       (error) => {
-        console.error('Error in order subscription:', error);
+ 
         callback(null, error);
       }
     );
@@ -83,7 +83,7 @@ class PreOrderNotificationService {
         });
       },
       (error) => {
-        console.error('Error in user orders subscription:', error);
+     
         callback([], error);
       }
     );
@@ -181,7 +181,7 @@ class PreOrderNotificationService {
     if (Notification.permission === 'granted') {
       const options = {
         body: notification.body,
-        icon: '/grubana-logo.png',
+        icon: '/logo.png',
         badge: '/truck-icon.png',
         vibrate: notification.urgency === 'high' ? [200, 100, 200] : [100],
         requireInteraction: notification.urgency === 'high',
@@ -322,7 +322,7 @@ class PreOrderNotificationService {
       }
 
     } catch (error) {
-      console.log('Audio notification not supported:', error);
+
     }
   }
 
@@ -352,7 +352,7 @@ class PreOrderNotificationService {
           });
         }
       } catch (error) {
-        console.error('Error sending push notification:', error);
+    
       }
     }
   }
@@ -369,10 +369,10 @@ class PreOrderNotificationService {
         ...additionalData
       });
 
-      console.log(`✅ Order ${orderId} status updated to: ${newStatus}`);
+
       
     } catch (error) {
-      console.error('❌ Error updating order status:', error);
+ 
       throw error;
     }
   }
@@ -397,16 +397,15 @@ class PreOrderNotificationService {
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
-      console.log('📱 Notification permission:', permission);
     }
 
     // Register service worker for push notifications
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('📱 Service worker registered:', registration);
+  
       } catch (error) {
-        console.error('📱 Service worker registration failed:', error);
+
       }
     }
   }

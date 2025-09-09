@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -28,22 +29,57 @@ const SignupScreen = ({ navigation }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  // Toast and Modal state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [toastVisible, setToastVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Success modal function
+  const showSuccessModal = () => {
+    setSuccessModalVisible(true);
+  };
+
   const handleSignup = async () => {
     const { email, password, confirmPassword, displayName, role } = formData;
 
     // Validation
     if (!email || !password || !confirmPassword || !displayName) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showToast('Password must be at least 6 characters');
       return;
     }
 
@@ -81,11 +117,11 @@ const SignupScreen = ({ navigation }) => {
         }),
       });
 
-      Alert.alert('Success', 'Account created successfully!');
+      showSuccessModal();
       // Navigation will be handled automatically by AuthContext
     } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert('Signup Failed', error.message);
+
+      showToast(error.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -197,11 +233,47 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalMessage}>
+              Account created successfully! Welcome to Grubana!
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setSuccessModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
 
-const styles = StyleSheet.create({
+const createThemedStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -288,6 +360,77 @@ const styles = StyleSheet.create({
     color: '#2c6f57',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#dc3545',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 20,
+    margin: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 15,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 100,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

@@ -12,17 +12,17 @@ export const deleteOldPings = onSchedule("every 24 hours", async (event) => {
     const cutoffDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
     const cutoff = Timestamp.fromDate(cutoffDate);
 
-    console.log(`Checking for pings older than: ${cutoffDate.toISOString()}`);
+
 
     const oldPings = await firestore
       .collection("pings")
       .where("timestamp", "<", cutoff)
       .get();
 
-    console.log(`Found ${oldPings.size} pings to archive and delete`);
+
 
     if (oldPings.empty) {
-      console.log("No old pings to delete");
+     
       return;
     }
 
@@ -43,9 +43,9 @@ export const deleteOldPings = onSchedule("every 24 hours", async (event) => {
     await batch.commit();
     const message = "Successfully archived and deleted " +
       `${oldPings.size} old pings`;
-    console.log(message);
+ 
   } catch (error) {
-    console.error("Error in deleteOldPings function:", error);
+
   }
 });
 
@@ -63,18 +63,18 @@ export const deleteExpiredDrops = onSchedule("every 10 minutes", async (event) =
 
     if (!expiredDrops.empty) {
       await batch.commit();
-      console.log("Deleted " + expiredDrops.size + " expired drops.");
+  
     }
     return null;
   } catch (error) {
-    console.error("Error in deleteExpiredDrops function:", error);
+
   }
 });
 
 // Manage truck visibility with 8-hour minimum duration
 export const manageTruckVisibility = onSchedule("every 5 minutes", async (event) => {
   try {
-    console.log("🚚 Starting truck visibility management...");
+
     
     const now = Date.now();
     const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
@@ -108,19 +108,19 @@ export const manageTruckVisibility = onSchedule("every 5 minutes", async (event)
       if (timeSinceActive <= GRACE_PERIOD) {
         shouldBeVisible = true;
         shouldBeLive = true;
-        console.log(`🟢 Truck ${truckId}: Recently active, keeping alive`);
+ 
       }
       // Case 2: Truck has been inactive but within 8-hour minimum visibility window
       else if (sessionDuration < EIGHT_HOURS) {
         shouldBeVisible = true;
         shouldBeLive = false; // Not actively updating, but still visible
-        console.log(`🟡 Truck ${truckId}: Inactive but within 8-hour window, keeping visible`);
+  
       }
       // Case 3: Truck has exceeded 8-hour minimum and grace period - hide it
       else if (timeSinceActive > EIGHT_HOURS) {
         shouldBeVisible = false;
         shouldBeLive = false;
-        console.log(`🔴 Truck ${truckId}: Exceeded 8-hour minimum, hiding`);
+  
         hiddenCount++;
       }
       
@@ -151,12 +151,7 @@ export const manageTruckVisibility = onSchedule("every 5 minutes", async (event)
         batch.update(doc.ref, updates);
         updatedCount++;
         
-        console.log(`📝 Updating truck ${truckId}:`, {
-          visible: shouldBeVisible,
-          isLive: shouldBeLive,
-          sessionDuration: Math.round(sessionDuration / (60 * 1000)) + " minutes",
-          timeSinceActive: Math.round(timeSinceActive / (60 * 1000)) + " minutes"
-        });
+      
       }
     }
     
@@ -166,7 +161,7 @@ export const manageTruckVisibility = onSchedule("every 5 minutes", async (event)
     }
     
     const message = `🚚 Truck visibility management complete: ${updatedCount} updated, ${hiddenCount} hidden, ${allTrucks.size} total trucks`;
-    console.log(message);
+   
     
     return { 
       success: true, 
@@ -176,7 +171,7 @@ export const manageTruckVisibility = onSchedule("every 5 minutes", async (event)
     };
     
   } catch (error) {
-    console.error("❌ Error in manageTruckVisibility function:", error);
+
     throw error;
   }
 });

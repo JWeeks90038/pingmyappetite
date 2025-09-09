@@ -60,7 +60,6 @@ const requiredIndex = {
  * ordered by date.
  */
 
-console.log('Required Firestore Index Configuration:');
-console.log(JSON.stringify(requiredIndex, null, 2));
+
 
 export { requiredIndex };

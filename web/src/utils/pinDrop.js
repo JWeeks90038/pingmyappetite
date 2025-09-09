@@ -13,7 +13,7 @@ const PinDrop = async ({ lat, lng, userId, notes, cuisine }) => {
     });
     //console.log("Pin drop added!");
   } catch (error) {
-    console.error("Error adding pin drop:", error);
+
   }
 };
 

@@ -127,7 +127,7 @@ const OrderProgressTracker = ({
       // Always return the time remaining, even if it's 0 (we'll handle 0 differently)
       return timeRemaining;
     } catch (error) {
-      console.log('Error calculating time remaining:', error);
+    
       return null;
     }
   };

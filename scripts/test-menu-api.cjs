@@ -11,12 +11,12 @@ admin.initializeApp({
 const db = admin.firestore();
 
 async function testMenuAPIQuery() {
-  console.log('🧪 Testing menu API query logic...\n');
+
   
   const truckId = 'vtXnkYhgHiTYg62Xihb8rFepdDh2';
   
   try {
-    console.log(`🔍 Querying menuItems for truck: ${truckId}`);
+ 
     
     // This is the exact query the API uses
     const menuSnapshot = await db
@@ -24,7 +24,7 @@ async function testMenuAPIQuery() {
       .where('ownerId', '==', truckId)
       .get();
 
-    console.log(`📊 Query returned ${menuSnapshot.docs.length} items`);
+  
     
     const items = [];
     menuSnapshot.forEach(doc => {
@@ -44,16 +44,9 @@ async function testMenuAPIQuery() {
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    console.log('\n📋 API would return:');
-    console.log(JSON.stringify({
-      success: true,
-      items
-    }, null, 2));
-
-    console.log('\n✅ Menu API query test complete!');
     
   } catch (error) {
-    console.error('❌ Error in menu API query:', error);
+
   }
 }
 

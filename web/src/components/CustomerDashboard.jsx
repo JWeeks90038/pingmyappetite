@@ -332,7 +332,7 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
           }
         }
       } else {
-        console.warn('User document not found in Firestore.');
+     
         setUsername(currentUser.displayName || ''); // Fallback to auth displayName
       }
     } else {
@@ -364,7 +364,7 @@ const filterByDistance = (drops, userLat, userLng, maxDistanceKm = 50) =>
   const animateMarkerMove = (marker, newPosition) => {
     // Check if marker is a valid Google Maps marker with getPosition method
     if (!marker || typeof marker.getPosition !== 'function') {
-      console.warn('Invalid marker object for animation:', marker);
+     
       return;
     }
     
@@ -619,7 +619,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
           twitter: ownerData.twitter || '',
         });
       } else {
-        console.warn("Owner doc not found for UID:", ownerUid);
+ 
       }
 
       // Prioritize truck-specific menu URL over owner's menu URL
@@ -678,7 +678,7 @@ const getTruckIcon = (kitchenType, hasActiveDrop, coverUrl = null) => {
       }, 100);
 
     } else {
-      console.warn("Truck doc not found for ID:", truckId);
+
     }
   } catch (error) {
     console.error("Error fetching truck or owner data:", error);

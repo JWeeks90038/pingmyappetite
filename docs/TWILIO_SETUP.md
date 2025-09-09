@@ -76,7 +76,7 @@ You can test if SMS is working by:
 1. **Check configuration in console:**
    ```javascript
    import { checkTwilioConfig } from './src/utils/twilioService.js';
-   console.log(checkTwilioConfig());
+ 
    ```
 
 2. **Send test SMS:**
@@ -84,7 +84,7 @@ You can test if SMS is working by:
    import { sendNotificationSMS } from './src/utils/twilioService.js';
    
    sendNotificationSMS('+1234567890', 'Test', 'This is a test message')
-     .then(result => console.log('SMS Result:', result));
+     .then(result => ('SMS Result:', result));
    ```
 
 ## Deployment Notes

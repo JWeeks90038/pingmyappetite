@@ -29,7 +29,7 @@ const PreOrderProgressTracker = ({ orderId, onStatusChange }) => {
         setLoading(false);
       },
       (error) => {
-        console.error('Error tracking order:', error);
+ 
         setLoading(false);
       }
     );

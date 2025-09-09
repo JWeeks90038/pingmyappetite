@@ -5,10 +5,11 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -33,6 +34,30 @@ export default function EventOrganizerSignupScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [isValidReferral, setIsValidReferral] = useState(false);
   const [referralMessage, setReferralMessage] = useState('');
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+  const [toastOpacity] = useState(new Animated.Value(0));
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalData, setSuccessModalData] = useState({ title: '', message: '' });
+  const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
+
+  const showToast = (message, type = 'error') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToast({ visible: false, message: '', type: 'error' });
+    });
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -66,17 +91,17 @@ export default function EventOrganizerSignupScreen({ navigation }) {
     // Validation
     if (!formData.organizationName || !formData.contactName || !formData.email || 
         !formData.phone || !formData.password || !formData.organizationType) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      showToast('Please fill in all required fields');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      showToast('Password must be at least 6 characters long');
       return;
     }
 
@@ -142,55 +167,27 @@ export default function EventOrganizerSignupScreen({ navigation }) {
       }
 
       if (formData.plan === 'event-basic') {
-        Alert.alert(
-          'Success!',
-          'Your event organizer account has been created successfully with a FREE Starter plan! Welcome to Grubana!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Don't navigate manually - let the auth system handle it
-                // The user is already logged in and will be redirected automatically
-              },
-            },
-          ]
-        );
+        setSuccessModalData({
+          title: 'Success!',
+          message: 'Your event organizer account has been created successfully with a FREE Starter plan! Welcome to Grubana!'
+        });
+        setShowSuccessModal(true);
       } else {
-        Alert.alert(
-          'Almost Done!',
-          `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`,
-          [
-            {
-              text: 'Continue',
-              onPress: () => {
-                // Don't navigate manually - let the auth system handle it
-              },
-            },
-          ]
-        );
+        setSuccessModalData({
+          title: 'Almost Done!',
+          message: `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`
+        });
+        setShowSuccessModal(true);
       }
     } catch (error) {
       if (error.code === 'auth/email-already-in-use') {
-        Alert.alert(
-          'Email Already Registered',
-          'An account with this email already exists. Would you like to sign in instead?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Sign In', 
-              onPress: () => {
-                // Navigate back to signup selection, user can choose login from there
-                navigation.navigate('SignupSelection');
-              }
-            }
-          ]
-        );
+        setShowEmailExistsModal(true);
       } else if (error.code === 'auth/weak-password') {
-        Alert.alert('Error', 'Password is too weak. Please choose a stronger password.');
+        showToast('Password is too weak. Please choose a stronger password.');
       } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('Error', 'Please enter a valid email address.');
+        showToast('Please enter a valid email address.');
       } else {
-        Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
+        showToast(error.message || 'Failed to create account. Please try again.');
       }
     }
     setLoading(false);
@@ -472,6 +469,80 @@ export default function EventOrganizerSignupScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIcon}>
+              <Text style={styles.successIconText}>✅</Text>
+            </View>
+            <Text style={styles.successTitle}>{successModalData.title}</Text>
+            <Text style={styles.successMessage}>{successModalData.message}</Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                // Don't navigate manually - let the auth system handle it
+              }}
+            >
+              <Text style={styles.successButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Email Exists Modal */}
+      <Modal
+        visible={showEmailExistsModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowEmailExistsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Email Already Registered</Text>
+            <Text style={styles.modalMessage}>
+              An account with this email already exists. Would you like to sign in instead?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowEmailExistsModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={() => {
+                  setShowEmailExistsModal(false);
+                  navigation.navigate('SignupSelection');
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toast.type === 'error' ? styles.toastError : styles.toastSuccess,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -669,5 +740,137 @@ const styles = {
     fontSize: 16,
     color: '#2c6f57',
     fontWeight: '500',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    maxWidth: 350,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  successIconText: {
+    fontSize: 48,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  successButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  successButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#2c6f57',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Toast Notification Styles
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 };

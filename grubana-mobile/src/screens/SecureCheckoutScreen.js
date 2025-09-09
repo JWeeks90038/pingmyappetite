@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
-  Alert, 
   BackHandler,
   ActivityIndicator,
-  SafeAreaView
+  SafeAreaView,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CardField, useStripe } from '@stripe/stripe-react-native';
@@ -30,6 +31,18 @@ export default function SecureCheckoutScreen({ route, navigation }) {
   
   const selectedPlan = plan || userData?.plan || 'event-premium';
 
+  // Toast notification system (replaces Alert.alert)
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
   // Prevent navigation away from checkout
   useFocusEffect(
     React.useCallback(() => {
@@ -38,22 +51,56 @@ export default function SecureCheckoutScreen({ route, navigation }) {
     }, [])
   );
 
+  // Toast notification function (replaces simple Alert.alert)
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+    }, 3000);
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, buttons = []) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons.length > 0 ? buttons : [
+      { text: 'OK', onPress: () => setModalVisible(false), style: 'default' }
+    ]);
+    setModalVisible(true);
+  };
+
   // Block hardware back button
   useEffect(() => {
     const backAction = () => {
-      Alert.alert(
+      showCustomModal(
         'Payment Required',
         'You must complete payment to access your account. Would you like to sign out instead?',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
           { 
             text: 'Sign Out', 
             style: 'destructive',
             onPress: async () => {
+              setModalVisible(false);
               try {
                 await signOut(auth);
               } catch (error) {
-                Alert.alert('Error', 'Failed to sign out. Please try again.');
+                showToastMessage('Failed to sign out. Please try again.', 'error');
               }
             }
           }
@@ -136,15 +183,16 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       previousPlanName = 'Event Premium Plan';
     }
 
-    Alert.alert(
+    showCustomModal(
       'Return to Previous Plan',
       `Are you sure you want to go back to your ${previousPlanName}? You can always upgrade again later.`,
       [
-        { text: 'Stay Here', style: 'cancel' },
+        { text: 'Stay Here', onPress: () => setModalVisible(false), style: 'cancel' },
         { 
           text: 'Go Back', 
           style: 'default',
           onPress: async () => {
+            setModalVisible(false);
             try {
               setLoading(true);
               
@@ -167,7 +215,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
               }
               
             } catch (error) {
-              Alert.alert('Error', 'Failed to return to previous plan. Please try again.');
+              showToastMessage('Failed to return to previous plan. Please try again.', 'error');
             } finally {
               setLoading(false);
             }
@@ -180,7 +228,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
   const handlePayment = async () => {
     // Enhanced card validation
     if (!cardComplete || !cardDetails) {
-      Alert.alert('Error', 'Please enter valid card details');
+      showToastMessage('Please enter valid card details', 'error');
       return;
     }
 
@@ -188,13 +236,13 @@ export default function SecureCheckoutScreen({ route, navigation }) {
     if (cardDetails.validNumber !== 'Valid' || 
         cardDetails.validExpiryDate !== 'Valid' || 
         cardDetails.validCVC !== 'Valid') {
-      Alert.alert('Error', 'Please check your card details. All fields must be valid.');
+      showToastMessage('Please check your card details. All fields must be valid.', 'error');
       return;
     }
 
     // Check if postal code is provided (required for most cards)
     if (!cardDetails.postalCode || cardDetails.postalCode.length < 5) {
-      Alert.alert('Error', 'Please enter a valid postal code');
+      showToastMessage('Please enter a valid postal code', 'error');
       return;
     }
     setLoading(true);
@@ -220,7 +268,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
 
       const result = await response.json();
       if (!response.ok || result.error) {
-        Alert.alert('Error', result.error || 'Failed to create payment');
+        showToastMessage(result.error || 'Failed to create payment', 'error');
         setLoading(false);
         setPaymentInProgress(false);
         return;
@@ -236,9 +284,9 @@ export default function SecureCheckoutScreen({ route, navigation }) {
       });
 
       if (createError) {
-        Alert.alert(
-          'Card Error', 
-          `Payment method creation failed: ${createError.message}. Please verify your card details and try again.`
+        showToastMessage(
+          `Payment method creation failed: ${createError.message}. Please verify your card details and try again.`,
+          'error'
         );
         setLoading(false);
         setPaymentInProgress(false);
@@ -257,7 +305,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         });
 
         if (confirmError) {
-          Alert.alert('Setup Failed', confirmError.message);
+          showToastMessage(`Setup Failed: ${confirmError.message}`, 'error');
           setLoading(false);
           setPaymentInProgress(false);
           return;
@@ -273,15 +321,17 @@ export default function SecureCheckoutScreen({ route, navigation }) {
           stripeSubscriptionId: result.subscriptionId,
           lastPaymentUpdate: new Date().toISOString()
         });
-        Alert.alert(
+        showCustomModal(
           'Trial Started!',
           'Your 30-day free trial has started. Enjoy premium features!',
           [
             {
               text: 'Continue',
               onPress: () => {
+                setModalVisible(false);
                 // Navigation will automatically redirect to the dashboard
-              }
+              },
+              style: 'default'
             }
           ]
         );
@@ -298,7 +348,7 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         });
 
         if (confirmError) {
-          Alert.alert('Payment Failed', confirmError.message);
+          showToastMessage(`Payment Failed: ${confirmError.message}`, 'error');
           setLoading(false);
           setPaymentInProgress(false);
           return;
@@ -318,27 +368,29 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         const subscriptionResult = await subscriptionResponse.json();
         
         if (!subscriptionResponse.ok || subscriptionResult.error) {
-          Alert.alert('Error', 'Payment succeeded but subscription setup failed. Please contact support.');
+          showToastMessage('Payment succeeded but subscription setup failed. Please contact support.', 'error');
           setLoading(false);
           setPaymentInProgress(false);
           return;
         }
-        Alert.alert(
+        showCustomModal(
           'Payment Successful!',
           'Your subscription is now active. Welcome to premium features!',
           [
             {
               text: 'Continue',
               onPress: () => {
+                setModalVisible(false);
                 // Navigation will automatically redirect to the dashboard
-              }
+              },
+              style: 'default'
             }
           ]
         );
       }
 
     } catch (error) {
-      Alert.alert('Payment Error', error.message || 'An unexpected error occurred. Please try again.');
+      showToastMessage(error.message || 'An unexpected error occurred. Please try again.', 'error');
     } finally {
       setLoading(false);
       setPaymentInProgress(false);
@@ -485,19 +537,20 @@ export default function SecureCheckoutScreen({ route, navigation }) {
         <TouchableOpacity 
           style={styles.signOutButton}
           onPress={() => {
-            Alert.alert(
+            showCustomModal(
               'Sign Out',
               'Are you sure you want to sign out? You will need to complete payment to access premium features.',
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
                 { 
                   text: 'Sign Out', 
                   style: 'destructive',
                   onPress: async () => {
+                    setModalVisible(false);
                     try {
                       await signOut(auth);
                     } catch (error) {
-                      Alert.alert('Error', 'Failed to sign out. Please try again.');
+                      showToastMessage('Failed to sign out. Please try again.', 'error');
                     }
                   }
                 }
@@ -508,6 +561,57 @@ export default function SecureCheckoutScreen({ route, navigation }) {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Toast Notification (replaces simple Alert.alert) */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastOpacity,
+              backgroundColor: toastType === 'error' ? '#dc3545' : '#28a745'
+            }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{modalTitle}</Text>
+            <Text style={styles.customModalMessage}>{modalMessage}</Text>
+            <View style={styles.customModalButtons}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.customModalButton,
+                    button.style === 'cancel' && styles.customModalButtonCancel,
+                    button.style === 'destructive' && styles.customModalButtonDestructive
+                  ]}
+                  onPress={button.onPress}
+                >
+                  <Text style={[
+                    styles.customModalButtonText,
+                    button.style === 'cancel' && styles.customModalButtonTextCancel,
+                    button.style === 'destructive' && styles.customModalButtonTextDestructive
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -737,5 +841,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#dc3545',
     fontWeight: '600',
+  },
+  // Toast notification styles (replaces Alert.alert)
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  customModalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+  },
+  customModalButtonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  customModalButtonDestructive: {
+    backgroundColor: '#dc3545',
+  },
+  customModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  customModalButtonTextCancel: {
+    color: '#fff',
+  },
+  customModalButtonTextDestructive: {
+    color: '#fff',
   },
 });

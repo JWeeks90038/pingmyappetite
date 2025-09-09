@@ -16,7 +16,7 @@ const db = admin.firestore();
 
 async function createTestTruck() {
   try {
-    console.log('🚛 Creating test truck for privacy testing...');
+
     
     const testTruckId = 'TEST_TRUCK_' + Date.now();
     
@@ -39,8 +39,7 @@ async function createTestTruck() {
     await db.collection('truckLocations').doc(testTruckId).set(truckData);
     await db.collection('trucks').doc(testTruckId).set(truckData);
     
-    console.log('✅ Created test truck:', testTruckId);
-    console.log('✅ Truck data:', truckData);
+
     
     // Now create a hidden truck to test privacy
     const hiddenTruckId = 'HIDDEN_TRUCK_' + Date.now();
@@ -56,17 +55,12 @@ async function createTestTruck() {
     await db.collection('truckLocations').doc(hiddenTruckId).set(hiddenTruckData);
     await db.collection('trucks').doc(hiddenTruckId).set(hiddenTruckData);
     
-    console.log('✅ Created hidden test truck:', hiddenTruckId);
-    console.log('🔒 This truck should NOT appear for customers');
-    
-    console.log('\n🎯 Test Setup Complete!');
-    console.log('🎯 You should now see 1 truck (Test Privacy Truck) when logged in as customer');
-    console.log('🎯 The "Hidden Privacy Truck" should NOT appear for customers');
+
     
     process.exit(0);
     
   } catch (error) {
-    console.error('❌ Error creating test truck:', error);
+
     process.exit(1);
   }
 }

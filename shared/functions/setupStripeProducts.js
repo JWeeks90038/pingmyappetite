@@ -22,7 +22,7 @@ dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || STRIPE_SECRET_KEY);
 
 async function setupStripeProducts() {
-  console.log('🔧 Setting up Stripe products and prices...');
+
 
   try {
     // Define your products with the same IDs referenced in your Firebase Function
@@ -59,7 +59,7 @@ async function setupStripeProducts() {
     const createdProducts = {};
 
     for (const productDef of products) {
-      console.log(`\n📦 Creating product: ${productDef.name}`);
+
 
       // Try to use the predefined ID first, or check if product already exists
       let product;
@@ -67,7 +67,7 @@ async function setupStripeProducts() {
       try {
         // First, try to retrieve the product using the predefined ID
         product = await stripe.products.retrieve(productDef.predefinedProductId);
-        console.log(`   ✅ Found existing product with predefined ID: ${product.id}`);
+   
       } catch (error) {
         // Product with predefined ID doesn't exist, check by name/metadata
         const existingProducts = await stripe.products.list({
@@ -80,7 +80,7 @@ async function setupStripeProducts() {
         );
 
         if (product) {
-          console.log(`   ✅ Found existing product by name: ${product.id}`);
+
         } else {
           // Create new product with the predefined ID
           try {
@@ -93,7 +93,7 @@ async function setupStripeProducts() {
                 grubana_plan: productDef.key
               }
             });
-            console.log(`   ✅ Created product with predefined ID: ${product.id}`);
+   
           } catch (createError) {
             // If predefined ID fails, create without ID
             product = await stripe.products.create({
@@ -104,7 +104,7 @@ async function setupStripeProducts() {
                 grubana_plan: productDef.key
               }
             });
-            console.log(`   ✅ Created product with new ID: ${product.id}`);
+       
           }
         }
       }
@@ -115,7 +115,7 @@ async function setupStripeProducts() {
       try {
         // First, try to retrieve the price using the predefined ID
         price = await stripe.prices.retrieve(productDef.predefinedPriceId);
-        console.log(`   ✅ Found existing price with predefined ID: ${price.id}`);
+   
       } catch (error) {
         // Price with predefined ID doesn't exist, check existing prices for this product
         const existingPrices = await stripe.prices.list({
@@ -129,7 +129,7 @@ async function setupStripeProducts() {
         );
 
         if (price) {
-          console.log(`   ✅ Found existing price by amount: ${price.id}`);
+ 
         } else {
           // Create new price with the predefined ID
           try {
@@ -143,7 +143,7 @@ async function setupStripeProducts() {
                 grubana_plan: productDef.key
               }
             });
-            console.log(`   ✅ Created price with predefined ID: ${price.id}`);
+     
           } catch (createError) {
             // If predefined ID fails, create without ID
             price = await stripe.prices.create({
@@ -155,7 +155,7 @@ async function setupStripeProducts() {
                 grubana_plan: productDef.key
               }
             });
-            console.log(`   ✅ Created price with new ID: ${price.id}`);
+     
           }
         }
       }
@@ -168,25 +168,17 @@ async function setupStripeProducts() {
       };
     }
 
-    console.log('\n🎉 Stripe products setup complete!');
-    console.log('\n📋 COPY THESE VALUES TO YOUR FIREBASE FUNCTION:');
-    console.log('=' + '='.repeat(59));
+
     
     // Generate the code to update in the Firebase Function
-    console.log('const predefinedProducts = {');
-    for (const [key, data] of Object.entries(createdProducts)) {
-      console.log(`  '${key}': {`);
-      console.log(`    productId: '${data.productId}',`);
-      console.log(`    priceId: '${data.priceId}'`);
-      console.log(`  },`);
-    }
-    console.log('};');
 
-    console.log('\n📝 UPDATE stripePayments.js:');
-    console.log('Replace the predefinedProducts object in your Firebase Function with the above code.');
+    for (const [key, data] of Object.entries(createdProducts)) {
+   
+    }
+ 
 
   } catch (error) {
-    console.error('❌ Error setting up Stripe products:', error);
+
   }
 }
 

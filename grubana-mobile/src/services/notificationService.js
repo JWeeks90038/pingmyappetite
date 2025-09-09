@@ -26,7 +26,6 @@ class NotificationService {
    */
   async initialize(userId) {
     if (!userId) {
-      console.warn('⚠️ Cannot initialize notifications: No user ID provided');
       return false;
     }
 
@@ -41,13 +40,11 @@ class NotificationService {
         // Set up notification listeners
         this.setupNotificationListeners();
         
-        console.log('✅ Notifications initialized successfully');
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error('❌ Failed to initialize notifications:', error);
       return false;
     }
   }
@@ -58,7 +55,6 @@ class NotificationService {
   async requestNotificationPermissions() {
     try {
       if (!Device.isDevice) {
-        console.warn('⚠️ Push notifications only work on physical devices');
         return null;
       }
 
@@ -73,7 +69,6 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.warn('⚠️ Notification permission not granted');
         return null;
       }
 
@@ -97,17 +92,14 @@ class NotificationService {
           // token = await messaging().getToken();
         }
       } catch (tokenError) {
-        console.log('🔄 Falling back to device token...');
         const deviceToken = await Notifications.getDevicePushTokenAsync();
         token = deviceToken.data || deviceToken;
       }
 
-      console.log('🔔 Push token obtained:', token);
       this.expoPushToken = token;
       
       return token;
     } catch (error) {
-      console.error('❌ Error requesting notification permissions:', error);
       return null;
     }
   }
@@ -132,9 +124,7 @@ class NotificationService {
         }
       });
       
-      console.log('✅ Push token saved to Firestore');
     } catch (error) {
-      console.error('❌ Error saving token to Firestore:', error);
       throw error;
     }
   }
@@ -145,8 +135,6 @@ class NotificationService {
   setupNotificationListeners() {
     // Listen for notifications received while app is in foreground
     this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('🔔 Notification received (foreground):', notification);
-      
       // Increment badge count when notification is received
       this.incrementBadgeCount();
       
@@ -156,8 +144,6 @@ class NotificationService {
 
     // Listen for notification responses (when user taps notification)
     this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('🔔 Notification response:', response);
-      
       // Clear badge count when user interacts with notification
       this.clearBadgeCount();
       
@@ -177,42 +163,34 @@ class NotificationService {
     switch (data.type) {
       case 'new_order':
         // For truck owners - navigate to order management
-        console.log('🚚 New order notification tapped - navigating to orders');
         // Navigation will be handled by the app's navigation system
         break;
         
       case 'order_status':
         // For customers - navigate to their orders
-        console.log('📱 Order status notification tapped - navigating to customer orders');
         break;
         
       case 'order_confirmed':
         // For customers - navigate to order tracking
-        console.log('✅ Order confirmed notification tapped');
         break;
         
       case 'order_ready':
         // For customers - navigate to pickup information
-        console.log('🎉 Order ready notification tapped');
         break;
         
       case 'event_invitation':
         // For all users - navigate to events
-        console.log('🎪 Event invitation notification tapped');
         break;
         
       case 'event_update':
         // For event participants - navigate to specific event
-        console.log('📅 Event update notification tapped');
         break;
         
       case 'review_request':
         // For customers - navigate to review screen
-        console.log('⭐ Review request notification tapped');
         break;
         
       default:
-        console.log('🔔 Unknown notification type:', data.type);
     }
   }
 
@@ -230,9 +208,7 @@ class NotificationService {
         trigger: null, // Send immediately
       });
       
-      console.log('📱 Local notification sent');
     } catch (error) {
-      console.error('❌ Error sending local notification:', error);
     }
   }
 
@@ -240,7 +216,6 @@ class NotificationService {
    * Test notifications (for development)
    */
   async testNotification(userType = 'customer') {
-    console.log(`🔔 Testing notification for role: ${userType}`);
     await this.sendTestNotificationForRole(userType);
   }
 
@@ -264,38 +239,29 @@ class NotificationService {
         this.sendLocalNotification(notif.title, notif.body, notif.data);
       }, i * 2000); // Send every 2 seconds
     }
-
-    console.log('📱 All test notifications scheduled');
   }
 
   /**
    * Test badge count functionality
    */
   async testBadgeCount() {
-    console.log('🔢 Testing badge count functionality...');
     
     // Clear badge first
     await this.clearBadgeCount();
-    console.log('1. Badge cleared');
     
     // Test incrementing
     await this.incrementBadgeCount();
-    console.log('2. Badge incremented to 1');
     
     await this.incrementBadgeCount();
-    console.log('3. Badge incremented to 2');
     
     // Test setting specific count
     await this.setBadgeCount(5);
-    console.log('4. Badge set to 5');
     
     // Test getting count
     const count = await this.getBadgeCount();
-    console.log(`5. Current badge count: ${count}`);
     
     // Clear again
     await this.clearBadgeCount();
-    console.log('6. Badge cleared again');
   }
 
   /**
@@ -321,7 +287,6 @@ class NotificationService {
         email: true
       };
     } catch (error) {
-      console.error('❌ Error getting notification preferences:', error);
       return {
         push: true,
         sms: false,
@@ -342,10 +307,8 @@ class NotificationService {
         notificationPreferencesUpdatedAt: new Date()
       });
       
-      console.log('✅ Notification preferences updated');
       return true;
     } catch (error) {
-      console.error('❌ Error updating notification preferences:', error);
       return false;
     }
   }
@@ -356,9 +319,7 @@ class NotificationService {
   async setBadgeCount(count) {
     try {
       await Notifications.setBadgeCountAsync(count);
-      console.log(`🔢 Badge count set to: ${count}`);
     } catch (error) {
-      console.error('❌ Error setting badge count:', error);
     }
   }
 
@@ -368,10 +329,8 @@ class NotificationService {
   async getBadgeCount() {
     try {
       const count = await Notifications.getBadgeCountAsync();
-      console.log(`🔢 Current badge count: ${count}`);
       return count;
     } catch (error) {
-      console.error('❌ Error getting badge count:', error);
       return 0;
     }
   }
@@ -386,7 +345,6 @@ class NotificationService {
       await this.setBadgeCount(newCount);
       return newCount;
     } catch (error) {
-      console.error('❌ Error incrementing badge count:', error);
       return 0;
     }
   }
@@ -397,9 +355,7 @@ class NotificationService {
   async clearBadgeCount() {
     try {
       await this.setBadgeCount(0);
-      console.log('🧹 Badge count cleared');
     } catch (error) {
-      console.error('❌ Error clearing badge count:', error);
     }
   }
 
@@ -409,10 +365,8 @@ class NotificationService {
    */
   async clearBadgeForUserRole(userRole, screenName) {
     try {
-      console.log(`🧹 Clearing badge for ${userRole} on ${screenName} screen`);
       await this.clearBadgeCount();
     } catch (error) {
-      console.error('❌ Error clearing role-specific badge:', error);
     }
   }
 
@@ -448,7 +402,6 @@ class NotificationService {
     }
 
     await this.sendLocalNotification(title, body, data);
-    console.log(`📱 Test notification sent for ${userRole}`);
   }
 
   /**
@@ -463,7 +416,6 @@ class NotificationService {
       Notifications.removeNotificationSubscription(this.responseListener);
     }
     
-    console.log('🧹 Notification listeners cleaned up');
   }
 }
 

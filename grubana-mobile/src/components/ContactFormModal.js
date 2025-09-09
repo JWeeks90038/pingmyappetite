@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from './AuthContext';
@@ -21,12 +21,33 @@ const ContactFormModal = ({ visible, onClose }) => {
   const theme = useTheme();
   const styles = createThemedStyles(theme);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [toastOpacity] = useState(new Animated.Value(0));
   const [formData, setFormData] = useState({
     name: userData?.username || userData?.ownerName || userData?.contactName || '',
     email: user?.email || '',
     subject: '',
     message: '',
   });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToast({ visible: false, message: '', type: 'success' });
+    });
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -37,7 +58,7 @@ const ContactFormModal = ({ visible, onClose }) => {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.email || !formData.subject || !formData.message) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showToast('Please fill in all fields', 'error');
       return;
     }
 
@@ -60,25 +81,22 @@ const ContactFormModal = ({ visible, onClose }) => {
       });
 
       if (response.ok) {
-        Alert.alert(
-          'Success', 
-          'Your message has been sent successfully! We\'ll get back to you soon.',
-          [{ text: 'OK', onPress: () => {
-            setFormData({
-              name: userData?.username || userData?.ownerName || userData?.contactName || '',
-              email: user?.email || '',
-              subject: '',
-              message: '',
-            });
-            onClose();
-          }}]
-        );
+        showToast('Your message has been sent successfully! We\'ll get back to you soon.', 'success');
+        // Reset form after successful submission
+        setTimeout(() => {
+          setFormData({
+            name: userData?.username || userData?.ownerName || userData?.contactName || '',
+            email: user?.email || '',
+            subject: '',
+            message: '',
+          });
+          onClose();
+        }, 2000);
       } else {
         throw new Error('Failed to send message');
       }
     } catch (error) {
-      console.error('Contact form error:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      showToast('Failed to send message. Please try again.', 'error');
     }
     setLoading(false);
   };
@@ -173,6 +191,25 @@ const ContactFormModal = ({ visible, onClose }) => {
             <Text style={styles.infoText}>💬 We typically respond within 24 hours</Text>
           </View>
         </ScrollView>
+
+        {/* Toast Notification */}
+        {toast.visible && (
+          <Animated.View 
+            style={[
+              styles.toast, 
+              toast.type === 'error' ? styles.toastError : styles.toastSuccess,
+              { opacity: toastOpacity }
+            ]}
+          >
+            <Ionicons 
+              name={toast.type === 'error' ? 'alert-circle' : 'checkmark-circle'} 
+              size={20} 
+              color="#fff" 
+              style={styles.toastIcon} 
+            />
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </Animated.View>
+        )}
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -281,6 +318,39 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 14,
     color: theme.colors.text.secondary,
     marginBottom: 5,
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#F44336',
+  },
+  toastIcon: {
+    marginRight: 12,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 22,
   },
 });
 

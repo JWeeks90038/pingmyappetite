@@ -45,11 +45,11 @@ const inferCuisineType = (truckName) => {
 
 const forceUpdateCuisineTypes = async () => {
   try {
-    console.log('🍽️ Force updating cuisine types with improved logic...');
+  
     
     // Get all users from the users collection
     const usersSnapshot = await db.collection('users').get();
-    console.log(`📊 Found ${usersSnapshot.size} users to re-analyze`);
+
     
     let updatedCount = 0;
     const cuisineStats = {};
@@ -62,7 +62,7 @@ const forceUpdateCuisineTypes = async () => {
       // Re-infer cuisine type with improved logic
       const newCuisineType = inferCuisineType(truckName);
       
-      console.log(`🔍 User: ${truckName} → Inferred cuisine: ${newCuisineType}`);
+
       
       // Update the user document
       await db.collection('users').doc(userId).update({
@@ -74,20 +74,18 @@ const forceUpdateCuisineTypes = async () => {
       updatedCount++;
     }
     
-    console.log('\n📈 FINAL RESULTS:');
-    console.log(`Total users updated: ${updatedCount}`);
-    console.log('\n🍽️ CUISINE DISTRIBUTION:');
+
     
     Object.entries(cuisineStats)
       .sort(([,a], [,b]) => b - a)
       .forEach(([cuisine, count]) => {
-        console.log(`${cuisine}: ${count} trucks`);
+ 
       });
     
-    console.log('\n✅ Force cuisine type update completed successfully!');
+
     
   } catch (error) {
-    console.error('❌ Error during force update:', error);
+
   } finally {
     // Clean up
     process.exit(0);

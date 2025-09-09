@@ -160,6 +160,4 @@ const benefits = [
   "Professional admin notification system"
 ];
 
-console.log('✅ Admin signup notification system implemented successfully');
-console.log('🚀 Ready for testing and deployment');
-console.log('📧 flavor@grubana.com will receive notifications for all new signups');
+

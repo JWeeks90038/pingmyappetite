@@ -13,12 +13,12 @@ export const cleanupOldOrders = functions.pubsub
   .timeZone('America/Los_Angeles') // Adjust timezone as needed
   .onRun(async (context) => {
     try {
-      console.log('Starting scheduled cleanup of old orders...');
+ 
       
       const minutesOld = 10; // Delete orders older than 10 minutes
       const cutoffTime = new Date(Date.now() - (minutesOld * 60 * 1000));
       
-      console.log(`Cutoff time: ${cutoffTime.toISOString()}`);
+  
       
       // Query for pending_payment orders older than cutoff time
       const pendingQuery = db.collection('orders')
@@ -40,23 +40,23 @@ export const cleanupOldOrders = functions.pubsub
       // Collect pending payment orders
       pendingSnapshot.forEach(doc => {
         const data = doc.data();
-        console.log(`Found pending payment order: ${doc.id} from ${data.timestamp?.toDate()}`);
+     
         ordersToDelete.push(doc.ref);
       });
       
       // Collect cancelled orders
       cancelledSnapshot.forEach(doc => {
         const data = doc.data();
-        console.log(`Found cancelled order: ${doc.id} from ${data.timestamp?.toDate()}`);
+      
         ordersToDelete.push(doc.ref);
       });
       
       if (ordersToDelete.length === 0) {
-        console.log('No orders to delete.');
+   
         return null;
       }
       
-      console.log(`Deleting ${ordersToDelete.length} orders...`);
+ 
       
       // Delete orders in batches
       const batchSize = 500;
@@ -72,14 +72,14 @@ export const cleanupOldOrders = functions.pubsub
         
         await batch.commit();
         deletedCount += batchOrders.length;
-        console.log(`Deleted batch of ${batchOrders.length} orders`);
+  
       }
       
-      console.log(`Cleanup completed. Deleted: ${deletedCount} orders`);
+      
       return null;
       
     } catch (error) {
-      console.error('Error in scheduled cleanup:', error);
+
       throw error;
     }
   });
@@ -102,7 +102,7 @@ export const manualCleanupOrders = functions.https.onRequest(async (req, res) =>
     
     const minutesOld = req.query.minutes ? parseInt(req.query.minutes) : 10;
     
-    console.log(`Manual cleanup triggered for orders older than ${minutesOld} minutes`);
+
     
     const cutoffTime = new Date(Date.now() - (minutesOld * 60 * 1000));
     
@@ -178,7 +178,7 @@ export const manualCleanupOrders = functions.https.onRequest(async (req, res) =>
     });
     
   } catch (error) {
-    console.error('Error in manual cleanup:', error);
+
     res.status(500).json({ 
       success: false, 
       error: error.message 
@@ -199,7 +199,7 @@ export const orderStatusCleanupTrigger = functions.firestore
     
     // If order moves from pending_payment to cancelled, schedule cleanup
     if (before.status === 'pending_payment' && after.status === 'cancelled') {
-      console.log(`Order ${orderId} cancelled, will be cleaned up in next scheduled run`);
+
     }
     
     // If order has been in pending_payment for more than 15 minutes, log it
@@ -208,7 +208,7 @@ export const orderStatusCleanupTrigger = functions.firestore
       const minutesOld = Math.floor(orderAge / (1000 * 60));
       
       if (minutesOld > 15) {
-        console.warn(`Long-pending order detected: ${orderId} has been pending for ${minutesOld} minutes`);
+  
       }
     }
     

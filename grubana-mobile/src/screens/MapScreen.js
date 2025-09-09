@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,42 +23,35 @@ export default function MapScreen() {
   const styles = useMemo(() => createThemedStyles(theme), [theme]);
   
   // DEBUG: Console log to confirm code changes are active
-  console.log('🔧 DEBUG: MapScreen loaded with UPDATED code - Menu Management changes should be active');
+
   
   // Test Firebase connection immediately
   useEffect(() => {
     const testFirebaseConnection = async () => {
       try {
-        console.log('🔥 FIREBASE TEST: Testing Firebase connection...');
-        console.log('🔥 FIREBASE TEST: db object exists:', !!db);
-        console.log('🔥 FIREBASE TEST: user object exists:', !!user);
-        console.log('🔥 FIREBASE TEST: user.uid:', user?.uid);
+ 
         
         // Try a simple Firebase read
         const testDoc = doc(db, 'users', user?.uid || 'test');
         const testSnapshot = await getDoc(testDoc);
-        console.log('🔥 FIREBASE TEST: Test doc read successful:', testSnapshot.exists());
+      
         
         // Try to read truckLocations collection
         const truckLocsRef = collection(db, 'truckLocations');
         const truckLocsSnapshot = await getDocs(truckLocsRef);
-        console.log('🔥 FIREBASE TEST: truckLocations collection size:', truckLocsSnapshot.size);
+
         
         // Try to read trucks collection  
         const trucksRef = collection(db, 'trucks');
         const trucksSnapshot = await getDocs(trucksRef);
-        console.log('🔥 FIREBASE TEST: trucks collection size:', trucksSnapshot.size);
+
         
         // Try to read menuItems collection
         const menuRef = collection(db, 'menuItems');
         const menuSnapshot = await getDocs(menuRef);
-        console.log('🔥 FIREBASE TEST: menuItems collection size:', menuSnapshot.size);
+    
         
-      } catch (error) {
-        console.error('🔥 FIREBASE TEST: Connection test failed:', error);
-        console.error('🔥 FIREBASE TEST: Error code:', error.code);
-        console.error('🔥 FIREBASE TEST: Error message:', error.message);
-      }
+      } catch (error) {}
     };
     
     if (user) {
@@ -73,7 +66,7 @@ export default function MapScreen() {
       return;
     }
 
-    console.log('❤️ FAVORITES: Loading favorites for user:', user.uid);
+
     
     const favoritesQuery = query(
       collection(db, 'favorites'),
@@ -89,11 +82,10 @@ export default function MapScreen() {
         }
       });
       
-      console.log('❤️ FAVORITES: Real-time update - Loaded', favoriteSet.size, 'favorites for user');
-      console.log('❤️ FAVORITES: Favorite truck IDs:', Array.from(favoriteSet));
+
       setUserFavorites(favoriteSet);
     }, (error) => {
-      console.error('❤️ FAVORITES: Error loading favorites:', error);
+ 
       // Set empty favorites to prevent undefined issues
       setUserFavorites(new Set());
     });
@@ -105,7 +97,7 @@ export default function MapScreen() {
   useEffect(() => {
     if (!foodTrucks.length) return;
 
-    console.log('📊 FAVORITES: Loading favorite counts for', foodTrucks.length, 'trucks');
+
     
     const loadFavoriteCounts = async () => {
       const counts = new Map();
@@ -123,12 +115,11 @@ export default function MapScreen() {
           const snapshot = await getDocs(favoritesQuery);
           counts.set(truckId, snapshot.size);
         } catch (error) {
-          console.error('📊 FAVORITES: Error loading count for truck', truckId, error);
           counts.set(truckId, 0);
         }
       }
       
-      console.log('📊 FAVORITES: Loaded favorite counts:', counts.size, 'trucks processed');
+
       setTruckFavoriteCounts(counts);
     };
 
@@ -217,7 +208,6 @@ export default function MapScreen() {
       const stored = await AsyncStorage.getItem(`newItemIds_${userId}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch (error) {
-      console.error('Error getting new item IDs:', error);
       return new Set();
     }
   };
@@ -262,10 +252,75 @@ export default function MapScreen() {
   });
   const [submittingFestivalForm, setSubmittingFestivalForm] = useState(false);
 
+  // Toast notification system for production-safe alerts
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [showToast, setShowToast] = useState(false);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [customModal, setCustomModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    confirmText: 'OK',
+    cancelText: 'Cancel',
+    showCancel: false,
+  });
+
+  // Toast notification function
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2500),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowToast(false);
+    });
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, onConfirm = null, confirmText = 'OK', cancelText = 'Cancel', showCancel = false) => {
+    setCustomModal({
+      visible: true,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      showCancel,
+    });
+  };
+
+  const hideCustomModal = () => {
+    setCustomModal({
+      visible: false,
+      title: '',
+      message: '',
+      onConfirm: null,
+      confirmText: 'OK',
+      cancelText: 'Cancel',
+      showCancel: false,
+    });
+  };
+
   // Function to check if truck is currently open based on business hours
   const checkTruckOpenStatus = (businessHours) => {
     if (!businessHours) {
-      console.log('⏰ MapScreen: No business hours data - defaulting to OPEN');
+
       return 'open'; // Default to open if no hours set
     }
     
@@ -273,23 +328,20 @@ export default function MapScreen() {
     const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
     const currentTime12 = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
     
-    console.log('⏰ MapScreen: Checking truck status for', currentDay, 'at', currentTime12);
-    console.log('⏰ MapScreen: Business hours data:', businessHours);
+
     
     const dayHours = businessHours[currentDay];
     if (!dayHours || dayHours.closed) {
-      console.log('⏰ MapScreen: Truck is marked as CLOSED today');
+
       return 'closed';
     }
     
-    console.log('⏰ MapScreen: Today\'s hours:', dayHours.open, '-', dayHours.close);
-    console.log('⏰ MapScreen: Current time:', currentTime12);
-    
+
     // Helper function to convert AM/PM time to minutes since midnight for easy comparison
     const timeToMinutes = (timeStr) => {
       if (!timeStr) return 0;
       
-      console.log('⏰ Converting to minutes:', timeStr);
+
       
       const timeStr_clean = timeStr.trim();
       
@@ -298,7 +350,7 @@ export default function MapScreen() {
         // 24-hour format like "09:00" or "17:00"
         const timeParts = timeStr_clean.split(':');
         if (timeParts.length !== 2) {
-          console.log('❌ Invalid 24-hour format - expected "HH:MM", got:', timeStr);
+   
           return 0;
         }
         
@@ -306,31 +358,28 @@ export default function MapScreen() {
         const minutes = parseInt(timeParts[1], 10);
         
         if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-          console.log('❌ Invalid 24-hour time values - hours:', hours, 'minutes:', minutes);
+   
           return 0;
         }
         
         const totalMinutes = hours * 60 + minutes;
-        console.log('⏰ Converted 24-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+      
         return totalMinutes;
       }
       
       // 12-hour format with AM/PM - handle various whitespace characters
       const parts = timeStr_clean.split(/\s+/); // Split on any whitespace (space, non-breaking space, etc.)
-      console.log('⏰ Split parts:', parts, 'Length:', parts.length);
-      console.log('⏰ Original string bytes:', Array.from(timeStr_clean).map(char => char.charCodeAt(0)));
+
       
       if (parts.length !== 2) {
-        console.log('❌ Invalid time format - expected "H:MM AM/PM", got:', timeStr);
-        console.log('❌ Split result:', parts);
-        console.log('❌ Trying alternative parsing...');
+
         
         // Try alternative parsing for edge cases
         const ampmMatch = timeStr_clean.match(/(AM|PM)/i);
         if (ampmMatch) {
           const ampm = ampmMatch[0].toUpperCase();
           const timeOnly = timeStr_clean.replace(/(AM|PM)/i, '').trim();
-          console.log('⏰ Alternative parsing - time:', timeOnly, 'period:', ampm);
+
           
           const timeParts = timeOnly.split(':');
           if (timeParts.length === 2) {
@@ -346,7 +395,7 @@ export default function MapScreen() {
               }
               
               const totalMinutes = hours * 60 + minutes;
-              console.log('✅ Alternative parsing successful:', timeStr, '→', totalMinutes, 'minutes');
+      
               return totalMinutes;
             }
           }
@@ -356,35 +405,30 @@ export default function MapScreen() {
       }
       
       const [time, period] = parts;
-      console.log('⏰ Time part:', '"' + time + '"', 'Period part:', '"' + period + '"');
+ 
       
       const timeParts = time.split(':');
-      console.log('⏰ Time split by colon:', timeParts, 'Length:', timeParts.length);
+
       
       if (timeParts.length !== 2) {
-        console.log('❌ Invalid time part - expected "H:MM", got:', time);
-        console.log('❌ Time parts:', timeParts);
+
         return 0;
       }
       
       let hours = parseInt(timeParts[0], 10);
       const minutes = parseInt(timeParts[1], 10);
       
-      console.log('⏰ Raw parsing - hours string:', '"' + timeParts[0] + '"', 'minutes string:', '"' + timeParts[1] + '"');
-      console.log('⏰ Parsed integers - hours:', hours, 'minutes:', minutes);
-      console.log('⏰ Type check - hours type:', typeof hours, 'minutes type:', typeof minutes);
-      console.log('⏰ NaN check - isNaN(hours):', isNaN(hours), 'isNaN(minutes):', isNaN(minutes));
+
       
       if (isNaN(hours) || isNaN(minutes)) {
-        console.log('❌ Failed to parse time:', time, '-> hours:', hours, 'minutes:', minutes);
+  
         return 0;
       }
       
       // Validate ranges for 12-hour format
-      console.log('⏰ Range validation - hours >= 1:', hours >= 1, 'hours <= 12:', hours <= 12, 'minutes >= 0:', minutes >= 0, 'minutes <= 59:', minutes <= 59);
+      
       if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
-        console.log('❌ Invalid 12-hour time values - hours:', hours, 'minutes:', minutes);
-        console.log('❌ Range check failed: hours range (1-12):', (hours >= 1 && hours <= 12), 'minutes range (0-59):', (minutes >= 0 && minutes <= 59));
+        
         return 0;
       }
       
@@ -396,7 +440,7 @@ export default function MapScreen() {
       }
       
       const totalMinutes = hours * 60 + minutes;
-      console.log('⏰ Converted 12-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+ 
       return totalMinutes;
     };
     
@@ -405,10 +449,7 @@ export default function MapScreen() {
     const openMinutes = timeToMinutes(dayHours.open);
     const closeMinutes = timeToMinutes(dayHours.close);
     
-    console.log('⏰ MapScreen: Time comparison (minutes since midnight):');
-    console.log('⏰   Open:', openMinutes, '(' + dayHours.open + ')');
-    console.log('⏰   Current:', currentMinutes, '(' + currentTime12 + ')');
-    console.log('⏰   Close:', closeMinutes, '(' + dayHours.close + ')');
+
     
     // Check if current time is within business hours
     let isOpen = false;
@@ -417,24 +458,18 @@ export default function MapScreen() {
       // Normal case: open and close on same day (e.g., 9:00 AM to 6:00 PM)
       // Current time must be >= open time AND < close time (not <=, because at close time you're closed)
       isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
-      console.log('⏰ MapScreen: Normal day hours - checking if', currentMinutes, 'is between', openMinutes, 'and', closeMinutes);
-      console.log('⏰ MapScreen:   Is current >= open?', currentMinutes >= openMinutes);
-      console.log('⏰ MapScreen:   Is current < close?', currentMinutes < closeMinutes);
-      console.log('⏰ MapScreen:   Final result: OPEN =', isOpen);
+    
     } else {
       // Overnight case: close time is next day (e.g., 10:00 PM to 2:00 AM)
       isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes;
-      console.log('⏰ MapScreen: Overnight hours - checking if', currentMinutes, 'is after', openMinutes, 'OR before', closeMinutes);
-      console.log('⏰ MapScreen:   Is current >= open?', currentMinutes >= openMinutes);
-      console.log('⏰ MapScreen:   Is current < close?', currentMinutes < closeMinutes);
-      console.log('⏰ MapScreen:   Final result: OPEN =', isOpen);
+
     }
     
     if (isOpen) {
-      console.log('✅ MapScreen: Truck is OPEN');
+     
       return 'open';
     } else {
-      console.log('❌ MapScreen: Truck is CLOSED (outside business hours)');
+  
       return 'closed';
     }
   };
@@ -539,7 +574,7 @@ export default function MapScreen() {
   const addTestPingData = async () => {
     if (!user || !location) return;
     
-    console.log('🔥 Adding test ping data to Firestore for heatmap testing...');
+
     
     const testPings = [
       { lat: location.coords.latitude + 0.01, lng: location.coords.longitude + 0.01 },
@@ -563,11 +598,10 @@ export default function MapScreen() {
         };
         
         await setDoc(doc(db, 'pings', `test_ping_${i}_${Date.now()}`), pingData);
-        console.log('✅ Added test ping', i + 1, ':', pingData);
+
       }
-      console.log('✅ All test pings added to Firestore successfully');
+   
     } catch (error) {
-      console.error('❌ Error adding test pings:', error);
     }
   };
 
@@ -589,10 +623,10 @@ export default function MapScreen() {
   /*
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔄 MapScreen: Screen focused - triggering truck data refresh for business hours updates');
+ 
       // Only trigger truck data refresh, not full map regeneration
       // This will be handled by the truck data listeners, not by regenerating the entire map
-      console.log('🔄 Note: Truck business hours will be updated through real-time listeners, no map regeneration needed');
+  
     }, [])
   );
   */
@@ -601,7 +635,7 @@ export default function MapScreen() {
   useEffect(() => {
     const fetchOwnerData = async () => {
       if (!user?.uid) return;
-      console.log("📋 MapScreen: Fetching owner data for UID:", user.uid);
+
       
       try {
         const docRef = doc(db, "users", user.uid);
@@ -609,10 +643,9 @@ export default function MapScreen() {
         if (docSnap.exists()) {
           const data = { uid: user.uid, ...docSnap.data() };
           setOwnerData(data);
-          console.log("📋 MapScreen: Owner data fetched:", data);
+
         }
       } catch (error) {
-        console.error("📋 MapScreen: Error fetching owner data:", error);
       }
     };
 
@@ -657,29 +690,19 @@ export default function MapScreen() {
 
   // Automatically load menu items when truck modal opens
   useEffect(() => {
-    console.log('🍽️ MODAL DEBUG: useEffect triggered with:', {
-      showMenuModal,
-      selectedTruckOwnerId: selectedTruck?.ownerId,
-      selectedTruckName: selectedTruck?.name
-    });
+
     
     if (showMenuModal && selectedTruck?.ownerId) {
-      console.log('🍽️ Auto-loading menu items for opened truck modal:', selectedTruck.name);
-      console.log('🔍 Selected truck ownerId:', selectedTruck.ownerId);
-      console.log('🔍 Current user UID:', user?.uid);
-      console.log('🔍 Are they the same?', selectedTruck.ownerId === user?.uid);
+
       loadMenuItems(selectedTruck.ownerId);
       
       // Load reviews for rating display
-      console.log('⭐ TRUCK MODAL DEBUG: About to load reviews for truck:', selectedTruck.ownerId);
+
       loadReviews(selectedTruck.ownerId);
       
       // Drops will be loaded by the real-time listener useEffect
     } else {
-      console.log('🍽️ MODAL DEBUG: Not loading menu items because:', {
-        showMenuModal: !!showMenuModal,
-        hasOwnerId: !!selectedTruck?.ownerId
-      });
+   
     }
   }, [showMenuModal, selectedTruck?.ownerId]);
 
@@ -691,7 +714,7 @@ export default function MapScreen() {
 
     // Only set up real-time listener for customers, event organizers, or owners viewing other trucks
     if (userRole === 'customer' || userRole === 'event-organizer' || (userRole === 'owner' && selectedTruck.ownerId !== user?.uid)) {
-      console.log('🎁 Setting up real-time drops listener for truck:', selectedTruck.name);
+ 
       
       const dropsQuery = query(
         collection(db, "drops"),
@@ -701,7 +724,7 @@ export default function MapScreen() {
       const unsubscribeDrops = onSnapshot(dropsQuery, (snapshot) => {
         const now = new Date();
         
-        console.log(`🎁 Raw drops from Firebase: ${snapshot.docs.length} documents`);
+
         
         const allDrops = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
@@ -713,18 +736,7 @@ export default function MapScreen() {
           const isExpired = expiresAt <= now;
           const hasRemaining = remaining > 0;
           
-          console.log(`🎁 Drop ${index + 1}:`, {
-            id: drop.id,
-            title: drop.title,
-            quantity: drop.quantity,
-            claimedBy: drop.claimedBy,
-            claimedCount,
-            remaining,
-            expiresAt: expiresAt.toISOString(),
-            isExpired,
-            hasRemaining,
-            willBeShown: !isExpired && hasRemaining
-          });
+        
         });
         
         const activeDrops = allDrops.filter(drop => {
@@ -733,16 +745,15 @@ export default function MapScreen() {
           return expiresAt > now && remaining > 0;
         });
         
-        console.log(`🎁 Real-time update: ${activeDrops.length} active drops for truck:`, selectedTruck.ownerId);
+
         setTruckDrops(activeDrops);
         setLoadingDrops(false);
       }, (error) => {
-        console.error("❌ Error in drops real-time listener:", error);
         setLoadingDrops(false);
       });
 
       return () => {
-        console.log('🎁 Cleaning up real-time drops listener');
+
         unsubscribeDrops();
       };
     }
@@ -760,12 +771,12 @@ export default function MapScreen() {
       imageUrl,
       (width, height) => {
         const aspectRatio = width / height;
-        console.log(`📐 Image dimensions: ${width}x${height}, aspect ratio: ${aspectRatio}`);
+  
         setImageAspectRatio(aspectRatio);
         setLoadingImageSize(false);
       },
       (error) => {
-        console.log('❌ Error loading image size:', error);
+      
         setImageAspectRatio(16/9); // Fallback to 16:9 aspect ratio
         setLoadingImageSize(false);
       }
@@ -784,57 +795,49 @@ export default function MapScreen() {
   // Function to load menu items from Firestore directly
   const loadMenuItems = async (truckOwnerId) => {
     if (!truckOwnerId) {
-      console.log("❌ No truck owner ID provided to loadMenuItems");
+  
       return;
     }
     
-    console.log("🍽️ Loading menu items for truck owner:", truckOwnerId);
-    console.log("🔍 Selected truck basic info:", {
-      name: selectedTruck?.name || selectedTruck?.truckName,
-      ownerId: selectedTruck?.ownerId,
-      cuisine: selectedTruck?.cuisine || selectedTruck?.cuisineType,
-      hasBase64Image: !!selectedTruck?.base64CoverImage
-    });
+
     setLoadingMenu(true);
     setMenuItems([]);
     
     try {
       // Load NEW item IDs for this truck owner
-      console.log("🏷️ Loading NEW item IDs for truck owner:", truckOwnerId);
+
       const ownerNewItemIds = await getNewItemIds(truckOwnerId);
       setNewItemIds(ownerNewItemIds);
-      console.log("🏷️ Loaded NEW item IDs:", [...ownerNewItemIds]);
+
       
       // Query Firestore directly for menu items
-      console.log("📊 Querying Firestore for menu items with ownerId:", truckOwnerId);
+
       
       const menuItemsRef = collection(db, 'menuItems');
       const menuQuery = query(menuItemsRef, where('ownerId', '==', truckOwnerId));
-      console.log("📊 Query created, executing...");
+      
       
       const menuSnapshot = await getDocs(menuQuery);
-      console.log("📊 Query completed. Snapshot size:", menuSnapshot.size);
-      console.log("📊 Snapshot empty?", menuSnapshot.empty);
+   
       
       if (menuSnapshot.empty) {
-        console.log("📭 No menu items found in Firestore for this truck owner");
-        console.log("🔍 Double-checking: querying for ownerId =", truckOwnerId);
+  
         
         // Debug: Let's see all documents in the menuItems collection
-        console.log("🔍 Let's check what's in the menuItems collection:");
+     
         const allMenuItemsRef = collection(db, 'menuItems');
         const allMenuSnapshot = await getDocs(allMenuItemsRef);
-        console.log("🔍 Total menuItems in collection:", allMenuSnapshot.size);
+      
         
         allMenuSnapshot.forEach((doc) => {
           const data = doc.data();
-          console.log("🔍 Found menuItem:", doc.id, "ownerId:", data.ownerId, "name:", data.name);
+  
           if (data.ownerId === truckOwnerId) {
-            console.log("🎯 MATCH FOUND! This item should have been returned by our query");
+    
           }
         });
         
-        console.log("🍽️ This business hasn't added any menu items yet");
+   
         setMenuItems([]); // Show empty menu instead of fallback samples
       } else {
         // Process real menu items from Firestore
@@ -857,22 +860,20 @@ export default function MapScreen() {
           return (a.name || '').localeCompare(b.name || '');
         });
 
-        console.log("✅ Successfully loaded menu items from Firestore:", items.length, "items");
+   
         if (items.length > 0) {
-          console.log("🍽️ First menu item structure:", items[0]);
-          console.log("🖼️ First menu item imageUrl:", items[0].imageUrl);
+
         }
         
         // Log NEW badge status for each item
         items.forEach(item => {
           const shouldShowNew = item.isNewItem || ownerNewItemIds.has(item.id);
-          console.log(`🏷️ MapScreen: "${item.name}" - Backend isNewItem: ${item.isNewItem}, Client isNewItem: ${ownerNewItemIds.has(item.id)}, Should show NEW: ${shouldShowNew}`);
+          
         });
         
         setMenuItems(items);
       }
     } catch (error) {
-      console.error('Error loading menu items:', error);
       setMenuItems([]);
     } finally {
       setLoadingMenu(false);
@@ -882,18 +883,17 @@ export default function MapScreen() {
   // Favorites functionality
   const toggleFavorite = async (truckId, truckName) => {
     if (!user?.uid || !truckId) {
-      Alert.alert('Error', 'Please log in to favorite trucks');
+      showToastMessage('Please log in to favorite trucks', 'error');
       return;
     }
 
     try {
       const isFavorited = userFavorites.has(truckId);
-      console.log('❤️ FAVORITES: Toggle action - truckId:', truckId, 'isFavorited:', isFavorited);
-      console.log('❤️ FAVORITES: Current favorites before action:', Array.from(userFavorites));
+
       
       if (isFavorited) {
         // Remove from favorites - delete ALL matching records (handles duplicates)
-        console.log('❤️ FAVORITES: Removing favorite for truck:', truckName);
+
         
         const favoritesQuery = query(
           collection(db, 'favorites'),
@@ -902,7 +902,7 @@ export default function MapScreen() {
         );
         
         const snapshot = await getDocs(favoritesQuery);
-        console.log('❤️ FAVORITES: Found', snapshot.size, 'favorite records to delete');
+  
         
         // Delete ALL matching records (handles duplicates)
         if (!snapshot.empty) {
@@ -910,13 +910,13 @@ export default function MapScreen() {
             deleteDoc(doc(db, 'favorites', docSnapshot.id))
           );
           await Promise.all(deletePromises);
-          console.log('❤️ FAVORITES: Successfully removed', snapshot.size, 'favorite records from Firebase');
+ 
         } else {
-          console.log('❤️ FAVORITES: No favorite record found to delete');
+
         }
       } else {
         // Add to favorites
-        console.log('❤️ FAVORITES: Adding favorite for truck:', truckName);
+
         
         await addDoc(collection(db, 'favorites'), {
           userId: user.uid,
@@ -925,11 +925,11 @@ export default function MapScreen() {
           createdAt: serverTimestamp(),
         });
         
-        console.log('❤️ FAVORITES: Successfully added favorite to Firebase');
+ 
       }
     } catch (error) {
-      console.error('❤️ FAVORITES: Error toggling favorite:', error);
-      Alert.alert('Error', 'Failed to update favorite. Please try again.');
+   
+      showToastMessage('Failed to update favorite. Please try again.', 'error');
     }
   };
 
@@ -958,7 +958,6 @@ export default function MapScreen() {
         reviewCount: reviewsData.length
       };
     } catch (error) {
-      console.error('❌ Error loading rating summary for truck:', truckId, error);
       return { averageRating: 0, reviewCount: 0 };
     }
   };
@@ -966,29 +965,26 @@ export default function MapScreen() {
   // Reviews functionality
   const loadReviews = async (truckId) => {
     if (!truckId) {
-      console.log('⭐ REVIEWS DEBUG: No truckId provided to loadReviews');
+   
       return;
     }
     
-    console.log('⭐ REVIEWS DEBUG: Starting loadReviews for truck:', truckId);
+ 
     setLoadingReviews(true);
     try {
-      console.log('⭐ Loading reviews for truck:', truckId);
-      console.log('⭐ Current user:', user?.uid);
-      console.log('⭐ User auth state:', !!user);
-      console.log('⭐ Reviews collection reference created');
+
       
       // Try with orderBy first, fallback to simple query if index not ready
       let reviewsQuery;
       try {
-        console.log('⭐ Query created (with orderBy), executing...');
+ 
         reviewsQuery = query(
           collection(db, 'reviews'),
           where('truckId', '==', truckId),
           orderBy('createdAt', 'desc')
         );
       } catch (indexError) {
-        console.log('⭐ Index not ready, using simple query without orderBy');
+   
         reviewsQuery = query(
           collection(db, 'reviews'),
           where('truckId', '==', truckId)
@@ -1023,23 +1019,18 @@ export default function MapScreen() {
       // Sort manually if we couldn't use orderBy
       reviewsData.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log('⭐ Loaded', reviewsData.length, 'reviews');
-      console.log('⭐ Reviews data:', reviewsData);
+  
       setReviews(reviewsData);
     } catch (error) {
-      console.error('⭐ Error loading reviews:', error);
-      console.error('⭐ Error code:', error.code);
-      console.error('⭐ Error message:', error.message);
+
       
       if (error.code === 'permission-denied') {
-        console.log('⭐ Permission denied - checking auth state');
-        console.log('⭐ User authenticated:', !!user);
-        console.log('⭐ User UID:', user?.uid);
+
       }
       
       // Try simple query without any ordering if the complex query fails
       try {
-        console.log('⭐ Retrying with simple query...');
+   
         const simpleQuery = query(
           collection(db, 'reviews'),
           where('truckId', '==', truckId)
@@ -1072,11 +1063,11 @@ export default function MapScreen() {
         // Sort manually
         simpleReviewsData.sort((a, b) => b.createdAt - a.createdAt);
         
-        console.log('⭐ Simple query successful, loaded', simpleReviewsData.length, 'reviews');
+    
         setReviews(simpleReviewsData);
       } catch (fallbackError) {
-        console.error('⭐ Fallback query also failed:', fallbackError);
-        Alert.alert('Error', 'Failed to load reviews. Please try again later.');
+
+        showToastMessage('Failed to load reviews. Please try again later.', 'error');
       }
     } finally {
       setLoadingReviews(false);
@@ -1084,31 +1075,27 @@ export default function MapScreen() {
   };
 
   const submitReview = async () => {
-    console.log('⭐ REVIEW DEBUG: Starting review submission');
-    console.log('⭐ REVIEW DEBUG: User:', user?.uid);
-    console.log('⭐ REVIEW DEBUG: Truck ownerId:', selectedTruck?.ownerId);
-    console.log('⭐ REVIEW DEBUG: User role:', userRole);
-    console.log('⭐ REVIEW DEBUG: Is user the truck owner?', user?.uid === selectedTruck?.ownerId);
+
     
     if (!user || !selectedTruck?.ownerId) {
-      Alert.alert('Error', 'Unable to submit review. Please try again.');
+      showToastMessage('Unable to submit review. Please try again.', 'error');
       return;
     }
 
     // Check if user is trying to review their own truck
     if (user.uid === selectedTruck.ownerId) {
-      Alert.alert('Error', 'You cannot review your own food truck.');
+      showToastMessage('You cannot review your own food truck.', 'error');
       return;
     }
 
     if (!newReview.comment.trim()) {
-      Alert.alert('Error', 'Please write a comment for your review.');
+      showToastMessage('Please write a comment for your review.', 'error');
       return;
     }
 
     // Check if user already reviewed this truck
     try {
-      console.log('⭐ REVIEW DEBUG: Checking for existing reviews...');
+  
       const existingReviewQuery = query(
         collection(db, 'reviews'),
         where('truckId', '==', selectedTruck.ownerId),
@@ -1117,11 +1104,11 @@ export default function MapScreen() {
       
       const existingSnapshot = await getDocs(existingReviewQuery);
       if (!existingSnapshot.empty) {
-        Alert.alert('Info', 'You have already reviewed this food truck. You can only submit one review per truck.');
+        showToastMessage('You have already reviewed this food truck. You can only submit one review per truck.', 'error');
         return;
       }
 
-      console.log('⭐ REVIEW DEBUG: No existing review found, proceeding with submission...');
+ 
       setSubmittingReview(true);
       
       const reviewData = {
@@ -1133,27 +1120,14 @@ export default function MapScreen() {
         comment: newReview.comment.trim(),
         createdAt: serverTimestamp(),
       };
+
       
-      console.log('⭐ REVIEW DEBUG: Review data to submit:', {
-        ...reviewData,
-        createdAt: 'serverTimestamp()'
-      });
+
       
-      console.log('⭐ REVIEW DEBUG: User auth state details:', {
-        uid: user.uid,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        isAnonymous: user.isAnonymous,
-        accessToken: user.accessToken ? 'Present' : 'Missing',
-        auth: auth?.currentUser ? 'Active' : 'Inactive'
-      });
-      
-      console.log('⭐ REVIEW DEBUG: About to attempt Firestore write...');
-      console.log('⭐ REVIEW DEBUG: Firebase app instance:', !!db);
-      console.log('⭐ REVIEW DEBUG: Collection reference creating...');
+
       
       // Test Firebase connectivity first
-      console.log('⭐ CONNECTIVITY TEST: Testing basic Firestore write...');
+ 
       try {
         const testCollection = collection(db, 'test');
         await addDoc(testCollection, { 
@@ -1161,14 +1135,14 @@ export default function MapScreen() {
           timestamp: new Date().toISOString(),
           user: user.uid 
         });
-        console.log('⭐ CONNECTIVITY TEST: Basic write successful');
+
       } catch (testError) {
-        console.error('⭐ CONNECTIVITY TEST: Basic write failed:', testError);
+       
         throw new Error(`Firebase connectivity issue: ${testError.message}`);
       }
       
       // Test writing to reviews collection specifically
-      console.log('⭐ CONNECTIVITY TEST: Testing reviews collection write...');
+ 
       try {
         const reviewsCollection = collection(db, 'reviews');
         const testReviewData = {
@@ -1181,19 +1155,19 @@ export default function MapScreen() {
           userName: userData?.username || userData?.displayName || user?.displayName || 'Anonymous'
         };
         await addDoc(reviewsCollection, testReviewData);
-        console.log('⭐ CONNECTIVITY TEST: Reviews collection write successful');
+    
       } catch (testError) {
-        console.error('⭐ CONNECTIVITY TEST: Reviews collection write failed:', testError);
+      
         throw new Error(`Reviews collection issue: ${testError.message}`);
       }
       
       const reviewsCollection = collection(db, 'reviews');
-      console.log('⭐ REVIEW DEBUG: Collection reference created successfully');
+    
       
       await addDoc(reviewsCollection, reviewData);
       
-      console.log('⭐ Review submitted successfully');
-      Alert.alert('Success', 'Your review has been submitted!');
+ 
+      showToastMessage('Your review has been submitted!', 'success');
       
       // Reset form and reload reviews with a small delay to ensure document is saved
       setNewReview({ rating: 5, comment: '' });
@@ -1204,21 +1178,12 @@ export default function MapScreen() {
       }, 500);
       
     } catch (error) {
-      console.error('⭐ Error submitting review:', error);
-      console.error('⭐ Error details:', {
-        code: error.code,
-        message: error.message,
-        name: error.name,
-        stack: error.stack?.substring(0, 200),
-        customData: error.customData
-      });
       
       // Try to get more Firebase-specific error details
       if (error.code) {
-        console.error('⭐ Firebase error code:', error.code);
       }
       
-      Alert.alert('Error', `Failed to submit review: ${error.message}`);
+      showToastMessage(`Failed to submit review: ${error.message}`, 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -1263,17 +1228,17 @@ export default function MapScreen() {
 
   const createDrop = async () => {
     if (!user) {
-      Alert.alert("Error", "You must be logged in to create a drop.");
+      showToastMessage("You must be logged in to create a drop.", 'error');
       return;
     }
 
     if (!dropFormData.title.trim() || !dropFormData.description.trim()) {
-      Alert.alert("Error", "Please fill in all required fields.");
+      showToastMessage("Please fill in all required fields.", 'error');
       return;
     }
 
     if (!location) {
-      Alert.alert("Error", "Location not available. Please try again.");
+      showToastMessage("Location not available. Please try again.", 'error');
       return;
     }
 
@@ -1281,10 +1246,10 @@ export default function MapScreen() {
     
     try {
       // Check if user has permission (similar to web app)
-      console.log("🔄 Checking user permissions for drop creation...");
+  
       
       if (userRole !== 'owner') {
-        Alert.alert("Error", "Only business owners can create drops.");
+        showToastMessage("Only business owners can create drops.", 'error');
         setCreatingDrop(false);
         return;
       }
@@ -1305,11 +1270,11 @@ export default function MapScreen() {
         createdAt: serverTimestamp(),
       };
 
-      console.log("🚀 Creating drop:", drop);
+ 
       
       await addDoc(collection(db, "drops"), drop);
       
-      console.log("✅ Drop created successfully!");
+
       
       // Reset form
       setDropFormData({
@@ -1325,8 +1290,7 @@ export default function MapScreen() {
       setTimeout(() => setDropCreationMessage(""), 3000);
       
     } catch (error) {
-      console.error("❌ Error creating drop:", error);
-      Alert.alert("Error", `Failed to create drop: ${error.message}`);
+      showToastMessage(`Failed to create drop: ${error.message}`, 'error');
       setDropCreationMessage(`Failed to create drop: ${error.message}`);
       setTimeout(() => setDropCreationMessage(""), 5000);
     } finally {
@@ -1340,7 +1304,7 @@ export default function MapScreen() {
     
     setLoadingDrops(true);
     try {
-      console.log("🎁 Loading drops for truck:", truckId);
+
       const dropsQuery = query(
         collection(db, "drops"),
         where("truckId", "==", truckId)
@@ -1357,10 +1321,10 @@ export default function MapScreen() {
           return expiresAt > now && remaining > 0;
         });
       
-      console.log(`🎁 Found ${activeDrops.length} active drops for truck:`, truckId);
+
       setTruckDrops(activeDrops);
     } catch (error) {
-      console.error("❌ Error loading truck drops:", error);
+
       setTruckDrops([]);
     } finally {
       setLoadingDrops(false);
@@ -1371,7 +1335,7 @@ export default function MapScreen() {
   useEffect(() => {
     if (!selectedTruck?.ownerId || !showMenuModal) return;
 
-    console.log("🎁 Setting up real-time listener for drops:", selectedTruck.ownerId);
+
     
     const dropsQuery = query(
       collection(db, "drops"),
@@ -1381,18 +1345,10 @@ export default function MapScreen() {
     const unsubscribe = onSnapshot(dropsQuery, (snapshot) => {
       const now = new Date();
       
-      console.log("🎁 Real-time listener triggered, raw snapshot data:");
+
       snapshot.docs.forEach((doc, index) => {
         const data = doc.data();
-        console.log(`🎁 Drop ${index + 1} (${doc.id}):`, {
-          title: data.title,
-          quantity: data.quantity,
-          claimedBy: data.claimedBy,
-          claimedByLength: data.claimedBy?.length || 0,
-          remaining: (data.quantity || 0) - (data.claimedBy?.length || 0),
-          expiresAt: data.expiresAt?.toDate(),
-          isExpired: (data.expiresAt?.toDate() || new Date(0)) <= now
-        });
+   
       });
       
       const activeDrops = snapshot.docs
@@ -1401,21 +1357,16 @@ export default function MapScreen() {
           const expiresAt = drop.expiresAt?.toDate() || new Date(0);
           const remaining = (drop.quantity || 0) - (drop.claimedBy?.length || 0);
           const isActive = expiresAt > now && remaining > 0;
-          console.log(`🎁 Drop "${drop.title}" filter check:`, {
-            expiresAt: expiresAt,
-            remaining: remaining,
-            isActive: isActive
-          });
+        
           return isActive;
         });
       
-      console.log(`🎁 Real-time update: ${activeDrops.length} active drops for truck:`, selectedTruck.ownerId);
-      console.log("🎁 Active drops data:", activeDrops);
+    
       setTruckDrops(activeDrops);
     });
 
     return () => {
-      console.log("🎁 Cleaning up drops listener");
+   
       unsubscribe();
     };
   }, [selectedTruck?.ownerId, showMenuModal]);
@@ -1521,64 +1472,30 @@ export default function MapScreen() {
       const previousClaimedBy = dropData.claimedBy || [];
       const newClaimedBy = [...previousClaimedBy, user.uid];
       
-      console.log("🔄 Updating Firebase drop claim:", {
-        dropId,
-        userUid: user.uid,
-        previousClaimedBy,
-        newClaimedBy,
-        previousCount: previousClaimedBy.length,
-        newCount: newClaimedBy.length
-      });
+   
       
       try {
-        console.log("🔄 About to call updateDoc with:", {
-          dropId,
-          updateData: { claimedBy: newClaimedBy },
-          newClaimedByLength: newClaimedBy.length,
-          userUid: user.uid,
-          isUserInNewArray: newClaimedBy.includes(user.uid)
-        });
+       
         
-        console.log("🔒 Firebase Security Rule Check:", {
-          onlyModifyingClaimedBy: true, // We're only updating claimedBy
-          arrayContainsPrevious: newClaimedBy.filter(uid => previousClaimedBy.includes(uid)).length === previousClaimedBy.length,
-          exactlyOneNewItem: newClaimedBy.length === previousClaimedBy.length + 1,
-          userAddingThemselves: newClaimedBy.includes(user.uid),
-          userNotAlreadyClaimed: !previousClaimedBy.includes(user.uid),
-          userNotTruckOwner: user.uid !== dropData.truckId
-        });
+      
         
         await updateDoc(updateDropRef, {
           claimedBy: newClaimedBy
         });
         
-        console.log("✅ updateDoc call completed successfully");
+      
         
         // Verify the update by reading the document back
         const verifySnap = await getDoc(updateDropRef);
         if (verifySnap.exists()) {
           const verifyData = verifySnap.data();
-          console.log("🔍 Verification read after update:", {
-            dropId,
-            claimedBy: verifyData.claimedBy,
-            claimedByLength: verifyData.claimedBy?.length || 0,
-            expected: newClaimedBy.length,
-            updateSuccessful: verifyData.claimedBy?.includes(user.uid) || false
-          });
+        
         } else {
-          console.log("❌ Verification failed: document does not exist after update");
+        
         }
         
       } catch (updateError) {
-        console.error("❌ Firebase updateDoc failed:", updateError);
-        console.error("❌ Error details:", {
-          code: updateError.code,
-          message: updateError.message,
-          dropId,
-          userUid: user.uid,
-          truckId: dropData.truckId,
-          updateData: { claimedBy: newClaimedBy }
-        });
+    
         
         // If it's a permission error, provide specific feedback
         if (updateError.code === 'permission-denied') {
@@ -1590,7 +1507,7 @@ export default function MapScreen() {
         throw updateError;
       }
       
-      console.log("✅ Drop claim updated in Firebase for user:", user.uid);
+  
       
       // Update local state
       setUserClaims(updatedClaims);
@@ -1605,7 +1522,7 @@ export default function MapScreen() {
       // Real-time listener will automatically update the drops UI
       
     } catch (error) {
-      console.error("❌ Error claiming drop:", error);
+    
       setClaimMessage("Failed to claim drop. Please try again.");
       setTimeout(() => setClaimMessage(""), 3000);
     }
@@ -1651,11 +1568,9 @@ export default function MapScreen() {
               setClaimedDrop({ ...dropSnap.data(), id: activeClaim.dropId });
             }
           } catch (error) {
-            console.error("Error fetching claimed drop:", error);
           }
         }
       } catch (error) {
-        console.error("Error loading user claims:", error);
       }
     };
     
@@ -1682,30 +1597,24 @@ export default function MapScreen() {
             dropExpiresAt = new Date(claimedDrop.expiresAt);
           }
         } else {
-          console.log("⚠️ No expiration date found for claimed drop");
+
           return;
         }
         
         // Validate the parsed date
         if (isNaN(dropExpiresAt.getTime())) {
-          console.log("⚠️ Invalid expiration date:", claimedDrop.expiresAt);
+
           return;
         }
       } catch (error) {
-        console.error("❌ Error parsing expiration date:", error, claimedDrop.expiresAt);
+      
         return;
       }
       
-      console.log("⏰ Checking claim expiration:", {
-        dropTitle: claimedDrop.title,
-        expiresAt: dropExpiresAt.toISOString(),
-        now: now.toISOString(),
-        isExpired: now > dropExpiresAt,
-        timeUntilExpiry: Math.max(0, dropExpiresAt - now) / 1000 / 60 // minutes
-      });
+   
       
       if (now > dropExpiresAt) {
-        console.log("🕒 Claim has expired, clearing code and drop data");
+  
         
         // Clear the UI state
         setClaimCode("");
@@ -1726,10 +1635,9 @@ export default function MapScreen() {
             
             await AsyncStorage.setItem(userClaimsKey, JSON.stringify(activeClaims));
             setUserClaims(activeClaims);
-            
-            console.log("🧹 Cleaned up expired claims from storage");
+      
           } catch (error) {
-            console.error("Error cleaning up expired claims:", error);
+      
           }
         };
         
@@ -1751,19 +1659,19 @@ export default function MapScreen() {
 
   // Force close claim codes modal on component mount (emergency fix)
   useEffect(() => {
-    console.log("🚨 Emergency: Force closing claim codes modal on mount");
+
     setShowClaimCodesModal(false);
   }, []);
 
   // Debug: Monitor showClaimCodesModal state changes
   useEffect(() => {
-    console.log("🔗 showClaimCodesModal state changed to:", showClaimCodesModal);
+
     if (showClaimCodesModal) {
-      console.log("🚨 CLAIM CODES MODAL IS OPEN - This may be blocking interactions!");
+ 
       
       // Auto-close modal after 30 seconds as a safety measure
       const autoCloseTimer = setTimeout(() => {
-        console.log("⏰ Auto-closing claim codes modal after 30 seconds");
+    
         setShowClaimCodesModal(false);
       }, 30000);
       
@@ -1775,21 +1683,26 @@ export default function MapScreen() {
 
   // Cart functionality
   const addToCart = (item) => {
-    console.log('🛒 Adding item to cart:', item.name);
+
     
     // Check if truck is currently open before allowing pre-order
     if (selectedTruck?.businessHours) {
       const truckOpenStatus = checkTruckOpenStatus(selectedTruck.businessHours);
-      console.log('🔒 PRE-ORDER CHECK: Truck open status:', truckOpenStatus);
+
       
       if (truckOpenStatus === 'closed') {
-        Alert.alert(
+        showCustomModal(
           '🚫 Mobile Kitchen Closed', 
           'Sorry, this mobile kitchen is currently closed and not accepting pre-orders. Pre-orders are only available during their open hours.',
-          [{ text: 'OK', style: 'default' }]
+          null,
+          'OK',
+          '',
+          false
         );
         return;
       }
+    } else {
+     
     }
     
     setCart(prevCart => {
@@ -1806,7 +1719,7 @@ export default function MapScreen() {
         return [...prevCart, { ...item, quantity: 1, truckInfo: selectedTruck }];
       }
     });
-    Alert.alert('Added to Cart', `${item.name} has been added to your cart!`);
+    showToastMessage(`${item.name} has been added to your cart!`, 'success');
   };
 
   const removeFromCart = (itemId) => {
@@ -1850,10 +1763,7 @@ export default function MapScreen() {
     if (!user || userRole !== 'owner') return;
     
     try {
-      console.log('🔒 PRIVACY: ===== TRUCK VISIBILITY UPDATE =====');
-      console.log('🔒 PRIVACY: User ID:', user.uid);
-      console.log('🔒 PRIVACY: Setting visible to:', isVisible);
-      console.log('🔒 PRIVACY: This should HIDE truck if false, SHOW truck if true');
+
       
       // Update both collections to keep them in sync
       const truckDocRef = doc(db, 'trucks', user.uid);
@@ -1866,28 +1776,28 @@ export default function MapScreen() {
         updatedAt: serverTimestamp()
       };
       
-      console.log('🔒 PRIVACY: Update data being sent to database:', updateData);
+
       
       // Update trucks collection
       await updateDoc(truckDocRef, updateData);
-      console.log('🔒 PRIVACY: ✅ Updated trucks collection with visible:', isVisible);
+
       
       // Update truckLocations collection (create if doesn't exist)
       await setDoc(truckLocationRef, updateData, { merge: true });
-      console.log('🔒 PRIVACY: ✅ Updated truckLocations collection with visible:', isVisible);
+    
       
-      console.log('🔒 PRIVACY: ===== UPDATE COMPLETE =====');
+
       
       // Force reload truck data to reflect changes immediately
-      console.log('🔄 PRIVACY: Forcing truck data reload...');
+
       
       // 🚀 PERFORMANCE: Invalidate privacy cache to reflect immediate changes
-      console.log('🚀 PERFORMANCE: Invalidating privacy cache for immediate visibility update');
+ 
       setPrivacyCache(new Map());
       setPrivacyCacheTimestamp(0);
       
     } catch (error) {
-      console.error('❌ PRIVACY ERROR: Failed to update truck visibility:', error);
+
     }
   };
 
@@ -1904,7 +1814,6 @@ export default function MapScreen() {
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (error) {
-      console.error('❌ Error updating last activity:', error);
     }
   };
 
@@ -1931,19 +1840,18 @@ export default function MapScreen() {
           });
           
           setShowTruckIcon(false);
-          console.log('🚚 Truck auto-hidden due to 8 hours of inactivity');
+     
         }
       }
     } catch (error) {
-      console.error('❌ Error checking truck expiry:', error);
+
     }
   };
 
   const loadTruckVisibilityState = async () => {
     if (!user || userRole !== 'owner') return;
     
-    console.log('🔒 PRIVACY: ===== LOADING TRUCK VISIBILITY STATE =====');
-    console.log('🔒 PRIVACY: User ID:', user.uid);
+
     
     try {
       // Check truckLocations first (primary collection for map display)
@@ -1954,36 +1862,35 @@ export default function MapScreen() {
       
       if (truckLocationDoc.exists()) {
         visibilityData = truckLocationDoc.data();
-        console.log('🔒 PRIVACY: Found visibility data in truckLocations:', visibilityData.visible);
+  
       } else {
         // Fallback to trucks collection
         const truckDocRef = doc(db, 'trucks', user.uid);
         const truckDoc = await getDoc(truckDocRef);
         if (truckDoc.exists()) {
           visibilityData = truckDoc.data();
-          console.log('🔒 PRIVACY: Found visibility data in trucks collection:', visibilityData.visible);
+       
         }
       }
       
       if (visibilityData) {
         const isVisible = visibilityData.visible !== false; // Default to true if not set
         setShowTruckIcon(isVisible);
-        console.log('� PRIVACY: ✅ Loaded truck visibility state from Firebase:', isVisible);
-        console.log('🔒 PRIVACY: showTruckIcon state updated - location saves can now preserve this setting');
+  
         
         // Check if truck should be auto-hidden due to inactivity
         await checkTruckExpiry();
       } else {
         // For users with no existing visibility data, default to visible (all plans)
-        console.log('� PRIVACY: User with no visibility data - defaulting to visible');
+
         setShowTruckIcon(true);
         // Also save this default to Firebase
         await updateTruckVisibility(true);
       }
       
-      console.log('🔒 PRIVACY: ===== VISIBILITY STATE LOADING COMPLETE =====');
+    
     } catch (error) {
-      console.error('❌ PRIVACY ERROR: Error loading truck visibility state:', error);
+   
     }
   };
 
@@ -1991,20 +1898,17 @@ export default function MapScreen() {
   const openFullScreenMenu = () => {
     if (!selectedTruck?.menuUrl) return;
     
-    Alert.alert(
+    showCustomModal(
       '📋 Full Menu',
       'Opening full-size menu image...',
-      [
-        {
-          text: 'Open in Browser',
-          onPress: () => {
-            if (selectedTruck.menuUrl) {
-              Linking.openURL(selectedTruck.menuUrl);
-            }
-          }
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
+      () => {
+        if (selectedTruck.menuUrl) {
+          Linking.openURL(selectedTruck.menuUrl);
+        }
+      },
+      'Open in Browser',
+      'Cancel',
+      true
     );
   };
 
@@ -2031,23 +1935,19 @@ export default function MapScreen() {
       const shareText = `Check out the menu for ${selectedTruck.name}! 🍽️\n\n${selectedTruck.menuUrl}`;
       
       // Simple sharing approach - you can enhance this with react-native-share
-      Alert.alert(
+      showCustomModal(
         '📤 Share Menu',
         shareText,
-        [
-          {
-            text: 'Copy Link',
-            onPress: () => {
-              // In a full implementation, you'd copy to clipboard
-              Alert.alert('Link copied!', 'Menu link has been copied to clipboard');
-            }
-          },
-          { text: 'Cancel', style: 'cancel' }
-        ]
+        () => {
+          // In a full implementation, you'd copy to clipboard
+          showToastMessage('Menu link has been copied to clipboard', 'success');
+        },
+        'Copy Link',
+        'Cancel',
+        true
       );
     } catch (error) {
-      console.error('Error sharing menu:', error);
-      Alert.alert('Error', 'Unable to share menu');
+      showToastMessage('Unable to share menu', 'error');
     }
   };
 
@@ -2057,14 +1957,14 @@ export default function MapScreen() {
     
     setLoadingClaimCodes(true);
     try {
-      console.log('📋 Fetching claim codes for drop:', dropId);
+
       
       // Get the drop document to access claimedBy array
       const dropRef = doc(db, 'drops', dropId);
       const dropSnap = await getDoc(dropRef);
       
       if (!dropSnap.exists()) {
-        console.log('❌ Drop not found:', dropId);
+  
         setClaimCodes([]);
         return;
       }
@@ -2072,7 +1972,7 @@ export default function MapScreen() {
       const dropData = dropSnap.data();
       const claimedBy = dropData.claimedBy || [];
       
-      console.log('📋 Drop claimedBy array:', claimedBy);
+    
       
       // Generate codes for each claimed user
       const codes = claimedBy.map((userId, index) => {
@@ -2088,9 +1988,9 @@ export default function MapScreen() {
       });
       
       setClaimCodes(codes);
-      console.log('📋 Generated claim codes:', codes);
+   
     } catch (error) {
-      console.error('❌ Error fetching claim codes:', error);
+
       setClaimCodes([]);
     } finally {
       setLoadingClaimCodes(false);
@@ -2099,51 +1999,43 @@ export default function MapScreen() {
 
   const placeOrder = async () => {
     if (cart.length === 0) {
-      Alert.alert('Empty Cart', 'Please add items to your cart before placing an order.');
+      showToastMessage('Please add items to your cart before placing an order.', 'error');
       return;
     }
 
     if (!user) {
-      Alert.alert('Login Required', 'Please log in to place an order.');
+      showToastMessage('Please log in to place an order.', 'error');
       return;
     }
 
-    console.log('🔍 PAYMENT DEBUG: selectedTruck data:', JSON.stringify(selectedTruck, null, 2));
-    console.log('🔍 PAYMENT DEBUG: selectedTruck.stripeConnectAccountId:', selectedTruck?.stripeConnectAccountId);
-    console.log('🔍 PAYMENT DEBUG: selectedTruck keys:', Object.keys(selectedTruck || {}));
+
 
     if (!selectedTruck?.stripeConnectAccountId) {
-      console.log('❌ PAYMENT DEBUG: Missing stripeConnectAccountId - payment blocked');
+   
       
-      Alert.alert(
+      showCustomModal(
         'Payment Setup In Progress', 
         'This business is still setting up payment processing. Please try again in a few minutes, or contact the business owner if this persists.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Refresh & Retry', 
-            onPress: async () => {
-              console.log('🔄 USER REQUESTED: Refreshing truck data...');
-              // Force reload the map data which will fetch fresh truck information
-              try {
-                // Trigger a map refresh by updating the trucks data hash
-                setTrucksDataHash(Date.now().toString());
-                console.log('🔄 Map refresh triggered by user');
-              } catch (error) {
-                console.error('❌ Error refreshing map:', error);
-              }
-            }
+        async () => {
+            
+          // Force reload the map data which will fetch fresh truck information
+          try {
+            // Trigger a map refresh by updating the trucks data hash
+            setTrucksDataHash(Date.now().toString());
+    
+          } catch (error) {
+          
           }
-        ]
+        },
+        'Refresh & Retry',
+        'Cancel',
+        true
       );
       return;
     }
 
     try {
-      console.log('🚀 Starting Stripe Connect payment process...');
-      console.log('🛒 Cart items:', cart);
-      console.log('👤 User plan:', userPlan);
-      console.log('🚛 Truck owner:', selectedTruck?.name, 'Stripe ID:', selectedTruck?.stripeConnectAccountId);
+   
       
       // Calculate payment amounts
       const subtotal = parseFloat(getTotalPrice());
@@ -2152,7 +2044,7 @@ export default function MapScreen() {
       
       // Calculate platform fees (hidden from customer but still collected)
       const paymentBreakdown = calculateStripeConnectPayment(cart, userPlan, selectedTruck);
-      console.log('💰 Payment breakdown:', paymentBreakdown);
+      
       
       if (!paymentBreakdown.isValid) {
         throw new Error('Invalid payment configuration');
@@ -2171,11 +2063,11 @@ export default function MapScreen() {
         );
         const queueSnapshot = await getDocs(queueQuery);
         currentQueueSize = queueSnapshot.size;
-        console.log('📊 Current queue size for truck:', currentQueueSize, 'orders');
+     
       } catch (error) {
         // Silently handle permissions error - queue size calculation is optional
         // Using default of 0 orders won't significantly impact time estimates
-        console.log('ℹ️ Queue size unavailable, using default (this is normal)');
+   
         currentQueueSize = 0;
       }
 
@@ -2186,7 +2078,7 @@ export default function MapScreen() {
         currentOrders: currentQueueSize
       });
 
-      console.log('⏱️ Estimated time calculation:', estimatedTimeData);
+   
 
       // Create order in Firebase first to get order ID
       const orderData = {
@@ -2225,19 +2117,15 @@ export default function MapScreen() {
         createdAt: serverTimestamp()
       };
 
-      console.log('🔐 ORDER DEBUG: About to create order with data:', orderData);
-      console.log('🔐 ORDER DEBUG: Current user UID:', user.uid);
-      console.log('🔐 ORDER DEBUG: User auth state:', !!user);
-      console.log('🔐 ORDER DEBUG: User email:', user.email);
-      console.log('🔐 ORDER DEBUG: Auth token exists:', !!user.accessToken);
+
       
       // Test basic Firebase connection first
       try {
-        console.log('🔥 Testing Firebase connection...');
+
         const testDoc = await addDoc(collection(db, 'test'), { test: true, timestamp: new Date() });
-        console.log('✅ Firebase test write successful:', testDoc.id);
+
       } catch (testError) {
-        console.error('❌ Firebase test write failed:', testError);
+
       }
       
       // Declare orderId outside try block for broader scope
@@ -2246,18 +2134,10 @@ export default function MapScreen() {
       try {
         const docRef = await addDoc(collection(db, 'orders'), orderData);
         orderId = docRef.id;
-        console.log('📝 Order created with ID:', orderId);
+   
       } catch (orderError) {
-        console.error('❌ ORDER CREATION ERROR:', orderError);
-        console.error('❌ ORDER ERROR CODE:', orderError.code);
-        console.error('❌ ORDER ERROR MESSAGE:', orderError.message);
-        console.error('❌ ORDER ERROR DETAILS:', {
-          code: orderError.code,
-          message: orderError.message,
-          stack: orderError.stack,
-          serverResponse: orderError.serverResponse
-        });
-        console.error('❌ ORDER DATA ATTEMPTED:', JSON.stringify(orderData, null, 2));
+
+    
         throw orderError;
       }
 
@@ -2277,9 +2157,9 @@ export default function MapScreen() {
       });
 
       // Call your server to create payment intent
-      console.log('🌐 Creating payment intent on server...');
+   
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      console.log('🌐 Using server URL:', apiUrl);
+
       
       const response = await fetch(`${apiUrl}/api/create-payment-intent`, {
         method: 'POST',
@@ -2289,24 +2169,21 @@ export default function MapScreen() {
         body: JSON.stringify(paymentIntentData)
       });
 
-      console.log('🌐 Server response status:', response.status);
-      console.log('🌐 Server response headers:', response.headers);
+
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Server error response:', errorText);
+
         throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 200)}`);
       }
       
       const responseText = await response.text();
-      console.log('🌐 Raw server response:', responseText.substring(0, 500));
+
       
       let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        console.error('❌ Response was:', responseText);
         throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
       }
       
@@ -2316,7 +2193,7 @@ export default function MapScreen() {
         throw new Error('Failed to create payment intent');
       }
 
-      console.log('✅ Payment intent created:', payment_intent_id);
+
 
       // Initialize Stripe payment sheet
       const { error: initError } = await initPaymentSheet({
@@ -2331,17 +2208,16 @@ export default function MapScreen() {
       });
 
       if (initError) {
-        console.error('Payment sheet init error:', initError);
         throw new Error('Failed to initialize payment: ' + initError.message);
       }
 
       // Present payment sheet
-      console.log('💳 Presenting payment sheet...');
+
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
         if (paymentError.code === 'Canceled') {
-          console.log('❌ User canceled payment');
+  
           // Update order status to canceled
           await updateDoc(doc(db, 'orders', orderId), {
             status: 'cancelled',
@@ -2350,13 +2226,12 @@ export default function MapScreen() {
           });
           return;
         } else {
-          console.error('Payment error:', paymentError);
           throw new Error('Payment failed: ' + paymentError.message);
         }
       }
 
       // Payment successful - update order
-      console.log('✅ Payment successful!');
+
       await updateDoc(doc(db, 'orders', orderId), {
         status: 'pending',    // Changed from 'confirmed' to 'pending' - mobile kitchen owner must confirm first
         paymentStatus: 'paid',
@@ -2370,21 +2245,27 @@ export default function MapScreen() {
       setShowMenuModal(false);
       
       // Show success message with customer-friendly breakdown
-      Alert.alert(
+      showCustomModal(
         'Order Placed Successfully! 🎉',
         `Order ID: ${orderId.substring(0, 8)}...\n\n` +
         `Subtotal: $${subtotal.toFixed(2)}\n` +
         `Sales Tax: $${salesTax.toFixed(2)}\n` +
         `Total Paid: $${finalTotal.toFixed(2)}\n\n` +
         `Your order has been sent to the mobile kitchen owner for confirmation. You'll be notified once they confirm your order and start preparing it!`,
-        [{ text: 'Great!' }]
+        null,
+        'Great!',
+        '',
+        false
       );
 
     } catch (error) {
-      console.error('❌ Order placement error:', error);
-      Alert.alert(
+      showCustomModal(
         'Payment Error', 
-        error.message || 'Failed to process payment. Please try again.'
+        error.message || 'Failed to process payment. Please try again.',
+        null,
+        'OK',
+        '',
+        false
       );
     }
   };
@@ -2395,23 +2276,23 @@ export default function MapScreen() {
     const { customerName, customerEmail, customerPhone, eventDate, eventTime, eventLocation, guestCount } = cateringFormData;
     
     if (!customerName || !customerEmail || !customerPhone) {
-      Alert.alert('Required Fields', 'Please fill in your name, email, and phone number.');
+      showToastMessage('Please fill in your name, email, and phone number.', 'error');
       return;
     }
 
     if (!eventDate || !eventTime || !eventLocation || !guestCount) {
-      Alert.alert('Event Details Required', 'Please provide event date, time, location, and estimated guest count.');
+      showToastMessage('Please provide event date, time, location, and estimated guest count.', 'error');
       return;
     }
 
     setSubmittingCateringForm(true);
 
     try {
-      console.log('📧 Submitting catering request for truck:', selectedTruck?.name);
+   
       
       // Check if we have the required truck owner ID
       if (!selectedTruck?.ownerId) {
-        Alert.alert('Error', 'Unable to find truck owner information. Please try again later.');
+        showToastMessage('Unable to find truck owner information. Please try again later.', 'error');
         setSubmittingCateringForm(false);
         return;
       }
@@ -2438,7 +2319,7 @@ export default function MapScreen() {
       await addDoc(collection(db, 'cateringRequests'), cateringRequest);
 
       // Send email to truck owner using Firebase Function with SendGrid
-      console.log('📧 Calling Firebase Function to send catering email');
+
       
       const functions = getFunctions();
       const sendCateringRequest = httpsCallable(functions, 'sendCateringRequest');
@@ -2456,17 +2337,20 @@ export default function MapScreen() {
         ownerId: selectedTruck?.ownerId // Pass owner ID - function will fetch email server-side
       };
 
-      console.log('📧 Sending catering request data:', functionData);
+
 
       const result = await sendCateringRequest(functionData);
       
-      console.log('📧 Firebase Function result:', result.data);
+
 
       if (result.data.success) {
-        Alert.alert(
+        showCustomModal(
           'Catering Request Sent! 🎉',
           `Your catering request has been sent to ${selectedTruck?.name}. They will contact you directly at ${customerEmail} to discuss pricing, menu options, and availability.`,
-          [{ text: 'Great!' }]
+          null,
+          'Great!',
+          '',
+          false
         );
         
         // Reset form and close modal
@@ -2486,10 +2370,13 @@ export default function MapScreen() {
       }
 
     } catch (error) {
-      console.error('❌ Catering request error:', error);
-      Alert.alert(
+      showCustomModal(
         'Error',
-        'Failed to send catering request. Please try contacting the business directly or try again later.'
+        'Failed to send catering request. Please try contacting the business directly or try again later.',
+        null,
+        'OK',
+        '',
+        false
       );
     } finally {
       setSubmittingCateringForm(false);
@@ -2502,29 +2389,29 @@ export default function MapScreen() {
     const { organizerName, organizerEmail, organizerPhone, eventName, eventDate, eventTime, eventLocation, expectedAttendance } = festivalFormData;
     
     if (!organizerName || !organizerEmail || !organizerPhone) {
-      Alert.alert('Required Fields', 'Please fill in your name, email, and phone number.');
+      showToastMessage('Please fill in your name, email, and phone number.', 'error');
       return;
     }
 
     if (!eventName || !eventDate || !eventTime || !eventLocation || !expectedAttendance) {
-      Alert.alert('Event Details Required', 'Please provide event name, date, time, location, and expected attendance.');
+      showToastMessage('Please provide event name, date, time, location, and expected attendance.', 'error');
       return;
     }
 
     setSubmittingFestivalForm(true);
 
     try {
-      console.log('🎪 Submitting festival booking request for truck:', selectedTruck?.name);
+ 
       
       // Check if we have the required truck owner ID
       if (!selectedTruck?.ownerId) {
-        Alert.alert('Error', 'Unable to find truck owner information. Please try again later.');
+        showToastMessage('Unable to find truck owner information. Please try again later.', 'error');
         setSubmittingFestivalForm(false);
         return;
       }
 
       // Send email to truck owner using Firebase Function with SendGrid
-      console.log('📧 Calling Firebase Function to send festival booking email');
+  
       
       const functions = getFunctions();
       const sendFestivalRequest = httpsCallable(functions, 'sendFestivalRequest');
@@ -2551,17 +2438,20 @@ export default function MapScreen() {
         ownerId: selectedTruck?.ownerId // Pass owner ID - function will fetch email server-side
       };
 
-      console.log('📧 Sending festival booking request data:', functionData);
+
 
       const result = await sendFestivalRequest(functionData);
       
-      console.log('📧 Firebase Function result:', result.data);
+
 
       if (result.data.success) {
-        Alert.alert(
+        showCustomModal(
           'Festival Booking Request Sent! 🎪',
           `Your festival booking request has been sent to ${selectedTruck?.name}. They will contact you directly at ${organizerEmail} to discuss availability, booth fees, and event details.`,
-          [{ text: 'Excellent!' }]
+          null,
+          'Excellent!',
+          '',
+          false
         );
         
         // Reset form and close modal
@@ -2590,10 +2480,13 @@ export default function MapScreen() {
       }
 
     } catch (error) {
-      console.error('❌ Festival booking request error:', error);
-      Alert.alert(
+      showCustomModal(
         'Error',
-        'Failed to send festival booking request. Please try contacting the business directly or try again later.'
+        'Failed to send festival booking request. Please try contacting the business directly or try again later.',
+        null,
+        'OK',
+        '',
+        false
       );
     } finally {
       setSubmittingFestivalForm(false);
@@ -2602,18 +2495,14 @@ export default function MapScreen() {
 
   // Load real-time data from Firebase
   useEffect(() => {
-    console.log('🔥 FIREBASE DATA LOADING: useEffect triggered');
-    console.log('🔥 FIREBASE DATA LOADING: user exists:', !!user);
-    console.log('🔥 FIREBASE DATA LOADING: user.uid:', user?.uid);
-    console.log('🔥 FIREBASE DATA LOADING: userRole:', userRole);
-    console.log('🔥 FIREBASE DATA LOADING: userPlan:', userPlan);
+
     
     if (!user) {
-      console.log('❌ FIREBASE DATA LOADING: No user - exiting early');
+
       return;
     }
 
-    console.log('🗺️ MapScreen: Loading Firebase data for user plan:', userPlan);
+ 
 
     // 🌍 PERFORMANCE: Calculate geographic bounds for truck filtering
     const getUserLocationBounds = () => {
@@ -2637,7 +2526,7 @@ export default function MapScreen() {
     
     // 🚀 PERFORMANCE: Add geographic filtering for large-scale deployments
     if (bounds && location) {
-      console.log('🌍 PERFORMANCE: Applying geographic filtering within', GEOGRAPHIC_RADIUS, 'km of user location');
+
       // Note: For production, consider using GeoHash or external geographic indexing
       // Firebase doesn't support efficient geo queries without additional indexing
     }
@@ -2645,26 +2534,22 @@ export default function MapScreen() {
     const unsubscribeTrucks = onSnapshot(
       query, 
       async (snapshot) => {
-        console.log('� FIREBASE LISTENER: onSnapshot callback triggered');
-        console.log('🔥 FIREBASE LISTENER: snapshot exists:', !!snapshot);
-        console.log('🔥 FIREBASE LISTENER: snapshot.size:', snapshot.size);
-        console.log('🔥 FIREBASE LISTENER: snapshot.empty:', snapshot.empty);
+
         
-        console.log('�🚛 MapScreen: Loading truck locations and owner data for', snapshot.size, 'trucks');
-        console.log('🚛 PRIVACY DEBUG: User role:', userRole, 'User ID:', user?.uid?.substring(0, 8) + '...');
+      
         
         // 🚀 PERFORMANCE: Early truncation for large datasets
         const totalTrucks = snapshot.size;
         const trucksToProcess = Math.min(totalTrucks, MAX_TRUCKS_PER_LOAD);
         
         if (totalTrucks > MAX_TRUCKS_PER_LOAD) {
-          console.log('🚀 PERFORMANCE: Large dataset detected -', totalTrucks, 'trucks. Processing nearest', trucksToProcess, 'trucks');
+          
         }
         
         const trucksWithOwnerData = [];
         
         if (snapshot.size === 0) {
-          console.log('❌ PRIVACY DEBUG: No trucks found in database - this explains mock data fallback');
+
         }
 
         // 🌍 PERFORMANCE: Helper function to calculate distance between two points
@@ -2683,7 +2568,7 @@ export default function MapScreen() {
         let filteredTrucks = snapshot.docs;
         
         if (location && totalTrucks > MAX_TRUCKS_PER_LOAD) {
-          console.log('🌍 PERFORMANCE: Filtering trucks by distance to user location');
+
           
           filteredTrucks = snapshot.docs
             .map(doc => {
@@ -2697,7 +2582,7 @@ export default function MapScreen() {
             .slice(0, MAX_TRUCKS_PER_LOAD) // Limit to max trucks
             .map(truck => truck.doc);
             
-          console.log('🌍 PERFORMANCE: Filtered to', filteredTrucks.length, 'trucks within', GEOGRAPHIC_RADIUS, 'km');
+          
         }
 
         // 🚀 PERFORMANCE OPTIMIZATION: Use cached privacy settings or batch load
@@ -2705,13 +2590,13 @@ export default function MapScreen() {
         const now = Date.now();
         const isCacheValid = (now - privacyCacheTimestamp) < PRIVACY_CACHE_DURATION;
         
-        console.log('🔒 PRIVACY: Cache status - valid:', isCacheValid, 'age:', Math.round((now - privacyCacheTimestamp) / 1000), 'seconds');
+        
         
         let trucksPrivacyMap = {};
         
         if (isCacheValid && privacyCache.size > 0) {
           // Use cached privacy settings
-          console.log('🚀 PERFORMANCE: Using cached privacy settings for', allTruckIds.length, 'trucks');
+ 
           allTruckIds.forEach(id => {
             if (privacyCache.has(id)) {
               trucksPrivacyMap[id] = privacyCache.get(id);
@@ -2719,7 +2604,7 @@ export default function MapScreen() {
           });
         } else {
           // Cache expired or empty - batch load fresh privacy settings
-          console.log('🔒 PRIVACY: Cache expired/empty - batch loading privacy settings for', allTruckIds.length, 'trucks');
+         
           
           try {
             // 🚀 PERFORMANCE: Use Firebase batch reads for better efficiency at scale
@@ -2738,7 +2623,7 @@ export default function MapScreen() {
                       exists: trucksDoc.exists()
                     };
                   } catch (error) {
-                    console.log('🔒 PRIVACY: Error fetching truck', truckId, '- defaulting to hidden');
+             
                     return { id: truckId, visible: false, exists: false };
                   }
                 })
@@ -2749,7 +2634,7 @@ export default function MapScreen() {
             const batchArrays = await Promise.all(batchPromises);
             const batchResults = batchArrays.flat();
             
-            console.log('🚀 PERFORMANCE: Processed', batchResults.length, 'trucks in', batchPromises.length, 'batches');
+            
             
             // Update cache
             const newCache = new Map();
@@ -2761,9 +2646,9 @@ export default function MapScreen() {
             setPrivacyCache(newCache);
             setPrivacyCacheTimestamp(now);
             
-            console.log('🚀 PERFORMANCE: Fresh privacy data loaded and cached for', batchResults.length, 'trucks');
+          
           } catch (error) {
-            console.log('🔒 PRIVACY: Error in batch privacy check - falling back to safe mode (hide all):', error);
+    
             return { trucksToDisplay: [], trucksWithOwnerData: [] };
           }
         }
@@ -2774,55 +2659,27 @@ export default function MapScreen() {
           // SPECIAL DEBUG: Track your "True" truck specifically
           const isTrueTruck = truckData.truckName === 'True';
           if (isTrueTruck) {
-            console.log('🎯 TRUE TRUCK FOUND - Full debug info:', {
-              id: truckData.id,
-              truckName: truckData.truckName,
-              lat: truckData.lat,
-              lng: truckData.lng,
-              visible: truckData.visible,
-              isLive: truckData.isLive,
-              ownerUid: truckData.ownerUid,
-              coverUrl: truckData.coverUrl,
-              kitchenType: truckData.kitchenType,
-              lastActive: truckData.lastActive,
-              sessionId: truckData.sessionId,
-              fullData: truckData
-            });
+         
           }
           
-          console.log('🔒 PRIVACY DEBUG: Processing truck:', {
-            id: truckData.id,
-            name: truckData.truckName || 'Unknown',
-            visible: truckData.visible,
-            isLive: truckData.isLive,
-            hasCoords: !!(truckData.lat && truckData.lng),
-            lastActive: truckData.lastActive ? new Date(truckData.lastActive).toLocaleString() : 'Never'
-          });
+          
           
           // 🔒 FAST PRIVACY CHECK: Use pre-loaded privacy data
           const trucksPrivacy = trucksPrivacyMap[truckData.id];
           const trucksVisible = trucksPrivacy ? trucksPrivacy.visible : undefined;
           const locationsVisible = truckData.visible;
           
-          console.log('🔒 PRIVACY CROSS-CHECK for truck:', truckData.id, {
-            trucksCollectionVisible: trucksVisible,
-            locationsCollectionVisible: locationsVisible,
-            trucksDocExists: trucksPrivacy ? trucksPrivacy.exists : false
-          });
+      
           
           // If EITHER collection has visible=false, hide the truck (most restrictive wins)
           if (trucksVisible === false || locationsVisible === false) {
-            console.log('🔒 PRIVACY: Truck hidden in at least one collection, skipping:', truckData.id, truckData.truckName || 'Unknown');
-            console.log('🔒 PRIVACY: Hide reason - trucks visible:', trucksVisible, 'locations visible:', locationsVisible);
+            
             continue;
           }
           
           // Special case: If this is "The Grubber" and we're expecting it to be hidden
           if ((truckData.truckName || '').includes('Grubber')) {
-            console.log('🚨 GRUBBER DEBUG: This truck should potentially be hidden');
-            console.log('🚨 GRUBBER DEBUG: trucksVisible =', trucksVisible, 'locationsVisible =', locationsVisible);
-            console.log('🚨 GRUBBER DEBUG: Raw truck data visible field =', truckData.visible);
-            console.log('🚨 GRUBBER DEBUG: Privacy map entry =', trucksPrivacy);
+           
           }
         
         // Filter visible trucks (enhanced visibility logic matching web version)
@@ -2844,42 +2701,15 @@ export default function MapScreen() {
           (withinEightHourWindow && isExplicitlyVisible)
         );
         
-        console.log(`🔒 PRIVACY CHECK for truck ${truckData.id}:`, {
-          truckName: truckData.truckName || 'Unknown',
-          hasCoordinates,
-          isExplicitlyVisible,
-          isRecentlyActive,
-          withinEightHourWindow,
-          finalVisibility: isVisible,
-          rawVisibleField: truckData.visible,
-          timeSinceActive: Math.round(timeSinceActive / (1000 * 60)) + ' minutes',
-          sessionDuration: Math.round(sessionDuration / (1000 * 60 * 60)) + ' hours'
-        });
+     
         
         // SPECIAL DEBUG for "True" truck
         if (isTrueTruck) {
-          console.log('🎯 TRUE TRUCK VISIBILITY CHECK:', {
-            hasCoordinates,
-            isExplicitlyVisible, 
-            isRecentlyActive,
-            withinEightHourWindow,
-            finalVisibility: isVisible,
-            lastActiveTime: truckData.lastActive ? new Date(truckData.lastActive).toLocaleString() : 'Never',
-            sessionStartTime: truckData.sessionStartTime ? new Date(truckData.sessionStartTime).toLocaleString() : 'Never',
-            debugDetails: {
-              now,
-              lastActive: truckData.lastActive,
-              timeSinceActive,
-              GRACE_PERIOD,
-              ONLINE_THRESHOLD,
-              sessionDuration,
-              sessionStartTime: truckData.sessionStartTime
-            }
-          });
+          
         }
         
         if (!isVisible) {
-          console.log('🚛 PRIVACY: Skipping non-visible truck:', truckData.id, '- Reason: visible =', truckData.visible);
+      
           continue;
         }
         
@@ -2891,39 +2721,23 @@ export default function MapScreen() {
           // Get payment data from trucks collection 
           const paymentDoc = await getDoc(doc(db, 'trucks', truckData.ownerUid || truckData.id));
           
-          console.log('🔍 PAYMENT DEBUG: Getting payment data for truck:', truckData.id);
-          console.log('🔍 PAYMENT DEBUG: Payment doc exists:', paymentDoc.exists());
+       
           
           let paymentData = {};
           if (paymentDoc.exists()) {
             paymentData = paymentDoc.data();
-            console.log('🔍 PAYMENT DEBUG: Payment data loaded:', {
-              stripeConnectAccountId: paymentData.stripeConnectAccountId,
-              paymentEnabled: paymentData.paymentEnabled,
-              stripeAccountStatus: paymentData.stripeAccountStatus
-            });
+       
           } else {
-            console.log('⚠️ PAYMENT DEBUG: No payment document found for truck:', truckData.id);
+       
           }
           
           if (ownerDoc.exists()) {
             const ownerData = ownerDoc.data();
-            console.log('📊 Retrieved owner data for truck:', truckData.id, {
-              truckName: ownerData.truckName,
-              cuisineType: ownerData.cuisineType,
-              rawCuisineType: ownerData.cuisineType,
-              hasCuisineType: !!ownerData.cuisineType,
-              coverUrl: (ownerData.coverUrl || ownerData.coverURL) ? (ownerData.coverUrl || ownerData.coverURL).substring(0, 50) + '...' : 'None',
-              fullCoverUrl: ownerData.coverUrl || ownerData.coverURL,
-              menuUrl: ownerData.menuUrl ? 'Yes' : 'No',
-              socialCount: [ownerData.instagram, ownerData.facebook, ownerData.twitter, ownerData.tiktok].filter(Boolean).length,
-              uid: ownerData.uid,
-              role: ownerData.role
-            });
+        
             
             // Merge truck location data with complete owner profile data AND payment data
             // Prioritize 'cuisine' field over 'cuisineType' field
-            console.log(`🍽️ Cuisine data for ${ownerData.truckName}: cuisine="${ownerData.cuisine}", cuisineType="${ownerData.cuisineType}"`);
+           
             const actualCuisine = ownerData.cuisine || ownerData.cuisineType || inferCuisineType(ownerData.truckName || ownerData.username);
             const finalTruckData = {
               ...truckData,
@@ -2943,23 +2757,10 @@ export default function MapScreen() {
               businessHours: ownerData.businessHours // Add business hours for status calculation
             };
             
-            console.log(`🎯 Final truck data for ${finalTruckData.truckName}:`, {
-              ownerId: finalTruckData.ownerId,
-              coverUrl: finalTruckData.coverUrl,
-              hasCoverUrl: !!finalTruckData.coverUrl,
-              stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
-              paymentEnabled: finalTruckData.paymentEnabled,
-              stripeAccountStatus: finalTruckData.stripeAccountStatus
-            });
-            
-            console.log(`🔍 PAYMENT DEBUG: Final truck has payment data:`, {
-              stripeConnectAccountId: finalTruckData.stripeConnectAccountId,
-              paymentEnabled: finalTruckData.paymentEnabled
-            });
             
             trucksWithOwnerData.push(finalTruckData);
           } else {
-            console.log('⚠️ No owner data found for truck:', truckData.id);
+    
             // Include truck with basic data and sensible defaults INCLUDING payment data
             trucksWithOwnerData.push({
               ...truckData,
@@ -2981,9 +2782,9 @@ export default function MapScreen() {
         } catch (error) {
           // Handle permission errors gracefully (expected for Basic plan users reading other owners' data)
           if (error.code === 'permission-denied') {
-            console.log('🔒 Limited access to owner data for truck:', truckData.id, '(using basic truck info only)');
+         
           } else {
-            console.error('❌ Error fetching owner data for truck:', truckData.id, error);
+  
           }
           // Include truck with basic data and sensible defaults
           const inferredCuisine = truckData.cuisine || truckData.cuisineType || inferCuisineType(truckData.truckName);
@@ -3006,34 +2807,25 @@ export default function MapScreen() {
         }
       }
       
-      console.log('🚛 MapScreen: Loaded', trucksWithOwnerData.length, 'visible food trucks with complete data');
-      console.log('🔒 PRIVACY SUMMARY: Showing', trucksWithOwnerData.length, 'trucks to', userRole, 'user');
+
       
       // DETAILED PRIVACY DEBUG: Log every truck and its visibility status
-      console.log('🔍 DETAILED TRUCK ANALYSIS:');
+
       trucksWithOwnerData.forEach((truck, index) => {
-        console.log(`   ${index + 1}. ${truck.truckName || truck.name || 'Unknown'}`);
-        console.log(`      - ID: ${truck.id}`);
-        console.log(`      - visible: ${truck.visible}`);
-        console.log(`      - isLive: ${truck.isLive}`);
-        console.log(`      - coordinates: ${truck.lat}, ${truck.lng}`);
-        console.log(`      - source: REAL_DATABASE`);
+
       });
       
       // Mark that we've received Firebase data (even if empty due to privacy filtering)
       setHasReceivedFirebaseData(true);
       
       if (trucksWithOwnerData.length === 0) {
-        console.log('❌ NO VISIBLE TRUCKS - All trucks may be hidden by owners for privacy');
-        console.log('❌ This could mean: 1) No trucks in database, 2) All trucks hidden via Hide Truck toggle, 3) Permission issue');
+        
       }
       
       setFoodTrucks(trucksWithOwnerData);
     },
     (error) => {
-      console.error('❌ CRITICAL: Error loading truck data:', error);
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Error message:', error.message);
+
       
       // Mark that we've received a Firebase response (even if it's an error)
       setHasReceivedFirebaseData(true);
@@ -3044,7 +2836,7 @@ export default function MapScreen() {
 
     // Load customer pings for both heatmap (Pro/All-Access) and individual markers (Basic)
     let unsubscribePings = null;
-    console.log('🔥 MapScreen: Loading customer pings for user plan:', userPlan);
+
     
     // Load ping data for ALL users
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -3074,7 +2866,7 @@ export default function MapScreen() {
           const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
           const withinRange = distance <= 200; // 200km radius for better coverage
           
-          console.log(`📍 Ping at [${lat}, ${lng}] is ${distance.toFixed(1)}km away, included: ${withinRange}`);
+  
           return isFinite(lat) && isFinite(lng) && isRecent && withinRange;
         }
         
@@ -3082,22 +2874,20 @@ export default function MapScreen() {
       });
       
       if (userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') {
-        console.log('📍 MapScreen: Loaded', pings.length, 'customer pings for heatmap (Pro/All-Access/Event-Premium)');
+      
       } else {
-        console.log('📍 MapScreen: Loaded', pings.length, 'customer pings for individual markers (Basic)');
+   
       }
-      console.log('📍 Sample ping data:', pings.slice(0, 3));
-      console.log('📍 ALL ping data for debugging:', pings);
-      console.log('📍 User plan for display mode:', userPlan);
+
       setCustomerPings(pings);
     });
 
     // Load events for event organizers and display on map for all users
     let unsubscribeEvents = null;
-    console.log('🎪 MapScreen: Loading events for map display');
+ 
     
     unsubscribeEvents = onSnapshot(collection(db, "events"), async (snapshot) => {
-      console.log('🎪 MapScreen: Raw events snapshot size:', snapshot.size);
+
       
       const eventsData = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -3107,13 +2897,7 @@ export default function MapScreen() {
         const hasCoordinates = event.latitude && event.longitude;
         const isPublished = event.status !== 'draft'; // Hide draft events
         
-        console.log('🎪 Event filter check:', {
-          id: event.id,
-          title: event.title,
-          hasCoordinates,
-          isPublished,
-          status: event.status
-        });
+  
         
         return hasCoordinates && isPublished;
       });
@@ -3122,14 +2906,14 @@ export default function MapScreen() {
       const eventsWithLogos = await Promise.all(eventsData.map(async (event) => {
         if (event.organizerId && (!event.organizerLogoUrl || event.organizerLogoUrl.trim() === '')) {
           try {
-            console.log('🎪 Fetching organizer logo for event:', event.title, 'organizerId:', event.organizerId);
+        
             const organizerRef = doc(db, 'users', event.organizerId);
             const organizerSnap = await getDoc(organizerRef);
             
             if (organizerSnap.exists()) {
               const organizerData = organizerSnap.data();
               const logoUrl = organizerData.logoUrl || '';
-              console.log('🎪 Found organizer logo:', logoUrl ? 'YES' : 'NO', 'for event:', event.title);
+          
               
               return {
                 ...event,
@@ -3137,19 +2921,13 @@ export default function MapScreen() {
               };
             }
           } catch (error) {
-            console.error('❌ Error fetching organizer data for event:', event.id, error);
           }
         }
         
         return event;
       }));
       
-      console.log('🎪 MapScreen: Loaded', eventsWithLogos.length, 'visible events');
-      console.log('🎪 Sample event summary:', eventsWithLogos.slice(0, 2).map(event => ({
-        title: event.title,
-        organizerId: event.organizerId,
-        hasLogo: !!(event.organizerLogoUrl || event.base64Logo)
-      })));
+  
       setEvents(eventsWithLogos);
     });
 
@@ -3164,17 +2942,17 @@ export default function MapScreen() {
 
   // Handle geolocation based on user plan and role
   useEffect(() => {
-    console.log('🌍 MapScreen: Geolocation useEffect triggered - userRole:', userRole, 'userPlan:', userPlan, 'user:', !!user?.uid);
+    
     
     (async () => {
-      console.log('🌍 MapScreen: Starting geolocation process...');
+    
       let { status } = await Location.requestForegroundPermissionsAsync();
-      console.log('🌍 MapScreen: Location permission status:', status);
+
       setLocationPermission(status);
       
       if (status !== 'granted') {
         setErrorMsg('Location permission denied. Please enable location access in settings.');
-        console.log('❌ MapScreen: Location permission denied - using default location');
+
         // Use default location for all users when permission is denied
         setLocation({
           coords: {
@@ -3187,34 +2965,33 @@ export default function MapScreen() {
 
       // Try to get geolocation for ALL users first
       try {
-        console.log('🌍 MapScreen: Attempting geolocation for user:', userRole, userPlan);
+
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
           timeout: 15000, // 15 second timeout
         });
         
         setLocation(location);
-        console.log('✅ MapScreen: Successfully got user location:', location.coords.latitude, location.coords.longitude);
-        console.log('📍 MapScreen: Checking location save requirements - userRole:', userRole, 'user.uid:', !!user?.uid, 'sessionId:', !!sessionId, 'ownerData:', !!ownerData);
+       
 
         // Save location for all food truck owners (Basic, Pro, All-Access) - automatic GPS tracking for all plans
         if (userRole === 'owner' && user?.uid) {
-          console.log('🌍 MapScreen: Food truck owner detected - attempting to save location for plan:', userPlan);
+     
           
           // Wait for sessionId and ownerData if they're not ready yet
           let attempts = 0;
           const maxAttempts = 10; // Wait up to 5 seconds (500ms * 10)
           
           while ((!sessionId || !ownerData) && attempts < maxAttempts) {
-            console.log('⏳ MapScreen: Waiting for sessionId or ownerData... Attempt', attempts + 1);
+
             await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
             attempts++;
           }
           
           if (sessionId && ownerData) {
-            console.log('🌍 MapScreen: Ready to save truck location to Firebase for plan:', userPlan);
+  
           } else {
-            console.log('⚠️ MapScreen: Proceeding without sessionId or ownerData - sessionId:', !!sessionId, 'ownerData:', !!ownerData);
+         
           }
           try {
             // Save to Firestore as truck location
@@ -3242,9 +3019,9 @@ export default function MapScreen() {
             // This prevents overwriting the saved visibility preference during initial load
             if (showTruckIcon !== null) {
               locationData.visible = showTruckIcon;
-              console.log('🔒 PRIVACY: Setting visible field to loaded preference:', showTruckIcon);
+
             } else {
-              console.log('🔒 PRIVACY: Preserving existing visible field - showTruckIcon still loading');
+  
             }
             
             // Save to trucks collection for persistence and visibility management
@@ -3252,18 +3029,18 @@ export default function MapScreen() {
             await setDoc(trucksDocRef, locationData, { merge: true });
             
             await setDoc(truckDocRef, locationData, { merge: true });
-            console.log('✅ MapScreen: Food truck owner location saved to Firebase for plan:', userPlan);
+       
           } catch (firebaseError) {
-            console.error('❌ MapScreen: Error saving truck location to Firebase:', firebaseError);
+     
           }
         }
         
       } catch (locationError) {
-        console.error('❌ MapScreen: Geolocation failed:', locationError);
+     
         
         // Provide helpful error message for all users
         setErrorMsg('Unable to get your current location. Please check your location settings and try again. Showing all trucks nationwide for now.');
-        console.log('📍 MapScreen: Location failed for user, using default nationwide view');
+      
         
         // Fallback to default location for all users
         setLocation({
@@ -3280,7 +3057,7 @@ export default function MapScreen() {
   useEffect(() => {
     const saveLateLoadedLocation = async () => {
       if (userRole === 'owner' && user?.uid && sessionId && ownerData && location) {
-        console.log('🔄 MapScreen: Late-loading effect - ensuring truck location is saved with complete data');
+  
         
         try {
           const truckDocRef = doc(db, 'truckLocations', user.uid);
@@ -3307,19 +3084,18 @@ export default function MapScreen() {
           // This prevents overwriting the saved visibility preference during initial load
           if (showTruckIcon !== null) {
             locationData.visible = showTruckIcon;
-            console.log('🔒 PRIVACY: Late-loading - Setting visible field to loaded preference:', showTruckIcon);
+     
           } else {
-            console.log('🔒 PRIVACY: Late-loading - Preserving existing visible field - showTruckIcon still loading');
+       
           }
           
           // Save to both collections
           const trucksDocRef = doc(db, 'trucks', user.uid);
           await setDoc(trucksDocRef, locationData, { merge: true });
           await setDoc(truckDocRef, locationData, { merge: true });
-          
-          console.log('✅ MapScreen: Late-loading - truck location updated with complete data');
+
         } catch (error) {
-          console.error('❌ MapScreen: Error in late-loading location save:', error);
+      
         }
       }
     };
@@ -3354,13 +3130,7 @@ export default function MapScreen() {
         return;
       }
       
-      console.log('🗺️ Generating map HTML with processed truck icons...');
-      console.log('🎪 EVENTS DEBUG: events.length at HTML generation time:', events.length);
-      console.log('🎪 EVENTS DEBUG: Sample event summary:', events.length > 0 ? {
-        title: events[0].title,
-        organizerId: events[0].organizerId,
-        hasLogo: !!(events[0].organizerLogoUrl || events[0].base64Logo)
-      } : 'No events');
+      
       
       // 🚀 PERFORMANCE: Start performance monitoring
       const perfStart = Date.now();
@@ -3373,20 +3143,12 @@ export default function MapScreen() {
       const perfEnd = Date.now();
       const processingTime = perfEnd - perfStart;
       
-      console.log('🚀 PERFORMANCE SUMMARY:');
-      console.log('  📊 Initial trucks loaded:', initialTruckCount);
-      console.log('  🌍 Geographic filtering radius:', GEOGRAPHIC_RADIUS, 'km');
-      console.log('  🎯 Max trucks per load:', MAX_TRUCKS_PER_LOAD);
-      console.log('  ⏱️ Total processing time:', processingTime, 'ms');
-      console.log('  🚀 Processing speed:', Math.round(initialTruckCount / (processingTime / 1000)), 'trucks/second');
+
       
       if (initialTruckCount > MAX_TRUCKS_PER_LOAD) {
-        console.log('  ⚡ Large dataset optimizations ACTIVE');
-        console.log('  🔧 Lazy loading:', 'ENABLED');
-        console.log('  🔧 Geographic filtering:', 'ENABLED');
-        console.log('  🔧 Batch processing:', 'ENABLED');
+    
       } else {
-        console.log('  🔧 Small dataset - standard processing');
+  
       }
       
       setMapHTML(html);
@@ -3409,7 +3171,7 @@ export default function MapScreen() {
   // Pre-fetch and convert images to base64 for WebView
   const convertImageToBase64 = async (imageUrl) => {
     try {
-      console.log('🔄 Pre-fetching image for base64 conversion:', imageUrl.substring(0, 50) + '...');
+
       
       const response = await fetch(imageUrl);
       if (!response.ok) {
@@ -3421,17 +3183,17 @@ export default function MapScreen() {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          console.log('✅ Successfully converted image to base64');
+          
           resolve(reader.result);
         };
         reader.onerror = () => {
-          console.log('❌ Failed to convert blob to base64');
+  
           reject(new Error('Failed to convert to base64'));
         };
         reader.readAsDataURL(blob);
       });
     } catch (error) {
-      console.log('❌ Failed to fetch/convert image:', error.message);
+ 
       return null;
     }
   };
@@ -3484,19 +3246,19 @@ export default function MapScreen() {
     // Option 1: Use processed base64 logo if available, or fallback to original URL
     const logoUrl = event.base64Logo || event.organizerLogoUrl;
     if (logoUrl && logoUrl.trim() !== '') {
-      console.log('🎪 Using organizer logo for event icon:', eventTitle, 'Logo type:', event.base64Logo ? 'base64' : 'URL');
+    
       return {
         type: 'logo',
         data: logoUrl,
         html: `<div style="width: 50px; height: 50px; border-radius: 50%; border: 3px solid #FFD700; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.4); background: white; display: flex; align-items: center; justify-content: center; position: relative;">
-          <img src="${logoUrl}" style="width: calc(100% - 6px); height: calc(100% - 6px); object-fit: cover; border-radius: 50%;" onerror="console.log('❌ Event logo failed to load:', this.src); this.style.display='none';" />
+          <img src="${logoUrl}" style="width: calc(100% - 6px); height: calc(100% - 6px); object-fit: cover; border-radius: 50%;" this.style.display='none';" />
           <div style="position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; background: #FFD700; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 2px solid white; font-size: 10px;">⭐</div>
         </div>`
       };
     }
     
     // Option 2: Use initials with event status-based colors (fallback only)
-    console.log('🎪 No logo available for event:', eventTitle, 'Using initials fallback');
+ 
     const initials = eventTitle.substring(0, 2).toUpperCase();
     const statusColors = {
       'active': '#FFD700',     // Gold for active events
@@ -3529,73 +3291,45 @@ export default function MapScreen() {
     // CRITICAL: Don't use mock data if trucks are just hidden for privacy reasons
     let trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : (hasReceivedFirebaseData ? [] : mockFoodTrucks);
     
-    console.log('🗺️ MAP DEBUG: Truck data source decision:');
-    console.log('🗺️ Real foodTrucks.length:', foodTrucks.length);
-    console.log('🗺️ hasReceivedFirebaseData:', hasReceivedFirebaseData);
-    console.log('🗺️ Using:', foodTrucks.length > 0 ? 'REAL DATA' : (hasReceivedFirebaseData ? 'NO TRUCKS (PRIVACY RESPECTED)' : 'MOCK DATA (no firebase data)'));
-    console.log('🗺️ User location:', { lat: userLat, lng: userLng });
-    console.log('🗺️ trucksToDisplay.length:', trucksToDisplay.length);
-    console.log('🗺️ Trucks to display:', trucksToDisplay.map(t => ({ name: t.truckName || t.name, id: t.id, visible: t.visible })));
+    
     
     // CRITICAL DEBUG: Check specifically for "The Grubber"
     const grubberTruck = trucksToDisplay.find(t => (t.truckName || t.name || '').toLowerCase().includes('grubber'));
     if (grubberTruck) {
-      console.log('🚨 PRIVACY VIOLATION DETECTED: The Grubber found in trucks to display!');
-      console.log('🚨 Grubber data:', {
-        name: grubberTruck.truckName || grubberTruck.name,
-        id: grubberTruck.id,
-        visible: grubberTruck.visible,
-        isLive: grubberTruck.isLive,
-        source: foodTrucks.length > 0 ? 'REAL_DATABASE' : (hasReceivedFirebaseData ? 'NO_SOURCE' : 'MOCK_DATA')
-      });
-      console.log('🚨 This should NOT happen if Hide Truck is working correctly!');
+   
+      
     } else {
-      console.log('✅ PRIVACY: No Grubber truck found in display list - privacy working correctly');
+  
     }
     
     if (foodTrucks.length === 0 && hasReceivedFirebaseData) {
-      console.log('🔒 PRIVACY: No trucks to show - respecting Hide Truck settings');
-      console.log('🔒 PRIVACY: Not falling back to mock data - this is the correct behavior');
+   
     } else if (foodTrucks.length === 0 && !hasReceivedFirebaseData) {
-      console.log('⚠️ MAP WARNING: No Firebase data received, falling back to mock data');
-      console.log('⚠️ This means customers will see demo trucks instead of real ones');
-      console.log('🌍 Mock trucks now use California coordinates near user location');
+
     }
     
     // Filter out current user's truck if they've toggled it off (owners only)
     if (userRole === 'owner' && user && !showTruckIcon) {
-      console.log('🚚 Filtering out current user truck. User UID:', user.uid);
-      console.log('🚚 Trucks before filtering:', trucksToDisplay.map(t => ({ 
-        name: t.truckName || t.name, 
-        uid: t.uid
-      })));
+    
       
       // Filter out the current user's truck
       trucksToDisplay = trucksToDisplay.filter(truck => truck.uid !== user.uid);
       
-      console.log('🚚 Current user truck hidden. Displaying', trucksToDisplay.length, 'trucks');
-      console.log('🚚 Trucks after filtering:', trucksToDisplay.map(t => ({ 
-        name: t.truckName || t.name, 
-        uid: t.uid
-      })));
+    
     } else if (userRole === 'owner' && user && showTruckIcon) {
-      console.log('🚚 Current user truck should be visible. User UID:', user.uid);
-      console.log('🚚 All trucks:', trucksToDisplay.map(t => ({ 
-        name: t.truckName || t.name, 
-        uid: t.uid
-      })));
+ 
     }
     
     // SPECIAL DEBUG: Check if "True" truck made it to the display list
     const trueTruckInDisplay = trucksToDisplay.find(t => t.truckName === 'True');
     if (trueTruckInDisplay) {
-      console.log('🎯 TRUE TRUCK WILL BE DISPLAYED:', trueTruckInDisplay);
+    
     } else {
-      console.log('🎯 TRUE TRUCK NOT IN DISPLAY LIST. Available trucks:', trucksToDisplay.map(t => t.truckName));
+   
     }
     
     // Pre-process trucks with base64 images
-    console.log('🎯 Pre-processing', trucksToDisplay.length, 'truck images...');
+ 
     
     // 🚀 PERFORMANCE: Implement lazy loading for large datasets
     const MAX_CONCURRENT_IMAGES = 10; // Process max 10 images at once
@@ -3604,7 +3338,7 @@ export default function MapScreen() {
     let processedTrucks;
     
     if (ENABLE_LAZY_LOADING) {
-      console.log('🚀 PERFORMANCE: Large truck dataset - using lazy image loading');
+
       
       // 🌍 PERFORMANCE: Helper function for distance calculation
       const calculateDistance = (lat1, lng1, lat2, lng2) => {
@@ -3632,20 +3366,20 @@ export default function MapScreen() {
             let base64Image = null;
             
             if (!skipImageProcessing && truck.coverUrl && truck.coverUrl.trim() !== '') {
-              console.log('🔄 Processing cover image for:', truck.truckName || truck.name);
+     
               try {
                 base64Image = await convertImageToBase64(truck.coverUrl);
               } catch (error) {
-                console.log('❌ Image processing failed for', truck.truckName, '- using fallback');
+       
               }
             } else if (skipImageProcessing) {
-              console.log('⚡ Skipping image processing for distant truck:', truck.truckName);
+     
             }
             
             // Load rating data for this truck (in batch processing)
-            console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+   
             const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
-            console.log('⭐ Rating data loaded:', ratingData);
+  
             
             const personalizedIcon = generatePersonalizedIcon({
               ...truck,
@@ -3665,7 +3399,7 @@ export default function MapScreen() {
         );
         
         processedTrucks.push(...batchResults);
-        console.log(`🚀 PERFORMANCE: Processed batch ${Math.floor(i/MAX_CONCURRENT_IMAGES) + 1}/${Math.ceil(trucksToDisplay.length/MAX_CONCURRENT_IMAGES)}`);
+      
       }
     } else {
       // Standard processing for smaller datasets
@@ -3674,14 +3408,14 @@ export default function MapScreen() {
           let base64Image = null;
           
           if (truck.coverUrl && truck.coverUrl.trim() !== '') {
-            console.log('🔄 Processing cover image for:', truck.truckName || truck.name);
+            
             base64Image = await convertImageToBase64(truck.coverUrl);
           }
           
           // Load rating data for this truck
-          console.log('⭐ Loading rating data for truck:', truck.ownerId || truck.id);
+  
           const ratingData = await getTruckRatingSummary(truck.ownerId || truck.id);
-          console.log('⭐ Rating data loaded:', ratingData);
+
           
           const personalizedIcon = generatePersonalizedIcon({
             ...truck,
@@ -3702,16 +3436,16 @@ export default function MapScreen() {
     }
     
     const successCount = processedTrucks.filter(truck => truck.hasCustomIcon).length;
-    console.log(`🎯 Successfully processed ${successCount}/${trucksToDisplay.length} truck images`);
+
     
     // Pre-process events with personalized icons
-    console.log('🎪 Pre-processing', events.length, 'event icons...');
+
     const processedEvents = await Promise.all(
       events.map(async (event) => {
         let base64Logo = null;
         
         if (event.organizerLogoUrl && event.organizerLogoUrl.trim() !== '') {
-          console.log('🔄 Processing organizer logo for:', event.title || event.eventName);
+ 
           base64Logo = await convertImageToBase64(event.organizerLogoUrl);
         }
         
@@ -3730,41 +3464,16 @@ export default function MapScreen() {
     );
     
     const eventLogoCount = processedEvents.filter(event => event.hasCustomLogo).length;
-    console.log(`🎯 Successfully processed ${eventLogoCount}/${events.length} event logos`);
-    console.log('🎪 PROCESSED EVENTS DEBUG: processedEvents.length:', processedEvents.length);
-    console.log('🎪 PROCESSED EVENTS DEBUG: Sample event info:', processedEvents.length > 0 ? {
-      title: processedEvents[0].title,
-      organizerId: processedEvents[0].organizerId,
-      hasCustomLogo: processedEvents[0].hasCustomLogo
-    } : 'No events');
+
     
     // 🔍 DEBUG: Log the processed truck data
-    console.log('🗺️ WEBVIEW DEBUG: About to create map with processed truck data:');
-    console.log('🗺️ Total trucks to display:', processedTrucks.length);
+ 
     processedTrucks.forEach((truck, index) => {
-      console.log(`🚛 Truck ${index + 1}:`, {
-        name: truck.truckName || truck.name,
-        id: truck.id,
-        ownerId: truck.ownerId,
-        hasCustomIcon: truck.hasCustomIcon,
-        iconType: truck.personalizedIcon.type,
-        cuisineType: truck.cuisineType
-      });
+    
     });
     
-    // 🎪 DEBUG: Log the processed events data summary (no base64)
-    console.log('🎪 WEBVIEW DEBUG: About to create map with processed events data:');
-    console.log('🎪 Total events to display:', processedEvents.length);
-    console.log('🎪 Events summary:', processedEvents.map(event => ({
-      title: event.title,
-      organizerId: event.organizerId,
-      hasCustomLogo: event.hasCustomLogo,
-      logoType: event.base64Logo ? 'base64' : 'url'
-    })));
 
-    // Debug: Toggle functionality removed - showing all markers
-    console.log('🚛 REACT STATE: Toggle functionality removed - showing all markers');
-
+   
     // CRITICAL: Sanitize data for JSON.stringify to prevent WebView errors
     let sanitizedTrucks = [];
     try {
@@ -3777,9 +3486,9 @@ export default function MapScreen() {
           className: truck.personalizedIcon.className
         } : null
       }));
-      console.log('🔧 REACT NATIVE: Successfully sanitized processedTrucks for JSON.stringify');
+  
     } catch (error) {
-      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize processedTrucks:', error);
+ 
       sanitizedTrucks = [];
     }
 
@@ -3794,18 +3503,18 @@ export default function MapScreen() {
           className: event.eventIcon.className
         } : null
       }));
-      console.log('🔧 REACT NATIVE: Successfully sanitized processedEvents for JSON.stringify');
+
     } catch (error) {
-      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize processedEvents:', error);
+  
       sanitizedEvents = [];
     }
 
     let sanitizedPings = [];
     try {
       sanitizedPings = JSON.parse(JSON.stringify(customerPings)); // Deep clone to remove any problematic references
-      console.log('🔧 REACT NATIVE: Successfully sanitized customerPings for JSON.stringify');
+  
     } catch (error) {
-      console.error('🔧 REACT NATIVE ERROR: Failed to sanitize customerPings:', error);
+
       sanitizedPings = [];
     }
 
@@ -4203,39 +3912,36 @@ export default function MapScreen() {
             };
             
             // Verify required libraries are loaded
-            console.log('📚 Leaflet version:', L.version);
-            console.log('🔥 L.heatLayer available:', typeof L.heatLayer !== 'undefined');
+   
             
             if (typeof L.heatLayer === 'undefined') {
-                console.error('❌ leaflet.heat plugin not loaded! Trying to load it again...');
                 
                 // Try to load the plugin again
                 const script = document.createElement('script');
                 script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
                 script.onload = function() {
-                    console.log('✅ leaflet.heat plugin reloaded successfully');
-                    console.log('🔥 L.heatLayer now available:', typeof L.heatLayer !== 'undefined');
+      
                 };
                 script.onerror = function() {
-                    console.error('❌ Failed to reload leaflet.heat plugin');
+           
                 };
                 document.head.appendChild(script);
             }
             
             // Initialize map (using let for function accessibility)
-            console.log('🗺️ WEBVIEW: About to initialize Leaflet map at [${userLat}, ${userLng}]');
+      
             let map = L.map('map').setView([${userLat}, ${userLng}], 14);
-            console.log('🗺️ WEBVIEW: Leaflet map initialized successfully');
+    
             
             // Add OpenStreetMap tiles
-            console.log('🗺️ WEBVIEW: Adding OpenStreetMap tile layer...');
+  
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
-            console.log('🗺️ WEBVIEW: Tile layer added successfully');
+       
 
             // User location marker
-            console.log('🗺️ WEBVIEW: Creating user location marker...');
+
             const userIcon = L.divIcon({
                 html: '<div style="background: #007AFF; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,122,255,0.3);"></div>',
                 iconSize: [20, 20],
@@ -4245,42 +3951,42 @@ export default function MapScreen() {
             L.marker([${userLat}, ${userLng}], { icon: userIcon })
                 .addTo(map)
                 .bindPopup('<div class="truck-popup"><div class="truck-name">📍 Your Location</div></div>');
-            console.log('🗺️ WEBVIEW: User location marker added successfully');
+
             
             // DEBUG: Check if execution continues past user marker creation
-            console.log('🔧 WEBVIEW DEBUG: About to start marker creation section...');
+  
             
             // SAFE logging to prevent JavaScript crashes
-            console.log('🔧 WEBVIEW DEBUG: Checking foodTrucks variable...');
+   
             try {
                 const trucksCount = (foodTrucks && Array.isArray(foodTrucks)) ? foodTrucks.length : 'undefined or not array';
-                console.log('🔧 WEBVIEW DEBUG: foodTrucks count:', trucksCount);
+ 
             } catch (e) {
-                console.error('🔧 WEBVIEW ERROR checking foodTrucks:', e.message);
+       
             }
             
-            console.log('🔧 WEBVIEW DEBUG: Checking events variable...');
+
             try {
                 const eventsCount = (events && Array.isArray(events)) ? events.length : 'undefined or not array';
-                console.log('🔧 WEBVIEW DEBUG: events count:', eventsCount);
+        
             } catch (e) {
-                console.error('🔧 WEBVIEW ERROR checking events:', e.message);
+      
             }
             
             // IMMEDIATE TEST - Call marker creation right here
-            console.log('🚀 WEBVIEW: About to call createTruckMarkers directly...');
+
             try {
                 if (typeof createTruckMarkers !== 'undefined') {
-                    console.log('🚀 WEBVIEW: createTruckMarkers function exists, calling it...');
+        
                     createTruckMarkers(foodTrucks);
                 } else {
-                    console.error('🚀 WEBVIEW ERROR: createTruckMarkers function not defined!');
+        
                 }
             } catch (error) {
-                console.error('🚀 WEBVIEW ERROR calling createTruckMarkers:', error);
+         
             }
 
-            console.log('🔧 WEBVIEW: About to define checkTruckOpenStatus function...');
+   
             
             // Star rating generator function for popup
             function generateStarRating(rating) {
@@ -4321,30 +4027,28 @@ export default function MapScreen() {
                         friday: { open: '9:00 AM', close: '5:00 PM', closed: false },
                         saturday: { open: '9:00 AM', close: '5:00 PM', closed: false }
                     };
-                    console.log('🕐 Using default business hours (9 AM - 5 PM)');
+     
                 }
                 
                 const now = new Date();
                 const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
                 const currentTime12 = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
                 
-                console.log('🕐 Checking status for', currentDay, 'at', currentTime12);
-                console.log('🕐 Full business hours object:', JSON.stringify(businessHours, null, 2));
+
                 
                 const dayHours = businessHours[currentDay];
                 if (!dayHours || dayHours.closed) {
-                    console.log('🔴 Truck is closed today (no hours or marked as closed)');
+          
                     return 'closed';
                 }
                 
-                console.log('🕐 Business hours for', currentDay, ':', dayHours.open, '-', dayHours.close);
-                console.log('🕐 Current time:', currentTime12);
+     
                 
                 // Helper function to convert AM/PM time to minutes since midnight for easy comparison
                 const timeToMinutes = (timeStr) => {
                     if (!timeStr) return 0;
                     
-                    console.log('🔍 Converting to minutes:', timeStr);
+    
                     
                     const timeStr_clean = timeStr.trim();
                     
@@ -4353,7 +4057,7 @@ export default function MapScreen() {
                         // 24-hour format like "09:00" or "17:00"
                         const timeParts = timeStr_clean.split(':');
                         if (timeParts.length !== 2) {
-                            console.log('❌ Invalid 24-hour format - expected "HH:MM", got:', timeStr);
+              
                             return 0;
                         }
                         
@@ -4361,31 +4065,28 @@ export default function MapScreen() {
                         const minutes = parseInt(timeParts[1], 10);
                         
                         if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-                            console.log('❌ Invalid 24-hour time values - hours:', hours, 'minutes:', minutes);
+                
                             return 0;
                         }
                         
                         const totalMinutes = hours * 60 + minutes;
-                        console.log('🔍 Converted 24-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+               
                         return totalMinutes;
                     }
                     
                     // 12-hour format with AM/PM - handle various whitespace characters
                     const parts = timeStr_clean.split(/\s+/); // Split on any whitespace (space, non-breaking space, etc.)
-                    console.log('🔍 Split parts:', parts, 'Length:', parts.length);
-                    console.log('🔍 Original string bytes:', Array.from(timeStr_clean).map(char => char.charCodeAt(0)));
+             
                     
                     if (parts.length !== 2) {
-                        console.log('❌ Invalid time format - expected "H:MM AM/PM", got:', timeStr);
-                        console.log('❌ Split result:', parts);
-                        console.log('❌ Trying alternative parsing...');
+            
                         
                         // Try alternative parsing for edge cases
                         const ampmMatch = timeStr_clean.match(/(AM|PM)/i);
                         if (ampmMatch) {
                             const ampm = ampmMatch[0].toUpperCase();
                             const timeOnly = timeStr_clean.replace(/(AM|PM)/i, '').trim();
-                            console.log('🔍 Alternative parsing - time:', timeOnly, 'period:', ampm);
+              
                             
                             const timeParts = timeOnly.split(':');
                             if (timeParts.length === 2) {
@@ -4401,7 +4102,7 @@ export default function MapScreen() {
                                     }
                                     
                                     const totalMinutes = hours * 60 + minutes;
-                                    console.log('✅ Alternative parsing successful:', timeStr, '→', totalMinutes, 'minutes');
+                             
                                     return totalMinutes;
                                 }
                             }
@@ -4411,35 +4112,30 @@ export default function MapScreen() {
                     }
                     
                     const [time, period] = parts;
-                    console.log('🔍 Time part:', '"' + time + '"', 'Period part:', '"' + period + '"');
+               
                     
                     const timeParts = time.split(':');
-                    console.log('🔍 Time split by colon:', timeParts, 'Length:', timeParts.length);
+                  
                     
                     if (timeParts.length !== 2) {
-                        console.log('❌ Invalid time part - expected "H:MM", got:', time);
-                        console.log('❌ Time parts:', timeParts);
+              
                         return 0;
                     }
                     
                     let hours = parseInt(timeParts[0], 10);
                     const minutes = parseInt(timeParts[1], 10);
                     
-                    console.log('🔍 Raw parsing - hours string:', '"' + timeParts[0] + '"', 'minutes string:', '"' + timeParts[1] + '"');
-                    console.log('🔍 Parsed integers - hours:', hours, 'minutes:', minutes);
-                    console.log('🔍 Type check - hours type:', typeof hours, 'minutes type:', typeof minutes);
-                    console.log('🔍 NaN check - isNaN(hours):', isNaN(hours), 'isNaN(minutes):', isNaN(minutes));
+               
                     
                     if (isNaN(hours) || isNaN(minutes)) {
-                        console.log('❌ Failed to parse time:', time, '-> hours:', hours, 'minutes:', minutes);
+                   
                         return 0;
                     }
                     
                     // Validate ranges for 12-hour format
-                    console.log('🔍 Range validation - hours >= 1:', hours >= 1, 'hours <= 12:', hours <= 12, 'minutes >= 0:', minutes >= 0, 'minutes <= 59:', minutes <= 59);
+                   
                     if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
-                        console.log('❌ Invalid 12-hour time values - hours:', hours, 'minutes:', minutes);
-                        console.log('❌ Range check failed: hours range (1-12):', (hours >= 1 && hours <= 12), 'minutes range (0-59):', (minutes >= 0 && minutes <= 59));
+                        
                         return 0;
                     }
                     
@@ -4451,7 +4147,7 @@ export default function MapScreen() {
                     }
                     
                     const totalMinutes = hours * 60 + minutes;
-                    console.log('🔍 Converted 12-hour', timeStr, 'to', totalMinutes, 'minutes since midnight');
+
                     return totalMinutes;
                 };
                 
@@ -4460,13 +4156,7 @@ export default function MapScreen() {
                 const openMinutes = timeToMinutes(dayHours.open);
                 const closeMinutes = timeToMinutes(dayHours.close);
                 
-                console.log('🕐 === DETAILED TIME ANALYSIS ===');
-                console.log('🕐 Day of week:', currentDay);
-                console.log('🕐 Raw business hours for', currentDay, ':', JSON.stringify(dayHours, null, 2));
-                console.log('🕐 Time comparison (minutes since midnight):');
-                console.log('🕐   Open:', openMinutes, '(' + dayHours.open + ')');
-                console.log('🕐   Current:', currentMinutes, '(' + currentTime12 + ')');
-                console.log('🕐   Close:', closeMinutes, '(' + dayHours.close + ')');
+       
                 
                 // Check if current time is within business hours
                 let isOpen = false;
@@ -4475,73 +4165,64 @@ export default function MapScreen() {
                     // Normal case: open and close on same day (e.g., 9:00 AM to 6:00 PM)
                     // Current time must be >= open time AND < close time (not <=, because at close time you're closed)
                     isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
-                    console.log('🕐 Normal day hours - checking if', currentMinutes, 'is between', openMinutes, 'and', closeMinutes);
-                    console.log('🕐   Is current >= open?', currentMinutes >= openMinutes);
-                    console.log('🕐   Is current < close?', currentMinutes < closeMinutes);
-                    console.log('🕐   Final result: OPEN =', isOpen);
+           
                 } else {
                     // Overnight case: close time is next day (e.g., 10:00 PM to 2:00 AM)
                     isOpen = currentMinutes >= openMinutes || currentMinutes < closeMinutes;
-                    console.log('🕐 Overnight hours - checking if', currentMinutes, 'is after', openMinutes, 'OR before', closeMinutes);
-                    console.log('🕐   Is current >= open?', currentMinutes >= openMinutes);
-                    console.log('🕐   Is current < close?', currentMinutes < closeMinutes);
-                    console.log('🕐   Final result: OPEN =', isOpen);
+           
                 }
                 
                 if (isOpen) {
-                    console.log('🟢 Truck is OPEN');
+            
                     return 'open';
                 } else {
-                    console.log('🔴 Truck is CLOSED (outside business hours)');
+                
                     return 'closed';
                 }
             }
 
             // CRITICAL DEBUG: Check if we reach data initialization section
-            console.log('🔧 WEBVIEW CRITICAL: Reached data initialization section!');
+    
             
             // Food truck data with pre-processed icons
-            console.log('🔧 WEBVIEW: About to stringify sanitizedTrucks');
+  
             let foodTrucks = [];
             try {
                 foodTrucks = ${JSON.stringify(sanitizedTrucks)};
-                console.log('🔧 WEBVIEW: Successfully parsed foodTrucks, count:', foodTrucks.length);
+         
             } catch (error) {
-                console.error('🔧 WEBVIEW ERROR: Failed to parse foodTrucks:', error);
+      
                 foodTrucks = [];
             }
             
             // Event data with pre-processed icons
-            console.log('🔧 WEBVIEW: About to stringify events data');
+ 
             let events = [];
             try {
                 const eventsData = ${JSON.stringify(sanitizedEvents)};
-                console.log('🎪 WEBVIEW JSON DEBUG: Events data parsed, count:', eventsData.length);
+
                 events = eventsData;
-                console.log('🔧 WEBVIEW: Successfully parsed events, count:', events.length);
+         
             } catch (error) {
-                console.error('🔧 WEBVIEW ERROR: Failed to parse events:', error);
+              
                 events = [];
             }
             
             // Customer ping data for heatmap (Pro/All-Access only)
-            console.log('🔧 WEBVIEW: About to stringify sanitizedPings');
+    
             let customerPings = [];
             try {
                 customerPings = ${JSON.stringify(sanitizedPings)};
-                console.log('🔧 WEBVIEW: Successfully parsed customerPings, count:', customerPings.length);
+          
             } catch (error) {
-                console.error('🔧 WEBVIEW ERROR: Failed to parse customerPings:', error);
+   
                 customerPings = [];
             }
             
             // CRITICAL SUCCESS LOG: Confirm WebView data initialization completed
-            console.log('🔧 WEBVIEW SUCCESS: Data initialization completed successfully!');
-            console.log('🚛 WEBVIEW DATA: foodTrucks count:', foodTrucks.length);
-            console.log('🎪 WEBVIEW DATA: events count:', events.length);
-            console.log('📍 WEBVIEW DATA: customerPings count:', customerPings.length);
+
             if (foodTrucks.length > 0) {
-                console.log('🚛 WEBVIEW SAMPLE TRUCK:', foodTrucks[0].truckName || foodTrucks[0].name);
+             
             }
             
             // Add some mock ping data for testing if no real data
@@ -4556,12 +4237,7 @@ export default function MapScreen() {
             // Use real Firebase ping data if available, otherwise fallback to mock for testing
             const realPings = ${JSON.stringify(customerPings)};
             const testPings = realPings.length > 0 ? realPings : mockPings;
-            console.log('🔥 HEATMAP DATA SOURCE ANALYSIS:');
-            console.log('🔥 Using ping data source:', realPings.length > 0 ? 'REAL FIREBASE DATA' : 'MOCK DATA (fallback)');
-            console.log('🔥 Real Firebase ping count:', realPings.length);
-            console.log('🔥 Final ping count for heatmap:', testPings.length);
-            console.log('🔥 Real ping sample data:', realPings.slice(0, 2));
-            console.log('🔥 Final ping sample data:', testPings.slice(0, 2));
+
             const userPlan = '${userPlan}';
             const userRole = '${userRole}';
             const showHeatmapFeatures = userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium';
@@ -4577,17 +4253,16 @@ export default function MapScreen() {
             // User favorites from React state
             var userFavorites = new Set(${JSON.stringify(Array.from(userFavorites || new Set()))}); // From React state
             
-            console.log('🚛 WEBVIEW INIT: Toggle functionality removed - showing all markers');
-            console.log('❤️ WEBVIEW INIT: userFavorites =', userFavorites, 'size:', userFavorites.size);
+     
 
             // Create circular icon using canvas (SIMPLIFIED for Leaflet WebView)
             const createCircularIcon = (imageUrl, size = 40) => {
                 return new Promise((resolve) => {
-                    console.log('🖼️ Creating circular icon for URL:', imageUrl);
+         
                     
                     // Validate imageUrl
                     if (!imageUrl || typeof imageUrl !== 'string') {
-                        console.log('❌ Invalid image URL provided to createCircularIcon');
+                  
                         resolve(null);
                         return;
                     }
@@ -4597,30 +4272,28 @@ export default function MapScreen() {
                     const isFirebaseStorage = imageUrl.includes('firebasestorage.googleapis.com');
                     
                     if (isFirebaseStorage) {
-                        console.log('🔥 FIREBASE STORAGE URL DETECTED');
-                        console.log('🔥 Original URL:', imageUrl);
+             
                         
                         // Check if URL already has alt=media (which it should for newer Firebase URLs)
                         if (imageUrl.includes('alt=media')) {
-                            console.log('✅ URL already has alt=media parameter');
+                         
                             processedUrl = imageUrl;
                         } else {
                             // Transform Firebase Storage URL to work with CORS
                             processedUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 'alt=media';
-                            console.log('🔄 Added alt=media to URL');
+              
                         }
-                        console.log('🖼️ Final processed URL:', processedUrl);
+                 
                     }
 
                     const img = new Image();
                     // Try without crossOrigin first for WebView compatibility
                     
-                    console.log('🖼️ Attempting image load without CORS restrictions...');
+             
                     
                     img.onload = () => {
                         try {
-                            console.log('🎉 SUCCESS! Direct image load worked');
-                            console.log('🖼️ Image dimensions:', img.width, 'x', img.height);
+              
                             
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
@@ -4663,17 +4336,17 @@ export default function MapScreen() {
                             ctx.stroke();
                             
                             const dataUrl = canvas.toDataURL();
-                            console.log('✅ Successfully created circular icon without CORS');
+                       
                             resolve(dataUrl);
                         } catch (error) {
-                            console.log('❌ Canvas error:', error.message);
+                  
                             // Try with CORS as fallback
                             const corsImg = new Image();
                             corsImg.crossOrigin = 'anonymous';
                             
                             corsImg.onload = () => {
                                 try {
-                                    console.log('🎉 SUCCESS! CORS image load worked as fallback');
+                                 
                                     const canvas = document.createElement('canvas');
                                     const ctx = canvas.getContext('2d');
                                     canvas.width = size;
@@ -4703,16 +4376,16 @@ export default function MapScreen() {
                                     ctx.lineWidth = 2;
                                     ctx.stroke();
                                     
-                                    console.log('✅ Successfully created circular icon with CORS fallback');
+                           
                                     resolve(canvas.toDataURL());
                                 } catch (canvasError) {
-                                    console.log('❌ CORS canvas error:', canvasError.message);
+                        
                                     resolve(null);
                                 }
                             };
                             
                             corsImg.onerror = () => {
-                                console.log('💥 CORS fallback also failed');
+                           
                                 resolve(null);
                             };
                             
@@ -4721,20 +4394,17 @@ export default function MapScreen() {
                     };
                     
                     img.onerror = (error) => {
-                        console.log('💥 Direct image load failed:', processedUrl);
-                        console.log('💥 This is expected for Firebase Storage in WebView environment');
-                        console.log('💥 Falling back to default truck icon');
+      
                         resolve(null);
                     };
                     
                     // Add timeout to prevent hanging
                     setTimeout(() => {
-                        console.log('⏰ Image loading timeout for:', processedUrl.substring(0, 50) + '...');
-                        console.log('⏰ Using default icon due to timeout');
+    
                         resolve(null);
                     }, 6000);
                     
-                    console.log('🔄 Starting direct image load (no CORS)...');
+ 
                     img.src = processedUrl;
                 });
             };
@@ -4757,42 +4427,38 @@ export default function MapScreen() {
             };
 
             // Create truck markers with pre-processed personalized icons
-            console.log('🔧 WEBVIEW: About to define createTruckMarkers function...');
+
             function createTruckMarkers(trucks = foodTrucks) {
                 // Define trucksToUse in function scope first
                 let trucksToUse = [];
                 
                 try {
-                    console.log('🚛 WEBVIEW: === STARTING createTruckMarkers ===');
-                    console.log('🚛 WEBVIEW: Input trucks parameter:', trucks ? trucks.length : 'NULL/UNDEFINED');
-                    console.log('🚛 WEBVIEW: Global foodTrucks:', foodTrucks ? foodTrucks.length : 'NULL/UNDEFINED');
-                    console.log('🚛 WEBVIEW: Map object exists:', typeof map !== 'undefined');
+
                     
                     if (typeof map === 'undefined') {
-                        console.error('🚛 WEBVIEW ERROR: Map not initialized when creating truck markers');
+                      
                         return;
                     }
 
                     // Log the actual truck data we're working with
                     trucksToUse = trucks || foodTrucks || [];
-                    console.log('🚛 WEBVIEW: Final trucks array length:', trucksToUse.length);
-                    console.log('🚛 WEBVIEW: Sample truck for debugging:', trucksToUse.length > 0 ? trucksToUse[0] : 'NO TRUCKS');
+                    
                     
                     // Clear existing markers
-                    console.log('🚛 WEBVIEW: Clearing existing markers - current count:', truckMarkers.length);
+          
                     truckMarkers.forEach(marker => map.removeLayer(marker));
                     truckMarkers = [];
-                    console.log('🚛 WEBVIEW: Cleared existing markers');
+      
                     
                     // If no trucks provided, simply return (don't create test markers)
                     if (!trucksToUse || trucksToUse.length === 0) {
-                        console.log('🚛 WEBVIEW: No truck data - no markers to create');
+                    
                         return;
                     }
                     
-                    console.log('🚛 WEBVIEW: Processing', trucksToUse.length, 'trucks for markers');
+            
                 } catch (error) {
-                    console.error('🚛 WEBVIEW ERROR in createTruckMarkers setup:', error);
+          
                     return;
                 }
 
@@ -4800,7 +4466,7 @@ export default function MapScreen() {
                 const trucksToProcess = trucksToUse;
                 for (let i = 0; i < trucksToProcess.length; i++) {
                     const truck = trucksToProcess[i];
-                    console.log('🚛 WEBVIEW: Processing truck index', i, ':', truck.truckName || truck.name || 'UNNAMED');
+               
                     
                     try {
                     
@@ -4816,24 +4482,17 @@ export default function MapScreen() {
                     // Get the truck name and details
                     const truckName = truck.truckName || truck.name || 'Food Truck';
                     const kitchenType = truck.kitchenType || 'truck';
-                    
-                    console.log('🚛 WEBVIEW: Processing truck:', truckName);
-                    console.log('🚛 WEBVIEW: Truck IDs - id:', truck.id, 'ownerId:', truck.ownerId);
-                    console.log('🎨 WEBVIEW: Icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
-                    console.log('🖼️ WEBVIEW: Has custom icon:', truck.hasCustomIcon);
-                    console.log('� Truck IDs - id:', truck.id, 'ownerId:', truck.ownerId);
-                    console.log('�🎨 Icon type:', truck.personalizedIcon ? truck.personalizedIcon.type : 'default');
-                    console.log('🖼️ Has custom icon:', truck.hasCustomIcon);
+                
                     
                     // Use pre-processed personalized icon
                     let iconHtml;
                     if (truck.personalizedIcon && truck.personalizedIcon.html) {
                         iconHtml = truck.personalizedIcon.html;
-                        console.log('✅ Using', truck.personalizedIcon.type, 'icon for:', truckName);
+            
                     } else {
                         // Fallback to default icon
                         iconHtml = getDefaultTruckIcon(kitchenType);
-                        console.log('📦 Using default icon for:', truckName);
+          
                     }
                     
                     // Add heart indicator if user has favorited this truck (with safety check)
@@ -4842,7 +4501,7 @@ export default function MapScreen() {
                     try {
                         isFavorited = userFavorites && typeof userFavorites.has === 'function' && userFavorites.has(truckId);
                     } catch (error) {
-                        console.log('⚠️ Error checking favorites for truck', truckId, ':', error);
+       
                         isFavorited = false;
                     }
                     
@@ -4853,7 +4512,7 @@ export default function MapScreen() {
                                 <div style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; background: #ff6b6b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">❤️</div>
                             </div>
                         \`;
-                        console.log('❤️ Added heart indicator for favorited truck:', truckName);
+           
                     }
                     
                     const truckIcon = L.divIcon({
@@ -4865,14 +4524,14 @@ export default function MapScreen() {
                     const lat = truck.lat || truck.latitude;
                     const lng = truck.lng || truck.longitude;
                     
-                    console.log('🚛 WEBVIEW: Truck coordinates check - lat:', lat, 'lng:', lng);
+                  
                     
                     if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                        console.log('⚠️ WEBVIEW: Skipping truck without valid coordinates:', truckName, 'lat:', lat, 'lng:', lng);
+                     
                         continue;
                     }
 
-                    console.log('🚛 WEBVIEW: About to create marker for', truckName, 'at', lat, lng);
+                   
                     
                     const marker = L.marker([lat, lng], { 
                         icon: truckIcon,
@@ -4904,32 +4563,29 @@ export default function MapScreen() {
                                 <div class="truck-details">\${(truck.cuisine || truck.cuisineType || truck.type || 'American').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'American').slice(1)}</div>
                                 <div class="truck-details"> Type: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                 \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.ownerId || truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                <button class="view-details-btn" onclick="openTruckDetails('\${truck.ownerId || truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}', '\${(truck.businessHours ? JSON.stringify(truck.businessHours).replace(/'/g, '&apos;').replace(/"/g, '&quot;') : '{}')}')">
                                     📋 View Full Details
                                 </button>
                             </div>
                         \`);
                     
                     truckMarkers.push(marker);
-                    console.log('✅ WEBVIEW: Successfully added marker for:', truckName, 'at coordinates:', lat, lng);
-                    console.log('✅ WEBVIEW: Marker added to map, total markers now:', truckMarkers.length);
+                  
                     
                     } catch (truckError) {
-                        console.error('🚛 WEBVIEW ERROR processing truck:', truck.truckName || truck.name, truckError);
                     }
                 }
                 
-                console.log('🚛 WEBVIEW: Finished creating', truckMarkers.length, 'truck markers total');
+           
             }
 
             // Create event markers with pre-processed personalized icons
             function createEventMarkers(eventsToDisplay = events) {
                 try {
-                    console.log('🎪 Creating event markers for', eventsToDisplay.length, 'events');
-                    console.log('🎪 Map object exists:', typeof map !== 'undefined');
+          
                     
                     if (typeof map === 'undefined') {
-                        console.error('🎪 ERROR: Map not initialized when creating event markers');
+               
                         return;
                     }
                     
@@ -4937,7 +4593,7 @@ export default function MapScreen() {
                     eventMarkers.forEach(marker => map.removeLayer(marker));
                     eventMarkers = [];
                 } catch (error) {
-                    console.error('🎪 ERROR in createEventMarkers setup:', error);
+             
                     return;
                 }
 
@@ -4945,19 +4601,17 @@ export default function MapScreen() {
                     const eventTitle = event.title || event.eventName || 'Event';
                     const eventStatus = event.status || 'upcoming';
                     
-                    console.log('🎪 Processing event:', eventTitle);
-                    console.log('🎨 Event icon type:', event.eventIcon ? event.eventIcon.type : 'default');
-                    console.log('🖼️ Has custom logo:', event.hasCustomLogo);
+           
                     
                     // Use pre-processed event icon
                     let iconHtml;
                     if (event.eventIcon && event.eventIcon.html) {
                         iconHtml = event.eventIcon.html;
-                        console.log('✅ Using', event.eventIcon.type, 'icon for event:', eventTitle);
+                 
                     } else {
                         // Fallback to default event icon
                         iconHtml = '<div style="width: 50px; height: 50px; border-radius: 50%; background: #FF6B35; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; border: 3px solid #000000; box-shadow: 0 3px 10px rgba(0,0,0,0.4);">🎪</div>';
-                        console.log('📦 Using default icon for event:', eventTitle);
+                 
                     }
                     
                     const eventIcon = L.divIcon({
@@ -4970,7 +4624,7 @@ export default function MapScreen() {
                     const lng = event.longitude;
                     
                     if (!lat || !lng) {
-                        console.log('⚠️ Skipping event without coordinates:', eventTitle);
+            
                         continue;
                     }
 
@@ -5021,16 +4675,27 @@ export default function MapScreen() {
                         \`);
                     
                     eventMarkers.push(marker);
-                    console.log('✅ Added event marker for:', eventTitle, 'with icon type:', event.eventIcon ? event.eventIcon.type : 'default');
+                  
                 }
                 
-                console.log('🎪 Finished creating', eventMarkers.length, 'event markers');
+
             }
 
             // Function to handle truck details modal (communicates with React Native)
-            function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok) {
-                console.log('🚛 WEBVIEW: Opening truck details for:', truckName);
-                console.log('🆔 WEBVIEW: Using truck ID (should be ownerId):', truckId);
+            function openTruckDetails(truckId, truckName, cuisine, coverUrl, menuUrl, instagram, facebook, twitter, tiktok, businessHoursJson) {
+   
+                
+                // Parse business hours JSON
+                let businessHours = {};
+                try {
+                    if (businessHoursJson && businessHoursJson !== 'undefined') {
+                        businessHours = JSON.parse(businessHoursJson);
+               
+                    }
+                } catch (error) {
+       
+                    businessHours = {};
+                }
                 
                 const socialLinks = {
                     instagram: instagram && instagram !== 'undefined' ? instagram : null,
@@ -5039,12 +4704,7 @@ export default function MapScreen() {
                     tiktok: tiktok && tiktok !== 'undefined' ? tiktok : null
                 };
                 
-                console.log('📤 WEBVIEW: Sending OPEN_TRUCK_DETAILS message with data:', {
-                    id: truckId,
-                    name: truckName,
-                    cuisine: cuisine,
-                    coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null
-                });
+           
                 
                 // Send message to React Native to open enhanced truck details modal
                 window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -5055,7 +4715,8 @@ export default function MapScreen() {
                         cuisine: cuisine,
                         coverUrl: coverUrl && coverUrl !== 'undefined' ? coverUrl : null,
                         menuUrl: menuUrl && menuUrl !== 'undefined' ? menuUrl : null,
-                        socialLinks: socialLinks
+                        socialLinks: socialLinks,
+                        businessHours: businessHours
                     }
                 }));
             }
@@ -5082,14 +4743,13 @@ export default function MapScreen() {
                     const displayHour = hour % 12 || 12;
                     return displayHour + ':' + minutes + ' ' + ampm;
                 } catch (error) {
-                    console.error('Error formatting time:', timeString, error);
                     return timeString; // Return original string if error occurs
                 }
             }
 
             // Function to handle event details modal (communicates with React Native)
             function openEventDetails(eventId, eventTitle, eventType, logoUrl, description, dateStr, timeStr, location) {
-                console.log('Opening event details for:', eventTitle);
+      
                 
                 // Send message to React Native to open event details modal
                 window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -5109,62 +4769,51 @@ export default function MapScreen() {
 
             // Create heatmap from customer pings (Pro/All-Access only)
             function createHeatmap() {
-                console.log('🔥 createHeatmap() called');
-                console.log('🔥 showHeatmapFeatures:', showHeatmapFeatures);
-                console.log('🔥 testPings.length:', testPings.length);
-                console.log('🔥 excludedCuisines:', selectedCuisineType);
+  
                 
                 if (!showHeatmapFeatures) {
-                    console.log('❌ Heatmap blocked: Not Pro/All-Access plan');
+           
                     return;
                 }
                 
                 if (testPings.length === 0) {
-                    console.log('❌ Heatmap blocked: No ping data available');
+           
                     return;
                 }
                 
                 // Filter pings by cuisine exclusions
                 const filteredPings = filterPingsByCuisine(testPings, selectedCuisineType);
-                console.log('🍽️ Filtered pings for heatmap:', filteredPings.length, 'of', testPings.length);
+          
                 
                 const heatData = filteredPings.map(ping => {
                     const lat = Number(ping.lat || ping.latitude);
                     const lng = Number(ping.lng || ping.longitude);
                     const intensity = 0.8; // Base intensity for customer pings
-                    
-                    console.log('🔥 Processing ping:', { lat, lng, intensity, cuisine: ping.cuisineType });
+              
                     return [lat, lng, intensity];
                 }).filter(point => {
                     const isValid = point[0] && point[1] && isFinite(point[0]) && isFinite(point[1]);
                     if (!isValid) {
-                        console.log('❌ Filtered out invalid point:', point);
+                 
                     }
                     return isValid;
                 });
                 
-                console.log('🔥 Creating Leaflet heatmap with', heatData.length, 'valid ping points');
-                console.log('🔥 Sample heatData:', heatData.slice(0, 3));
+       
                 
                 if (heatData.length === 0) {
-                    console.log('❌ No valid heatmap data after filtering');
+                 
                     return;
                 }
                 
                 try {
                     // Ensure L.heatLayer is available
                     if (typeof L.heatLayer === 'undefined') {
-                        console.error('❌ L.heatLayer is not available! leaflet.heat plugin not loaded');
+                  
                         alert('Heatmap library not loaded! Check console.');
                         return;
                     }
                     
-                    console.log('🔥 Creating heatmap with options:', {
-                        radius: 60,
-                        blur: 30,
-                        maxZoom: 18,
-                        max: 1.0
-                    });
                     
                     heatmapLayer = L.heatLayer(heatData, {
                         radius: 60,      // Increased radius for visibility
@@ -5181,28 +4830,23 @@ export default function MapScreen() {
                             1.0: 'red'       // Red for high demand
                         }
                     });
-                    console.log('✅ Leaflet heatmap layer created successfully');
-                    console.log('🔥 Heatmap layer object:', heatmapLayer);
+   
                     
                     // Immediately test adding to map
                     if (map) {
-                        console.log('🔥 Adding heatmap to map immediately for testing');
+               
                         map.addLayer(heatmapLayer);
                         showHeatmap = true;
-                        console.log('✅ Heatmap added to map successfully');
+                
                     }
                 } catch (error) {
-                    console.error('❌ Error creating Leaflet heatmap layer:', error);
-                    alert('Error creating heatmap: ' + error.message);
+        
                 }
             }
 
             // Toggle functions
             function toggleHeatmap() {
-                console.log('🔥 toggleHeatmap() called');
-                console.log('🔥 showHeatmapFeatures:', showHeatmapFeatures);
-                console.log('🔥 showHeatmap:', showHeatmap);
-                console.log('🔥 heatmapLayer exists:', !!heatmapLayer);
+       
                 
                 if (!showHeatmapFeatures) {
                     alert('Heatmap features are available for Pro and All-Access plans only!');
@@ -5212,48 +4856,44 @@ export default function MapScreen() {
                 if (showHeatmap) {
                     // Hide heatmap
                     if (heatmapLayer) {
-                        console.log('🔥 Removing heatmap layer from map');
+              
                         map.removeLayer(heatmapLayer);
                     }
                     showHeatmap = false;
-                    console.log('🔥 Heatmap hidden');
+                    
                 } else {
                     // Show heatmap
                     if (!heatmapLayer) {
-                        console.log('🔥 Creating new heatmap layer');
+               
                         createHeatmap();
                     }
                     
                     if (heatmapLayer) {
-                        console.log('🔥 Adding heatmap layer to map');
+              
                         map.addLayer(heatmapLayer);
                         showHeatmap = true;
-                        console.log('✅ Heatmap shown successfully');
+          
                     } else {
-                        console.log('❌ Failed to create heatmap layer');
-                        alert('Unable to create heatmap. Check console for details.');
+    
+                
                     }
                 }
             }
 
             // Toggle truck status visibility
             function toggleTruckStatus() {
-                console.log('🚛 toggleTruckStatus() called');
+     
                 
                 try {
-                    console.log('🚛 DEBUG: About to check variables...');
-                    console.log('🚛 DEBUG: typeof showClosedTrucks =', typeof showClosedTrucks);
-                    console.log('🚛 DEBUG: typeof showOpenTrucks =', typeof showOpenTrucks);
-                    console.log('🚛 DEBUG: window.showClosedTrucks =', window.showClosedTrucks);
-                    console.log('🚛 DEBUG: window.showOpenTrucks =', window.showOpenTrucks);
+     
                     
                     // Use window variables as backup if local ones are undefined
                     const currentShowClosed = typeof showClosedTrucks !== 'undefined' ? showClosedTrucks : window.showClosedTrucks;
                     const currentShowOpen = typeof showOpenTrucks !== 'undefined' ? showOpenTrucks : window.showOpenTrucks;
                     
-                    console.log('🚛 Current state - showClosedTrucks:', currentShowClosed, 'showOpenTrucks:', currentShowOpen);
+                   
                 } catch (error) {
-                    console.error('🚛 ERROR: Variable access failed:', error);
+              
                     return;
                 }
                 
@@ -5267,21 +4907,20 @@ export default function MapScreen() {
                     showOpenTrucks = true;
                     window.showClosedTrucks = false;
                     window.showOpenTrucks = true;
-                    console.log('🚛 Hiding closed trucks');
+   
                 } else if (!currentShowClosed && currentShowOpen) {
                     // Currently hiding closed - hide open trucks instead
                     showClosedTrucks = true;
                     showOpenTrucks = false;
                     window.showClosedTrucks = true;
                     window.showOpenTrucks = false;
-                    console.log('🚛 Hiding open trucks');
+           
                 } else if (currentShowClosed && !currentShowOpen) {
                     // Currently hiding open - Show All trucks
                     showClosedTrucks = true;
                     showOpenTrucks = true;
                     window.showClosedTrucks = true;
-                    window.showOpenTrucks = true;
-                    console.log('🚛 Showing all trucks');
+      
                 }
                 
                 // Send state update back to React Native
@@ -5292,7 +4931,7 @@ export default function MapScreen() {
                         showOpenTrucks: window.showOpenTrucks
                     };
                     window.ReactNativeWebView.postMessage(JSON.stringify(message));
-                    console.log('🚛 Sent filter state to React Native:', message);
+   
                 }
                 
                 // Update button text based on current state (use window variables for consistency)
@@ -5315,23 +4954,19 @@ export default function MapScreen() {
                 });
                 
                 // Apply the filter by recreating truck markers
-                console.log('🚛 About to call applyTruckStatusFilter()...');
-                console.log('🚛 typeof foodTrucks:', typeof foodTrucks);
-                console.log('🚛 foodTrucks exists:', typeof foodTrucks !== 'undefined');
+
                 if (typeof foodTrucks !== 'undefined' && foodTrucks !== null) {
-                    console.log('🚛 foodTrucks.length:', foodTrucks.length);
+                
                 } else {
-                    console.log('🚛 foodTrucks is', foodTrucks);
+           
                 }
                 
                 try {
-                    console.log('🚛 Calling applyTruckStatusFilter() now...');
+                 
                     applyTruckStatusFilter();
-                    console.log('🚛 applyTruckStatusFilter() completed successfully');
+            
                 } catch (error) {
-                    console.error('🚛 ERROR in applyTruckStatusFilter():', error);
-                    console.error('🚛 ERROR message:', error.message);
-                    console.error('🚛 ERROR stack:', error.stack);
+    
                 }
             }
             
@@ -5339,26 +4974,20 @@ export default function MapScreen() {
             function applyTruckStatusFilter() {
                 // Prevent rapid filtering operations
                 if (window.filteringInProgress) {
-                    console.log('🚛 Filtering already in progress - skipping');
+               
                     return;
                 }
                 
                 window.filteringInProgress = true;
                 
-                console.log('🚛 === applyTruckStatusFilter() START ===');
-                console.log('🚛 Applying truck status filter...');
-                console.log('🚛 Current statusFilter:', statusFilter);
-                
-                console.log('🚛 foodTrucks available:', foodTrucks ? 'YES' : 'NO');
-                console.log('🚛 foodTrucks length:', foodTrucks ? foodTrucks.length : 'N/A');
                 
                 if (!foodTrucks || !Array.isArray(foodTrucks)) {
-                    console.error('🚛 ERROR: foodTrucks is not available or not an array:', typeof foodTrucks);
+            
                     window.filteringInProgress = false;
                     return;
                 }
                 
-                console.log('🚛 Starting with', foodTrucks.length, 'total trucks');
+       
                 
                 // Get currently filtered trucks (considering cuisine filters)
                 let filtered = foodTrucks;
@@ -5377,7 +5006,7 @@ export default function MapScreen() {
                         const shouldExclude = isCuisineExcluded(truckCuisine, selectedCuisineType);
                         return !shouldExclude;
                     });
-                    console.log('🚛 After cuisine filter:', filtered.length, 'trucks');
+        
                 }
                 
                 // Apply status filter based on statusFilter variable
@@ -5390,12 +5019,12 @@ export default function MapScreen() {
                     
                     // If no business hours found, treat as always open for testing
                     if (!businessHours) {
-                        console.log('🚛 Truck', truck.truckName || truck.name, 'has NO business hours - treating as OPEN');
+                   
                         truckStatus = 'open';
                     } else {
                         // Calculate status from business hours
                         truckStatus = checkTruckOpenStatus(businessHours);
-                        console.log('🚛 Truck', truck.truckName || truck.name, 'status calculated as:', truckStatus);
+             
                     }
                     
                     let shouldShow = true; // Default to show
@@ -5403,15 +5032,15 @@ export default function MapScreen() {
                     if (statusFilter === 'hide-open') {
                         // Hide open trucks, show closed trucks
                         shouldShow = !(truckStatus === 'open' || truckStatus === 'busy');
-                        console.log('🚛 HIDE-OPEN mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow:', shouldShow);
+                       
                     } else if (statusFilter === 'hide-closed') {
                         // Hide closed trucks, show open trucks
                         shouldShow = (truckStatus === 'open' || truckStatus === 'busy');
-                        console.log('🚛 HIDE-CLOSED mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow:', shouldShow);
+                        
                     } else {
                         // Show all trucks (statusFilter === 'all')
                         shouldShow = true;
-                        console.log('🚛 SHOW-ALL mode: Truck', truck.truckName || truck.name, 'status:', truckStatus, 'shouldShow: true');
+
                     }
                     
                     if (shouldShow) {
@@ -5419,11 +5048,9 @@ export default function MapScreen() {
                     }
                 });
                 
-                console.log('🚛 Final result: Showing', statusFilteredTrucks.length, 'trucks after status filter');
-                console.log('🚛 Trucks to show:', statusFilteredTrucks.map(t => t.truckName || t.name));
-                console.log('🚛 About to call createTruckMarkers with', statusFilteredTrucks.length, 'trucks');
+          
                 createTruckMarkers(statusFilteredTrucks);
-                console.log('🚛 === applyTruckStatusFilter() COMPLETE ===');
+    
                 
                 // Reset the filtering flag
                 window.filteringInProgress = false;
@@ -5475,21 +5102,21 @@ export default function MapScreen() {
                 if (!cuisineType || excludedCuisines.length === 0) return false;
                 
                 const itemCuisine = cuisineType.toLowerCase().trim();
-                console.log('🔍 Checking if cuisine should be excluded:', cuisineType, '→', itemCuisine, 'against', excludedCuisines);
+                
                 
                 const isExcluded = excludedCuisines.some(excludedType => {
                     const normalizedExcluded = excludedType.toLowerCase().trim();
-                    console.log('  🔍 Comparing:', itemCuisine, 'vs', normalizedExcluded);
+              
                     
                     // Direct match
                     if (itemCuisine === normalizedExcluded) {
-                        console.log('  ✅ Direct match found - EXCLUDING');
+                 
                         return true;
                     }
                     
                     // Partial match for compound cuisines
                     if (itemCuisine.includes(normalizedExcluded) || normalizedExcluded.includes(itemCuisine)) {
-                        console.log('  ✅ Partial match found - EXCLUDING');
+                   
                         return true;
                     }
                     
@@ -5506,41 +5133,41 @@ export default function MapScreen() {
                     
                     for (const [category, variants] of Object.entries(variations)) {
                         if (variants.includes(normalizedExcluded) && variants.includes(itemCuisine)) {
-                            console.log('  ✅ Variation match found - EXCLUDING');
+               
                             return true;
                         }
                     }
                     
-                    console.log('  ❌ No match found');
+           
                     return false;
                 });
                 
-                console.log('🔍 Final result for', cuisineType, ':', isExcluded ? 'EXCLUDED' : 'INCLUDED');
+
                 return isExcluded;
             }
 
             // Filter customer pings by excluded cuisines
             function filterPingsByCuisine(pings, excludedCuisines) {
-                console.log('🍽️ filterPingsByCuisine called with', pings.length, 'pings and excluded cuisines:', excludedCuisines);
+               onsole.log('🍽️ filterPingsByCuisine called with', pings.length, 'pings and excluded cuisines:', excludedCuisines);
                 
                 if (excludedCuisines.length === 0) {
-                    console.log('🍽️ No exclusions - returning all pings');
+                   
                     return pings;
                 }
                 
                 const filtered = pings.filter(ping => {
                     const pingCuisine = ping.cuisineType || ping.cuisine || 'food';
                     const shouldExclude = isCuisineExcluded(pingCuisine, excludedCuisines);
-                    console.log('🍽️ Ping with cuisine', pingCuisine, ':', shouldExclude ? 'FILTERED OUT' : 'KEPT');
+                   
                     return !shouldExclude;
                 });
                 
-                console.log('🍽️ Filtered', pings.length, '→', filtered.length, 'pings');
+      
                 return filtered;
             }
 
             function showCuisineSelector() {
-                console.log('🍽️ Opening cuisine selector modal');
+     
                 
                 // Send message to React Native to open the cuisine modal
                 window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -5554,7 +5181,7 @@ export default function MapScreen() {
                 
                 // Prevent rapid clicking - debounce function
                 if (window.statusFilterDebouncing) {
-                    console.log('📊 Status filter debouncing - ignoring rapid click');
+              
                     return;
                 }
                 
@@ -5574,7 +5201,7 @@ export default function MapScreen() {
                     }
                 }, 500); // 500ms debounce
                 
-                console.log('📊 Current status filter:', statusFilter);
+     
                 
                 // Cycle through: 'all' -> 'hide-open' -> 'hide-closed' -> 'all'
                 if (statusFilter === 'all') {
@@ -5585,7 +5212,7 @@ export default function MapScreen() {
                     statusFilter = 'all';
                 }
                 
-                console.log('📊 New status filter:', statusFilter);
+
                 
                 // Update button text and styling
                 if (button) {
@@ -5613,56 +5240,36 @@ export default function MapScreen() {
                 // Apply the filter to trucks
                 applyTruckStatusFilter();
                 
-                console.log('📊 Status filter toggle complete');
+       
             }
 
-            // CRITICAL DEBUG: Check if we reach the main initialization section
-            console.log('🔧 WEBVIEW CRITICAL: Reached main initialization section!');
-            console.log('🔧 WEBVIEW CRITICAL: About to start truck marker initialization...');
-
-
-
-            // Initialize
-            console.log('🚛 Initializing map with truck markers...');
-            console.log('🚛 foodTrucks available during init:', foodTrucks ? 'YES' : 'NO');
-            console.log('🚛 foodTrucks length during init:', foodTrucks ? foodTrucks.length : 'N/A');
-            console.log('🚛 foodTrucks data:', foodTrucks);
-            
-            // SIMPLIFIED: Just create all truck markers without any filtering
-            console.log('🚛 Creating all truck markers (no filtering)');
-            console.log('🚛 DEBUG: About to create markers for trucks:', foodTrucks ? foodTrucks.length : 0);
-            
             try {
                 createTruckMarkers(foodTrucks || []);
-                console.log('🚛 createTruckMarkers completed successfully');
+     
             } catch (error) {
-                console.error('🚛 ERROR in createTruckMarkers:', error);
+       
             }
             
-            console.log('🎪 Initializing map with event markers...');
-            console.log('🎪 DEBUG: Events array length:', events.length);
-            console.log('🎪 DEBUG: Events data:', events);
-            console.log('🎪 DEBUG: About to call createEventMarkers()');
             try {
                 createEventMarkers();
-                console.log('🎪 createEventMarkers completed successfully');
+       
             } catch (error) {
-                console.error('🎪 ERROR in createEventMarkers:', error);
+    
             }
             
             // Listen for messages from React Native using the proper WebView mechanism
             if (window.ReactNativeWebView) {
-                console.log('🍽️ WebView: ReactNativeWebView detected - setting up message handler');
+        
                 
                 // Override the default message handler
                 window.addEventListener('message', function(event) {
                     try {
-                        console.log('🍽️ WebView received raw message:', event.data);
+             
                         const message = JSON.parse(event.data);
-                        console.log('🍽️ WebView parsed message:', message.type, message);
+                  
                         handleCuisineFilterMessage(message);
                     } catch (error) {
-                        console.log('🔴 Error parsing WebView message:', error);
+             
                     }
                 });
                 
@@ -5671,44 +5278,42 @@ export default function MapScreen() {
                     type: 'WEBVIEW_READY',
                     message: 'WebView message handler is ready'
                 }));
-                console.log('🍽️ Sent WEBVIEW_READY message to React Native');
+        
             } else {
-                console.log('🔴 ReactNativeWebView not found - message handling may fail');
+             
             }
             
                 // Handle message types
             function handleCuisineFilterMessage(message) {
                 // Handle truck visibility updates
                 if (message.type === 'updateTruckVisibility') {
-                    console.log('🚚 WebView received truck visibility update:', message);
+       
                     const ownerId = message.ownerId;
                     const visible = message.visible;
                     
-                    console.log('🚚 WebView updating truck visibility for owner:', ownerId, 'to:', visible);
+           
                     
                     // Find the truck marker by ownerId and update its visibility
                     if (truckMarkers && truckMarkers.length > 0) {
-                        console.log('🚚 Checking', truckMarkers.length, 'truck markers');
+       
                         let found = false;
                         
                         for (let i = 0; i < truckMarkers.length; i++) {
                             const marker = truckMarkers[i];
                             const truckData = marker.options && marker.options.truckData;
                             
-                            console.log('🚚 Marker', i, 'data:', truckData ? 
-                                      {id: truckData.id, ownerId: truckData.ownerId, name: truckData.name || truckData.truckName} : 
-                                      'No truck data');
+                         
                             
                             if (truckData && (truckData.ownerId === ownerId || truckData.id === ownerId)) {
-                                console.log('🚚 Found marker to update visibility:', truckData.name || truckData.truckName);
+                          
                                 
                                 // For Leaflet markers, we remove from map to hide, add to map to show
                                 if (!visible) {
                                     marker.remove();
-                                    console.log('🚚 Removed marker from map (hidden)');
+                          
                                 } else {
                                     marker.addTo(map);
-                                    console.log('🚚 Added marker to map (visible)');
+            
                                 }
                                 
                                 found = true;
@@ -5716,10 +5321,10 @@ export default function MapScreen() {
                         }
                         
                         if (!found) {
-                            console.log('❌ No matching truck marker found for owner ID:', ownerId);
+                      
                         }
                     } else {
-                        console.log('❌ No truck markers found (truckMarkers array is empty or undefined)');
+                  
                     }
                     
                     return;
@@ -5728,14 +5333,11 @@ export default function MapScreen() {
                 // Handle cuisine filter
                 if (message.type === 'APPLY_CUISINE_FILTER') {
                     const cuisineType = message.cuisineType;
-                    console.log('🍽️ Applying cuisine filter:', cuisineType);
-                    console.log('🍽️ Type of cuisineType:', typeof cuisineType);
-                    console.log('🍽️ Array.isArray(cuisineType):', Array.isArray(cuisineType));
                     
                     selectedCuisineType = cuisineType;                    // Filter out excluded cuisines (show all by default, hide deselected)
                     let filtered = foodTrucks;
                     if (cuisineType.length > 0) {
-                        console.log('🍽️ Filtering food trucks with exclusions:', cuisineType);
+                
                         filtered = foodTrucks.filter(truck => {
                             // Multiple field checks for better compatibility
                             const truckCuisine = (
@@ -5748,16 +5350,12 @@ export default function MapScreen() {
                             
                             // Check if truck cuisine is NOT in excluded list
                             const shouldExclude = isCuisineExcluded(truckCuisine, cuisineType);
-                            console.log('🚛 Truck', truck.truckName || truck.name, 'cuisine:', truckCuisine, '→', shouldExclude ? 'EXCLUDED' : 'INCLUDED');
+                         
                             return !shouldExclude;
                         });
                     }
                     
-                    console.log('🍽️ Filtered', filtered.length, 'trucks (excluded cuisines:', cuisineType, ')');
-                    console.log('🍽️ Available truck cuisines:', foodTrucks.map(t => ({
-                        name: t.truckName || t.name,
-                        cuisine: t.cuisineType || t.cuisine || t.type || 'unknown'
-                    })));
+
                     
                     // Apply additional truck status filter
                     const statusFiltered = filtered.filter(truck => {
@@ -5775,19 +5373,19 @@ export default function MapScreen() {
                         return true; // Show trucks with unknown status by default
                     });
                     
-                    console.log('🚛 Applied status filter: showing', statusFiltered.length, 'of', filtered.length, 'trucks');
+                   
                     createTruckMarkers(statusFiltered);
                     
                     // Also filter events (events don't typically have cuisine types, so Show All for now)
-                    console.log('🎪 Applying filter to events (showing all events regardless of cuisine filter)');
+                   
                     createEventMarkers(events);
                     
                     // Also update heatmap and ping markers with cuisine filter
                     if (showHeatmapFeatures) {
-                        console.log('🔥 Recreating heatmap with cuisine filter');
+             
                         createHeatmap();
                     } else {
-                        console.log('📍 Recreating individual ping markers with cuisine filter');
+                
                         // Clear existing ping markers
                         map.eachLayer(function(layer) {
                             if (layer.options && layer.options.icon && 
@@ -5799,11 +5397,10 @@ export default function MapScreen() {
                         
                         // Add filtered ping markers for basic users
                         const realPings = ${JSON.stringify(customerPings)};
-                        console.log('📍 Raw pings before filtering:', realPings.length);
-                        console.log('📍 Sample ping data:', realPings.slice(0, 3).map(p => ({cuisine: p.cuisineType, user: p.username})));
+                       
                         
                         const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
-                        console.log('📍 Adding', filteredPings.length, 'filtered ping markers (of', realPings.length, 'total)');
+                    
                         
                         filteredPings.forEach((ping, index) => {
                             if (ping.lat && ping.lng) {
@@ -5826,40 +5423,35 @@ export default function MapScreen() {
                                 \`;
                                 marker.bindPopup(popupContent);
                                 marker.addTo(map);
-                                console.log('📍 Added filtered ping marker for', ping.cuisineType);
+                      
                             }
                         });
                     }
                 }
             }
-            
-            // Initialize heatmap for Pro/All-Access users
-            console.log('🔥 Checking heatmap initialization...');
-            console.log('🔥 showHeatmapFeatures:', showHeatmapFeatures);
-            console.log('🔥 testPings.length:', testPings.length);
-            console.log('🔥 userPlan:', userPlan);
-            console.log('🔥 L.heatLayer available:', typeof L.heatLayer !== 'undefined');
+          
+
             
             if (showHeatmapFeatures) {
-                console.log('🔥 User has heatmap features, creating heatmap...');
+ 
                 createHeatmap();
                 
                 // Always show heatmap by default for testing (Pro/All-Access users)
                 if (heatmapLayer) {
-                    console.log('🔥 Auto-showing heatmap for testing');
+             
                     map.addLayer(heatmapLayer);
                     showHeatmap = true;
-                    console.log('✅ Heatmap should now be visible on map');
+          
                 } else {
-                    console.log('❌ Heatmap layer was not created');
+          
                 }
             } else {
-                console.log('📋 Basic plan user - showing individual ping markers');
+         
                 
                 // Add individual ping markers for basic users (with cuisine filtering)
                 const realPings = ${JSON.stringify(customerPings)};
                 const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
-                console.log('📍 Adding', filteredPings.length, 'filtered individual ping markers (of', realPings.length, 'total)');
+              
                 
                 filteredPings.forEach((ping, index) => {
                     if (ping.lat && ping.lng) {
@@ -5883,16 +5475,16 @@ export default function MapScreen() {
                         \`;
                         
                         marker.bindPopup(popupContent);
-                        console.log('📍 Added ping marker', index + 1, 'at', ping.lat, ping.lng, 'for cuisine:', ping.cuisineType);
+                       
                     }
                 });
                 
-                console.log('✅ Finished adding individual ping markers for basic user');
+            
             }
 
             // Real-time status update system
             function updateTruckStatuses() {
-                console.log('🕐 Checking truck statuses for real-time updates...');
+              
                 let statusChanged = false;
                 
                 // Update each truck marker with current status
@@ -5904,7 +5496,7 @@ export default function MapScreen() {
                         const previousStatus = truck.status || 'open';
                         
                         if (currentStatus !== previousStatus) {
-                            console.log('🔄 Status changed for', truck.truckName || truck.name, ':', previousStatus, '→', currentStatus);
+                        
                             
                             // Update truck object status
                             truck.status = currentStatus;
@@ -5933,7 +5525,7 @@ export default function MapScreen() {
                                     <div class="truck-details">🍽️ \${(truck.cuisine || truck.cuisineType || truck.type || 'General Food').charAt(0).toUpperCase() + (truck.cuisine || truck.cuisineType || truck.type || 'General Food').slice(1)}</div>
                                     <div class="truck-details">📱 Kitchen: \${kitchenType.charAt(0).toUpperCase() + kitchenType.slice(1)}</div>
                                     \${truck.popularity ? \`<div class="truck-details">⭐ Popularity: \${truck.popularity}%</div>\` : ''}
-                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}')">
+                                    <button class="view-details-btn" onclick="openTruckDetails('\${truck.id}', '\${truckName}', '\${truck.cuisine || truck.cuisineType || truck.type || 'General Food'}', '\${truck.base64CoverImage || truck.coverUrl || ''}', '\${truck.menuUrl || ''}', '\${truck.instagram || ''}', '\${truck.facebook || ''}', '\${truck.twitter || ''}', '\${truck.tiktok || ''}', '\${JSON.stringify(truck.businessHours || {})}')">
                                         📋 View Full Details
                                     </button>
                                 </div>
@@ -5946,7 +5538,7 @@ export default function MapScreen() {
                 });
                 
                 if (statusChanged) {
-                    console.log('✅ Truck statuses updated successfully');
+
                     
                     // Notify React Native about status changes
                     if (window.ReactNativeWebView) {
@@ -5959,35 +5551,31 @@ export default function MapScreen() {
             }
             
             // Set up automatic status checking every minute
-            console.log('⏰ Setting up automatic truck status updates (every 60 seconds)');
+       
             setInterval(updateTruckStatuses, 60000); // Check every minute
             
             // Also check immediately after 30 seconds to catch recent changes
             setTimeout(updateTruckStatuses, 30000);
 
             // Create initial markers AFTER all functions are defined
-            console.log('🚀 Creating initial markers...');
-            console.log('🚀 foodTrucks data available:', typeof foodTrucks, 'length:', foodTrucks ? foodTrucks.length : 'N/A');
-            console.log('🚀 events data available:', typeof events, 'length:', events ? events.length : 'N/A');
-            console.log('🚀 Sample foodTrucks data:', foodTrucks && foodTrucks.length > 0 ? foodTrucks[0] : 'No trucks');
-            console.log('🚀 Sample events data:', events && events.length > 0 ? events[0] : 'No events');
+
             
             // Call marker creation functions with error handling
             try {
                 createTruckMarkers(foodTrucks);
-                console.log('✅ Truck markers creation completed');
+         
             } catch (error) {
-                console.error('❌ Error creating truck markers:', error);
+       
             }
             
             try {
                 createEventMarkers(events);
-                console.log('✅ Event markers creation completed');
+        
             } catch (error) {
-                console.error('❌ Error creating event markers:', error);
+            
             }
             
-            console.log('✅ Initial markers creation process finished');
+           
 
             // Add click handler for setting truck location (owners only)
         </script>
@@ -6045,18 +5633,18 @@ export default function MapScreen() {
       // Forward WebView console messages to React Native console
       if (message.type === 'CONSOLE_LOG') {
         const prefix = message.level === 'ERROR' ? '🔴 WEBVIEW ERROR:' : '🟦 WEBVIEW:';
-        console.log(`${prefix} ${message.message}`);
+
         return;
       }
       
       // Handle WebView ready message for debugging
       if (message.type === 'WEBVIEW_READY') {
-        console.log('✅ WebView is ready and can receive messages:', message.message);
+   
         setWebViewReady(true);
         
         // Apply any pending cuisine filter
         if (pendingCuisineFilter !== null) {
-          console.log('🍽️ Applying pending cuisine filter:', pendingCuisineFilter);
+   
           const filterMessage = {
             type: 'APPLY_CUISINE_FILTER',
             cuisineType: pendingCuisineFilter
@@ -6069,35 +5657,23 @@ export default function MapScreen() {
       }
       
       if (message.type === 'OPEN_TRUCK_DETAILS') {
-        const { id, name, cuisine, coverUrl, menuUrl, socialLinks } = message.data;
-        
-        console.log('🚛 TRUCK DETAILS: Opening modal for truck:', {
-          id,
-          name, 
-          cuisine,
-          coverUrl: coverUrl ? 'Present' : 'Missing',
-          menuUrl: menuUrl ? 'Present' : 'Missing'
-        });
+
+        const { id, name, cuisine, coverUrl, menuUrl, socialLinks, businessHours } = message.data;
 
         // Fetch payment data from trucks collection for this specific truck
-        console.log('🔍 PAYMENT DEBUG: Fetching payment data for truck:', id);
+
         let paymentData = {};
         
         try {
           const paymentDoc = await getDoc(doc(db, 'trucks', id));
           if (paymentDoc.exists()) {
             paymentData = paymentDoc.data();
-            console.log('🔍 PAYMENT DEBUG: Payment data fetched for selected truck:', {
-              truckId: id,
-              stripeConnectAccountId: paymentData.stripeConnectAccountId,
-              paymentEnabled: paymentData.paymentEnabled,
-              stripeAccountStatus: paymentData.stripeAccountStatus
-            });
+   
           } else {
-            console.log('⚠️ PAYMENT DEBUG: No payment data found for truck:', id);
+ 
           }
         } catch (error) {
-          console.error('❌ PAYMENT DEBUG: Error fetching payment data for truck:', id, error);
+
         }
         
         // Build social media links display
@@ -6122,56 +5698,50 @@ export default function MapScreen() {
           activeSocials,
           socialText,
           ownerId: id,
+          businessHours: businessHours || {},
           // Include payment data for pre-order processing
           ...paymentData
         };
         
-        console.log('🍽️ MENU DEBUG: Setting selected truck with ownerId:', id);
-        console.log('🍽️ MENU DEBUG: This will trigger menu loading for ownerId:', id);
-        console.log('🔍 PAYMENT DEBUG: Selected truck now has payment data:', {
-          stripeConnectAccountId: truckData.stripeConnectAccountId,
-          paymentEnabled: truckData.paymentEnabled
-        });
-        
+
         setSelectedTruck(truckData);
+
         setShowMenuModal(true);
+   
         // Load drops for this truck (for both customers and owners)
         loadTruckDrops(id);
       } else if (message.type === 'OPEN_EVENT_DETAILS') {
         const { id, title, eventType, logoUrl, description, date, time, location } = message.data;
         
-        console.log('🎪 Opening event details modal for:', title);
+
         
         // Show event details alert
-        Alert.alert(
+        showCustomModal(
           `🎪 ${title}`,
           `${description ? description + '\n\n' : ''}📅 Date: ${date}${time ? `\n🕐 Time: ${time}` : ''}${location ? `\n📍 Location: ${location}` : ''}${eventType ? `\n🎯 Type: ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}` : ''}`,
-          [
-            { text: 'Close', style: 'cancel' },
-            { text: 'More Info', onPress: () => console.log('Event details requested for:', id) }
-          ]
+          () => 
+          'More Info',
+          'Close',
+          true
         );
       } else if (message.type === 'SHOW_CUISINE_MODAL') {
-        console.log('🍽️ Opening cuisine modal from WebView');
-        console.log('🍽️ Current showCuisineModal state:', showCuisineModal);
+
         setShowCuisineModal(true);
-        console.log('🍽️ Called setShowCuisineModal(true)');
+     
       } else if (message.type === 'TRUCK_FILTER_CHANGED') {
         // Handle truck status filter state changes from WebView
-        console.log('🚛 Received truck filter update from WebView:', message);
+      
         // NOTE: Not updating React state to prevent map regeneration - WebView handles filtering internally
-        console.log('🚛 WebView filter state - showClosed:', message.showClosedTrucks, 'showOpen:', message.showOpenTrucks, '(not updating React state)');
+       
       }
     } catch (error) {
-      console.log('Error parsing WebView message:', error);
+      
     }
   };
 
   // Handle cuisine filter application
   const handleApplyCuisineFilter = () => {
-    console.log('🍽️ Applying cuisine exclusion filter from React Native:', excludedCuisines);
-    console.log('🍽️ WebView ref current exists:', !!webViewRef.current);
-    console.log('🍽️ WebView ready state:', webViewReady);
+
     
     const message = {
       type: 'APPLY_CUISINE_FILTER',
@@ -6180,19 +5750,18 @@ export default function MapScreen() {
     
     // Always try to send immediately first
     if (webViewRef.current) {
-      console.log('🍽️ Sending message immediately (WebView ref exists):', JSON.stringify(message));
+
       try {
         webViewRef.current.postMessage(JSON.stringify(message));
-        console.log('🍽️ Message sent successfully');
+  
         // Clear any pending filter since we sent it
         setPendingCuisineFilter(null);
       } catch (error) {
-        console.log('🔴 Error sending message:', error);
-        console.log('🔄 Storing filter as pending due to send error');
+    
         setPendingCuisineFilter(excludedCuisines);
       }
     } else {
-      console.log('🔄 WebView ref null, storing filter for later application');
+ 
       setPendingCuisineFilter(excludedCuisines);
     }
     
@@ -6222,7 +5791,7 @@ export default function MapScreen() {
       {/* Header with Logo */}
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/2.png')} 
+          source={require('../../assets/logo.png')} 
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -6238,8 +5807,8 @@ export default function MapScreen() {
         scalesPageToFit={true}
         scrollEnabled={false}
         onMessage={handleWebViewMessage}
-        onError={(e) => console.log('WebView error:', e)}
-        onHttpError={(e) => console.log('HTTP error:', e)}
+        onError={(e) => ('', e)}
+        onHttpError={(e) => ('', e)}
       />
       
       {/* Truck Visibility Toggle (Food Truck Owners Only) */}
@@ -6255,7 +5824,7 @@ export default function MapScreen() {
               
               try {
                 const newVisibility = !showTruckIcon;
-                console.log('🚚 Toggling truck visibility from', showTruckIcon, 'to', newVisibility);
+            
                 
                 // Update local state first - this will trigger map regeneration via useEffect
                 setShowTruckIcon(newVisibility);
@@ -6264,10 +5833,9 @@ export default function MapScreen() {
                 await updateTruckVisibility(newVisibility);
                 await updateLastActivity(); // Update activity when user interacts
                 
-                console.log('� Truck visibility toggle completed successfully:', newVisibility);
-                console.log('�️ Map will regenerate automatically due to showTruckIcon state change');
+          
               } catch (error) {
-                console.error('❌ Error toggling truck visibility:', error);
+     
                 // Revert state on error
                 setShowTruckIcon(!showTruckIcon);
               }
@@ -6316,7 +5884,7 @@ export default function MapScreen() {
             <TouchableOpacity 
               style={styles.closeButton}
               onPress={() => {
-                console.log('Close button pressed!');
+   
                 setShowMenuModal(false);
                 setTruckDrops([]); // Clear drops when modal closes
                 setShowCateringModal(false); // Reset catering modal when truck modal closes
@@ -6358,10 +5926,7 @@ export default function MapScreen() {
               
               {/* Clean Rating Display */}
               {(() => {
-                console.log('⭐ RATING DEBUG: Rendering rating display');
-                console.log('⭐ RATING DEBUG: reviews.length:', reviews.length);
-                console.log('⭐ RATING DEBUG: selectedTruck ownerId:', selectedTruck?.ownerId);
-                console.log('⭐ RATING DEBUG: reviews data:', reviews);
+ 
                 return null;
               })()}
               {reviews.length > 0 ? (
@@ -6405,7 +5970,7 @@ export default function MapScreen() {
                   onPress={() => {
                     const truckId = selectedTruck.ownerId;
                     const truckName = selectedTruck.name || 'Food Truck';
-                    console.log('❤️ Favorite button pressed for truck:', truckName);
+    
                     toggleFavorite(truckId, truckName);
                   }}
                   activeOpacity={0.8}
@@ -6428,8 +5993,7 @@ export default function MapScreen() {
               <TouchableOpacity 
                 style={styles.reviewsButton}
                 onPress={() => {
-                  console.log('⭐ Reviews button pressed for truck:', selectedTruck?.name);
-                  console.log('⭐ About to set showReviewsModal to true');
+           
                   
                   // Close truck modal first to prevent modal conflicts
                   setShowMenuModal(false);
@@ -6437,7 +6001,7 @@ export default function MapScreen() {
                   // Small delay to ensure truck modal closes before opening reviews modal
                   setTimeout(() => {
                     setShowReviewsModal(true);
-                    console.log('⭐ Called setShowReviewsModal(true)');
+          
                     loadReviews(selectedTruck?.ownerId);
                   }, 100);
                 }}
@@ -6461,18 +6025,23 @@ export default function MapScreen() {
                     : null
                 ]}
                 onPress={() => {
+        
+                  const status = selectedTruck?.businessHours ? checkTruckOpenStatus(selectedTruck.businessHours) : 'no-hours';
+                 
                   // Check if truck is open before accessing cart
                   if (selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed') {
-                    Alert.alert(
+                    showCustomModal(
                       '🚫 Mobile Kitchen Closed', 
                       'This mobile kitchen is currently closed. Pre-orders are only available during their open hours.',
-                      [{ text: 'OK', style: 'default' }]
+                      null,
+                      'OK',
+                      '',
+                      false
                     );
                     return;
                   }
                   
-                  console.log('🛒 Cart button pressed! Current cart items:', cart.length);
-                  console.log('🛒 Opening cart modal...');
+
                   setShowCartModal(true);
                 }}
                 disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
@@ -6505,7 +6074,7 @@ export default function MapScreen() {
               <TouchableOpacity 
                 style={styles.cateringButton}
                 onPress={() => {
-                  console.log('🎉 Catering button pressed for truck:', selectedTruck?.name);
+      
                   setShowCateringModal(true);
                 }}
                 activeOpacity={0.8}
@@ -6523,7 +6092,7 @@ export default function MapScreen() {
                 <TouchableOpacity 
                   style={[styles.cateringButton, styles.festivalButton]}
                   onPress={() => {
-                    console.log('🎪 Festival booking button pressed for truck:', selectedTruck?.name);
+        
                     setFestivalFormData(prev => ({
                       ...prev,
                       organizerName: userData?.organizationName || userData?.username || '',
@@ -6550,7 +6119,7 @@ export default function MapScreen() {
             <View style={styles.truckInfoSection}>
               {selectedTruck?.coverUrl && (
                 <View style={styles.coverPhotoSection}>
-                  <Text style={styles.sectionTitle}>📸 Cover Photo</Text>
+                  <Text style={styles.sectionTitle}>📸 Logo Photo</Text>
                   <View style={[
                     styles.coverImageContainer,
                     imageAspectRatio && {
@@ -6573,8 +6142,8 @@ export default function MapScreen() {
                           maxHeight: undefined
                         }
                       ]}
-                      onError={(error) => console.log('Cover image load error:', error)}
-                      onLoad={() => console.log('✅ Cover image loaded successfully')}
+                      onError={(error) => ('')}
+                      onLoad={() => ('')}
                     />
                   </View>
                 </View>
@@ -6587,16 +6156,8 @@ export default function MapScreen() {
                   <TouchableOpacity 
                     style={styles.menuImageContainer}
                     onPress={() => {
-                      // Open full-screen menu viewer
-                      Alert.alert(
-                        'Menu Options',
-                        'What would you like to do?',
-                        [
-                          { text: 'View Full Size', onPress: () => openFullScreenMenu() },
-                          { text: 'Share Menu', onPress: () => shareMenu() },
-                          { text: 'Cancel', style: 'cancel' }
-                        ]
-                      );
+                      // Open full-screen menu viewer - simplified for production
+                      openFullScreenMenu();
                     }}
                     activeOpacity={0.8}
                   >
@@ -6604,8 +6165,8 @@ export default function MapScreen() {
                       source={{ uri: selectedTruck.menuUrl }} 
                       style={styles.menuImage}
                       resizeMode="contain"
-                      onError={(error) => console.log('Menu image load error:', error)}
-                      onLoad={() => console.log('✅ Menu image loaded successfully')}
+                      onError={(error) => ('')}
+                      onLoad={() => ('')}
                     />
                     <View style={styles.menuImageOverlay}>
                       <Ionicons name="expand" size={24} color="#fff" />
@@ -6757,7 +6318,7 @@ export default function MapScreen() {
                 )}
 
                 {/* Display existing drops for owners */}
-                {console.log("🎁 DEBUG: truckDrops.length =", truckDrops.length, "userRole =", userRole, "selectedTruck?.ownerId =", selectedTruck?.ownerId, "user?.uid =", user?.uid)}
+               
                 {truckDrops.length > 0 && (
                   <View style={styles.ownerDropsList}>
                     <Text style={styles.ownerDropsTitle}>Your Active Drops</Text>
@@ -6793,20 +6354,19 @@ export default function MapScreen() {
                           <TouchableOpacity 
                             style={styles.viewCodesButton}
                             onPress={() => {
-                              console.log("🔗 View Claim Codes button pressed for drop:", drop.id);
-                              console.log("🔗 Current showClaimCodesModal state:", showClaimCodesModal);
+                        
                               
                               if (showClaimCodesModal) {
                                 // Modal is already open, close it
-                                console.log("🔗 Modal is open, closing it");
+                     
                                 setShowClaimCodesModal(false);
                               } else {
                                 // Modal is closed, open it
-                                console.log("🔗 Modal is closed, opening it");
+                        
                                 fetchClaimCodes(drop.id);
                                 setShowClaimCodesModal(true);
                               }
-                              console.log("🔗 Button press action completed");
+                       
                             }}
                           >
                             <Ionicons name="code-slash" size={16} color="#fff" />
@@ -6953,12 +6513,12 @@ export default function MapScreen() {
                           <Image 
                             source={{ uri: imageUrl }} 
                             style={styles.menuItemImage}
-                            onLoadStart={() => console.log('🍽️ Loading menu image:', item.name)}
-                            onLoad={() => console.log('✅ Menu image loaded successfully')}
-                            onError={(error) => console.log('❌ Menu image failed to load:', error.nativeEvent.error)}
+                            onLoadStart={() => ('')}
+                            onLoad={() => ('')}
+                            onError={(error) => ('')}
                           />
                         )}
-                        {console.log(`🏷️ MapScreen Badge Check: "${item.name}" - Backend: ${item.isNewItem}, Client: ${isItemNew(item.id, selectedTruck?.ownerId)}, Show: ${!!(item.isNewItem || isItemNew(item.id, selectedTruck?.ownerId))}`)}
+                        
                         {(item.isNewItem || isItemNew(item.id, selectedTruck?.ownerId)) && (
                           <View style={styles.newItemBadge}>
                             <Ionicons name="star" size={10} color="#fff" />
@@ -6979,7 +6539,11 @@ export default function MapScreen() {
                               ? styles.addToCartButtonDisabled 
                               : null
                           ]}
-                          onPress={() => addToCart({ ...item, id: item.id || `item_${index}` })}
+                          onPress={() => {
+ 
+                            const status = selectedTruck?.businessHours ? checkTruckOpenStatus(selectedTruck.businessHours) : 'no-hours';
+                           
+                          }}
                           disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
                         >
                           <Ionicons 
@@ -7079,7 +6643,7 @@ export default function MapScreen() {
                   </Text>
                   <TouchableOpacity 
                     onPress={() => {
-                      console.log('🛒 Close cart X button pressed');
+             
                       setShowCartModal(false);
                     }}
                     style={{
@@ -7263,7 +6827,7 @@ export default function MapScreen() {
 
                     <TouchableOpacity 
                       onPress={() => {
-                        console.log('🛒 Continue shopping pressed');
+           
                         setShowCartModal(false);
                       }}
                       style={{
@@ -8289,7 +7853,7 @@ export default function MapScreen() {
                       borderRadius: 20,
                     }}
                     onPress={() => {
-                      console.log("🔗 Close button pressed in claim codes overlay");
+        
                       setShowClaimCodesModal(false);
                     }}
                   >
@@ -8380,7 +7944,7 @@ export default function MapScreen() {
           <TouchableOpacity 
             style={styles.reviewsCloseButton}
             onPress={() => {
-              console.log('❌ Reviews modal close button pressed - returning to menu modal');
+         
               setShowReviewsModal(false);
               // Small delay to ensure reviews modal closes before opening menu modal
               setTimeout(() => {
@@ -8397,7 +7961,7 @@ export default function MapScreen() {
             {/* Grubana Logo - Centered in header */}
             <View style={styles.headerLogoContainer}>
               <Image 
-                source={require('../../assets/2.png')}
+                source={require('../../assets/logo.png')}
                 style={styles.headerLogo}
                 resizeMode="center"
               />
@@ -8588,6 +8152,57 @@ export default function MapScreen() {
                 onPress={handleApplyCuisineFilter}
               >
                 <Text style={styles.applyButtonText}>Apply Filter</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <Animated.View 
+          style={[
+            styles.toastContainer, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={customModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={hideCustomModal}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{customModal.title}</Text>
+            <Text style={styles.customModalMessage}>{customModal.message}</Text>
+            
+            <View style={styles.customModalButtons}>
+              {customModal.showCancel && (
+                <TouchableOpacity 
+                  style={[styles.customModalButton, styles.customModalCancelButton]}
+                  onPress={hideCustomModal}
+                >
+                  <Text style={styles.customModalCancelText}>{customModal.cancelText}</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity 
+                style={[styles.customModalButton, styles.customModalConfirmButton]}
+                onPress={() => {
+                  if (customModal.onConfirm) {
+                    customModal.onConfirm();
+                  }
+                  hideCustomModal();
+                }}
+              >
+                <Text style={styles.customModalConfirmText}>{customModal.confirmText}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -10407,6 +10022,94 @@ const createThemedStyles = (theme) => StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     color: theme.colors.text.secondary,
+  },
+
+  // Toast notification styles
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 9999,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  customModalContainer: {
+    backgroundColor: theme.colors.background.primary,
+    borderRadius: 12,
+    padding: 20,
+    minWidth: 280,
+    maxWidth: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text.primary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  customModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  customModalCancelButton: {
+    backgroundColor: theme.colors.background.secondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  customModalConfirmButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  customModalCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: theme.colors.text.secondary,
+  },
+  customModalConfirmText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
 
 });

@@ -67,43 +67,19 @@ const testCases = [
   }
 ];
 
-console.log('🧪 Testing Smart Estimated Time Calculator\n');
+
 
 testCases.forEach((testCase, index) => {
-  console.log(`\n--- Test ${index + 1}: ${testCase.name} ---`);
+
   
   const result = calculateEstimatedTime(testCase.data);
   const description = getTimeDescription(result.estimatedMinutes);
   const timeOptions = getSuggestedTimeOptions(result.estimatedMinutes);
   
-  console.log(`📋 Order items: ${testCase.data.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}`);
-  console.log(`🕐 Order time: ${testCase.data.orderTime.toLocaleTimeString()} (${testCase.data.orderTime.toLocaleDateString()})`);
-  console.log(`📊 Queue size: ${testCase.data.currentOrders} orders`);
-  console.log(`\n⏱️  CALCULATED TIME: ${result.estimatedMinutes} minutes`);
-  console.log(`📝 Description: ${description}`);
-  
-  console.log('\n🔍 Breakdown:');
-  console.log(`   Base prep time: ${result.breakdown.baseTime} min`);
-  console.log(`   Time of day factor: ${result.breakdown.timeOfDayFactor}x`);
-  console.log(`   Queue factor: ${result.breakdown.queueFactor}x`);
-  console.log(`   Day factor: ${result.breakdown.dayFactor}x`);
-  console.log(`   Item complexity: ${result.breakdown.complexity}`);
-  
-  console.log('\n⚙️  Override Options:');
+
   timeOptions.forEach(option => {
     const marker = option.isDefault ? ' ← (Auto-calculated)' : '';
-    console.log(`   ${option.label}${marker}`);
-  });
-  
-  console.log('\n' + '='.repeat(60));
-});
 
-console.log('\n✅ Testing complete!');
-console.log('\n📊 Summary of Features:');
-console.log('• Dynamic time calculation based on item complexity');
-console.log('• Time-of-day rush hour adjustments');
-console.log('• Queue size impact on preparation time');
-console.log('• Weekend/weekday variations');
-console.log('• Override options for manual adjustment');
-console.log('• Smart minimum/maximum bounds (5-60 minutes)');
-console.log('• Rounded to 5-minute intervals for better UX');
+  });
+
+});

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -44,6 +44,33 @@ export default function AnalyticsScreen({ navigation }) {
     avgOrderValue: 0,
     conversionRate: 0,
   });
+
+  // Toast notification state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   // Chart data
   const [chartData, setChartData] = useState({
@@ -100,39 +127,39 @@ export default function AnalyticsScreen({ navigation }) {
 
   const loadAnalytics = async () => {
     try {
-      console.log('AnalyticsScreen: Starting to load analytics...');
+ 
       setLoading(true);
       const currentUser = auth.currentUser;
       
       if (!currentUser) {
-        console.log('AnalyticsScreen: No authenticated user found');
+ 
         setLoading(false);
         return;
       }
 
-      console.log('AnalyticsScreen: User authenticated, loading user document...');
+  
 
       // Get user plan
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (!userDoc.exists()) {
-        console.log('AnalyticsScreen: User document does not exist');
+   
         setLoading(false);
         return;
       }
 
       const userData = userDoc.data();
       const userPlan = userData?.plan || 'basic';
-      console.log('AnalyticsScreen: User plan:', userPlan);
+  
       setUserPlan(userPlan);
 
       // Check if user has analytics access
       if (userPlan !== 'all-access') {
-        console.log('AnalyticsScreen: User does not have analytics access');
+ 
         setLoading(false);
         return;
       }
 
-      console.log('AnalyticsScreen: User has analytics access, loading data...');
+    
 
       // For now, using enhanced mock data - in production this would come from Firebase
       setAnalytics({
@@ -172,11 +199,11 @@ export default function AnalyticsScreen({ navigation }) {
         }
       }));
 
-      console.log('AnalyticsScreen: Analytics data loaded successfully');
+   
 
     } catch (error) {
-      console.error('AnalyticsScreen: Error loading analytics:', error);
-      Alert.alert('Error', `Failed to load analytics data: ${error.message}`);
+ 
+      showToast(`Failed to load analytics data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -227,7 +254,7 @@ export default function AnalyticsScreen({ navigation }) {
       }));
 
     } catch (error) {
-      console.error('Error loading ping analytics:', error);
+
     }
   };
 
@@ -265,7 +292,7 @@ export default function AnalyticsScreen({ navigation }) {
       }));
 
     } catch (error) {
-      console.error('Error loading top cuisines:', error);
+  
       setAnalytics(prev => ({
         ...prev,
         topCuisines: [],
@@ -300,7 +327,7 @@ export default function AnalyticsScreen({ navigation }) {
       }));
 
     } catch (error) {
-      console.error('Error loading recent pings:', error);
+    
       // Set empty array on error to prevent UI issues
       setAnalytics(prev => ({
         ...prev,
@@ -347,11 +374,12 @@ export default function AnalyticsScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Analytics Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Track your food truck performance</Text>
-      </View>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Analytics Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Track your food truck performance</Text>
+        </View>
 
       {/* Stats Cards */}
       <View style={styles.statsContainer}>
@@ -419,7 +447,20 @@ export default function AnalyticsScreen({ navigation }) {
           <Text style={styles.noDataText}>No recent pings</Text>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -427,6 +468,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -593,5 +637,23 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

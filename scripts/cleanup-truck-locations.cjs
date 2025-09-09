@@ -20,15 +20,15 @@ try {
   const configMatch = configContent.match(/const firebaseConfig = ({[\s\S]*?});/);
   if (configMatch && configMatch[1]) {
     firebaseConfig = eval('(' + configMatch[1] + ')');
-    console.log('✅ Loaded Firebase config from firebase.js');
+
   } else {
     throw new Error('Firebase config not found in firebase.js');
   }
 } catch (error) {
-  console.error('❌ Error loading Firebase config from firebase.js:', error.message);
+
   
   // Fallback to environment variables or manual input
-  console.log('⚠️ Please enter your Firebase configuration:');
+
   firebaseConfig = {
     apiKey: process.env.FIREBASE_API_KEY,
     authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -55,21 +55,21 @@ async function checkUserExists(uid) {
       return false;
     }
     // For other errors, we'll assume the user exists to be safe
-    console.error(`❌ Error checking user ${uid}:`, error.message);
+
     return true;
   }
 }
 
 // Main cleanup function
 async function cleanupTruckLocations() {
-  console.log('🔍 Starting cleanup of truckLocations collection...');
+
   
   try {
     // Get all documents from truckLocations collection
     const truckLocationsRef = collection(db, 'truckLocations');
     const snapshot = await getDocs(truckLocationsRef);
     
-    console.log(`📊 Found ${snapshot.size} documents in truckLocations collection`);
+   
     
     const deletePromises = [];
     const deletedOwners = [];
@@ -80,32 +80,31 @@ async function cleanupTruckLocations() {
       const exists = await checkUserExists(ownerId);
       
       if (!exists) {
-        console.log(`🗑️ Owner ${ownerId} no longer exists, deleting truckLocation document...`);
+ 
         deletePromises.push(deleteDoc(doc(db, 'truckLocations', ownerId)));
         deletedOwners.push(ownerId);
       } else {
-        console.log(`✓ Owner ${ownerId} exists, keeping truckLocation document`);
+       
       }
     }
     
     // Execute all delete operations
     if (deletePromises.length > 0) {
       await Promise.all(deletePromises);
-      console.log(`✅ Successfully deleted ${deletePromises.length} truckLocation documents for non-existent owners`);
-      console.log('🗑️ Deleted owner IDs:');
+ 
       deletedOwners.forEach((id, index) => {
-        console.log(`   ${index + 1}. ${id}`);
+   
       });
     } else {
-      console.log('✅ No cleanup needed. All truckLocation documents have valid owners.');
+    
     }
   } catch (error) {
-    console.error('❌ Error during cleanup:', error);
+
   }
 }
 
 // Run the cleanup
 cleanupTruckLocations()
-  .then(() => console.log('🎉 Cleanup complete!'))
-  .catch(err => console.error('❌ Fatal error:', err))
+  .then(() => (''))
+  .catch(err => (''))
   .finally(() => process.exit());

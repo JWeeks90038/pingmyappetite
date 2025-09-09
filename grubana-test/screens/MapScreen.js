@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   FlatList,
   Linking,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -26,6 +26,35 @@ export default function MapScreen() {
   // Status filtering states
   const [showOpenTrucks, setShowOpenTrucks] = useState(true);
   const [showClosedTrucks, setShowClosedTrucks] = useState(true);
+
+  // Toast notification state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error'); // 'success' or 'error'
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(4000), // Longer delay for location permission messages
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   useEffect(() => {
     getCurrentLocation();
@@ -70,7 +99,7 @@ export default function MapScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is required to show your position.');
+        showToast('Location permission is required to show your position.');
         return;
       }
 
@@ -80,8 +109,8 @@ export default function MapScreen() {
         longitude: location.coords.longitude,
       });
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your location.');
+
+      showToast('Could not get your location.');
     }
   };
 
@@ -312,6 +341,19 @@ export default function MapScreen() {
             Lat: {selectedTruck.lat?.toFixed(4)}, Lng: {selectedTruck.lng?.toFixed(4)}
           </Text>
         </View>
+      )}
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
       )}
     </View>
   );
@@ -553,5 +595,28 @@ const styles = StyleSheet.create({
   detailsLocation: {
     fontSize: 12,
     color: '#ccc',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 80, // Below the green header
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#dc3545',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

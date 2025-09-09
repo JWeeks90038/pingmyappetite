@@ -111,7 +111,7 @@ P.S. Consider our paid plans for unlimited events and premium features!
     return { success: true, method: 'formspree' };
     
   } catch (error) {
-    console.error('❌ Error sending free user welcome email:', error);
+
     return { success: false, error: error.message };
   }
 };
@@ -266,7 +266,7 @@ The Grubana Events Premium Team
     const messageConfig = premiumWelcomeMessages[role]?.[plan];
     
     if (!messageConfig) {
-      console.warn(`⚠️ No premium welcome message config for role: ${role}, plan: ${plan}`);
+
       return { success: false, error: 'No message configuration found' };
     }
 
@@ -327,7 +327,7 @@ export const sendWelcomeSMS = async (userData) => {
     
     // Validate phone number
     if (!validatePhoneNumber(phone)) {
-      console.warn('📱 Invalid phone number format for SMS welcome');
+
       return { success: false, error: 'Invalid phone number' };
     }
 

@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Switch,
   TextInput,
   Modal,
   Platform,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -58,6 +58,18 @@ export default function LocationManagementScreen({ navigation }) {
   const [locationAlertsEnabled, setLocationAlertsEnabled] = useState(false);
   const [showLocationAlertsModal, setShowLocationAlertsModal] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(false);
+
+  // Toast notification system (replaces Alert.alert)
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Custom modal system for confirmations (replaces Alert.alert)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
 
   useEffect(() => {
     loadLocationData();
@@ -108,43 +120,76 @@ export default function LocationManagementScreen({ navigation }) {
       const { status } = await Notifications.getPermissionsAsync();
       setNotificationPermission(status === 'granted');
     } catch (error) {
-      console.error('Error loading location data:', error);
+
     } finally {
       setLoading(false);
     }
+  };
+
+  // Toast notification function (replaces simple Alert.alert)
+  const showToastMessage = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+    }, 3000);
+  };
+
+  // Custom modal function (replaces Alert.alert)
+  const showCustomModal = (title, message, buttons = []) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons.length > 0 ? buttons : [
+      { text: 'OK', onPress: () => setModalVisible(false), style: 'default' }
+    ]);
+    setModalVisible(true);
   };
 
   const startLocationTracking = async () => {
     // Removed Basic plan restriction - all plans now get automatic GPS tracking
     
     try {
-      console.log('LocationManagementScreen: Starting location tracking...');
+  
       
       // Request foreground permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please enable location services for real-time tracking.');
+        showToastMessage('Please enable location services for real-time tracking.', 'error');
         setAutoLocationEnabled(false);
         return;
       }
 
-      console.log('LocationManagementScreen: Foreground permission granted');
+ 
 
       // For background tracking, request background permissions
       try {
         const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
         if (backgroundStatus !== 'granted') {
-          console.log('LocationManagementScreen: Background permission not granted, continuing with foreground only');
+ 
         } else {
-          console.log('LocationManagementScreen: Background permission granted');
+
         }
       } catch (backgroundError) {
-        console.log('LocationManagementScreen: Background permission request failed:', backgroundError);
+
         // Continue without background permission
       }
 
       // Start watching position
-      console.log('LocationManagementScreen: Creating location watcher...');
+
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -152,12 +197,12 @@ export default function LocationManagementScreen({ navigation }) {
           distanceInterval: 10, // Update when moved 10 meters
         },
         (location) => {
-          console.log('LocationManagementScreen: Location update received');
+  
           updateLocationInFirebase(location);
         }
       );
 
-      console.log('LocationManagementScreen: Location tracking started successfully');
+
       setLocationSubscription(subscription);
       setAutoLocationEnabled(true);
       
@@ -165,22 +210,22 @@ export default function LocationManagementScreen({ navigation }) {
         autoLocationEnabled: true
       });
 
-      Alert.alert('Success', 'Real-time GPS tracking is now active!');
+      showToastMessage('Real-time GPS tracking is now active!', 'success');
     } catch (error) {
-      console.error('LocationManagementScreen: Error starting location tracking:', error);
+    
       setAutoLocationEnabled(false);
-      Alert.alert('Error', `Failed to start location tracking: ${error.message}`);
+      showToastMessage(`Failed to start location tracking: ${error.message}`, 'error');
     }
   };
 
   const stopLocationTracking = async () => {
     try {
-      console.log('LocationManagementScreen: Stopping location tracking...');
+ 
       
       if (locationSubscription) {
         locationSubscription.remove();
         setLocationSubscription(null);
-        console.log('LocationManagementScreen: Location subscription removed');
+
       }
 
       setAutoLocationEnabled(false);
@@ -189,11 +234,10 @@ export default function LocationManagementScreen({ navigation }) {
         autoLocationEnabled: false
       });
 
-      console.log('LocationManagementScreen: Location tracking stopped successfully');
-      Alert.alert('Success', 'Real-time GPS tracking has been disabled.');
+  
+      showToastMessage('Real-time GPS tracking has been disabled.', 'success');
     } catch (error) {
-      console.error('LocationManagementScreen: Error stopping location tracking:', error);
-      Alert.alert('Error', `Failed to stop location tracking: ${error.message}`);
+      showToastMessage(`Failed to stop location tracking: ${error.message}`, 'error');
     }
   };
 
@@ -218,7 +262,7 @@ export default function LocationManagementScreen({ navigation }) {
           setManualAddress(address);
         }
       } catch (reverseError) {
-        console.log('Reverse geocoding failed:', reverseError);
+ 
       }
 
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
@@ -229,13 +273,13 @@ export default function LocationManagementScreen({ navigation }) {
 
       setCurrentLocation(locationData);
     } catch (error) {
-      console.error('Error updating location:', error);
+
     }
   };
 
   const updateManualLocation = async () => {
     if (!manualAddress.trim()) {
-      Alert.alert('Error', 'Please enter an address');
+      showToastMessage('Please enter an address', 'error');
       return;
     }
 
@@ -245,7 +289,7 @@ export default function LocationManagementScreen({ navigation }) {
       // Geocode the address
       const results = await Location.geocodeAsync(manualAddress);
       if (results.length === 0) {
-        Alert.alert('Error', 'Address not found. Please check and try again.');
+        showToastMessage('Address not found. Please check and try again.', 'error');
         return;
       }
 
@@ -264,10 +308,10 @@ export default function LocationManagementScreen({ navigation }) {
       });
 
       setCurrentLocation(locationData);
-      Alert.alert('Success', 'Location updated successfully!');
+      showToastMessage('Location updated successfully!', 'success');
     } catch (error) {
-      console.error('Error updating manual location:', error);
-      Alert.alert('Error', 'Failed to update location');
+
+      showToastMessage('Failed to update location', 'error');
     } finally {
       setLoading(false);
     }
@@ -283,13 +327,13 @@ export default function LocationManagementScreen({ navigation }) {
         lastStatusUpdate: new Date()
       });
 
-      Alert.alert(
-        'Status Updated',
-        newStatus ? 'You are now visible to customers' : 'You are now offline'
+      showToastMessage(
+        newStatus ? 'You are now visible to customers' : 'You are now offline',
+        'success'
       );
     } catch (error) {
-      console.error('Error updating online status:', error);
-      Alert.alert('Error', 'Failed to update status');
+  
+      showToastMessage('Failed to update status', 'error');
     }
   };
 
@@ -339,7 +383,7 @@ export default function LocationManagementScreen({ navigation }) {
       const [hours, minutes] = timeStr.split(':').map(Number);
       
       if (isNaN(hours) || isNaN(minutes)) {
-        console.log('⚠️ Invalid time format:', timeStr, '- using default');
+ 
         return '9:00 AM';
       }
       
@@ -360,10 +404,10 @@ export default function LocationManagementScreen({ navigation }) {
       const formattedMinutes = minutes.toString().padStart(2, '0');
       const converted = `${hour12}:${formattedMinutes} ${period}`;
       
-      console.log('🕐 LocationManagement - Converted', timeStr, '→', converted);
+
       return converted;
     } catch (error) {
-      console.error('Error converting time format:', error);
+   
       return '9:00 AM';
     }
   };
@@ -432,7 +476,7 @@ export default function LocationManagementScreen({ navigation }) {
       minute: '2-digit' 
     });
 
-    console.log('⏰ LocationManagementScreen: Setting business hours to 12-hour format:', timeStr);
+
 
     setBusinessHours(prev => ({
       ...prev,
@@ -460,11 +504,11 @@ export default function LocationManagementScreen({ navigation }) {
         lastUpdated: new Date()
       });
       
-      Alert.alert('Success', 'Business hours updated successfully!');
+      showToastMessage('Business hours updated successfully!', 'success');
       setShowBusinessHoursModal(false);
     } catch (error) {
-      console.error('Error saving business hours:', error);
-      Alert.alert('Error', 'Failed to save business hours');
+  
+      showToastMessage('Failed to save business hours', 'error');
     }
   };
 
@@ -482,7 +526,7 @@ export default function LocationManagementScreen({ navigation }) {
       setNotificationPermission(finalStatus === 'granted');
       return finalStatus === 'granted';
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+   
       return false;
     }
   };
@@ -490,12 +534,15 @@ export default function LocationManagementScreen({ navigation }) {
   const openLocationAlertsModal = async () => {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      Alert.alert(
+      showCustomModal(
         'Permission Required',
         'Please enable notifications to use location alerts.',
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Settings', onPress: () => Notifications.openSettings?.() }
+          { text: 'Cancel', onPress: () => setModalVisible(false), style: 'cancel' },
+          { text: 'Settings', onPress: () => {
+            setModalVisible(false);
+            Notifications.openSettings?.();
+          }, style: 'default' }
         ]
       );
       return;
@@ -525,15 +572,15 @@ export default function LocationManagementScreen({ navigation }) {
         });
       }
 
-      Alert.alert(
-        'Success', 
+      showToastMessage(
         newStatus 
           ? 'Location alerts enabled! Customers will be notified when you arrive at popular locations.'
-          : 'Location alerts disabled.'
+          : 'Location alerts disabled.',
+        'success'
       );
     } catch (error) {
-      console.error('Error toggling location alerts:', error);
-      Alert.alert('Error', 'Failed to update location alerts');
+
+      showToastMessage('Failed to update location alerts', 'error');
     }
   };
 
@@ -826,6 +873,55 @@ export default function LocationManagementScreen({ navigation }) {
               </Text>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Toast Notification (replaces simple Alert.alert) */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toastContainer,
+            {
+              opacity: toastOpacity,
+              backgroundColor: toastType === 'error' ? '#dc3545' : '#28a745'
+            }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal (replaces Alert.alert) */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.customModalOverlay}>
+          <View style={styles.customModalContainer}>
+            <Text style={styles.customModalTitle}>{modalTitle}</Text>
+            <Text style={styles.customModalMessage}>{modalMessage}</Text>
+            <View style={styles.customModalButtons}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.customModalButton,
+                    button.style === 'cancel' && styles.customModalButtonCancel
+                  ]}
+                  onPress={button.onPress}
+                >
+                  <Text style={[
+                    styles.customModalButtonText,
+                    button.style === 'cancel' && styles.customModalButtonTextCancel
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1153,5 +1249,74 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
     marginBottom: 5,
+  },
+  // Toast notification styles (replaces Alert.alert)
+  toastContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Custom modal styles (replaces Alert.alert)
+  customModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+  },
+  customModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  customModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  customModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  customModalButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    minWidth: 80,
+  },
+  customModalButtonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  customModalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  customModalButtonTextCancel: {
+    color: '#fff',
   },
 });

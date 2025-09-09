@@ -44,7 +44,7 @@ export default function HomeScreen({ navigation }) {
             const userDoc = await getDoc(doc(db, 'users', ping.userId));
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              console.log('User data for ping:', ping.id, userData); // Debug log
+            
               
               // Update username if missing or Anonymous
               if (!ping.username || ping.username === 'Anonymous') {
@@ -61,13 +61,13 @@ export default function HomeScreen({ navigation }) {
               
               if (profilePhoto) {
                 enhancedPing.userProfilePhoto = profilePhoto;
-                console.log('Found profile photo for user:', userData.displayName || userData.name, profilePhoto);
+            
               } else {
-                console.log('No profile photo found for user:', userData.displayName || userData.name, 'Available fields:', Object.keys(userData));
+               
               }
             }
           } catch (error) {
-            console.log('Could not fetch user data for ping:', ping.id, error);
+        
           }
         }
 
@@ -153,7 +153,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.welcomeSection}>
         <View style={styles.logoContainer}>
           <Image 
-            source={require('../assets/grubana-logo.png')} 
+            source={require('../assets/logo.png')} 
             style={styles.logo}
             resizeMode="contain"
           />

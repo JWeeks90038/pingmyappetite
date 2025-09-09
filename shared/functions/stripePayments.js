@@ -122,7 +122,7 @@ export const createPaymentIntent = onRequest({
         throw new Error(`No price ID configured for plan type: ${planType}`);
       }
 
-      console.log(`Using existing Stripe price ID: ${priceId} for plan: ${planType}`);
+
 
       // Create subscription with trial period using existing price
       const subscription = await stripe.subscriptions.create({
@@ -183,7 +183,7 @@ export const createPaymentIntent = onRequest({
     }
 
   } catch (error) {
-    console.error("Error creating payment intent:", error);
+
     res.set(corsHeaders);
     res.status(500).json({ error: error.message });
   }
@@ -248,7 +248,7 @@ export const handleSubscriptionUpdate = onRequest({
         throw new Error(`No price ID configured for plan type: ${planType}`);
       }
 
-      console.log(`Creating subscription with existing price ID: ${priceId} for plan: ${planType}`);
+    
 
       // Create subscription using existing price
       const subscription = await stripe.subscriptions.create({
@@ -261,7 +261,7 @@ export const handleSubscriptionUpdate = onRequest({
         },
       });
 
-      console.log(`Subscription created: ${subscription.id}`);
+
 
       // Update user subscription status in Firestore
       await db.collection("users").doc(userId).update({
@@ -298,7 +298,7 @@ export const handleSubscriptionUpdate = onRequest({
     }
 
   } catch (error) {
-    console.error("Error updating subscription:", error);
+
     res.set(corsHeaders);
     res.status(500).json({ error: error.message });
   }

@@ -8,13 +8,13 @@ const NetworkStatus = () => {
     const handleOnline = () => {
       setIsOnline(true);
       setShowOfflineMessage(false);
-      console.log('🌐 Network: Connection restored');
+ 
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       setShowOfflineMessage(true);
-      console.warn('🌐 Network: Connection lost');
+  
     };
 
     window.addEventListener('online', handleOnline);

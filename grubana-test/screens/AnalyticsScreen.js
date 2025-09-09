@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
   Dimensions,
   TextInput,
   Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -49,6 +49,42 @@ export default function AnalyticsScreen({ navigation }) {
     conversionRate: 0,
     totalRatings: 0,
   });
+
+  // Toast and Modal state
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const [toastVisible, setToastVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Success modal function
+  const showSuccessModal = (message) => {
+    setToastMessage(message);
+    setSuccessModalVisible(true);
+  };
 
   // Chart data - will be updated with real data
   const [chartData, setChartData] = useState({
@@ -100,12 +136,12 @@ export default function AnalyticsScreen({ navigation }) {
 
   const loadAnalytics = async () => {
     try {
-      console.log('AnalyticsScreen: Starting to load analytics...');
+   
       setLoading(true);
       const currentUser = auth.currentUser;
       
       if (!currentUser) {
-        console.log('AnalyticsScreen: No authenticated user found');
+  
         setLoading(false);
         return;
       }
@@ -113,19 +149,19 @@ export default function AnalyticsScreen({ navigation }) {
       // Get user plan and existing analytics data
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (!userDoc.exists()) {
-        console.log('AnalyticsScreen: User document does not exist');
+
         setLoading(false);
         return;
       }
 
       const userData = userDoc.data();
       const userPlan = userData?.plan || 'basic';
-      console.log('AnalyticsScreen: User plan:', userPlan);
+
       setUserPlan(userPlan);
 
       // Check if user has analytics access
       if (userPlan !== 'all-access') {
-        console.log('AnalyticsScreen: User does not have analytics access');
+    
         setLoading(false);
         return;
       }
@@ -137,11 +173,11 @@ export default function AnalyticsScreen({ navigation }) {
         loadUserRevenueData(userData),
       ]);
 
-      console.log('AnalyticsScreen: Analytics data loaded successfully');
+
 
     } catch (error) {
-      console.error('AnalyticsScreen: Error loading analytics:', error);
-      Alert.alert('Error', `Failed to load analytics data: ${error.message}`);
+
+      showToast(`Failed to load analytics data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -152,7 +188,7 @@ export default function AnalyticsScreen({ navigation }) {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      console.log('Loading ping analytics for user:', currentUser.uid);
+
 
       // Get all pings from the database
       const pingsQuery = query(
@@ -167,7 +203,7 @@ export default function AnalyticsScreen({ navigation }) {
         ...doc.data()
       }));
 
-      console.log('Total pings found:', allPings.length);
+  
 
       // Calculate time periods
       const now = new Date();
@@ -246,15 +282,10 @@ export default function AnalyticsScreen({ navigation }) {
         }
       }));
 
-      console.log('Ping analytics loaded:', {
-        total: allPings.length,
-        today: todayPings.length,
-        weekly: weeklyPings.length,
-        avgRating: averageRating
-      });
+
 
     } catch (error) {
-      console.error('Error loading ping analytics:', error);
+ 
     }
   };
 
@@ -298,10 +329,10 @@ export default function AnalyticsScreen({ navigation }) {
         ]
       }));
 
-      console.log('Cuisine data loaded:', cuisineData);
+
 
     } catch (error) {
-      console.error('Error loading cuisine data:', error);
+
     }
   };
 
@@ -317,10 +348,10 @@ export default function AnalyticsScreen({ navigation }) {
         avgOrderValue: avgOrderValue,
       }));
 
-      console.log('Revenue data loaded:', { totalRevenue, avgOrderValue });
+
 
     } catch (error) {
-      console.error('Error loading revenue data:', error);
+     
     }
   };
 
@@ -331,7 +362,7 @@ export default function AnalyticsScreen({ navigation }) {
 
       const revenue = parseFloat(revenueInput);
       if (isNaN(revenue) || revenue < 0) {
-        Alert.alert('Invalid Input', 'Please enter a valid revenue amount');
+        showToast('Please enter a valid revenue amount');
         return;
       }
 
@@ -350,11 +381,11 @@ export default function AnalyticsScreen({ navigation }) {
 
       setShowRevenueModal(false);
       setRevenueInput('');
-      Alert.alert('Success', 'Revenue data updated successfully!');
+      showSuccessModal('Revenue data updated successfully!');
 
     } catch (error) {
-      console.error('Error updating revenue:', error);
-      Alert.alert('Error', 'Failed to update revenue data');
+ 
+      showToast('Failed to update revenue data');
     }
   };
 
@@ -564,6 +595,40 @@ export default function AnalyticsScreen({ navigation }) {
               <Text style={styles.infoText}>• Data is private and secure</Text>
               <Text style={styles.infoText}>• Update regularly for accurate analytics</Text>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            { opacity: toastOpacity },
+            toastType === 'error' ? styles.toastError : styles.toastSuccess
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSuccessContainer}>
+            <Text style={styles.modalSuccessTitle}>Success!</Text>
+            <Text style={styles.modalSuccessMessage}>{toastMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalSuccessButton}
+              onPress={() => setSuccessModalVisible(false)}
+            >
+              <Text style={styles.modalSuccessButtonText}>Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -820,5 +885,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 5,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#dc3545',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Success Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSuccessContainer: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 20,
+    margin: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalSuccessTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#28a745',
+    marginBottom: 15,
+  },
+  modalSuccessMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalSuccessButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 100,
+  },
+  modalSuccessButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

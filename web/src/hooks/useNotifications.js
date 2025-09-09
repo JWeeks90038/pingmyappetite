@@ -54,12 +54,12 @@ export function useNotifications() {
           setIsEnabled(permission === 'granted' && hasValidToken);
         }
       } catch (firestoreError) {
-        console.warn('🔔 Could not load notification preferences from Firestore:', firestoreError);
+   
         // Continue with default preferences if Firestore access fails
         setIsEnabled(permission === 'granted');
       }
     } catch (error) {
-      console.error('Error initializing notifications:', error);
+
     } finally {
       setLoading(false);
     }

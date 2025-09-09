@@ -12,12 +12,12 @@ const db = admin.firestore();
 
 async function syncStripeAccountToTruck(userId) {
   try {
-    console.log('🔄 Syncing Stripe account ID for user:', userId);
+ 
     
     // Get user data from users collection
     const userDoc = await db.collection('users').doc(userId).get();
     if (!userDoc.exists) {
-      console.error('❌ User not found in users collection');
+
       return;
     }
     
@@ -25,17 +25,17 @@ async function syncStripeAccountToTruck(userId) {
     const stripeAccountId = userData.stripeAccountId;
     
     if (!stripeAccountId) {
-      console.error('❌ No stripeAccountId found in users collection');
+ 
       return;
     }
     
-    console.log('✅ Found Stripe account ID:', stripeAccountId);
+
     
     // Update trucks collection with the Stripe account ID
     const truckDoc = await db.collection('trucks').doc(userId).get();
     
     if (!truckDoc.exists) {
-      console.error('❌ Truck document not found in trucks collection');
+
       return;
     }
     
@@ -45,11 +45,10 @@ async function syncStripeAccountToTruck(userId) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
     
-    console.log('✅ Successfully updated trucks collection with Stripe account ID');
-    console.log('🎉 Pre-order payments should now work!');
+
     
   } catch (error) {
-    console.error('❌ Error syncing Stripe account:', error);
+
   }
 }
 
@@ -57,8 +56,7 @@ async function syncStripeAccountToTruck(userId) {
 const userId = process.argv[2];
 
 if (!userId) {
-  console.error('❌ Please provide your user ID as an argument');
-  console.log('Usage: node sync-stripe-account.js YOUR_USER_ID');
+
   process.exit(1);
 }
 

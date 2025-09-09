@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
   ActivityIndicator,
   Image,
   AppState,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -26,6 +26,35 @@ const OwnerDashboardScreen = () => {
   const [loading, setLoading] = useState(false);
   const [truckData, setTruckData] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Toast functions
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   // Monitor truck location document
   useEffect(() => {
@@ -58,7 +87,7 @@ const OwnerDashboardScreen = () => {
       updateDoc(truckLocationRef, {
         lastActive: Date.now(),
       }).catch(error => {
-        console.error("Error updating lastActive:", error);
+
       });
     }, 30 * 1000); // 30 seconds interval
 
@@ -79,7 +108,7 @@ const OwnerDashboardScreen = () => {
         updateDoc(truckLocationRef, {
           lastActive: Date.now(),
         }).catch(error => {
-          console.error("Error updating lastActive on app foreground:", error);
+   
         });
       }
       // Note: We don't set isLive to false when backgrounded - scheduled task handles 8-hour visibility
@@ -96,7 +125,7 @@ const OwnerDashboardScreen = () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is required to track your truck');
+        showToast('Location permission is required to track your truck');
         return;
       }
 
@@ -128,8 +157,8 @@ const OwnerDashboardScreen = () => {
 
       return subscription;
     } catch (error) {
-      console.error('Error starting location tracking:', error);
-      Alert.alert('Error', 'Failed to start location tracking');
+
+      showToast('Failed to start location tracking');
       setLocationTracking(false);
     }
   };
@@ -183,8 +212,8 @@ const OwnerDashboardScreen = () => {
 
       setIsLive(newLiveStatus);
     } catch (error) {
-      console.error('Error toggling live status:', error);
-      Alert.alert('Error', 'Failed to update live status');
+ 
+      showToast('Failed to update live status');
     } finally {
       setLoading(false);
     }
@@ -195,7 +224,7 @@ const OwnerDashboardScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Image 
-            source={require('../../assets/2.png')}
+            source={require('../../assets/logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -316,6 +345,19 @@ const OwnerDashboardScreen = () => {
         visible={showContactModal}
         onClose={() => setShowContactModal(false)}
       />
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toastType === 'success' ? styles.toastSuccess : styles.toastError,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </ScrollView>
   );
 };
@@ -490,6 +532,31 @@ const styles = StyleSheet.create({
     height: 60,
     marginBottom: 10,
     alignSelf: 'center',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  toastText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#1a1a2e',
   },
 });
 

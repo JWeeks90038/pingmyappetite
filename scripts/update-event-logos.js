@@ -18,11 +18,11 @@ const db = admin.firestore();
 
 async function updateEventLogos() {
   try {
-    console.log('🔄 Starting event logo update process...');
+
     
     // Get all events
     const eventsSnapshot = await db.collection('events').get();
-    console.log(`📊 Found ${eventsSnapshot.size} events to process`);
+
     
     let updatedCount = 0;
     let skippedCount = 0;
@@ -40,18 +40,18 @@ async function updateEventLogos() {
           const eventData = eventDoc.data();
           const eventId = eventDoc.id;
           
-          console.log(`🎭 Processing event: ${eventId} - ${eventData.title}`);
+
           
           // Skip if event already has organizerLogoUrl
           if (eventData.organizerLogoUrl) {
-            console.log(`✅ Event ${eventId} already has organizerLogoUrl, skipping`);
+  
             skippedCount++;
             return;
           }
           
           // Skip if event has no organizerId
           if (!eventData.organizerId) {
-            console.log(`⚠️ Event ${eventId} has no organizerId, skipping`);
+       
             skippedCount++;
             return;
           }
@@ -60,7 +60,7 @@ async function updateEventLogos() {
           const organizerDoc = await db.collection('users').doc(eventData.organizerId).get();
           
           if (!organizerDoc.exists()) {
-            console.log(`⚠️ Organizer ${eventData.organizerId} not found for event ${eventId}`);
+         
             skippedCount++;
             return;
           }
@@ -74,15 +74,15 @@ async function updateEventLogos() {
               updatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             
-            console.log(`✅ Updated event ${eventId} with logo URL: ${organizerData.logoUrl}`);
+          
             updatedCount++;
           } else {
-            console.log(`⚠️ Organizer ${eventData.organizerId} has no logoUrl for event ${eventId}`);
+  
             skippedCount++;
           }
           
         } catch (error) {
-          console.error(`❌ Error processing event ${eventDoc.id}:`, error.message);
+
           errorCount++;
         }
       }));
@@ -93,24 +93,20 @@ async function updateEventLogos() {
       }
     }
     
-    console.log('\n📊 Update Summary:');
-    console.log(`✅ Updated: ${updatedCount} events`);
-    console.log(`⏭️ Skipped: ${skippedCount} events`);
-    console.log(`❌ Errors: ${errorCount} events`);
-    console.log('🎉 Event logo update process completed!');
+
     
   } catch (error) {
-    console.error('❌ Fatal error during event logo update:', error);
+
   }
 }
 
 // Run the update
 updateEventLogos()
   .then(() => {
-    console.log('✅ Script execution completed');
+
     process.exit(0);
   })
   .catch((error) => {
-    console.error('❌ Script execution failed:', error);
+
     process.exit(1);
   });

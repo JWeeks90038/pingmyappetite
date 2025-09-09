@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   ActivityIndicator,
   Linking,
+  Animated,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
@@ -41,13 +42,55 @@ export default function TruckOnboardingScreen({ navigation }) {
   const [imageErrors, setImageErrors] = useState({});
   const [newItemIds, setNewItemIds] = useState(new Set());
 
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('error');
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalButtons, setModalButtons] = useState([]);
+
+  // Toast functions
+  const showToast = (message, type = 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
+  // Modal functions
+  const showModal = (title, message, buttons = [{ text: 'OK', onPress: () => setModalVisible(false) }]) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalButtons(buttons);
+    setModalVisible(true);
+  };
+
   // Client-side new items tracking (temporary workaround)
   const getNewItemIds = async () => {
     try {
       const stored = await AsyncStorage.getItem(`newItemIds_${user?.uid}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch (error) {
-      console.error('Error getting new item IDs:', error);
       return new Set();
     }
   };
@@ -57,7 +100,6 @@ export default function TruckOnboardingScreen({ navigation }) {
       await AsyncStorage.setItem(`newItemIds_${user?.uid}`, JSON.stringify([...ids]));
       setNewItemIds(ids);
     } catch (error) {
-      console.error('Error saving new item IDs:', error);
     }
   };
 
@@ -65,7 +107,6 @@ export default function TruckOnboardingScreen({ navigation }) {
     const currentIds = await getNewItemIds();
     currentIds.add(itemId);
     await saveNewItemIds(currentIds);
-    console.log('✅ Added item to new items list:', itemId);
   };
 
   const isItemNew = (itemId) => {
@@ -76,10 +117,8 @@ export default function TruckOnboardingScreen({ navigation }) {
     const currentIds = await getNewItemIds();
     if (currentIds.has(itemId)) {
       currentIds.delete(itemId);
-      console.log('🏷️ Removed item from new items list:', itemId);
     } else {
       currentIds.add(itemId);
-      console.log('🏷️ Added item to new items list:', itemId);
     }
     await saveNewItemIds(currentIds);
   };
@@ -95,13 +134,9 @@ export default function TruckOnboardingScreen({ navigation }) {
 
   const checkAccountStatus = async () => {
     try {
-      console.log('🔍 Checking account status - user object:', user);
-      
       const token = await user.getIdToken();
-      console.log('🔍 Token obtained for status check:', token ? 'Token received' : 'No token');
       
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      console.log('🌍 Making status API call to:', `${apiUrl}/api/marketplace/trucks/status`);
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
         headers: {
@@ -110,13 +145,11 @@ export default function TruckOnboardingScreen({ navigation }) {
       });
 
       const data = await response.json();
-      console.log('📊 Account status response:', data);
       
       // Use real Stripe status from API response
       setAccountStatus(data.status || 'no_account');
       setAccountDetails(data);
     } catch (error) {
-      console.error('Error checking account status:', error);
       setAccountStatus('error');
       setAccountDetails(null);
     }
@@ -124,13 +157,10 @@ export default function TruckOnboardingScreen({ navigation }) {
 
   const syncPaymentData = async () => {
     try {
-      console.log('🔄 Syncing payment data to enable pre-orders...');
       setLoading(true);
       
       const token = await user.getIdToken();
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      
-      console.log('🔄 SYNC DEBUG: Making API call to:', `${apiUrl}/api/marketplace/trucks/sync-payment-data`);
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/sync-payment-data`, {
         method: 'POST',
@@ -140,25 +170,18 @@ export default function TruckOnboardingScreen({ navigation }) {
         }
       });
 
-      console.log('🔄 SYNC DEBUG: Response status:', response.status);
-      console.log('🔄 SYNC DEBUG: Response headers:', response.headers);
-      
       // Get response as text first to see what we're actually getting
       const responseText = await response.text();
-      console.log('🔄 SYNC DEBUG: Raw response text:', responseText.substring(0, 200) + '...');
       
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('🔄 SYNC DEBUG: Parsed JSON data:', data);
       } catch (parseError) {
-        console.error('🔄 SYNC DEBUG: JSON parse failed:', parseError);
-        console.error('🔄 SYNC DEBUG: Full response text:', responseText);
         throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
       }
       
       if (response.ok) {
-        Alert.alert(
+        showModal(
           'Success!', 
           'Payment data synced successfully. Pre-orders should now work properly!',
           [
@@ -172,8 +195,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         throw new Error(data.error || 'Failed to sync payment data');
       }
     } catch (error) {
-      console.error('Error syncing payment data:', error);
-      Alert.alert('Error', `Failed to sync payment data: ${error.message}`);
+      showToast(`Failed to sync payment data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -190,22 +212,15 @@ export default function TruckOnboardingScreen({ navigation }) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🍽️ FULL API Response from backend:', JSON.stringify(data, null, 2));
-        console.log('🍽️ Loaded menu items:', data.items);
         // Log all fields for each item to check what's missing
         data.items?.forEach((item, index) => {
           const imageUrl = item.image || item.imageUrl;
-          console.log(`🔍 FULL Item ${index} (${item.name}):`, JSON.stringify(item, null, 2));
-          console.log(`Item ${index}: ${item.name} - Image: ${imageUrl || 'No image'} - isNewItem: ${item.isNewItem}`);
         });
         setMenuItems(data.items || []);
       } else {
-        console.error('❌ Failed to load menu items. Status:', response.status);
         const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
       }
     } catch (error) {
-      console.error('Error loading menu items:', error);
     }
   };
 
@@ -215,15 +230,7 @@ export default function TruckOnboardingScreen({ navigation }) {
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       const businessName = userData?.truckName || user?.displayName || 'Mobile Kitchen Business';
       
-      console.log('🔍 Creating Stripe account with data:', {
-        truckId: user.uid,
-        email: user.email,
-        businessName,
-        country: 'US'
-      });
-      
       const token = await user.getIdToken();
-      console.log('🔐 Got auth token:', token ? 'Yes' : 'No');
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboard`, {
         method: 'POST',
@@ -239,28 +246,17 @@ export default function TruckOnboardingScreen({ navigation }) {
         })
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers);
-
       const data = await response.json();
-      console.log('📥 Server response:', data);
 
       if (response.ok) {
         setAccountStatus('created');
         setAccountDetails(data);
         await checkAccountStatus();
       } else {
-        console.error('❌ Server error response:', data);
         throw new Error(data.error || 'Failed to create account');
       }
     } catch (error) {
-      console.error('Error creating account:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      Alert.alert('Error', `Failed to create Stripe account. ${error.message || 'Please try again.'}`);
+      showToast(`Failed to create Stripe account. ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -269,13 +265,9 @@ export default function TruckOnboardingScreen({ navigation }) {
   const getOnboardingLink = async () => {
     setLoading(true);
     try {
-      console.log('🔐 Getting onboarding link - user object:', user);
-      
       const token = await user.getIdToken();
-      console.log('🔐 Token obtained:', token ? 'Token received' : 'No token');
       
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      console.log('🌍 Making API call to:', `${apiUrl}/api/marketplace/trucks/onboarding-link`);
       
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboarding-link`, {
         method: 'POST',
@@ -297,8 +289,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         throw new Error(data.error || 'Failed to create onboarding link');
       }
     } catch (error) {
-      console.error('Error getting onboarding link:', error);
-      Alert.alert('Error', 'Failed to get onboarding link. Please try again.');
+      showToast('Failed to get onboarding link. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -306,7 +297,7 @@ export default function TruckOnboardingScreen({ navigation }) {
 
   const addMenuItem = async () => {
     if (!newMenuItem.name || !newMenuItem.price) {
-      Alert.alert('Error', 'Please provide at least a name and price for the menu item.');
+      showToast('Please provide at least a name and price for the menu item.');
       return;
     }
 
@@ -325,10 +316,6 @@ export default function TruckOnboardingScreen({ navigation }) {
         image: imageUrl
       };
 
-      console.log('📤 Sending menu item data:', menuItemData);
-      console.log('📤 API URL:', `${apiUrl}/api/marketplace/trucks/${user.uid}/menu`);
-      console.log('📤 User UID:', user.uid);
-
       const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
         method: 'POST',
@@ -341,12 +328,10 @@ export default function TruckOnboardingScreen({ navigation }) {
 
       if (response.ok) {
         const responseData = await response.json();
-        console.log('✅ Backend add menu item response:', JSON.stringify(responseData, null, 2));
         
         // If this was marked as a new item, track it client-side
         if (newMenuItem.isNewItem && responseData.item && responseData.item.id) {
           await addNewItemId(responseData.item.id);
-          console.log('🏷️ Marked item as new (client-side):', responseData.item.id);
         }
         
         // Reset form
@@ -362,24 +347,21 @@ export default function TruckOnboardingScreen({ navigation }) {
         setImagePreview(null);
         
         // Reload menu items to see what was actually saved
-        console.log('🔄 Reloading menu items to verify isNewItem was saved...');
         await loadMenuItems();
-        Alert.alert('Success', 'Menu item added successfully!');
+        showToast('Menu item added successfully!', 'success');
       } else {
         const errorData = await response.json();
-        console.error('❌ Backend error response:', JSON.stringify(errorData, null, 2));
         throw new Error(errorData.error || 'Failed to add menu item');
       }
     } catch (error) {
-      console.error('Error adding menu item:', error);
-      Alert.alert('Error', 'Failed to add menu item. Please try again.');
+      showToast('Failed to add menu item. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const deleteMenuItem = async (itemId) => {
-    Alert.alert(
+    showModal(
       'Delete Menu Item',
       'Are you sure you want to delete this menu item?',
       [
@@ -399,14 +381,13 @@ export default function TruckOnboardingScreen({ navigation }) {
 
               if (response.ok) {
                 await loadMenuItems();
-                Alert.alert('Success', 'Menu item deleted successfully!');
+                showToast('Menu item deleted successfully!', 'success');
               } else {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to delete menu item');
               }
             } catch (error) {
-              console.error('Error deleting menu item:', error);
-              Alert.alert('Error', 'Failed to delete menu item. Please try again.');
+              showToast('Failed to delete menu item. Please try again.');
             }
           }
         }
@@ -418,7 +399,7 @@ export default function TruckOnboardingScreen({ navigation }) {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Denied', 'Permission to access camera roll is required!');
+      showToast('Permission to access camera roll is required!');
       return;
     }
 
@@ -455,7 +436,6 @@ export default function TruckOnboardingScreen({ navigation }) {
       const downloadURL = await getDownloadURL(storageRef);
       return downloadURL;
     } catch (error) {
-      console.error('Error uploading image:', error);
       throw new Error('Failed to upload image');
     } finally {
       setUploadingImage(false);
@@ -661,10 +641,8 @@ export default function TruckOnboardingScreen({ navigation }) {
           <TouchableOpacity
             style={styles.newItemCheckbox}
             onPress={() => {
-              console.log('New Item checkbox pressed - Current value:', newMenuItem.isNewItem);
               const newValue = !newMenuItem.isNewItem;
               setNewMenuItem(prev => ({ ...prev, isNewItem: newValue }));
-              console.log('New Item value changed to:', newValue);
             }}
           >
             <View style={styles.checkbox}>
@@ -710,17 +688,14 @@ export default function TruckOnboardingScreen({ navigation }) {
                         source={{ uri: imageUrl }} 
                         style={styles.menuItemImage}
                         onError={(error) => {
-                          console.log(`❌ Image failed to load for ${item.name}:`, error.nativeEvent.error);
                           setImageErrors(prev => ({ ...prev, [item.id]: true }));
                         }}
-                        onLoad={() => console.log(`✅ Image loaded successfully for ${item.name}`)}
                       />
                       {(item.isNewItem || isItemNew(item.id)) && (
                         <View style={styles.newItemBadge}>
                           <Text style={styles.newItemBadgeText}>NEW</Text>
                         </View>
                       )}
-                      {console.log(`🏷️ Item "${item.name}" - Backend isNewItem: ${item.isNewItem} - Client isNewItem: ${isItemNew(item.id)} - Should show badge: ${!!(item.isNewItem || isItemNew(item.id))}`)}
                       <TouchableOpacity
                         style={styles.deleteButton}
                         onPress={() => deleteMenuItem(item.id)}
@@ -888,6 +863,61 @@ export default function TruckOnboardingScreen({ navigation }) {
       >
         <Text style={styles.backButtonText}>← Back to Dashboard</Text>
       </TouchableOpacity>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toastType === 'success' ? styles.toastSuccess : styles.toastError,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Custom Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{modalTitle}</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalMessage}>{modalMessage}</Text>
+            </View>
+            <View style={styles.modalFooter}>
+              {modalButtons.map((button, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.modalButton,
+                    button.style === 'destructive' ? styles.modalButtonDestructive : styles.modalButtonDefault,
+                    modalButtons.length > 1 && index === 0 ? styles.modalButtonFirst : null
+                  ]}
+                  onPress={() => {
+                    setModalVisible(false);
+                    if (button.onPress) button.onPress();
+                  }}
+                >
+                  <Text style={[
+                    styles.modalButtonText,
+                    button.style === 'destructive' ? styles.modalButtonTextDestructive : styles.modalButtonTextDefault
+                  ]}>
+                    {button.text}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1473,5 +1503,99 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     lineHeight: 18,
     marginBottom: 8,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#d4edda',
+    borderColor: '#28a745',
+  },
+  toastError: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#dc3545',
+  },
+  toastText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#1a1a2e',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: colors.accent.blue,
+    borderTopWidth: 4,
+    borderTopColor: colors.accent.pink,
+  },
+  modalHeader: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.accent.pink,
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonFirst: {
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  modalButtonDefault: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonDestructive: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextDefault: {
+    color: colors.accent.blue,
+  },
+  modalButtonTextDestructive: {
+    color: '#dc3545',
   },
 });

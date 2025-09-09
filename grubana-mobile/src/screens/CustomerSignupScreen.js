@@ -5,10 +5,11 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Modal,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -31,6 +32,28 @@ export default function CustomerSignupScreen({ navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidReferral, setIsValidReferral] = useState(false);
   const [referralMessage, setReferralMessage] = useState('');
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [toastOpacity] = useState(new Animated.Value(0));
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const showToast = (message, type = 'error') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToast({ visible: false, message: '', type: 'error' });
+    });
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -68,23 +91,23 @@ export default function CustomerSignupScreen({ navigation }) {
   const handleSignup = async () => {
     // Validation
     if (!formData.fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
+      showToast('Please enter your full name');
       return;
     }
     if (!formData.email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+      showToast('Please enter your email');
       return;
     }
     if (!formData.password) {
-      Alert.alert('Error', 'Please enter a password');
+      showToast('Please enter a password');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match');
       return;
     }
     if (formData.phoneNumber && !validatePhoneNumber(formData.phoneNumber)) {
-      Alert.alert('Error', 'Please enter a valid US phone number (10 digits)');
+      showToast('Please enter a valid US phone number (10 digits)');
       return;
     }
 
@@ -145,15 +168,11 @@ export default function CustomerSignupScreen({ navigation }) {
         });
       }
 
-      Alert.alert(
-        'Success!', 
-        'Account created successfully!',
-        [{ text: 'OK', onPress: () => navigation.replace('CustomerDashboard') }]
-      );
+      setShowSuccessModal(true);
 
     } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert('Error', error.message || 'Failed to create account');
+
+      showToast(error.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -333,6 +352,46 @@ export default function CustomerSignupScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIcon}>
+              <Text style={styles.successIconText}>✅</Text>
+            </View>
+            <Text style={styles.successTitle}>Success!</Text>
+            <Text style={styles.successMessage}>Account created successfully!</Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.replace('CustomerDashboard');
+              }}
+            >
+              <Text style={styles.successButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <Animated.View 
+          style={[
+            styles.toast, 
+            toast.type === 'error' ? styles.toastError : styles.toastSuccess,
+            { opacity: toastOpacity }
+          ]}
+        >
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -462,5 +521,91 @@ const styles = {
     fontSize: 16,
     color: '#2c6f57',
     fontWeight: 'bold',
+  },
+  // Success Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    maxWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  successIconText: {
+    fontSize: 48,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c6f57',
+    marginBottom: 10,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  successButton: {
+    backgroundColor: '#2c6f57',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  successButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Toast Notification Styles
+  toast: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 };

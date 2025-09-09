@@ -23,7 +23,7 @@ export const trackNudgeShown = async (userId, nudgeType, context = {}) => {
     
     console.log(`📊 Nudge shown tracked: ${nudgeType} for user ${userId}`);
   } catch (error) {
-    console.error('Error tracking nudge shown:', error);
+
   }
 };
 
@@ -43,7 +43,7 @@ export const trackNudgeDismissed = async (userId, nudgeType, reason = 'dismissed
     
     console.log(`📊 Nudge dismissal tracked: ${nudgeType} - ${reason}`);
   } catch (error) {
-    console.error('Error tracking nudge dismissal:', error);
+
   }
 };
 
@@ -73,7 +73,7 @@ export const trackNudgeConversion = async (userId, nudgeType, conversionType = '
     
     console.log(`📊 Nudge conversion tracked: ${nudgeType} - ${conversionType}`);
   } catch (error) {
-    console.error('Error tracking nudge conversion:', error);
+
   }
 };
 
@@ -93,7 +93,7 @@ export const trackManualLocationUpdate = async (userId) => {
     
     console.log(`📊 Manual location update tracked for user ${userId}`);
   } catch (error) {
-    console.error('Error tracking manual location update:', error);
+
   }
 };
 
@@ -108,7 +108,7 @@ export const getNudgeAnalytics = async (userId) => {
     }
     return null;
   } catch (error) {
-    console.error('Error fetching nudge analytics:', error);
+
     return null;
   }
 };
@@ -139,7 +139,7 @@ export const getAggregatedAnalytics = async () => {
       }
     };
   } catch (error) {
-    console.error('Error fetching aggregated analytics:', error);
+
     return null;
   }
 };
@@ -162,6 +162,6 @@ export const trackFeatureCalloutClick = async (userId, feature, action = 'clicke
     
     console.log(`📊 Feature callout click tracked: ${feature} - ${action}`);
   } catch (error) {
-    console.error('Error tracking feature callout click:', error);
+
   }
 };

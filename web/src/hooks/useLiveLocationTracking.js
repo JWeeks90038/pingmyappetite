@@ -48,7 +48,7 @@ const useLiveLocationTracking = (userPlan) => {
           { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
         );
       } else {
-        console.warn("Geolocation not supported");
+
       }
     };
 

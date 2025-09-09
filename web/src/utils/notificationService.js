@@ -17,7 +17,6 @@ export const trackNotificationEvent = async (eventType, data = {}) => {
     });
     console.log(`📊 Tracked notification event: ${eventType}`);
   } catch (error) {
-    console.error('📊 Failed to track notification event:', error);
   }
 };
 
@@ -28,11 +27,10 @@ export const initializeFirebaseMessaging = async () => {
       console.log('🔔 Firebase Messaging initialized');
       return messaging;
     } else {
-      console.warn('🔔 Push messaging not supported in this browser');
+
       return null;
     }
   } catch (error) {
-    console.error('🔔 Error initializing Firebase Messaging:', error);
     return null;
   }
 };
@@ -42,7 +40,6 @@ export const requestNotificationPermission = async (userId) => {
   try {
     // Validate userId
     if (!userId) {
-      console.error('🔔 Cannot request notification permission: userId is required');
       return null;
     }
     
@@ -61,7 +58,6 @@ export const requestNotificationPermission = async (userId) => {
       if (messaging) {
         // Check if user is authenticated before getting token
         if (!auth.currentUser) {
-          console.error('🔔 User not authenticated, cannot get FCM token');
           return null;
         }
         
@@ -70,37 +66,34 @@ export const requestNotificationPermission = async (userId) => {
           const idToken = await auth.currentUser.getIdToken();
           console.log('🔔 User ID token available, proceeding with FCM token request');
         } catch (tokenError) {
-          console.error('🔔 Failed to get user ID token:', tokenError);
           return null;
         }
         
         // Check VAPID key configuration
         const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
         if (!vapidKey) {
-          console.error('🔔 VAPID key not configured in environment');
           return null;
         }
-        console.log('🔔 VAPID key loaded:', vapidKey.substring(0, 10) + '...');
+   
         
         // Try to get token (temporarily without VAPID key for testing)
         let token;
         try {
-          console.log('🔔 Attempting FCM token request with VAPID key...');
+     
           token = await getToken(messaging, {
             vapidKey: vapidKey
           });
         } catch (vapidError) {
-          console.warn('🔔 VAPID key failed, trying without VAPID for testing:', vapidError);
+
           try {
             token = await getToken(messaging);
           } catch (noVapidError) {
-            console.error('🔔 FCM token request failed completely:', noVapidError);
             throw noVapidError;
           }
         }
         
         if (token) {
-          console.log('🔔 FCM Token received:', token);
+ 
           
           // Save token to Firestore
           const saveSuccess = await saveNotificationToken(userId, token);
@@ -108,16 +101,14 @@ export const requestNotificationPermission = async (userId) => {
           if (saveSuccess) {
             return token;
           } else {
-            console.error('🔔 Failed to save FCM token to Firestore');
             return null;
           }
         } else {
-          console.error('🔔 No FCM token received - check VAPID key configuration');
           return null;
         }
       }
     } else {
-      console.warn('🔔 Notification permission denied');
+
       
       // Track permission denied
       await trackNotificationEvent('permission_denied', { userId });
@@ -125,7 +116,6 @@ export const requestNotificationPermission = async (userId) => {
       return null;
     }
   } catch (error) {
-    console.error('🔔 Error requesting notification permission:', error);
     return null;
   }
 };
@@ -135,7 +125,6 @@ export const saveNotificationToken = async (userId, token) => {
   try {
     // Check if user is authenticated
     if (!userId) {
-      console.error('🔔 Cannot save token: userId is required');
       return false;
     }
     
@@ -149,7 +138,6 @@ export const saveNotificationToken = async (userId, token) => {
     console.log('🔔 FCM token saved to Firestore');
     return true;
   } catch (error) {
-    console.error('🔔 Error saving FCM token:', error);
     
     // If it's a permission error, try creating the user document
     if (error.code === 'permission-denied' || error.code === 'not-found') {
@@ -165,7 +153,6 @@ export const saveNotificationToken = async (userId, token) => {
         console.log('🔔 FCM token saved after creating user document');
         return true;
       } catch (retryError) {
-        console.error('🔔 Failed to save token after retry:', retryError);
         return false;
       }
     }
@@ -206,7 +193,7 @@ export const showBrowserNotification = (notificationData) => {
   if ('Notification' in window && Notification.permission === 'granted') {
     const notification = new Notification(notificationData.title, {
       body: notificationData.body,
-      icon: notificationData.icon || '/grubana-logo.png',
+      icon: notificationData.icon || '/logo.png',
       image: notificationData.image,
       badge: '/truck-icon.png',
       tag: notificationData.tag || 'grubana-notification',
@@ -251,7 +238,6 @@ export const updateNotificationPreferences = async (userId, preferences) => {
     
     console.log('🔔 Notification preferences updated');
   } catch (error) {
-    console.error('🔔 Error updating notification preferences:', error);
   }
 };
 
@@ -267,7 +253,6 @@ export const removeNotificationToken = async (userId) => {
     
     console.log('🔔 FCM token removed for user');
   } catch (error) {
-    console.error('🔔 Error removing FCM token:', error);
   }
 };
 
@@ -290,7 +275,6 @@ export const refreshToken = async (userId) => {
     }
     return null;
   } catch (error) {
-    console.error('🔔 Error refreshing token:', error);
     return null;
   }
 };
@@ -299,7 +283,7 @@ export const refreshToken = async (userId) => {
 export const hasValidToken = async (userId) => {
   try {
     if (!userId) {
-      console.warn('🔔 hasValidToken called without userId');
+  
       return false;
     }
     
@@ -312,7 +296,6 @@ export const hasValidToken = async (userId) => {
     }
     return false;
   } catch (error) {
-    console.error('🔔 Error checking token validity:', error);
     return false;
   }
 };
@@ -339,7 +322,6 @@ export const getUserNotificationPreferences = async (userId) => {
     
     return null;
   } catch (error) {
-    console.error('🔔 Error getting user notification preferences:', error);
     return null;
   }
 };
@@ -367,10 +349,9 @@ const sendEmailViaFormspree = async (userEmail, title, message, data = {}) => {
       throw new Error(`Formspree email request failed: ${response.status}`);
     }
 
-    console.log('📧 Email notification sent via Formspree to:', userEmail);
+
     return { success: true, method: 'email' };
   } catch (error) {
-    console.error('📧 Error sending email via Formspree:', error);
     return { success: false, error: error.message, method: 'email' };
   }
 };
@@ -381,7 +362,7 @@ const sendSMSViaTwilio = async (userPhone, title, message, data = {}) => {
     // Check if Twilio is configured
     const twilioConfig = checkTwilioConfig();
     if (!twilioConfig.configured) {
-      console.warn('📱 Twilio not configured, skipping SMS');
+
       return { success: false, error: 'Twilio not configured', method: 'sms' };
     }
     
@@ -394,15 +375,13 @@ const sendSMSViaTwilio = async (userPhone, title, message, data = {}) => {
     const result = await sendNotificationSMS(userPhone, title, message, data);
     
     if (result.success) {
-      console.log('📱 SMS notification sent via Twilio to:', userPhone);
+
     } else {
-      console.error('📱 Failed to send SMS via Twilio:', result.error);
     }
     
     return result;
     
   } catch (error) {
-    console.error('📱 Error sending SMS via Twilio:', error);
     return { success: false, error: error.message, method: 'sms' };
   }
 };
@@ -413,7 +392,6 @@ export const sendNotificationViaPreferredMethod = async (userId, notificationDat
     const preferences = await getUserNotificationPreferences(userId);
     
     if (!preferences) {
-      console.error('🔔 No user preferences found for notification delivery');
       return false;
     }
 
@@ -444,7 +422,6 @@ export const sendNotificationViaPreferredMethod = async (userId, notificationDat
     // Return true if at least one method succeeded
     return results.some(result => result.success);
   } catch (error) {
-    console.error('🔔 Error sending notification via preferred method:', error);
     return false;
   }
 };
@@ -480,7 +457,6 @@ export const disableNotifications = async (userId) => {
     
     console.log('🔔 Notifications disabled for user');
   } catch (error) {
-    console.error('🔔 Error disabling notifications:', error);
   }
 };
 

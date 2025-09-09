@@ -22,21 +22,21 @@ let app, auth, db, storage;
 
 try {
     app = initializeApp(firebaseConfig);
-    console.log('🔥 Firebase: App initialized successfully');
+  
     
     // Initialize services with error handling
     auth = getAuth(app);
-    console.log('🔥 Firebase: Auth initialized successfully');
+ 
     
     // Use standard getFirestore() to avoid initialization conflicts
     db = getFirestore(app);
-    console.log('🔥 Firebase: Firestore initialized successfully');
+
     
     storage = getStorage(app);
-    console.log('🔥 Firebase: Storage initialized successfully');
+
     
 } catch (error) {
-    console.error('🔥 Firebase: Initialization failed:', error);
+
     // Create fallback objects to prevent app crash
     auth = null;
     db = null;
@@ -47,17 +47,17 @@ try {
 if (db && auth) {
     // Enable longer auth persistence with better error handling
     setPersistence(auth, browserLocalPersistence).catch((error) => {
-        console.error("🔥 Firebase: Auth persistence error:", error);
+
     });
 
     // Add connection state monitoring
-    console.log('🔥 Firebase: Services ready for use');
+
 }
 
 // Add global error handler for Firebase
 window.addEventListener('unhandledrejection', (event) => {
     if (event.reason && event.reason.code && event.reason.code.includes('firebase')) {
-        console.warn('🔥 Firebase: Unhandled Firebase error:', event.reason);
+     
         // Prevent the error from crashing the app
         event.preventDefault();
     }

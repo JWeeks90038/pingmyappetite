@@ -163,7 +163,7 @@ async function sendNotificationToTokens(tokens, payload) {
       notification: {
         title: payload.title,
         body: payload.body,
-        icon: '/grubana-logo.png'
+        icon: '/logo.png'
       },
       data: {
         type: payload.type || 'general',

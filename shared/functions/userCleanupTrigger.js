@@ -15,7 +15,7 @@ export const cleanupUserData = onDocumentDeleted({
   region: "us-central1"
 }, async (event) => {
   const userId = event.params.userId;
-  console.log(`🧹 Firestore trigger: Starting cleanup for deleted user: ${userId}`);
+  
 
   const cleanupResults = {
     truckLocation: false,
@@ -32,18 +32,18 @@ export const cleanupUserData = onDocumentDeleted({
     try {
       await db.collection('truckLocations').doc(userId).delete();
       cleanupResults.truckLocation = true;
-      console.log('✅ Firestore trigger: Deleted truck location document');
+  
     } catch (error) {
-      console.log(`ℹ️ Firestore trigger: No truck location document to delete`);
+ 
     }
 
     // Clean up truck document
     try {
       await db.collection('trucks').doc(userId).delete();
       cleanupResults.truckDocument = true;
-      console.log('✅ Firestore trigger: Deleted truck document');
+  
     } catch (error) {
-      console.log(`ℹ️ Firestore trigger: No truck document to delete`);
+ 
     }
 
     // Clean up menu items
@@ -56,10 +56,10 @@ export const cleanupUserData = onDocumentDeleted({
         });
         await batch.commit();
         cleanupResults.menuItems = menuItemsQuery.docs.length;
-        console.log(`✅ Firestore trigger: Deleted ${menuItemsQuery.docs.length} menu items`);
+      
       }
     } catch (error) {
-      console.log(`⚠️ Firestore trigger: Error deleting menu items: ${error.message}`);
+    
     }
 
     // Clean up pings
@@ -72,10 +72,10 @@ export const cleanupUserData = onDocumentDeleted({
         });
         await batch.commit();
         cleanupResults.pings = pingsQuery.docs.length;
-        console.log(`✅ Firestore trigger: Deleted ${pingsQuery.docs.length} pings`);
+  
       }
     } catch (error) {
-      console.log(`⚠️ Firestore trigger: Error deleting pings: ${error.message}`);
+ 
     }
 
     // Clean up favorites
@@ -88,10 +88,10 @@ export const cleanupUserData = onDocumentDeleted({
         });
         await batch.commit();
         cleanupResults.favorites = favoritesQuery.docs.length;
-        console.log(`✅ Firestore trigger: Deleted ${favoritesQuery.docs.length} favorites`);
+
       }
     } catch (error) {
-      console.log(`⚠️ Firestore trigger: Error deleting favorites: ${error.message}`);
+
     }
 
     // Clean up events (where user is organizer)
@@ -104,24 +104,24 @@ export const cleanupUserData = onDocumentDeleted({
         });
         await batch.commit();
         cleanupResults.events = eventsQuery.docs.length;
-        console.log(`✅ Firestore trigger: Deleted ${eventsQuery.docs.length} events`);
+
       }
     } catch (error) {
-      console.log(`⚠️ Firestore trigger: Error deleting events: ${error.message}`);
+
     }
 
     // Clean up referrals
     try {
       await db.collection('referrals').doc(userId).delete();
       cleanupResults.referrals = true;
-      console.log('✅ Firestore trigger: Deleted referral document');
+  
     } catch (error) {
-      console.log(`ℹ️ Firestore trigger: No referral document to delete`);
+
     }
 
-    console.log(`🎉 Firestore trigger: Cleanup completed for user ${userId}:`, cleanupResults);
+ 
 
   } catch (error) {
-    console.error(`❌ Firestore trigger: Error during cleanup for user ${userId}:`, error);
+
   }
 });

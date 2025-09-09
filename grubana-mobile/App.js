@@ -254,18 +254,18 @@ function MainStackNavigator() {
   
   // Function to determine which tab navigator to show based on user role
   const getTabNavigator = () => {
-    console.log('🔍 Navigation: Determining tabs for userRole:', userRole);
+
     
     switch (userRole) {
       case 'owner':
-        console.log('📊 Navigation: Showing OwnerTabs (with Analytics)');
+
         return <OwnerTabs />;
       case 'event-organizer':
-        console.log('🎪 Navigation: Showing EventOrganizerTabs');
+     
         return <EventOrganizerTabs />;
       case 'customer':
       default:
-        console.log('📱 Navigation: Showing CustomerTabs (with Send Ping)');
+
         return <CustomerTabs />;
     }
   };
@@ -302,7 +302,7 @@ function AppContent() {
   // Initialize notifications when user is authenticated
   useEffect(() => {
     if (user && userData && userData.uid && !notificationsInitialized.current) {
-      console.log('🔔 Initializing notifications for user:', userData.uid);
+
       
       // Clear badge count when app opens
       NotificationService.clearBadgeCount();
@@ -310,38 +310,28 @@ function AppContent() {
       NotificationService.initialize(userData.uid)
         .then((success) => {
           if (success) {
-            console.log('✅ Notifications initialized successfully');
+   
             notificationsInitialized.current = true;
           } else {
-            console.warn('⚠️ Failed to initialize notifications');
+
           }
         })
         .catch((error) => {
-          console.error('❌ Error initializing notifications:', error);
+  
         });
     }
 
     // Cleanup notifications when component unmounts or user changes
     return () => {
       if (!user) {
-        console.log('🧹 Notification listeners cleaned up');
+ 
         NotificationService.cleanup();
         notificationsInitialized.current = false;
       }
     };
   }, [user?.uid]); // Only depend on user ID, not the entire userData object
 
-  console.log('🔍 AppContent Debug:', {
-    hasUser: !!user,
-    loading,
-    hasUserData: !!userData,
-    userData: userData ? {
-      plan: userData.plan,
-      subscriptionStatus: userData.subscriptionStatus,
-      role: userData.role,
-      uid: userData.uid
-    } : null
-  });
+
 
   if (loading) {
     return (
@@ -360,22 +350,10 @@ function AppContent() {
      userData.plan === 'event-premium') && 
     (userData.paymentCompleted !== true);
 
-  console.log('🔍 SECURE Payment Check in App.js:', {
-    needsPayment,
-    hasUser: !!user,
-    hasUserData: !!userData,
-    plan: userData?.plan,
-    role: userData?.role,
-    subscriptionStatus: userData?.subscriptionStatus,
-    paymentCompleted: userData?.paymentCompleted,
-    isEventOrganizerBasic: userData?.role === 'event-organizer' && userData?.plan === 'event-basic',
-    isEventOrganizerPaid: userData?.role === 'event-organizer' && (userData?.plan === 'event-premium'),
-    condition1: userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium',
-    SECURITY_RULE: 'paymentCompleted must be true for paid plans'
-  });
+
 
   if (needsPayment) {
-    console.log('🎯 Showing Payment Screen for plan:', userData?.plan);
+
     return (
       <NavigationContainer
         theme={{

@@ -9,7 +9,7 @@ const testPassword = 'TestPassword123!';
 
 export async function createTestEventOrganizer() {
   try {
-    console.log('Creating test event organizer...');
+
     
     // Create user account
     const userCredential = await createUserWithEmailAndPassword(auth, testEmail, testPassword);
@@ -33,23 +33,21 @@ export async function createTestEventOrganizer() {
     
     await setDoc(doc(db, 'users', user.uid), userData);
     
-    console.log('✅ Test event organizer created successfully!');
-    console.log('Email:', testEmail);
-    console.log('Password:', testPassword);
+ 
     
     return user;
   } catch (error) {
-    console.error('❌ Error creating test user:', error);
+
     
     // If user already exists, try to login
     if (error.code === 'auth/email-already-in-use') {
-      console.log('User already exists, trying to login...');
+
       try {
         const userCredential = await signInWithEmailAndPassword(auth, testEmail, testPassword);
-        console.log('✅ Logged in successfully!');
+
         return userCredential.user;
       } catch (loginError) {
-        console.error('❌ Login failed:', loginError);
+
       }
     }
   }
@@ -57,12 +55,12 @@ export async function createTestEventOrganizer() {
 
 export async function loginTestEventOrganizer() {
   try {
-    console.log('Logging in test event organizer...');
+
     const userCredential = await signInWithEmailAndPassword(auth, testEmail, testPassword);
-    console.log('✅ Logged in successfully!');
+
     return userCredential.user;
   } catch (error) {
-    console.error('❌ Login failed:', error);
+
     throw error;
   }
 }

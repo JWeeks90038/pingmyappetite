@@ -12,51 +12,34 @@ const db = admin.firestore();
 
 async function debugTruckLocation() {
   try {
-    console.log('=== DEBUGGING TRUCK LOCATION ===');
+
     
     // Find truck owner from users collection
     const usersSnapshot = await db.collection('users').where('role', '==', 'truck_owner').get();
     
     if (usersSnapshot.empty) {
-      console.log('No truck owners found');
+
       return;
     }
     
     const truckOwner = usersSnapshot.docs[0];
     const truckOwnerId = truckOwner.id;
     const truckOwnerData = truckOwner.data();
-    
-    console.log('Truck Owner ID:', truckOwnerId);
-    console.log('Truck Owner Data (lat/lng):', {
-      lat: truckOwnerData.lat,
-      lng: truckOwnerData.lng,
-      cuisine: truckOwnerData.cuisine,
-      cuisines: truckOwnerData.cuisines
-    });
+
     
     // Check truckLocations collection
     const truckLocationDoc = await db.collection('truckLocations').doc(truckOwnerId).get();
     
     if (truckLocationDoc.exists()) {
       const locationData = truckLocationDoc.data();
-      console.log('Truck Location Data:', {
-        lat: locationData.lat,
-        lng: locationData.lng,
-        address: locationData.address,
-        timestamp: locationData.timestamp
-      });
+
       
       // Test distance calculation with a sample ping
       const pingsSnapshot = await db.collection('pings').limit(1).get();
       
       if (!pingsSnapshot.empty) {
         const samplePing = pingsSnapshot.docs[0].data();
-        console.log('Sample ping for distance test:', {
-          lat: samplePing.lat || samplePing.location?.lat,
-          lng: samplePing.lng || samplePing.location?.lng,
-          address: samplePing.address,
-          cuisineType: samplePing.cuisineType
-        });
+
         
         // Calculate distance
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -86,24 +69,23 @@ async function debugTruckLocation() {
             pingLat, 
             pingLng
           );
-          console.log('Distance between truck and sample ping:', distance, 'km');
-          console.log('Within 5km?', distance <= 5);
-          console.log('Within 80km?', distance <= 80);
+
+ 
         } else {
-          console.log('Missing coordinates for distance calculation');
+    
         }
       }
       
     } else {
-      console.log('No truck location document found for truck owner');
+   
     }
     
   } catch (error) {
-    console.error('Error debugging truck location:', error);
+ 
   }
 }
 
 debugTruckLocation().then(() => {
-  console.log('Debug complete');
+
   process.exit(0);
 });
