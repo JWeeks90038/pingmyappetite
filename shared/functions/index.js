@@ -36,3 +36,6 @@ export * from "./deleteUserAccount.js";
 
 // Export user cleanup trigger
 export * from "./userCleanupTrigger.js";
+
+// Export order cleanup functions
+export * from "./orderCleanupService.js";

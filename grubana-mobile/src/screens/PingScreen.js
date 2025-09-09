@@ -304,7 +304,7 @@ export default function PingScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../../assets/grubana-logo.png')}
+          source={require('../../assets/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -437,12 +437,7 @@ export default function PingScreen() {
             </View>
             <Text style={styles.stepText}>Food trucks see demand in your area</Text>
           </View>
-          <View style={styles.step}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>4</Text>
-            </View>
-            <Text style={styles.stepText}>They come to you!</Text>
-          </View>
+          
         </View>
       </View>
     </ScrollView>

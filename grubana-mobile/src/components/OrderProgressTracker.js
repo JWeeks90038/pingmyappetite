@@ -1,8 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
+const OrderProgressTracker = ({ 
+  currentStatus, 
+  estimatedTime, 
+  orderTime, 
+  timeOverriddenAt = null,
+  confirmedAt = null,
+  preparingAt = null 
+}) => {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update the current time every minute to refresh the countdown
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   const steps = [
     { key: 'pending', label: 'Order Placed', icon: 'checkmark-circle', description: 'Order received' },
     { key: 'confirmed', label: 'Confirmed', icon: 'thumbs-up', description: 'Kitchen confirmed' },
@@ -29,10 +47,10 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
 
   const getStepColor = (status) => {
     switch (status) {
-      case 'completed': return '#4CAF50';
-      case 'active': return '#2196F3';
-      case 'inactive': return '#E0E0E0';
-      default: return '#E0E0E0';
+      case 'completed': return '#00E676';
+      case 'active': return '#4DBFFF';
+      case 'inactive': return '#1A1036';
+      default: return '#1A1036';
     }
   };
 
@@ -45,49 +63,122 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
     }
   };
 
+  const getStatusMessageStyle = (status) => {
+    const baseStyle = [styles.statusMessageContainer];
+    switch (status) {
+      case 'pending_payment':
+        return [...baseStyle, { backgroundColor: '#FF9800' }]; // Orange for payment processing
+      case 'pending':
+        return [...baseStyle, { backgroundColor: '#FF4EC9' }];
+      case 'confirmed':
+        return [...baseStyle, { backgroundColor: '#00E676' }];
+      case 'preparing':
+        return [...baseStyle, { backgroundColor: '#4DBFFF' }];
+      case 'ready':
+        return [...baseStyle, { backgroundColor: '#FF4EC9' }];
+      case 'completed':
+        return [...baseStyle, { backgroundColor: '#00E676' }];
+      default:
+        return baseStyle;
+    }
+  };
+
   const getEstimatedTimeRemaining = () => {
-    if (!estimatedTime || !orderTime || currentStatus === 'completed' || currentStatus === 'cancelled') {
+    if (!estimatedTime || currentStatus === 'completed' || currentStatus === 'cancelled') {
       return null;
     }
 
-    const orderTimestamp = orderTime.getTime();
-    const estimatedReadyTime = orderTimestamp + (estimatedTime * 60 * 1000);
-    const now = Date.now();
-    const timeRemaining = Math.max(0, Math.floor((estimatedReadyTime - now) / 60000));
+    // Determine the most appropriate start time for countdown
+    const getCountdownStartTime = () => {
+      // If time was manually overridden, use that timestamp as the NEW starting point
+      // This means the countdown starts fresh from when the kitchen adjusted the time
+      if (timeOverriddenAt) {
+        return timeOverriddenAt instanceof Date ? timeOverriddenAt : new Date(timeOverriddenAt);
+      }
+      
+      // If order is preparing, use when cooking started
+      if (currentStatus === 'preparing' && preparingAt) {
+        return preparingAt instanceof Date ? preparingAt : new Date(preparingAt);
+      }
+      
+      // If order is confirmed, use when it was confirmed (when estimate became active)
+      if ((currentStatus === 'confirmed' || currentStatus === 'preparing') && confirmedAt) {
+        return confirmedAt instanceof Date ? confirmedAt : new Date(confirmedAt);
+      }
+      
+      // For pending orders, use order time (order just placed, timer starts immediately)
+      // For other statuses without specific timestamps, also use order time
+      return orderTime;
+    };
 
-    return timeRemaining;
+    const startTime = getCountdownStartTime();
+    if (!startTime) {
+      return null;
+    }
+
+    try {
+      const startTimestamp = startTime instanceof Date ? startTime.getTime() : new Date(startTime).getTime();
+      
+      // When time is overridden, the estimatedTime should be the NEW time set by kitchen
+      // The countdown starts fresh from timeOverriddenAt using the current estimatedTime
+      const estimatedReadyTime = startTimestamp + (estimatedTime * 60 * 1000);
+      const timeRemaining = Math.max(0, Math.floor((estimatedReadyTime - currentTime) / 60000));
+
+      // Always return the time remaining, even if it's 0 (we'll handle 0 differently)
+      return timeRemaining;
+    } catch (error) {
+      console.log('Error calculating time remaining:', error);
+      return null;
+    }
   };
 
   const timeRemaining = getEstimatedTimeRemaining();
 
   if (currentStatus === 'cancelled') {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, styles.darkContainer]}>
         <View style={styles.cancelledContainer}>
-          <Ionicons name="close-circle" size={48} color="#F44336" />
-          <Text style={styles.cancelledTitle}>Order Cancelled</Text>
-          <Text style={styles.cancelledSubtitle}>This order was cancelled. Refund in 3-5 days.</Text>
+          <Ionicons name="close-circle" size={48} color="#FF4EC9" />
+          <Text style={[styles.cancelledTitle, styles.darkCancelledTitle]}>Order Cancelled</Text>
+          <Text style={[styles.cancelledSubtitle, styles.darkCancelledSubtitle]}>This order was cancelled. Refund in 3-5 days.</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, styles.darkContainer]}>
       {/* Time Remaining */}
-      {timeRemaining !== null && timeRemaining > 0 && (
-        <View style={styles.timeContainer}>
-          <Ionicons name="time-outline" size={20} color="#2196F3" />
-          <Text style={styles.timeText}>
-            Estimated time remaining: {timeRemaining} minute{timeRemaining !== 1 ? 's' : ''}
-          </Text>
+      {(timeRemaining !== null || (estimatedTime && currentStatus !== 'completed' && currentStatus !== 'cancelled')) && (
+        <View style={[styles.timeContainer, styles.darkTimeContainer]}>
+          <Ionicons name="time-outline" size={20} color="#4DBFFF" />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={[styles.timeText, styles.darkTimeText]}>
+              {timeRemaining !== null ? (
+                timeRemaining > 0 ? (
+                  <>Estimated time remaining: {timeRemaining} minute{timeRemaining !== 1 ? 's' : ''}</>
+                ) : (
+                  <>Order should be ready any moment!</>
+                )
+              ) : estimatedTime ? (
+                <>Estimated prep time: {estimatedTime} minute{estimatedTime !== 1 ? 's' : ''}</>
+              ) : (
+                <>Preparing your order...</>
+              )}
+            </Text>
+            {timeOverriddenAt && (
+              <Text style={[styles.adjustedText]}>
+                ⚡ Time adjusted by kitchen
+              </Text>
+            )}
+          </View>
         </View>
       )}
 
       {timeRemaining === 0 && currentStatus !== 'ready' && currentStatus !== 'completed' && (
-        <View style={styles.timeContainer}>
-          <Ionicons name="hourglass-outline" size={20} color="#FF9800" />
-          <Text style={[styles.timeText, { color: '#FF9800' }]}>
+        <View style={[styles.timeContainer, styles.darkTimeContainer]}>
+          <Ionicons name="hourglass-outline" size={20} color="#FF4EC9" />
+          <Text style={[styles.timeText, styles.darkTimeText, { color: '#FF4EC9' }]}>
             Order should be ready soon!
           </Text>
         </View>
@@ -115,6 +206,7 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
                 <View style={styles.stepInfo}>
                   <Text style={[
                     styles.stepLabel,
+                    styles.darkStepLabel,
                     status === 'completed' && styles.completedText,
                     status === 'active' && styles.activeText
                   ]}>
@@ -122,6 +214,7 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
                   </Text>
                   <Text style={[
                     styles.stepDescription,
+                    styles.darkStepDescription,
                     status === 'completed' && styles.completedDescription,
                     status === 'active' && styles.activeDescription
                   ]}>
@@ -134,7 +227,7 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
               {!isLast && (
                 <View style={[
                   styles.connectingLine,
-                  { backgroundColor: status === 'completed' ? '#4CAF50' : '#E0E0E0' }
+                  { backgroundColor: status === 'completed' ? '#00E676' : '#1A1036' }
                 ]} />
               )}
             </View>
@@ -143,30 +236,35 @@ const OrderProgressTracker = ({ currentStatus, estimatedTime, orderTime }) => {
       </View>
 
       {/* Current Status Message */}
-      <View style={styles.statusMessageContainer}>
+      <View style={getStatusMessageStyle(currentStatus)}>
+        {currentStatus === 'pending_payment' && (
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
+            💳 Processing your payment...
+          </Text>
+        )}
         {currentStatus === 'pending' && (
-          <Text style={styles.statusMessage}>
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
             🕐 Waiting for kitchen to confirm your order...
           </Text>
         )}
         {currentStatus === 'confirmed' && (
-          <Text style={styles.statusMessage}>
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
             ✅ Great! The kitchen has confirmed your order and will start cooking soon.
           </Text>
         )}
         {currentStatus === 'preparing' && (
-          <Text style={styles.statusMessage}>
-            🔥 Your delicious food is being prepared right now!
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
+            🔥 Your awesome order is being prepared right now!
           </Text>
         )}
         {currentStatus === 'ready' && (
-          <Text style={[styles.statusMessage, styles.readyMessage]}>
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
             🎉 Your order is ready for pickup! Head over to the truck.
           </Text>
         )}
         {currentStatus === 'completed' && (
-          <Text style={styles.statusMessage}>
-            ✨ Order complete! Thanks for choosing us. Enjoy your meal!
+          <Text style={[styles.statusMessage, styles.statusMessageWhite]}>
+            ✨ Order complete! Thanks for choosing us. Enjoy!
           </Text>
         )}
       </View>
@@ -186,6 +284,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  darkContainer: {
+    backgroundColor: '#0B0B1A',
+    borderWidth: 1,
+    borderColor: '#1A1036',
+  },
   timeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,11 +297,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
   },
+  darkTimeContainer: {
+    backgroundColor: '#1A1036',
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
+  },
   timeText: {
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#2196F3',
+  },
+  darkTimeText: {
+    color: '#4DBFFF',
+  },
+  adjustedText: {
+    fontSize: 12,
+    color: '#FF4EC9',
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   progressContainer: {
     paddingVertical: 8,
@@ -227,21 +344,30 @@ const styles = StyleSheet.create({
     color: '#757575',
     marginBottom: 2,
   },
+  darkStepLabel: {
+    color: '#FFFFFF',
+  },
   stepDescription: {
     fontSize: 12,
     color: '#9E9E9E',
   },
+  darkStepDescription: {
+    color: '#FFFFFF',
+    opacity: 0.7,
+  },
   completedText: {
-    color: '#4CAF50',
+    color: '#00E676',
   },
   activeText: {
-    color: '#2196F3',
+    color: '#4DBFFF',
   },
   completedDescription: {
-    color: '#4CAF50',
+    color: '#00E676',
+    opacity: 0.8,
   },
   activeDescription: {
-    color: '#2196F3',
+    color: '#4DBFFF',
+    opacity: 0.8,
   },
   connectingLine: {
     width: 2,
@@ -262,6 +388,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  statusMessageWhite: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   readyMessage: {
     backgroundColor: '#E8F5E8',
     padding: 16,
@@ -280,10 +410,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+  darkCancelledTitle: {
+    color: '#FF4EC9',
+  },
   cancelledSubtitle: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  darkCancelledSubtitle: {
+    color: '#FFFFFF',
+    opacity: 0.8,
   },
 });
 

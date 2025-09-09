@@ -148,3 +148,37 @@ button:focus-visible {
     font-size: 0.7rem; /* Smaller font size */
   }
 }
+
+/* Mobile App Launch Banner Animations */
+@keyframes mobileAppBounce {
+  0%, 20%, 50%, 80%, 100% { 
+    transform: translateY(0); 
+  }
+  40% { 
+    transform: translateY(-10px); 
+  }
+  60% { 
+    transform: translateY(-5px); 
+  }
+}
+
+@keyframes mobileAppPulse {
+  0% { 
+    transform: scale(1); 
+  }
+  50% { 
+    transform: scale(1.1); 
+  }
+  100% { 
+    transform: scale(1); 
+  }
+}
+
+@keyframes mobileAppShimmer {
+  0% { 
+    left: -100%; 
+  }
+  100% { 
+    left: 100%; 
+  }
+}

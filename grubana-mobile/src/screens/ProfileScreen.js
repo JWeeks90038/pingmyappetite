@@ -22,6 +22,9 @@ import { httpsCallable } from 'firebase/functions';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
 import ContactFormModal from '../components/ContactFormModal';
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
+import TermsOfServiceModal from '../components/TermsOfServiceModal';
+import RefundPolicyModal from '../components/RefundPolicyModal';
 import { auth, db, storage, functions } from '../firebase';
 import { useStripe, CardField, usePaymentSheet } from '@stripe/stripe-react-native';
 import { CommonActions } from '@react-navigation/native';
@@ -64,6 +67,9 @@ export default function ProfileScreen({ navigation }) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [modalInput, setModalInput] = useState('');
   
   // Business Hours state
@@ -1328,6 +1334,27 @@ export default function ProfileScreen({ navigation }) {
       {/* Action Buttons */}
       <View style={styles.section}>
         <TouchableOpacity 
+          style={styles.privacyButton} 
+          onPress={() => setShowPrivacyModal(true)}
+        >
+          <Text style={styles.privacyButtonText}>Privacy Policy</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.termsButton} 
+          onPress={() => setShowTermsModal(true)}
+        >
+          <Text style={styles.termsButtonText}>Terms of Service</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.refundButton} 
+          onPress={() => setShowRefundModal(true)}
+        >
+          <Text style={styles.refundButtonText}>Refund Policy</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
           style={styles.contactButton} 
           onPress={() => setShowContactModal(true)}
         >
@@ -1358,6 +1385,24 @@ export default function ProfileScreen({ navigation }) {
       <ContactFormModal 
         visible={showContactModal}
         onClose={() => setShowContactModal(false)}
+      />
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal 
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal 
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
+
+      {/* Refund Policy Modal */}
+      <RefundPolicyModal 
+        visible={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
       />
 
       {/* Business Hours Modal */}
@@ -1825,6 +1870,51 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: theme.colors.text.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  privacyButton: {
+    backgroundColor: theme.colors.accent.blue,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    marginBottom: 15,
+    ...theme.shadows.neonBlue,
+  },
+  privacyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  termsButton: {
+    backgroundColor: theme.colors.accent.blue,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    marginBottom: 15,
+    ...theme.shadows.neonBlue,
+  },
+  termsButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  refundButton: {
+    backgroundColor: theme.colors.accent.blue,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    marginBottom: 15,
+    ...theme.shadows.neonBlue,
+  },
+  refundButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   contactButton: {
     backgroundColor: theme.colors.accent.pink,

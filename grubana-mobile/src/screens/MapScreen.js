@@ -11,6 +11,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { calculateStripeConnectPayment, preparePaymentIntentData } from '../utils/paymentConfig';
+import { calculateEstimatedTime, getTimeDescription } from '../utils/estimatedTimeCalculator';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
 import { colors } from '../theme/colors';
@@ -2157,6 +2158,36 @@ export default function MapScreen() {
         throw new Error('Invalid payment configuration');
       }
 
+      // Calculate smart estimated preparation time
+      const currentTime = new Date();
+      
+      // Get current pending/preparing orders count for queue calculation
+      let currentQueueSize = 0;
+      try {
+        const queueQuery = query(
+          collection(db, 'orders'),
+          where('truckId', '==', selectedTruck?.ownerId || selectedTruck?.id),
+          where('status', 'in', ['pending', 'confirmed', 'preparing'])
+        );
+        const queueSnapshot = await getDocs(queueQuery);
+        currentQueueSize = queueSnapshot.size;
+        console.log('📊 Current queue size for truck:', currentQueueSize, 'orders');
+      } catch (error) {
+        // Silently handle permissions error - queue size calculation is optional
+        // Using default of 0 orders won't significantly impact time estimates
+        console.log('ℹ️ Queue size unavailable, using default (this is normal)');
+        currentQueueSize = 0;
+      }
+
+      const estimatedTimeData = calculateEstimatedTime({
+        items: cart,
+        orderTime: currentTime,
+        truckData: selectedTruck,
+        currentOrders: currentQueueSize
+      });
+
+      console.log('⏱️ Estimated time calculation:', estimatedTimeData);
+
       // Create order in Firebase first to get order ID
       const orderData = {
         customerId: user.uid, // Changed from userId to customerId to match security rules
@@ -2184,7 +2215,14 @@ export default function MapScreen() {
         paymentStatus: 'pending',
         timestamp: serverTimestamp(),
         orderDate: new Date().toISOString(),
-        deliveryMethod: 'pickup'
+        deliveryMethod: 'pickup',
+        
+        // Smart estimated time
+        estimatedPrepTime: estimatedTimeData.estimatedMinutes,
+        estimatedTimeCalculation: estimatedTimeData.breakdown,
+        estimatedTimeDescription: getTimeDescription(estimatedTimeData.estimatedMinutes),
+        isEstimatedTimeOverridden: false,
+        createdAt: serverTimestamp()
       };
 
       console.log('🔐 ORDER DEBUG: About to create order with data:', orderData);
@@ -2320,7 +2358,7 @@ export default function MapScreen() {
       // Payment successful - update order
       console.log('✅ Payment successful!');
       await updateDoc(doc(db, 'orders', orderId), {
-        status: 'confirmed',
+        status: 'pending',    // Changed from 'confirmed' to 'pending' - mobile kitchen owner must confirm first
         paymentStatus: 'paid',
         paymentIntentId: payment_intent_id,
         paidAt: serverTimestamp()
@@ -2338,7 +2376,7 @@ export default function MapScreen() {
         `Subtotal: $${subtotal.toFixed(2)}\n` +
         `Sales Tax: $${salesTax.toFixed(2)}\n` +
         `Total Paid: $${finalTotal.toFixed(2)}\n\n` +
-        `The business owner will receive your order and contact you shortly for pickup!`,
+        `Your order has been sent to the mobile kitchen owner for confirmation. You'll be notified once they confirm your order and start preparing it!`,
         [{ text: 'Great!' }]
       );
 

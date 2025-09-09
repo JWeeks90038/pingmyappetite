@@ -27,6 +27,7 @@ import {
 import { db } from '../firebase';
 import { useAuth } from '../components/AuthContext';
 import NotificationService from '../services/notificationService';
+import { getSuggestedTimeOptions, getTimeDescription, calculateEstimatedTime } from '../utils/estimatedTimeCalculator';
 
 const OrderManagementScreen = () => {
   const { userData } = useAuth();
@@ -39,6 +40,11 @@ const OrderManagementScreen = () => {
   const [customerProfiles, setCustomerProfiles] = useState({});
   const [customerListeners, setCustomerListeners] = useState({});
   const customerListenersRef = useRef({});
+  
+  // Time override modal states
+  const [timeOverrideModalVisible, setTimeOverrideModalVisible] = useState(false);
+  const [selectedOrderForTimeOverride, setSelectedOrderForTimeOverride] = useState(null);
+  const [selectedTimeOption, setSelectedTimeOption] = useState(null);
 
   useEffect(() => {
     if (!userData?.uid) return;
@@ -51,8 +57,8 @@ const OrderManagementScreen = () => {
       plan: userData.plan
     });
     
-    // Clear badge count when viewing orders screen
-    NotificationService.clearBadgeCount();
+    // Clear badge count when viewing orders screen - role-specific clearing
+    NotificationService.clearBadgeForUserRole('owner', 'OrderManagement');
 
     // Create query for orders belonging to this truck
     // TEMPORARY: For testing, show all orders instead of just this truck's orders
@@ -89,15 +95,59 @@ const OrderManagementScreen = () => {
           id: doc.id,
           ...doc.data(),
           createdAt: doc.data().createdAt?.toDate() || new Date()
-        }));
+        }))
+        .filter(order => {
+          const now = Date.now();
+          const orderAge = now - order.createdAt.getTime();
+          const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+          
+          // Auto-remove old cancelled and pending_payment orders after 5 minutes
+          if ((order.status === 'cancelled' || order.status === 'pending_payment') && orderAge > fiveMinutes) {
+            console.log(`🗑️ Auto-filtering old ${order.status} order: ${order.id.substring(0, 8)} (${Math.round(orderAge / 60000)}min old)`);
+            return false;
+          }
+          
+          return true;
+        });
 
-        // Client-side sorting by createdAt (newest first) since we removed orderBy from query
-        ordersData.sort((a, b) => b.createdAt - a.createdAt);
+        // Kitchen-optimized sorting: Priority by action urgency, then by time
+        ordersData.sort((a, b) => {
+          const getOrderPriority = (status) => {
+            switch (status) {
+              case 'confirmed': return 1;    // TOP PRIORITY - Ready to start cooking
+              case 'preparing': return 2;    // Second - Currently cooking
+              case 'pending': return 3;      // Third - Needs confirmation  
+              case 'ready': return 4;        // Fourth - Waiting for pickup
+              case 'pending_payment': return 5; // Fifth - Payment processing
+              case 'completed': return 6;    // Sixth - Done
+              case 'cancelled': return 7;    // Bottom - Cancelled
+              default: return 8;
+            }
+          };
 
-        // Set up customer profile listeners for orders
+          const aPriority = getOrderPriority(a.status);
+          const bPriority = getOrderPriority(b.status);
+
+          // If different priorities, sort by priority
+          if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+          }
+
+          // Within same priority, show oldest first (FIFO - first in, first out)
+          return a.createdAt - b.createdAt;
+        });
+        
+        console.log('🍳 Kitchen orders (filtered & sorted):', ordersData.map(o => ({
+          id: o.id.substring(0, 8),
+          status: o.status,
+          timeAgo: Math.round((Date.now() - o.createdAt.getTime()) / 60000) + 'min ago',
+          priority: ['confirmed', 'preparing', 'pending', 'ready', 'pending_payment', 'completed', 'cancelled'].indexOf(o.status) + 1
+        })));
+
+        // Set up customer profile listeners for orders (only for new userIds)
         ordersData.forEach(order => {
-          if (order.userId) {
-            console.log(`📱 Setting up profile listener for userId: ${order.userId}`);
+          if (order.userId && !customerListenersRef.current[order.userId]) {
+            console.log(`📱 Setting up profile listener for new userId: ${order.userId}`);
             fetchCustomerProfile(order.userId);
           }
         });
@@ -312,14 +362,110 @@ const OrderManagementScreen = () => {
     }
   };
 
+  const handleTimeOverride = (order) => {
+    console.log('🔧 TIME OVERRIDE DEBUG: Starting time override for order:', {
+      orderId: order.id,
+      currentEstimatedTime: order.estimatedPrepTime,
+      items: order.items,
+      itemsCount: order.items?.length || 0,
+      createdAt: order.createdAt,
+      createdAtType: typeof order.createdAt
+    });
+    
+    setSelectedOrderForTimeOverride(order);
+    
+    // Recalculate estimated time if not available or to get fresh calculation
+    let baseTime = order.estimatedPrepTime;
+    
+    if (!baseTime || baseTime <= 5) {
+      console.log('🔄 Recalculating time because current time is low or missing');
+      
+      // Safely get order time
+      let orderTime = new Date();
+      if (order.createdAt) {
+        try {
+          if (typeof order.createdAt.toDate === 'function') {
+            // Firebase Timestamp
+            orderTime = order.createdAt.toDate();
+          } else if (order.createdAt instanceof Date) {
+            // Already a Date object
+            orderTime = order.createdAt;
+          } else if (typeof order.createdAt === 'string') {
+            // String date
+            orderTime = new Date(order.createdAt);
+          }
+        } catch (error) {
+          console.log('⚠️ Error parsing order time, using current time:', error);
+          orderTime = new Date();
+        }
+      }
+      
+      // Recalculate using smart calculator
+      const calculatedTime = calculateEstimatedTime({
+        items: order.items || [],
+        orderTime: orderTime,
+        truckData: { id: order.truckId },
+        currentOrders: Math.max(0, orders.filter(o => 
+          ['pending', 'confirmed', 'preparing'].includes(o.status) && o.id !== order.id
+        ).length)
+      });
+      baseTime = calculatedTime.estimatedMinutes;
+      
+      console.log('🔄 Recalculated time for order override:', {
+        orderId: order.id,
+        items: order.items,
+        originalTime: order.estimatedPrepTime,
+        recalculatedTime: baseTime,
+        orderTime: orderTime.toISOString(),
+        calculation: calculatedTime.breakdown
+      });
+    } else {
+      console.log('✅ Using existing estimated time:', baseTime);
+    }
+    
+    const timeOptions = getSuggestedTimeOptions(baseTime);
+    console.log('⏰ Generated time options:', timeOptions);
+    
+    setSelectedTimeOption(timeOptions.find(option => option.isDefault) || timeOptions[2]);
+    setTimeOverrideModalVisible(true);
+  };
+
+  const updateEstimatedTime = async () => {
+    if (!selectedOrderForTimeOverride || !selectedTimeOption) return;
+
+    try {
+      const orderRef = doc(db, 'orders', selectedOrderForTimeOverride.id);
+      await updateDoc(orderRef, {
+        estimatedPrepTime: selectedTimeOption.value,
+        estimatedTimeDescription: getTimeDescription(selectedTimeOption.value),
+        isEstimatedTimeOverridden: true,
+        timeOverriddenAt: serverTimestamp(),
+        timeOverriddenBy: userData.uid
+      });
+
+      setTimeOverrideModalVisible(false);
+      setSelectedOrderForTimeOverride(null);
+      setSelectedTimeOption(null);
+
+      Alert.alert(
+        'Time Updated', 
+        `Estimated preparation time updated to ${selectedTimeOption.value} minutes. Customer will be notified.`
+      );
+
+    } catch (error) {
+      console.error('❌ Error updating estimated time:', error);
+      Alert.alert('Error', 'Failed to update estimated time. Please try again.');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return '#FF9800';
-      case 'confirmed': return '#4CAF50';
-      case 'preparing': return '#2196F3';
-      case 'ready': return '#9C27B0';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
+      case 'pending': return '#FF4EC9'; // Neon pink for pending
+      case 'confirmed': return '#00E676'; // Success green for confirmed
+      case 'preparing': return '#4DBFFF'; // Neon blue for preparing
+      case 'ready': return '#FF4EC9'; // Neon pink for ready
+      case 'completed': return '#00E676'; // Success green for completed
+      case 'cancelled': return '#F44336'; // Keep red for cancelled
       default: return '#757575';
     }
   };
@@ -401,6 +547,20 @@ const OrderManagementScreen = () => {
             </TouchableOpacity>
           )}
           
+          {/* Time Override Button - show for pending, confirmed, and preparing orders */}
+          {['pending', 'confirmed', 'preparing'].includes(item.status) && (
+            <TouchableOpacity
+              style={[styles.secondaryActionButton, styles.timeButton]}
+              onPress={() => handleTimeOverride(item)}
+              disabled={isUpdating}
+            >
+              <Ionicons name="time-outline" size={16} color="#FF9800" />
+              <Text style={[styles.secondaryActionText, { color: '#FF9800' }]}>
+                {item.estimatedPrepTime || 15}min
+              </Text>
+            </TouchableOpacity>
+          )}
+          
           <TouchableOpacity
             style={[styles.secondaryActionButton, styles.detailsButton]}
             onPress={() => {
@@ -432,15 +592,6 @@ const OrderManagementScreen = () => {
 
       <View style={styles.orderDetails}>
         <View style={styles.customerInfo}>
-          {(() => {
-            console.log(`📱 Rendering order for userId: ${item.userId}`);
-            console.log(`📱 Customer profile data:`, customerProfiles[item.userId]);
-            console.log(`📱 Order item data:`, { userName: item.userName, customerName: item.customerName });
-            console.log(`📱 All customerProfiles:`, customerProfiles);
-            console.log(`📱 Profile URL check:`, customerProfiles[item.userId]?.profileUrl);
-            console.log(`📱 Profile URL type:`, typeof customerProfiles[item.userId]?.profileUrl);
-            return null;
-          })()}
           {customerProfiles[item.userId]?.profileUrl ? (
             <Image 
               source={{ uri: customerProfiles[item.userId].profileUrl }} 
@@ -469,6 +620,16 @@ const OrderManagementScreen = () => {
         <Text style={styles.orderTotal}>
           💰 Total: {formatPrice(item.totalAmount)}
         </Text>
+        
+        {/* Estimated Time Display */}
+        {item.estimatedPrepTime && (
+          <Text style={styles.estimatedTime}>
+            ⏱️ Est. time: {item.estimatedPrepTime}min
+            {item.isEstimatedTimeOverridden && (
+              <Text style={styles.overriddenIndicator}> (adjusted)</Text>
+            )}
+          </Text>
+        )}
         
         {item.specialInstructions && (
           <Text style={styles.specialInstructions} numberOfLines={2}>
@@ -565,6 +726,50 @@ const OrderManagementScreen = () => {
                 <Text style={styles.totalAmount}>{formatPrice(selectedOrder.totalAmount)}</Text>
               </View>
 
+              {/* Estimated Time Information */}
+              {selectedOrder.estimatedPrepTime && (
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>
+                    Estimated Preparation Time
+                    {selectedOrder.isEstimatedTimeOverridden && (
+                      <Text style={styles.overriddenIndicator}> (Adjusted)</Text>
+                    )}
+                  </Text>
+                  <Text style={styles.estimatedTimeValue}>
+                    ⏱️ {selectedOrder.estimatedPrepTime} minutes
+                  </Text>
+                  {selectedOrder.estimatedTimeDescription && (
+                    <Text style={styles.estimatedTimeDescription}>
+                      {selectedOrder.estimatedTimeDescription}
+                    </Text>
+                  )}
+                  
+                  {/* Show calculation breakdown if available */}
+                  {selectedOrder.estimatedTimeCalculation && !selectedOrder.isEstimatedTimeOverridden && (
+                    <View style={styles.calculationBreakdown}>
+                      <Text style={styles.breakdownTitle}>Auto-calculation details:</Text>
+                      <Text style={styles.breakdownText}>
+                        • Base prep: {selectedOrder.estimatedTimeCalculation.baseTime}min
+                      </Text>
+                      <Text style={styles.breakdownText}>
+                        • Time of day: {(selectedOrder.estimatedTimeCalculation.timeOfDayFactor || 1).toFixed(1)}x factor
+                      </Text>
+                      <Text style={styles.breakdownText}>
+                        • Queue size: {selectedOrder.estimatedTimeCalculation.currentOrders || 0} orders ahead
+                      </Text>
+                    </View>
+                  )}
+                  
+                  <TouchableOpacity
+                    style={styles.adjustTimeButton}
+                    onPress={() => handleTimeOverride(selectedOrder)}
+                  >
+                    <Ionicons name="time-outline" size={16} color="#FF9800" />
+                    <Text style={styles.adjustTimeText}>Adjust Time</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {selectedOrder.specialInstructions && (
                 <View style={styles.detailSection}>
                   <Text style={styles.detailLabel}>Special Instructions</Text>
@@ -627,7 +832,7 @@ const OrderManagementScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading orders...</Text>
+        <Text style={{ color: '#FFFFFF' }}>Loading orders...</Text>
       </View>
     );
   }
@@ -637,7 +842,11 @@ const OrderManagementScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Order Management</Text>
         <TouchableOpacity
-          onPress={() => NotificationService.testNotification('truck_owner')}
+          onPress={async () => {
+            // Test owner-specific notifications and badge functionality
+            await NotificationService.testNotification('owner');
+            await NotificationService.testBadgeCount();
+          }}
           style={styles.testButton}
         >
           <Ionicons name="notifications-outline" size={24} color="#666" />
@@ -663,6 +872,98 @@ const OrderManagementScreen = () => {
       )}
 
       <OrderDetailModal />
+      
+      {/* Time Override Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={timeOverrideModalVisible}
+        onRequestClose={() => setTimeOverrideModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.timeOverrideModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Adjust Estimated Time</Text>
+              <TouchableOpacity onPress={() => setTimeOverrideModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {selectedOrderForTimeOverride && (
+                <>
+                  <View style={styles.orderInfo}>
+                    <Text style={styles.orderInfoText}>
+                      Order #{selectedOrderForTimeOverride.id.substring(0, 8)}...
+                    </Text>
+                    <Text style={styles.orderInfoText}>
+                      {formatOrderItems(selectedOrderForTimeOverride.items)}
+                    </Text>
+                    <Text style={styles.currentTimeText}>
+                      Current estimate: {selectedOrderForTimeOverride.estimatedPrepTime || 'Not set'} minutes
+                    </Text>
+                    {selectedTimeOption && (
+                      <Text style={styles.smartTimeText}>
+                        💡 Smart calculation suggests: {selectedTimeOption.value} minutes
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.sectionTitle}>Select New Time Estimate:</Text>
+                  <Text style={styles.instructionText}>
+                    💡 Choose a more accurate prep time based on current kitchen conditions. 
+                    Customer will be notified of the updated estimate.
+                  </Text>
+                  
+                  {getSuggestedTimeOptions(selectedOrderForTimeOverride.estimatedPrepTime || 15).map((option, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.timeOption,
+                        selectedTimeOption?.value === option.value && styles.selectedTimeOption
+                      ]}
+                      onPress={() => setSelectedTimeOption(option)}
+                    >
+                      <View style={styles.timeOptionContent}>
+                        <Text style={[
+                          styles.timeOptionText,
+                          selectedTimeOption?.value === option.value && styles.selectedTimeOptionText
+                        ]}>
+                          {option.label}
+                        </Text>
+                        {option.isDefault && (
+                          <View style={styles.defaultBadge}>
+                            <Text style={styles.defaultBadgeText}>Auto</Text>
+                          </View>
+                        )}
+                      </View>
+                      {selectedTimeOption?.value === option.value && (
+                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => setTimeOverrideModalVisible(false)}
+              >
+                <Text style={styles.actionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.confirmButton]}
+                onPress={updateEstimatedTime}
+                disabled={!selectedTimeOption}
+              >
+                <Text style={styles.actionButtonText}>Update Time</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -670,45 +971,52 @@ const OrderManagementScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: '#1A1036', // Deep purple background
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#FF4EC9', // Neon pink border
+    position: 'relative',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   testButton: {
     padding: 8,
+    position: 'absolute',
+    right: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0B0B1A',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: '#0B0B1A',
   },
   emptyText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#FFFFFF', // White text
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#4DBFFF', // Neon blue for subtext
     textAlign: 'center',
     marginTop: 8,
   },
@@ -716,17 +1024,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   orderCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#1A1036', // Deep purple card background
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#FF4EC9', // Neon pink border
   },
   orderHeader: {
     flexDirection: 'row',
@@ -740,12 +1048,12 @@ const styles = StyleSheet.create({
   orderId: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
     marginBottom: 4,
   },
   timeAgo: {
     fontSize: 12,
-    color: '#999',
+    color: '#4DBFFF', // Neon blue for secondary info
     fontWeight: '500',
   },
   statusBadge: {
@@ -780,15 +1088,19 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border around avatar
   },
   customerAvatarPlaceholder: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF4EC9', // Neon pink background
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#4DBFFF', // Neon blue border
   },
   customerAvatarText: {
     color: 'white',
@@ -798,29 +1110,31 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#FFFFFF', // White text
     flex: 1,
   },
   orderItems: {
     fontSize: 14,
-    color: '#666',
+    color: '#FFFFFF', // White text
     marginBottom: 8,
     lineHeight: 20,
   },
   orderTotal: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#00E676', // Success green
     marginBottom: 8,
   },
   specialInstructions: {
     fontSize: 13,
-    color: '#FF9800',
+    color: '#FF4EC9', // Neon pink text
     fontStyle: 'italic',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(255, 78, 201, 0.1)', // Semi-transparent pink background
     padding: 8,
     borderRadius: 8,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
   },
   progressIndicator: {
     marginBottom: 16,
@@ -836,7 +1150,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#1A1036', // Deep purple background
+    borderWidth: 2,
+    borderColor: '#4DBFFF', // Neon blue border
   },
   progressStepText: {
     fontSize: 14,
@@ -844,7 +1160,7 @@ const styles = StyleSheet.create({
   progressLine: {
     height: 3,
     flex: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#4DBFFF', // Neon blue progress line
     marginHorizontal: 8,
   },
   quickActionsContainer: {
@@ -856,11 +1172,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   mainActionText: {
     color: 'white',
@@ -879,14 +1197,15 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     flex: 1,
+    borderWidth: 1,
   },
   rejectButton: {
     backgroundColor: '#F44336',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   detailsButton: {
-    backgroundColor: '#E3F2FD',
-    borderWidth: 1,
-    borderColor: '#2196F3',
+    backgroundColor: 'rgba(77, 191, 255, 0.1)', // Semi-transparent neon blue
+    borderColor: '#4DBFFF', // Neon blue border
   },
   secondaryActionText: {
     fontWeight: '600',
@@ -896,21 +1215,23 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(11, 11, 26, 0.9)', // Dark navy overlay
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#1A1036', // Deep purple modal background
     borderRadius: 20,
     padding: 24,
     width: '90%',
     maxHeight: '80%',
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border
   },
   modalHeader: {
     flexDirection: 'row',
@@ -919,12 +1240,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#FF4EC9', // Neon pink border
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   modalBody: {
     maxHeight: 400,
@@ -935,14 +1256,14 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#4DBFFF', // Neon blue for labels
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   detailValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF', // White text
     lineHeight: 22,
   },
   itemRow: {
@@ -950,38 +1271,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(77, 191, 255, 0.1)', // Semi-transparent neon blue
     borderRadius: 8,
     marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
   },
   itemQuantity: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#4DBFFF', // Neon blue
     width: 40,
   },
   itemName: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: '#FFFFFF', // White text
     fontWeight: '500',
   },
   itemPrice: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#00E676', // Success green
   },
   totalAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#00E676', // Success green
   },
   modalActions: {
     marginTop: 24,
     gap: 12,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#FF4EC9', // Neon pink border
   },
   actionButton: {
     padding: 16,
@@ -989,29 +1312,198 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   confirmButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#00E676', // Success green
   },
   preparingButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#4DBFFF', // Neon blue
   },
   readyButton: {
-    backgroundColor: '#9C27B0',
+    backgroundColor: '#FF4EC9', // Neon pink
   },
   completeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#00E676', // Success green
   },
   actionButtonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
     marginLeft: 8,
+  },
+  // Estimated time display styles
+  estimatedTime: {
+    fontSize: 14,
+    color: '#FF4EC9', // Neon pink
+    fontWeight: '600',
+    marginTop: 4,
+    backgroundColor: 'rgba(255, 78, 201, 0.1)', // Semi-transparent pink background
+    padding: 4,
+    borderRadius: 4,
+  },
+  overriddenIndicator: {
+    fontSize: 12,
+    color: '#4DBFFF', // Neon blue for override indicator
+    fontStyle: 'italic',
+  },
+  // Time override button styles
+  timeButton: {
+    backgroundColor: 'rgba(255, 78, 201, 0.1)', // Semi-transparent pink
+    borderWidth: 1,
+    borderColor: '#FF4EC9', // Neon pink border
+  },
+  // Time override modal styles
+  timeOverrideModal: {
+    backgroundColor: '#1A1036', // Deep purple background
+    margin: 20,
+    borderRadius: 16,
+    maxHeight: '80%',
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border
+  },
+  orderInfo: {
+    backgroundColor: 'rgba(77, 191, 255, 0.1)', // Semi-transparent neon blue
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
+  },
+  orderInfoText: {
+    fontSize: 14,
+    color: '#FFFFFF', // White text
+    marginBottom: 4,
+  },
+  currentTimeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF4EC9', // Neon pink
+    marginTop: 8,
+  },
+  smartTimeText: {
+    fontSize: 14,
+    color: '#4DBFFF', // Neon blue
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  instructionText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF', // White text
+    marginBottom: 16,
+  },
+  timeOption: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#4DBFFF', // Neon blue border
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(77, 191, 255, 0.05)', // Very light neon blue
+  },
+  selectedTimeOption: {
+    borderColor: '#00E676', // Success green border for selected
+    backgroundColor: 'rgba(0, 230, 118, 0.1)', // Semi-transparent green
+  },
+  timeOptionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeOptionText: {
+    fontSize: 16,
+    color: '#FFFFFF', // White text
+    fontWeight: '500',
+  },
+  selectedTimeOptionText: {
+    color: '#00E676', // Success green for selected
+    fontWeight: 'bold',
+  },
+  defaultBadge: {
+    backgroundColor: '#FF4EC9', // Neon pink badge
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  defaultBadgeText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    backgroundColor: '#757575',
+  },
+  // Additional estimated time detail styles
+  estimatedTimeValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF4EC9', // Neon pink
+    marginTop: 4,
+  },
+  estimatedTimeDescription: {
+    fontSize: 14,
+    color: '#4DBFFF', // Neon blue
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  calculationBreakdown: {
+    backgroundColor: 'rgba(77, 191, 255, 0.1)', // Semi-transparent neon blue
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
+  },
+  breakdownTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF', // White text
+    marginBottom: 6,
+  },
+  breakdownText: {
+    fontSize: 12,
+    color: '#4DBFFF', // Neon blue
+    marginBottom: 2,
+  },
+  adjustTimeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 78, 201, 0.1)', // Semi-transparent pink
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
+  },
+  adjustTimeText: {
+    fontSize: 14,
+    color: '#FF4EC9', // Neon pink
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
 

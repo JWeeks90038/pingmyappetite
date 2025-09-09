@@ -142,7 +142,7 @@ function EventOrganizerTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2c6f57',
+        tabBarActiveTintColor: '#FF4EC9',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}

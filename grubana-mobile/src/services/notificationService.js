@@ -163,17 +163,57 @@ class NotificationService {
       
       const data = response.notification.request.content.data;
       
-      // Handle different notification types
-      if (data?.type === 'new_order') {
-        // Navigate to orders screen for truck owners
-        console.log('🚚 New order notification tapped');
-        // TODO: Add navigation logic
-      } else if (data?.type === 'order_status') {
-        // Navigate to order tracking for customers
-        console.log('📱 Order status notification tapped');
-        // TODO: Add navigation logic
-      }
+      // Handle different notification types based on user role and notification type
+      this.handleNotificationNavigation(data);
     });
+  }
+
+  /**
+   * Handle navigation based on notification type and user context
+   */
+  handleNotificationNavigation(data) {
+    if (!data?.type) return;
+
+    switch (data.type) {
+      case 'new_order':
+        // For truck owners - navigate to order management
+        console.log('🚚 New order notification tapped - navigating to orders');
+        // Navigation will be handled by the app's navigation system
+        break;
+        
+      case 'order_status':
+        // For customers - navigate to their orders
+        console.log('📱 Order status notification tapped - navigating to customer orders');
+        break;
+        
+      case 'order_confirmed':
+        // For customers - navigate to order tracking
+        console.log('✅ Order confirmed notification tapped');
+        break;
+        
+      case 'order_ready':
+        // For customers - navigate to pickup information
+        console.log('🎉 Order ready notification tapped');
+        break;
+        
+      case 'event_invitation':
+        // For all users - navigate to events
+        console.log('🎪 Event invitation notification tapped');
+        break;
+        
+      case 'event_update':
+        // For event participants - navigate to specific event
+        console.log('📅 Event update notification tapped');
+        break;
+        
+      case 'review_request':
+        // For customers - navigate to review screen
+        console.log('⭐ Review request notification tapped');
+        break;
+        
+      default:
+        console.log('🔔 Unknown notification type:', data.type);
+    }
   }
 
   /**
@@ -200,17 +240,62 @@ class NotificationService {
    * Test notifications (for development)
    */
   async testNotification(userType = 'customer') {
-    if (userType === 'truck_owner') {
-      await this.sendLocalNotification(
-        '🚚 New Order Received!',
-        'New order #ABC123 from John • $24.99'
-      );
-    } else {
-      await this.sendLocalNotification(
-        '🔔 Order Ready!',
-        'Your order from Taco Truck is ready for pickup!'
-      );
+    console.log(`🔔 Testing notification for role: ${userType}`);
+    await this.sendTestNotificationForRole(userType);
+  }
+
+  /**
+   * Test all notification types for comprehensive testing
+   */
+  async testAllNotificationTypes() {
+    const testNotifications = [
+      { title: '🚚 New Order', body: 'You have a new order!', data: { type: 'new_order' } },
+      { title: '✅ Order Confirmed', body: 'Your order has been confirmed', data: { type: 'order_confirmed' } },
+      { title: '🍳 Order Preparing', body: 'Your order is being prepared', data: { type: 'order_status' } },
+      { title: '🎉 Order Ready', body: 'Your order is ready for pickup!', data: { type: 'order_ready' } },
+      { title: '🎪 Event Invitation', body: 'You\'re invited to a new event', data: { type: 'event_invitation' } },
+      { title: '� Event Update', body: 'Event details have been updated', data: { type: 'event_update' } },
+      { title: '⭐ Review Request', body: 'How was your experience?', data: { type: 'review_request' } },
+    ];
+
+    for (let i = 0; i < testNotifications.length; i++) {
+      const notif = testNotifications[i];
+      setTimeout(() => {
+        this.sendLocalNotification(notif.title, notif.body, notif.data);
+      }, i * 2000); // Send every 2 seconds
     }
+
+    console.log('📱 All test notifications scheduled');
+  }
+
+  /**
+   * Test badge count functionality
+   */
+  async testBadgeCount() {
+    console.log('🔢 Testing badge count functionality...');
+    
+    // Clear badge first
+    await this.clearBadgeCount();
+    console.log('1. Badge cleared');
+    
+    // Test incrementing
+    await this.incrementBadgeCount();
+    console.log('2. Badge incremented to 1');
+    
+    await this.incrementBadgeCount();
+    console.log('3. Badge incremented to 2');
+    
+    // Test setting specific count
+    await this.setBadgeCount(5);
+    console.log('4. Badge set to 5');
+    
+    // Test getting count
+    const count = await this.getBadgeCount();
+    console.log(`5. Current badge count: ${count}`);
+    
+    // Clear again
+    await this.clearBadgeCount();
+    console.log('6. Badge cleared again');
   }
 
   /**
@@ -316,6 +401,54 @@ class NotificationService {
     } catch (error) {
       console.error('❌ Error clearing badge count:', error);
     }
+  }
+
+  /**
+   * Clear badge count for specific user role/screen
+   * This should be called when users view their relevant screens
+   */
+  async clearBadgeForUserRole(userRole, screenName) {
+    try {
+      console.log(`🧹 Clearing badge for ${userRole} on ${screenName} screen`);
+      await this.clearBadgeCount();
+    } catch (error) {
+      console.error('❌ Error clearing role-specific badge:', error);
+    }
+  }
+
+  /**
+   * Send role-specific test notifications
+   */
+  async sendTestNotificationForRole(userRole) {
+    let title, body, data;
+
+    switch (userRole) {
+      case 'customer':
+        title = '🍕 Order Update';
+        body = 'Your order is ready for pickup!';
+        data = { type: 'order_ready', userRole: 'customer' };
+        break;
+        
+      case 'owner':
+        title = '🚚 New Order';
+        body = 'You have a new order to prepare!';
+        data = { type: 'new_order', userRole: 'owner' };
+        break;
+        
+      case 'event-organizer':
+        title = '🎪 Event Update';
+        body = 'Someone just joined your event!';
+        data = { type: 'event_update', userRole: 'event-organizer' };
+        break;
+        
+      default:
+        title = '🔔 Test Notification';
+        body = 'This is a test notification';
+        data = { type: 'general', userRole: userRole || 'unknown' };
+    }
+
+    await this.sendLocalNotification(title, body, data);
+    console.log(`📱 Test notification sent for ${userRole}`);
   }
 
   /**

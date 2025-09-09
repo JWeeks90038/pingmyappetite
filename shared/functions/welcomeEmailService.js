@@ -277,3 +277,145 @@ export const sendWelcomeEmail = async (userData, userType) => {
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Send admin notification email when a new user signs up
+ * @param {Object} userData - User data for the notification
+ * @param {string} userType - Type of user (customer, owner, organizer)
+ */
+export const sendAdminSignupNotification = async (userData, userType) => {
+  try {
+    // Determine user role display name
+    const roleNames = {
+      'customer': 'Customer (Foodie Fan)',
+      'owner': 'Mobile Kitchen Owner',
+      'event-organizer': 'Event Organizer',
+      'organizer': 'Event Organizer'
+    };
+
+    const roleName = roleNames[userType] || userType;
+    const userName = userData.username || userData.ownerName || userData.contactName || userData.displayName || 'Unknown';
+    const userEmail = userData.email;
+    const userPhone = userData.phone || 'Not provided';
+    const signupTime = new Date().toLocaleString('en-US', { 
+      timeZone: 'America/New_York',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    // Build additional info based on user type
+    let additionalInfo = '';
+    
+    if (userType === 'owner') {
+      additionalInfo = `
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3 style="margin-top: 0; color: #333;">🚚 Business Details:</h3>
+          <p style="margin: 5px 0;"><strong>Business Name:</strong> ${userData.truckName || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Cuisine Type:</strong> ${userData.cuisine || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Kitchen Type:</strong> ${userData.kitchenType || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Location:</strong> ${userData.location || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Plan Selected:</strong> ${userData.plan || 'Not specified'}</p>
+          <p style="margin: 5px 0;"><strong>Referral Code:</strong> ${userData.referralCode || 'None'}</p>
+        </div>
+      `;
+    } else if (userType === 'event-organizer' || userType === 'organizer') {
+      additionalInfo = `
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3 style="margin-top: 0; color: #333;">🎪 Organization Details:</h3>
+          <p style="margin: 5px 0;"><strong>Organization:</strong> ${userData.organizationName || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Organization Type:</strong> ${userData.organizationType || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Website:</strong> ${userData.website || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Plan Selected:</strong> ${userData.plan || 'Not specified'}</p>
+          <p style="margin: 5px 0;"><strong>Description:</strong> ${userData.description || 'Not provided'}</p>
+        </div>
+      `;
+    } else if (userType === 'customer') {
+      additionalInfo = `
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3 style="margin-top: 0; color: #333;">👤 Customer Details:</h3>
+          <p style="margin: 5px 0;"><strong>Address:</strong> ${userData.address || 'Not provided'}</p>
+          <p style="margin: 5px 0;"><strong>Plan:</strong> ${userData.plan || 'Basic'}</p>
+          <p style="margin: 5px 0;"><strong>SMS Consent:</strong> ${userData.smsConsent ? 'Yes' : 'No'}</p>
+          <p style="margin: 5px 0;"><strong>Referral Code:</strong> ${userData.referralCode || 'None'}</p>
+        </div>
+      `;
+    }
+
+    const notificationTemplate = {
+      subject: `🎉 New ${roleName} Signup - ${userName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;">
+          <div style="background-color: #2c6f57; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px;">🎉 New User Signup</h1>
+          </div>
+          
+          <div style="background-color: #fff; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;">
+            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">
+              A new user has joined Grubana!
+            </p>
+            
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="margin-top: 0; color: #333;">📋 User Information</h3>
+              <p style="margin: 5px 0;"><strong>Name:</strong> ${userName}</p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> ${userEmail}</p>
+              <p style="margin: 5px 0;"><strong>Phone:</strong> ${userPhone}</p>
+              <p style="margin: 5px 0;"><strong>User Type:</strong> ${roleName}</p>
+              <p style="margin: 5px 0;"><strong>Signup Time:</strong> ${signupTime} EST</p>
+              <p style="margin: 5px 0;"><strong>User ID:</strong> ${userData.uid || 'Not available'}</p>
+            </div>
+
+            ${additionalInfo}
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <h3 style="margin-top: 0; color: #856404;">⚡ Next Steps</h3>
+              <ul style="color: #856404; margin: 10px 0; padding-left: 20px;">
+                <li>Welcome email sent to user automatically</li>
+                <li>User account created in Firebase Auth and Firestore</li>
+                <li>User can now access their ${userType === 'customer' ? 'customer dashboard' : userType === 'owner' ? 'business dashboard' : 'event organizer dashboard'}</li>
+                ${userType === 'owner' ? '<li>Consider reaching out for onboarding assistance</li>' : ''}
+                ${userType === 'event-organizer' || userType === 'organizer' ? '<li>May need help setting up first event</li>' : ''}
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://console.firebase.google.com/project/foodtruckfinder-27eba/firestore/data" 
+                 style="background-color: #2c6f57; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+                View in Firebase Console
+              </a>
+              <a href="https://grubana.com/admin" 
+                 style="background-color: #007bff; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Admin Dashboard
+              </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              This is an automated notification from the Grubana signup system.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const msg = {
+      to: 'flavor@grubana.com',
+      from: {
+        email: 'flavor@grubana.com',
+        name: 'Grubana Signup System'
+      },
+      subject: notificationTemplate.subject,
+      html: notificationTemplate.html
+    };
+
+    await sgMail.send(msg);
+    logger.info(`Admin signup notification sent for new ${userType}: ${userName} (${userEmail})`);
+    return { success: true };
+
+  } catch (error) {
+    logger.error(`Failed to send admin signup notification for ${userData.email}:`, error);
+    return { success: false, error: error.message };
+  }
+};

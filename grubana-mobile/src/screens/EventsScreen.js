@@ -15,6 +15,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
+import NotificationService from '../services/notificationService';
 import { 
   collection, 
   query, 
@@ -379,6 +380,11 @@ const EventsScreen = () => {
     if (!user) return;
 
     console.log('🎪 EventsScreen: Setting up events listener');
+    
+    // Clear badge count when viewing events screen - role-specific clearing
+    if (userRole) {
+      NotificationService.clearBadgeForUserRole(userRole, 'Events');
+    }
     
     const now = new Date();
     const todayString = now.toISOString().split('T')[0];
@@ -2365,14 +2371,26 @@ const EventsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Events</Text>
-        {canManageEvents() && (
+        <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.createButton}
-            onPress={openCreateEventModal}
+            onPress={async () => {
+              // Test event organizer notifications and badge functionality
+              await NotificationService.testNotification(userRole || 'event-organizer');
+              await NotificationService.testBadgeCount();
+            }}
+            style={styles.testNotificationButton}
           >
-            <Ionicons name="add" size={24} color="white" />
+            <Ionicons name="notifications-outline" size={24} color="#666" />
           </TouchableOpacity>
-        )}
+          {canManageEvents() && (
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={openCreateEventModal}
+            >
+              <Ionicons name="add" size={24} color="white" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Filter Tabs */}
@@ -2471,6 +2489,16 @@ const createThemedStyles = (theme) => StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  testNotificationButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
   createButton: {
     backgroundColor: theme.colors.accent.pink,
     borderRadius: 20,
@@ -2499,7 +2527,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
     minWidth: 0, // Allow text to shrink
   },
   activeFilterTab: {
-    backgroundColor: theme.colors.accent.pink,
+    backgroundColor: '#FF4EC9', // Ensure pink color is applied correctly
     ...theme.shadows.neonPink,
   },
   filterTabText: {

@@ -31,8 +31,8 @@ const CustomerOrdersScreen = () => {
 
     console.log('📱 Setting up customer orders listener for user:', userData.uid);
     
-    // Clear badge count when viewing orders screen
-    NotificationService.clearBadgeCount();
+    // Clear badge count when viewing orders screen - role-specific clearing
+    NotificationService.clearBadgeForUserRole('customer', 'Orders');
 
     // Create query for orders placed by this customer (without orderBy to avoid index requirement)
     const ordersQuery = query(
@@ -49,10 +49,38 @@ const CustomerOrdersScreen = () => {
           id: doc.id,
           ...doc.data(),
           createdAt: doc.data().createdAt?.toDate() || new Date()
-        }));
+        }))
+        // Filter out pending_payment orders (payment processing)
+        .filter(order => order.status !== 'pending_payment');
 
-        // Sort client-side by creation date (newest first)
-        ordersData.sort((a, b) => b.createdAt - a.createdAt);
+        // Sort orders with smart prioritization:
+        // 1. Active orders (pending, confirmed, preparing, ready) first
+        // 2. Within each group, newest first
+        // 3. Completed/cancelled orders last
+        ordersData.sort((a, b) => {
+          const getOrderPriority = (status) => {
+            switch (status) {
+              case 'ready': return 1; // Highest priority - ready for pickup
+              case 'preparing': return 2; // Second - currently cooking
+              case 'confirmed': return 3; // Third - confirmed, will cook soon
+              case 'pending': return 4; // Fourth - waiting for confirmation
+              case 'completed': return 5; // Lower priority
+              case 'cancelled': return 6; // Lowest priority
+              default: return 7;
+            }
+          };
+
+          const aPriority = getOrderPriority(a.status);
+          const bPriority = getOrderPriority(b.status);
+
+          // If priorities are different, sort by priority
+          if (aPriority !== bPriority) {
+            return aPriority - bPriority;
+          }
+
+          // If same priority, sort by newest first
+          return b.createdAt - a.createdAt;
+        });
 
         setOrders(ordersData);
         setLoading(false);
@@ -74,15 +102,19 @@ const CustomerOrdersScreen = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return '#FFA500';
-      case 'confirmed': return '#4CAF50';
-      case 'preparing': return '#2196F3';
-      case 'ready': return '#9C27B0';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
-      default: return '#757575';
-    }
+    const color = (() => {
+      switch (status) {
+        case 'pending': return '#FF4EC9'; // Neon pink for pending
+        case 'confirmed': return '#00E676'; // Success green for confirmed
+        case 'preparing': return '#4DBFFF'; // Neon blue for preparing
+        case 'ready': return '#FF4EC9'; // Neon pink for ready
+        case 'completed': return '#00E676'; // Success green for completed
+        case 'cancelled': return '#F44336'; // Keep red for cancelled
+        default: return '#757575';
+      }
+    })();
+    console.log(`Status: ${status}, Color: ${color}`);
+    return color;
   };
 
   const getStatusIcon = (status) => {
@@ -123,7 +155,14 @@ const CustomerOrdersScreen = () => {
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
         <Text style={styles.orderId}>#{item.id.substring(0, 8)}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+        <View style={[
+          styles.statusBadge, 
+          { 
+            backgroundColor: getStatusColor(item.status),
+            // Force override any potential white background
+            borderWidth: 0
+          }
+        ]}>
           <Ionicons name={getStatusIcon(item.status)} size={16} color="white" />
           <Text style={styles.statusText}>{item.status?.toUpperCase()}</Text>
         </View>
@@ -155,11 +194,14 @@ const CustomerOrdersScreen = () => {
         currentStatus={item.status}
         estimatedTime={item.estimatedPrepTime}
         orderTime={item.createdAt}
+        timeOverriddenAt={item.timeOverriddenAt}
+        confirmedAt={item.confirmedAt}
+        preparingAt={item.preparingAt}
       />
 
       {item.status === 'ready' && (
         <View style={styles.readyAlert}>
-          <Ionicons name="notifications" size={24} color="#9C27B0" />
+          <Ionicons name="notifications" size={24} color="#00E676" />
           <Text style={styles.readyText}>🎉 Your order is ready for pickup!</Text>
         </View>
       )}
@@ -169,7 +211,7 @@ const CustomerOrdersScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading your orders...</Text>
+        <Text style={{ color: '#FFFFFF' }}>Loading your orders...</Text>
       </View>
     );
   }
@@ -179,7 +221,11 @@ const CustomerOrdersScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Orders</Text>
         <TouchableOpacity
-          onPress={() => NotificationService.testNotification('customer')}
+          onPress={async () => {
+            // Test both notification and badge functionality
+            await NotificationService.testNotification('customer');
+            await NotificationService.testBadgeCount();
+          }}
           style={styles.testButton}
         >
           <Ionicons name="notifications-outline" size={24} color="#666" />
@@ -210,45 +256,52 @@ const CustomerOrdersScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
+    paddingTop: 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: '#1A1036', // Deep purple background
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#FF4EC9', // Neon pink border
+    position: 'relative',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   testButton: {
     padding: 8,
+    position: 'absolute',
+    right: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0B0B1A',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    backgroundColor: '#0B0B1A',
   },
   emptyText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#FFFFFF', // White text
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#4DBFFF', // Neon blue for subtext
     textAlign: 'center',
     marginTop: 8,
   },
@@ -256,17 +309,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   orderCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#1A1036', // Deep purple card background
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: '#FF4EC9', // Neon pink border
   },
   orderHeader: {
     flexDirection: 'row',
@@ -277,7 +330,7 @@ const styles = StyleSheet.create({
   orderId: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   statusBadge: {
     flexDirection: 'row',
@@ -304,50 +357,52 @@ const styles = StyleSheet.create({
   truckName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: '#FFFFFF', // White text
     marginBottom: 8,
   },
   orderTime: {
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue for secondary info
     marginBottom: 8,
   },
   orderItems: {
     fontSize: 14,
-    color: '#666',
+    color: '#FFFFFF', // White text
     marginBottom: 8,
     lineHeight: 20,
   },
   orderTotal: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#00E676', // Success green
     marginBottom: 8,
   },
   estimatedTime: {
     fontSize: 14,
-    color: '#2196F3',
+    color: '#FF4EC9', // Neon pink for estimated time
     fontWeight: '500',
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(255, 78, 201, 0.1)', // Semi-transparent pink background
     padding: 8,
     borderRadius: 6,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
   },
   readyAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3E5F5',
+    backgroundColor: 'rgba(0, 230, 118, 0.1)', // Semi-transparent green background
     padding: 16,
     borderRadius: 12,
     marginTop: 12,
     borderWidth: 2,
-    borderColor: '#9C27B0',
+    borderColor: '#00E676', // Success green border
   },
   readyText: {
     marginLeft: 12,
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#9C27B0',
+    color: '#00E676', // Success green text
     flex: 1,
   },
 });
