@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Grubana",
-    "slug": "grubana-mobile",
+    "slug": "grubana",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
