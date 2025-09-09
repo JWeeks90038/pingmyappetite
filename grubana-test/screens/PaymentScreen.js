@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
-  Image
+  Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
@@ -18,6 +19,38 @@ export default function PaymentScreen({ route, navigation }) {
   const { formData, plan, price } = route.params;
   const [loading, setLoading] = useState(false);
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Success modal state
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   // Initialize Stripe when component mounts
   React.useEffect(() => {
@@ -111,8 +144,7 @@ export default function PaymentScreen({ route, navigation }) {
       // Payment successful - complete signup
       await completeSignup();
     } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Payment Error', error.message || 'Payment processing failed. Please try again.');
+      showToast(error.message || 'Payment processing failed. Please try again.', 'error');
       setLoading(false);
     }
   };
@@ -172,25 +204,9 @@ export default function PaymentScreen({ route, navigation }) {
         createdAt: new Date().toISOString()
       });
 
-      Alert.alert(
-        'Success!',
-        `Welcome to Grubana! Your ${currentPlan.name} subscription is now active.`,
-        [
-          {
-            text: 'Get Started',
-            onPress: () => {
-              // Navigate to the main app or dashboard
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-              });
-            }
-          }
-        ]
-      );
+      setSuccessModalVisible(true);
     } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert('Error', 'Failed to create account. Please try again.');
+      showToast('Failed to create account. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -200,7 +216,7 @@ export default function PaymentScreen({ route, navigation }) {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image 
-          source={require('../assets/grubana-logo.png')} 
+          source={require('../assets/logo.png')} 
           style={styles.logo}
           resizeMode="contain"
         />
@@ -262,6 +278,51 @@ export default function PaymentScreen({ route, navigation }) {
         By subscribing, you agree to our Terms of Service and Privacy Policy. 
         You can cancel your subscription at any time.
       </Text>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View style={[
+          styles.toast,
+          toastType === 'success' ? styles.toastSuccess : styles.toastError,
+          { opacity: fadeAnim }
+        ]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎉 Welcome to Grubana!</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalText}>
+                Your {currentPlan.name} subscription is now active! 
+                You're ready to start connecting with hungry customers.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Home' }],
+                });
+              }}
+            >
+              <Text style={styles.modalButtonText}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -418,5 +479,85 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 30,
     lineHeight: 16,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 0,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    backgroundColor: '#ff6b35',
+    padding: 20,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#ff6b35',
+    margin: 20,
+    marginTop: 0,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

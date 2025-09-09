@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ScrollView,
   TextInput,
   Platform,
   KeyboardAvoidingView,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,38 @@ export default function PingScreen() {
   const [dailyPingCount, setDailyPingCount] = useState(0);
   const [userRole, setUserRole] = useState(null);
   const [checkingRole, setCheckingRole] = useState(true);
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Success modal state
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   const cuisineOptions = [
     { label: 'Select Cuisine', value: '' },
@@ -85,7 +118,7 @@ export default function PingScreen() {
         setUserRole('customer');
       }
     } catch (error) {
-      console.error('Error checking user role:', error);
+
       // Default to customer on error
       setUserRole('customer');
     } finally {
@@ -111,7 +144,7 @@ export default function PingScreen() {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please enable location services to use this feature');
+        showToast('Please enable location services to use this feature', 'error');
         setUseCurrentLocation(false);
         return;
       }
@@ -119,8 +152,7 @@ export default function PingScreen() {
       let location = await Location.getCurrentPositionAsync({});
       setLocation(location);
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Location Error', 'Unable to get your current location');
+      showToast('Unable to get your current location', 'error');
       setUseCurrentLocation(false);
     }
   };
@@ -143,17 +175,17 @@ export default function PingScreen() {
   const sendPing = async () => {
     // Double-check user role as security measure
     if (userRole === 'owner') {
-      Alert.alert('Access Denied', 'Food truck owners cannot send food requests');
+      showToast('Food truck owners cannot send food requests', 'error');
       return;
     }
 
     if (!cuisineType) {
-      Alert.alert('Error', 'Please select a cuisine type');
+      showToast('Please select a cuisine type', 'error');
       return;
     }
 
     if (dailyPingCount >= 3) {
-      Alert.alert('Limit Reached', 'You can only send 3 pings per day');
+      showToast('You can only send 3 pings per day', 'error');
       return;
     }
 
@@ -164,7 +196,7 @@ export default function PingScreen() {
 
       if (useCurrentLocation) {
         if (!location) {
-          Alert.alert('Error', 'Unable to get your location. Please enter an address manually.');
+          showToast('Unable to get your location. Please enter an address manually.', 'error');
           setLoading(false);
           return;
         }
@@ -181,7 +213,7 @@ export default function PingScreen() {
           'Current Location';
       } else {
         if (!manualAddress.trim()) {
-          Alert.alert('Error', 'Please enter an address');
+          showToast('Please enter an address', 'error');
           setLoading(false);
           return;
         }
@@ -205,7 +237,7 @@ export default function PingScreen() {
 
       await addDoc(collection(db, 'pings'), pingData);
 
-      Alert.alert('Success', 'Your food request has been sent to nearby food trucks!');
+      setSuccessModalVisible(true);
       
       // Reset form
       setCuisineType('');
@@ -216,8 +248,7 @@ export default function PingScreen() {
       checkDailyPingCount();
 
     } catch (error) {
-      console.error('Error sending ping:', error);
-      Alert.alert('Error', error.message || 'Failed to send ping');
+      showToast(error.message || 'Failed to send ping', 'error');
     }
 
     setLoading(false);
@@ -353,6 +384,48 @@ export default function PingScreen() {
       </View>
       )}
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View style={[
+          styles.toast,
+          toastType === 'success' ? styles.toastSuccess : styles.toastError,
+          { opacity: fadeAnim }
+        ]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📡 Request Sent!</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalText}>
+                Your food request has been sent to nearby food trucks! 
+                They'll see your craving and may head your way.
+              </Text>
+              <Text style={styles.modalSubtext}>
+                Keep an eye on the map for trucks responding to your ping!
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setSuccessModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Awesome!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -511,5 +584,93 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 0,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    backgroundColor: '#2c6f57',
+    padding: 20,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalSubtext: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  modalButton: {
+    backgroundColor: '#2c6f57',
+    margin: 20,
+    marginTop: 0,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
   ActionSheetIOS,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -35,6 +36,38 @@ export default function OwnerSignupScreen({ navigation }) {
     plan: '',
   });
   const [loading, setLoading] = useState(false);
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Success modal state
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
+  // Toast notification function
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2500),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   const cuisineOptions = [
     { label: 'Select Cuisine Type', value: '' },
@@ -96,26 +129,8 @@ export default function OwnerSignupScreen({ navigation }) {
         }
       );
     } else {
-      // For Android, use Alert
-      Alert.alert(
-        'Choose Your Plan',
-        'Select the plan that best fits your needs:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Basic (Free)', 
-            onPress: () => handleInputChange('plan', 'basic')
-          },
-          { 
-            text: 'Pro ($9.99/month)', 
-            onPress: () => handleInputChange('plan', 'pro')
-          },
-          { 
-            text: 'All Access ($19.99/month)', 
-            onPress: () => handleInputChange('plan', 'all-access')
-          },
-        ]
-      );
+      // For Android, use toast-based selection
+      showToast('Plan selection available on this platform via form', 'error');
     }
   };
 
@@ -137,19 +152,8 @@ export default function OwnerSignupScreen({ navigation }) {
         }
       );
     } else {
-      // For Android, we'll create a scrollable alert since there are many options
-      const cuisineButtons = cuisineOptions.slice(1).map(option => ({
-        text: option.label,
-        onPress: () => handleInputChange('cuisine', option.value)
-      }));
-      
-      cuisineButtons.unshift({ text: 'Cancel', style: 'cancel' });
-
-      Alert.alert(
-        'Choose Cuisine Type',
-        'Select your food truck\'s cuisine type:',
-        cuisineButtons
-      );
+      // For Android, use toast-based selection
+      showToast('Cuisine selection available via dropdown above', 'error');
     }
   };
 
@@ -177,17 +181,17 @@ export default function OwnerSignupScreen({ navigation }) {
     const missingFields = requiredFields.filter(field => !formData[field]);
     
     if (missingFields.length > 0) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      showToast('Please fill in all required fields', 'error');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showToast('Passwords do not match', 'error');
       return;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      showToast('Password must be at least 6 characters long', 'error');
       return;
     }
 
@@ -250,16 +254,14 @@ export default function OwnerSignupScreen({ navigation }) {
             }, { merge: true });
           },
           (error) => {
-            console.error('Geolocation error:', error);
+      
           }
         );
       }
 
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) }
-      ]);
+      setSuccessModalVisible(true);
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showToast(error.message, 'error');
     }
     setLoading(false);
   };
@@ -280,7 +282,7 @@ export default function OwnerSignupScreen({ navigation }) {
           
           <View style={styles.logoContainer}>
             <Image 
-              source={require('../assets/grubana-logo.png')} 
+              source={require('../assets/logo.png')} 
               style={styles.logo}
               resizeMode="contain"
             />
@@ -504,6 +506,48 @@ export default function OwnerSignupScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View style={[
+          styles.toast,
+          toastType === 'success' ? styles.toastSuccess : styles.toastError,
+          { opacity: fadeAnim }
+        ]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Success Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={successModalVisible}
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎉 Welcome to Ping My Appetite!</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalText}>
+                Your food truck owner account has been created successfully! 
+                You're now ready to connect with hungry customers.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+              }}
+            >
+              <Text style={styles.modalButtonText}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -653,5 +697,85 @@ const styles = StyleSheet.create({
     color: '#2c6f57',
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 0,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    backgroundColor: '#2c6f57',
+    padding: 20,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#2c6f57',
+    margin: 20,
+    marginTop: 0,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

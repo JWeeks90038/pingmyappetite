@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ScrollView,
   TextInput,
   Image,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
@@ -39,6 +40,39 @@ export default function ProfileScreen({ navigation }) {
   const [userPlan, setUserPlan] = useState('basic');
   const [foodTruckPhoto, setFoodTruckPhoto] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Toast notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success' or 'error'
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Confirmation modal state
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  // Toast notification function
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
 
   useEffect(() => {
     setUser(auth.currentUser);
@@ -97,7 +131,7 @@ export default function ProfileScreen({ navigation }) {
         setDisplayName(auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'User');
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      
       // Fallback to auth data
       setDisplayName(auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'User');
     }
@@ -147,7 +181,7 @@ export default function ProfileScreen({ navigation }) {
                 }
               }
             } catch (error) {
-              console.log('Could not fetch user data for ping:', ping.id);
+           
             }
           }
 
@@ -162,13 +196,13 @@ export default function ProfileScreen({ navigation }) {
         });
         setUserPings(enhancedPings);
       }, (error) => {
-        console.log('Error loading user pings:', error);
+ 
         setUserPings([]); // Set empty array on error
       });
 
       return unsubscribe;
     } catch (error) {
-      console.log('Error setting up pings listener:', error);
+
       setUserPings([]);
       return null;
     }
@@ -190,13 +224,13 @@ export default function ProfileScreen({ navigation }) {
         }));
         setFavorites(favs);
       }, (error) => {
-        console.log('Error loading favorites:', error);
+
         setFavorites([]); // Set empty array on error
       });
 
       return unsubscribe;
     } catch (error) {
-      console.log('Error setting up favorites listener:', error);
+
       setFavorites([]);
       return null;
     }
@@ -204,7 +238,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleUpdateProfile = async () => {
     if (!displayName.trim()) {
-      Alert.alert('Error', 'Display name cannot be empty');
+      showToast('Display name cannot be empty', 'error');
       return;
     }
 
@@ -234,34 +268,26 @@ export default function ProfileScreen({ navigation }) {
       await setDoc(doc(db, 'users', auth.currentUser.uid), updateData, { merge: true });
 
       setEditing(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      showToast('Profile updated successfully!', 'success');
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile');
+      showToast('Failed to update profile', 'error');
     }
     setLoading(false);
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out');
-            }
-          }
+    setConfirmAction({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      onConfirm: async () => {
+        try {
+          await signOut(auth);
+        } catch (error) {
+          showToast('Failed to sign out', 'error');
         }
-      ]
-    );
+      }
+    });
+    setConfirmModalVisible(true);
   };
 
   const formatDate = (timestamp) => {
@@ -288,7 +314,7 @@ export default function ProfileScreen({ navigation }) {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Please allow access to your photo library to upload truck photos.');
+        showToast('Please allow access to your photo library to upload truck photos', 'error');
         return;
       }
 
@@ -328,15 +354,13 @@ export default function ProfileScreen({ navigation }) {
           // Update local state
           setFoodTruckPhoto(downloadURL);
           
-          Alert.alert('Success', 'Truck photo updated successfully!');
+          showToast('Truck photo updated successfully!', 'success');
         } catch (uploadError) {
-          console.error('Error uploading photo:', uploadError);
-          Alert.alert('Error', 'Failed to upload truck photo. Please try again.');
+          showToast('Failed to upload truck photo. Please try again.', 'error');
         }
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image');
+      showToast('Failed to select image', 'error');
     } finally {
       setUploadingPhoto(false);
     }
@@ -585,6 +609,53 @@ export default function ProfileScreen({ navigation }) {
       </TouchableOpacity>
 
       <View style={styles.bottomPadding} />
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View style={[
+          styles.toast,
+          toastType === 'success' ? styles.toastSuccess : styles.toastError,
+          { opacity: fadeAnim }
+        ]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={confirmModalVisible}
+        onRequestClose={() => setConfirmModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{confirmAction?.title}</Text>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalText}>{confirmAction?.message}</Text>
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setConfirmModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={() => {
+                  setConfirmModalVisible(false);
+                  confirmAction?.onConfirm();
+                }}
+              >
+                <Text style={styles.confirmButtonText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -886,5 +957,102 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 20,
+  },
+  // Toast styles
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    zIndex: 1000,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#f44336',
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 0,
+    margin: 20,
+    maxWidth: 350,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    backgroundColor: '#dc3545',
+    padding: 20,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  confirmButton: {
+    backgroundColor: '#dc3545',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
