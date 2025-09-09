@@ -25,7 +25,10 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "merchantId": "merchant.com.pingmyappetite.grubana",
-      "associatedDomains": ["applinks:grubana.com", "applinks:www.grubana.com"]
+      "associatedDomains": [
+        "applinks:grubana.com",
+        "applinks:www.grubana.com"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -37,7 +40,9 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -47,6 +52,10 @@
       "expo-location"
     ],
     "extra": {
-    }
+      "eas": {
+        "projectId": "6d8ae2b7-1cc1-4556-8dcc-7a536106989d"
+      }
+    },
+    "owner": "stellarmerit"
   }
 }
