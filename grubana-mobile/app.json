@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings.",
