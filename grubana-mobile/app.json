@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby food trucks and send location-based pings.",
@@ -47,6 +47,15 @@
       "expo-location",
       "expo-font"
     ],
+    "submit": {
+      "production": {
+        "ios": {
+          "appleId": "6752311735",
+          "ascAppId": "6752311735",
+          "appleTeamId": "2NW6YF9UXT"
+        }
+      }
+    },
     "extra": {
       "eas": {
         "projectId": "6d8ae2b7-1cc1-4556-8dcc-7a536106989d"
