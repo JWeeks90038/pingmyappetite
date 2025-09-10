@@ -31,6 +31,9 @@ const inferCuisineType = (truckName) => {
   if (name.includes('indian')) return 'indian';
   if (name.includes('japanese') || name.includes('sushi') || name.includes('hibachi') || name.includes('arayaki')) return 'japanese';
   if (name.includes('korean')) return 'korean';
+  if (name.includes('latin american') || name.includes('latin')) return 'latin';
+  if (name.includes('colombian') || name.includes('columbia')) return 'colombian';
+  if (name.includes('caribbean')) return 'caribbean';
   if (name.includes('greek')) return 'greek';
   if (name.includes('coffee') || name.includes('espresso')) return 'coffee';
   if (name.includes('dessert') || name.includes('ice cream') || name.includes('donut') || name.includes('creamery')) return 'desserts';

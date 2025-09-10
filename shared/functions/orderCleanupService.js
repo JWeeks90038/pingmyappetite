@@ -1,5 +1,7 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onRequest } from 'firebase-functions/v2/https';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import admin from 'firebase-admin';
 
 // Get Firestore instance
 const db = admin.firestore();
@@ -8,10 +10,12 @@ const db = admin.firestore();
  * Cloud Function to clean up old pending payment and cancelled orders
  * Runs every 30 minutes
  */
-export const cleanupOldOrders = functions.pubsub
-  .schedule('every 30 minutes')
-  .timeZone('America/Los_Angeles') // Adjust timezone as needed
-  .onRun(async (context) => {
+export const cleanupOldOrders = onSchedule(
+  {
+    schedule: 'every 30 minutes',
+    timeZone: 'America/Los_Angeles', // Adjust timezone as needed
+  },
+  async (event) => {
     try {
  
       
@@ -88,7 +92,7 @@ export const cleanupOldOrders = functions.pubsub
  * HTTP Cloud Function to manually trigger cleanup
  * Usage: POST https://your-region-your-project.cloudfunctions.net/manualCleanupOrders?minutes=15
  */
-export const manualCleanupOrders = functions.https.onRequest(async (req, res) => {
+export const manualCleanupOrders = onRequest(async (req, res) => {
   try {
     // Add CORS headers
     res.set('Access-Control-Allow-Origin', '*');
@@ -190,12 +194,12 @@ export const manualCleanupOrders = functions.https.onRequest(async (req, res) =>
  * Firestore trigger that runs when an order status changes
  * Helps clean up orders that get stuck in pending states
  */
-export const orderStatusCleanupTrigger = functions.firestore
-  .document('orders/{orderId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-    const orderId = context.params.orderId;
+export const orderStatusCleanupTrigger = onDocumentUpdated(
+  'orders/{orderId}',
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    const orderId = event.params.orderId;
     
     // If order moves from pending_payment to cancelled, schedule cleanup
     if (before.status === 'pending_payment' && after.status === 'cancelled') {

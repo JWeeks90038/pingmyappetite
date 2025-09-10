@@ -24,6 +24,7 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
+    "firebase": "^12.2.1",
     "firebase-admin": "^13.5.0"
   }
 }

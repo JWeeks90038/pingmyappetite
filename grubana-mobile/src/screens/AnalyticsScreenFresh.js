@@ -89,11 +89,11 @@ export default function AnalyticsScreen() {
   // Real ping analytics
   useEffect(() => {
     if (!userData?.uid || userRole !== 'owner') {
-  
+ 
       return;
     }
 
- 
+
 
     let unsubscribeUser = null;
     let unsubscribePings = null;
@@ -102,31 +102,31 @@ export default function AnalyticsScreen() {
 
     unsubscribeUser = onSnapshot(userDocRef, async (ownerDoc) => {
       if (!ownerDoc.exists()) {
- 
+  
         return;
       }
       
       const userPlan = ownerDoc.data().plan || 'basic';
 
-      
-      if (userPlan !== 'all-access') {
-     
-        return;
-      }
+
+      // Remove plan restriction to allow all users to see ping analytics
+      // if (userPlan !== 'all-access') {
+
+      //   return;
+      // }
 
       // Get truck location
-      const truckDoc = await getDoc(doc(db, 'truckLocations', userData.uid));
-      if (!truckDoc.exists()) {
-     
-        return;
-      }
+      let truckData = null;
+      try {
+        const truckDoc = await getDoc(doc(db, 'truckLocations', userData.uid));
+        if (truckDoc.exists()) {
+          truckData = truckDoc.data();
+   
+        } else {
+    
+        }
+      } catch (error) {
 
-      const truckData = truckDoc.data();
-  
-      
-      if (!truckData.lat || !truckData.lng) {
-     
-        return;
       }
 
       // Get time ranges
@@ -134,35 +134,67 @@ export default function AnalyticsScreen() {
       const sevenDaysAgo = Timestamp.fromDate(new Date(nowMs - 7 * 24 * 60 * 60 * 1000));
       const thirtyDaysAgo = Timestamp.fromDate(new Date(nowMs - 30 * 24 * 60 * 60 * 1000));
 
+      ('Analytics: Time ranges', {
+        now: new Date(nowMs),
+        sevenDaysAgo: sevenDaysAgo.toDate(),
+        thirtyDaysAgo: thirtyDaysAgo.toDate()
+      });
+
       // Query pings
       const q = query(collection(db, 'pings'), where('timestamp', '>=', thirtyDaysAgo));
       
       unsubscribePings = onSnapshot(q, (snapshot) => {
-
+        
         
         const pings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+     
         
-        const last7 = pings.filter(p => p.timestamp.seconds >= sevenDaysAgo.seconds);
- 
+        const last7 = pings.filter(p => p.timestamp && p.timestamp.seconds >= sevenDaysAgo.seconds);
+      
 
-        // Distance filtering
-        const getLoc = (p) => p.location || (p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null);
+        // If no truck location, show all pings
+        if (!truckData || !truckData.lat || !truckData.lng) {
+          ('Analytics: No truck location, showing all pings');
+          setPingStats({
+            last7Days: last7.length,
+            last30Days: pings.length,
+            cuisineMatchCount: 0,
+          });
+          return;
+        }
+
+        // Distance filtering - Fixed location property access
+        const getLoc = (p) => {
+          // Handle both old format (p.location) and new format (p.lat, p.lng)
+          if (p.location && p.location.lat && p.location.lng) {
+            return { lat: p.location.lat, lng: p.location.lng };
+          } else if (p.lat && p.lng) {
+            return { lat: p.lat, lng: p.lng };
+          }
+          return null;
+        };
 
         const nearbyPings7 = last7.filter(p => {
           const loc = getLoc(p);
-          if (!loc) return false;
+          if (!loc) {
+         
+            return false;
+          }
           const distance = getDistanceFromLatLonInKm(truckData.lat, truckData.lng, loc.lat, loc.lng);
-          return distance <= 5;
+          return distance <= 50; // Increased from 5km to 50km for better coverage
         });
 
         const nearbyPings30 = pings.filter(p => {
           const loc = getLoc(p);
           if (!loc) return false;
           const distance = getDistanceFromLatLonInKm(truckData.lat, truckData.lng, loc.lat, loc.lng);
-          return distance <= 80;
+          return distance <= 100; // Increased from 80km to 100km
         });
 
-  
+        ('Analytics: Final ping counts:', {
+          nearbyPings7: nearbyPings7.length,
+          nearbyPings30: nearbyPings30.length
+        });
 
         setPingStats({
           last7Days: nearbyPings7.length,
@@ -667,12 +699,12 @@ export default function AnalyticsScreen() {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <Text style={styles.title}>📊 Event Analytics Dashboard</Text>
+          <Text style={[styles.title, { marginTop: 50 }]}>Analytics Dashboard</Text>
           
           {eventOrganizerStats.totalEvents === 0 ? (
             <View style={styles.section}>
               <View style={styles.placeholderContainer}>
-                <Ionicons name="bar-chart-outline" size={64} color="#ccc" />
+                <Ionicons name="bar-chart-outline" size={64} color="#4DBFFF" />
                 <Text style={styles.placeholderText}>
                   📊 No events created yet! Your event analytics will appear here once you create your first event.
                 </Text>
@@ -685,7 +717,7 @@ export default function AnalyticsScreen() {
                 <Text style={styles.sectionTitle}>📈 Overview</Text>
                 <View style={styles.statsGrid}>
                   <View style={styles.statCard}>
-                    <Ionicons name="calendar" size={24} color="#2c6f57" style={styles.statIcon} />
+                    <Ionicons name="calendar" size={24} color="#4DBFFF" style={styles.statIcon} />
                     <Text style={styles.statNumber}>{eventOrganizerStats.totalEvents}</Text>
                     <Text style={styles.statLabel}>Total Events</Text>
                     <Text style={styles.statSubtext}>
@@ -730,7 +762,7 @@ export default function AnalyticsScreen() {
                 <Text style={styles.sectionTitle}>🚛 Food Truck Signups</Text>
                 <View style={styles.statsGrid}>
                   <View style={styles.statCard}>
-                    <Ionicons name="restaurant" size={24} color="#2c6f57" style={styles.statIcon} />
+                    <Ionicons name="restaurant" size={24} color="#4DBFFF" style={styles.statIcon} />
                     <Text style={styles.statNumber}>{eventOrganizerStats.totalTruckApplications}</Text>
                     <Text style={styles.statLabel}>Total Applications</Text>
                     <Text style={styles.statSubtext}>
@@ -757,7 +789,7 @@ export default function AnalyticsScreen() {
                   </View>
 
                   <View style={styles.statCard}>
-                    <Ionicons name="stats-chart" size={24} color="#2196F3" style={styles.statIcon} />
+                    <Ionicons name="stats-chart" size={24} color="#4DBFFF" style={styles.statIcon} />
                     <Text style={styles.statNumber}>{eventOrganizerStats.approvalRate}%</Text>
                     <Text style={styles.statLabel}>Approval Rate</Text>
                     <Text style={styles.statSubtext}>
@@ -808,7 +840,7 @@ export default function AnalyticsScreen() {
                       {/* Food Truck Applications Row */}
                       <View style={styles.performanceStatsRow}>
                         <View style={styles.performanceStatCompact}>
-                          <Ionicons name="restaurant" size={14} color="#2c6f57" />
+                          <Ionicons name="restaurant" size={14} color="#4DBFFF" />
                           <Text style={styles.performanceStatNumber}>
                             {eventOrganizerStats.applicationsByEvent[event.eventId]?.total || 0}
                           </Text>
@@ -952,7 +984,7 @@ export default function AnalyticsScreen() {
               {/* Overall Stats */}
               <View style={styles.statsGrid}>
                 <View style={styles.statCard}>
-                  <Ionicons name="receipt" size={24} color="#2c6f57" style={styles.statIcon} />
+                  <Ionicons name="receipt" size={24} color="#4DBFFF" style={styles.statIcon} />
                   <Text style={styles.statNumber}>{orderStats.totalOrders}</Text>
                   <Text style={styles.statLabel}>Total Orders</Text>
                 </View>
@@ -962,7 +994,7 @@ export default function AnalyticsScreen() {
                   <Text style={styles.statLabel}>Total Revenue</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Ionicons name="checkmark-circle" size={24} color="#2c6f57" style={styles.statIcon} />
+                  <Ionicons name="checkmark-circle" size={24} color="#4DBFFF" style={styles.statIcon} />
                   <Text style={styles.statNumber}>{orderStats.completedOrders || 0}</Text>
                   <Text style={styles.statLabel}>Completed Orders</Text>
                 </View>
@@ -1034,7 +1066,7 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1A1036', // Dark purple background
   },
   scrollContainer: {
     padding: 20,
@@ -1042,31 +1074,33 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White text
     marginBottom: 20,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6c757d',
+    color: '#B0B0B0', // Light gray
     textAlign: 'center',
     marginTop: 10,
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: '#2D1B4E', // Darker purple sections
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#4DBFFF', // Blue accent border
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White section titles
     marginBottom: 15,
   },
   statsGrid: {
@@ -1075,40 +1109,44 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036', // Darker background for cards
     borderRadius: 10,
     padding: 15,
     width: '48%',
     marginBottom: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF4EC9', // Pink accent border
   },
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#4DBFFF', // Blue accent for numbers
     marginBottom: 5,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: '#B0B0B0', // Light gray labels
     textAlign: 'center',
   },
   placeholderContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#2D1B4E', // Dark purple background
     borderRadius: 10,
     padding: 20,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
   },
   placeholderText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#B0B0B0', // Light gray text
     textAlign: 'center',
     lineHeight: 20,
     marginTop: 10,
   },
   placeholderSubtext: {
     fontSize: 12,
-    color: '#999',
+    color: '#888888', // Slightly darker gray
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 8,
@@ -1119,15 +1157,17 @@ const styles = StyleSheet.create({
   },
   statSubtext: {
     fontSize: 12,
-    color: '#999',
+    color: '#888888', // Gray subtext
     textAlign: 'center',
     marginTop: 2,
   },
   performanceCard: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036', // Dark background for performance cards
     padding: 15,
     borderRadius: 10,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
   },
   performanceHeader: {
     flexDirection: 'row',
@@ -1138,13 +1178,13 @@ const styles = StyleSheet.create({
   performanceTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White performance titles
     flex: 1,
     marginRight: 10,
   },
   performanceDate: {
     fontSize: 12,
-    color: '#666',
+    color: '#B0B0B0', // Light gray dates
     textAlign: 'right',
   },
   performanceStats: {
@@ -1173,39 +1213,41 @@ const styles = StyleSheet.create({
   },
   performanceStatText: {
     fontSize: 14,
-    color: '#666',
+    color: '#B0B0B0', // Light gray text
     marginLeft: 4,
   },
   performanceStatNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#4DBFFF', // Blue accent for numbers
     marginTop: 2,
   },
   performanceStatLabel: {
     fontSize: 11,
-    color: '#999',
+    color: '#888888', // Gray labels
     textAlign: 'center',
     marginTop: 1,
   },
   tipsContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#2D1B4E', // Dark purple background
     padding: 15,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
   },
   tipText: {
     fontSize: 14,
-    color: '#666',
+    color: '#B0B0B0', // Light gray text
     marginBottom: 8,
     lineHeight: 20,
   },
   upgradePrompt: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#2D1B4E', // Dark purple background
     padding: 20,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: '#4DBFFF',
   },
   lockIcon: {
     marginBottom: 15,
@@ -1213,52 +1255,52 @@ const styles = StyleSheet.create({
   upgradeTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White title
     marginBottom: 10,
     textAlign: 'center',
   },
   upgradeText: {
     fontSize: 16,
-    color: '#666',
+    color: '#B0B0B0', // Light gray text
     textAlign: 'center',
     marginBottom: 10,
     lineHeight: 22,
   },
   currentPlanText: {
     fontSize: 14,
-    color: '#ff6b6b',
+    color: '#FF4EC9', // Pink accent
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 15,
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#1A1036',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ff6b6b',
+    borderColor: '#FF4EC9',
   },
   upgradeFeatures: {
     fontSize: 14,
-    color: '#555',
+    color: '#B0B0B0', // Light gray features
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
   },
   upgradeButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Pink button
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
   upgradeButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White button text
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
@@ -1266,12 +1308,14 @@ const styles = StyleSheet.create({
   placeholderContainer: {
     alignItems: 'center',
     padding: 30,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#2D1B4E', // Dark purple background
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4DBFFF',
   },
   placeholderText: {
     fontSize: 16,
-    color: '#666',
+    color: '#B0B0B0', // Light gray text
     textAlign: 'center',
     marginTop: 15,
     marginBottom: 10,
@@ -1279,7 +1323,7 @@ const styles = StyleSheet.create({
   },
   placeholderSubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#888888', // Gray subtext
     textAlign: 'center',
     lineHeight: 20,
   },

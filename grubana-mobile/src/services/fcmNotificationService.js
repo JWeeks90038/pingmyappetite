@@ -54,6 +54,9 @@ class FCMNotificationService {
    */
   async initializeExpoNotifications(userId) {
     try {
+      // Check if user needs token refresh
+      await this.checkAndHandleTokenRefresh(userId);
+      
       // Import Expo notifications dynamically to avoid compile errors
       const Notifications = await import('expo-notifications');
       const Device = await import('expo-device');
@@ -82,14 +85,49 @@ class FCMNotificationService {
       }
 
       if (finalStatus !== 'granted') {
-   
+
         return false;
       }
 
-      // Get device push token (FCM compatible)
-      const tokenResponse = await Notifications.default.getDevicePushTokenAsync();
-      const fcmToken = tokenResponse.data || tokenResponse;
+  
 
+      // Try to get Firebase FCM token first (for future compatibility)
+      let fcmToken = null;
+      
+      try {
+        // Try using Firebase messaging directly (this will work when app is ejected)
+        const { getMessaging, getToken } = await import('firebase/messaging');
+        const messaging = getMessaging();
+        fcmToken = await getToken(messaging);
+
+      } catch (firebaseError) {
+    
+        
+        // Fallback to Expo token (current development setup)
+        try {
+          const tokenResponse = await Notifications.default.getDevicePushTokenAsync();
+          fcmToken = tokenResponse.data || tokenResponse;
+    
+        } catch (expoError) {
+    
+          return false;
+        }
+      }
+
+      // Validate token
+      if (!fcmToken || typeof fcmToken !== 'string') {
+      
+        return false;
+      }
+      
+      // Log token type for debugging
+      if (fcmToken.startsWith('ExponentPushToken[')) {
+    
+      } else if (fcmToken.length > 100 && fcmToken.includes(':')) {
+    
+      } else {
+
+      }
 
       this.fcmToken = fcmToken;
 
@@ -100,10 +138,11 @@ class FCMNotificationService {
       this.setupExpoListeners(Notifications.default);
       
       this.isInitialized = true;
+ 
       return true;
 
     } catch (error) {
-
+   
       return false;
     }
   }
@@ -158,21 +197,35 @@ class FCMNotificationService {
     try {
       const userRef = doc(db, 'users', userId);
       
-      await updateDoc(userRef, {
-        fcmToken: token,
+      // Determine token type for better compatibility
+      const isExpoToken = token && token.startsWith('ExponentPushToken[');
+      const tokenType = isExpoToken ? 'expo' : 'fcm';
+      
+
+      
+      const updateData = {
+        fcmToken: token, // Always save as fcmToken for backend compatibility
         fcmTokenUpdatedAt: new Date(),
         notificationPermission: 'granted',
         platform: Platform.OS,
+        tokenType: tokenType, // Track what type of token this is
         notificationPreferences: {
           push: true,
           sms: false,
           email: true
         }
-      });
+      };
       
-   
-    } catch (error) {
+      // Also save as expoPushToken if it's an Expo token
+      if (isExpoToken) {
+        updateData.expoPushToken = token;
+      }
+      
+      await updateDoc(userRef, updateData);
+      
 
+    } catch (error) {
+   
       throw error;
     }
   }
@@ -321,6 +374,48 @@ class FCMNotificationService {
  
     } catch (error) {
 
+    }
+  }
+
+  /**
+   * Check if user needs token refresh and handle it
+   */
+  async checkAndHandleTokenRefresh(userId) {
+    try {
+ 
+      
+      // Get user document to check refresh flag
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+
+        return;
+      }
+      
+      const userData = userDoc.data();
+      
+      // Check if refresh is required
+      if (userData.fcmTokenRefreshRequired) {
+  
+        
+        // Clear current token to force regeneration
+        this.fcmToken = null;
+        
+        // Clear the refresh flag and old token from database
+        await updateDoc(userDocRef, {
+          fcmTokenRefreshRequired: false,
+          fcmToken: null, // Clear old token
+          fcmTokenRefreshedAt: new Date(),
+        });
+        
+
+      } else {
+
+      }
+      
+    } catch (error) {
+ 
     }
   }
 

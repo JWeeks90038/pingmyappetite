@@ -122,84 +122,47 @@ const getUserUnreadCount = async (userId) => {
       .where('read', '==', false)
       .get();
     
-    return unreadQuery.size;
+    const count = unreadQuery.size;
+    logger.info(`📱 Found ${count} unread notifications for user ${userId}`);
+    
+    return Math.min(count, 99); // Cap at 99 for display
   } catch (error) {
-    logger.error('Error getting unread count:', error);
+    logger.error('📱 Error getting unread count:', error);
+    
+    // If index is still building, return a reasonable default
+    if (error.message && error.message.includes('index')) {
+      logger.warn('📱 Index still building for sentNotifications query, using default badge count');
+      return 1;
+    }
+    
     return 1; // Default to 1 if we can't get count
   }
 };
 
 /**
- * Send push notification via FCM
+ * Send push notification via FCM or Expo
  */
-const sendPushNotification = async (fcmToken, title, body, data = {}) => {
+const sendPushNotification = async (token, title, body, data = {}) => {
   try {
-    if (!fcmToken) {
-      return { success: false, error: 'No FCM token', method: 'push' };
+    if (!token) {
+      return { success: false, error: 'No token provided', method: 'push' };
     }
     
     // Get badge count for this user
     const badgeCount = data.userId ? await getUserUnreadCount(data.userId) : 1;
     
-    const message = {
-      token: fcmToken,
-      notification: {
-        title,
-        body
-      },
-      data: {
-        ...data,
-        clickAction: data.clickAction || '/my-orders',
-        type: data.type || 'order_status'
-      },
-      // iOS specific badge count
-      apns: {
-        payload: {
-          aps: {
-            badge: badgeCount,
-            sound: 'default'
-          }
-        }
-      },
-      // Android specific badge count
-      android: {
-        notification: {
-          notificationCount: badgeCount
-        }
-      },
-      webpush: {
-        notification: {
-          title,
-          body,
-          icon: '/logo.png',
-          badge: '/truck-icon.png',
-          requireInteraction: true,
-          actions: [
-            {
-              action: 'view',
-              title: '👀 View Order'
-            },
-            {
-              action: 'dismiss',
-              title: '✖️ Dismiss'
-            }
-          ]
-        },
-        fcmOptions: {
-          link: data.clickAction || '/my-orders'
-        }
-      }
-    };
+    // Check if this is an Expo token or FCM token
+    const isExpoToken = token.startsWith('ExponentPushToken[');
     
-    const response = await admin.messaging().send(message);
-    
-    logger.info(`📱 Push notification sent: ${response}`);
-    
-    return {
-      success: true,
-      messageId: response,
-      method: 'push'
-    };
+    if (isExpoToken) {
+      logger.info('📱 Sending via Expo Push Service');
+      // For now, try FCM anyway since Expo tokens might work with FCM
+      // In the future, implement proper Expo push service
+      return await sendFCMNotification(token, title, body, data, badgeCount);
+    } else {
+      logger.info('📱 Sending via Firebase FCM');
+      return await sendFCMNotification(token, title, body, data, badgeCount);
+    }
     
   } catch (error) {
     logger.error('📱 Error sending push notification:', error);
@@ -209,7 +172,7 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
         error.code === 'messaging/registration-token-not-registered') {
       
       // TODO: Remove invalid token from user's document
-      logger.warn('📱 Invalid FCM token, should be removed from user document');
+      logger.warn('📱 Invalid token, should be removed from user document');
     }
     
     return {
@@ -218,6 +181,71 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
       method: 'push'
     };
   }
+};
+
+/**
+ * Send notification via Firebase FCM
+ */
+const sendFCMNotification = async (fcmToken, title, body, data, badgeCount) => {
+  const message = {
+    token: fcmToken,
+    notification: {
+      title,
+      body
+    },
+    data: {
+      ...data,
+      clickAction: data.clickAction || '/my-orders',
+      type: data.type || 'order_status'
+    },
+    // iOS specific badge count
+    apns: {
+      payload: {
+        aps: {
+          badge: badgeCount,
+          sound: 'default'
+        }
+      }
+    },
+    // Android specific badge count
+    android: {
+      notification: {
+        notificationCount: badgeCount
+      }
+    },
+    webpush: {
+      notification: {
+        title,
+        body,
+        icon: '/logo.png',
+        badge: '/truck-icon.png',
+        requireInteraction: true,
+        actions: [
+          {
+            action: 'view',
+            title: '👀 View Order'
+          },
+          {
+            action: 'dismiss',
+            title: '✖️ Dismiss'
+          }
+        ]
+      },
+      fcmOptions: {
+        link: data.clickAction || '/my-orders'
+      }
+    }
+  };
+  
+  const response = await admin.messaging().send(message);
+  
+  logger.info(`📱 FCM notification sent: ${response}`);
+  
+  return {
+    success: true,
+    messageId: response,
+    method: 'fcm'
+  };
 };
 
 /**

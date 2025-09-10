@@ -506,7 +506,9 @@ export default function MapScreen() {
     { id: 'italian', name: 'Italian', emoji: '🍝' },
     { id: 'japanese', name: 'Japanese', emoji: '🍣' },
     { id: 'korean', name: 'Korean', emoji: '🥢' },
-    { id: 'latin', name: 'Latin', emoji: '🫓' },
+    { id: 'caribbean', name: 'Caribbean', emoji: '🍹' },
+  { id: 'latin', name: 'Latin American', emoji: '🫓' },
+  { id: 'colombian', name: 'Colombian', emoji: '🥟' },
     { id: 'mediterranean', name: 'Mediterranean', emoji: '🥙' },
     { id: 'mexican', name: 'Mexican', emoji: '🌮' },
     { id: 'pizza', name: 'Pizza', emoji: '🍕' },
@@ -559,7 +561,9 @@ export default function MapScreen() {
     if (name.includes('thai')) return 'thai';
     if (name.includes('indian')) return 'indian';
     if (name.includes('japanese') || name.includes('sushi')) return 'japanese';
-    if (name.includes('korean')) return 'korean';
+  if (name.includes('korean')) return 'korean';
+  if (name.includes('caribbean')) return 'caribbean';
+  if (name.includes('colombian') || name.includes('colombia')) return 'colombian';
     if (name.includes('greek')) return 'greek';
     if (name.includes('coffee') || name.includes('espresso')) return 'coffee';
     if (name.includes('dessert') || name.includes('ice cream') || name.includes('donut')) return 'desserts';
@@ -2834,7 +2838,7 @@ export default function MapScreen() {
       setFoodTrucks([]);
     });
 
-    // Load customer pings for both heatmap (Pro/All-Access) and individual markers (Basic)
+    // Load customer pings for heatmap (kitchen owners/event organizers) and individual markers (customers)
     let unsubscribePings = null;
 
     
@@ -2852,7 +2856,8 @@ export default function MapScreen() {
         const timestamp = ping.timestamp?.toDate?.();
         const isRecent = timestamp && timestamp > oneDayAgo;
         
-        // Only include pings within reasonable distance (200km radius) for better coverage
+        // Only include pings within reasonable distance (1000km radius) for better coverage
+        // Skip distance filtering if no user location available
         if (location && isFinite(lat) && isFinite(lng)) {
           const userLat = location.coords.latitude;
           const userLng = location.coords.longitude;
@@ -2864,13 +2869,10 @@ export default function MapScreen() {
                    Math.cos(userLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
                    Math.sin(dLng/2) * Math.sin(dLng/2);
           const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-          const withinRange = distance <= 200; // 200km radius for better coverage
-          
+          const withinRange = distance <= 1000; // Temporarily increase to 1000km for testing
   
           return isFinite(lat) && isFinite(lng) && isRecent && withinRange;
-        }
-        
-        return isFinite(lat) && isFinite(lng) && isRecent;
+        }        return isFinite(lat) && isFinite(lng) && isRecent;
       });
       
       if (userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') {
@@ -3124,10 +3126,16 @@ export default function MapScreen() {
   // Generate map HTML when location, trucks, or pings change
   useEffect(() => {
     const generateHTML = async () => {
+      // Use default location if user location is not available (for ping display purposes)
+      let currentLocation = location;
       if (!location) {
-        setMapHTML('');
-        setWebViewReady(false);
-        return;
+
+        currentLocation = {
+          coords: {
+            latitude: 33.5586493, // Default to roughly Murrieta area (where the pings are)
+            longitude: -117.1574504
+          }
+        };
       }
       
       
@@ -3282,10 +3290,19 @@ export default function MapScreen() {
   };
 
   const createMapHTML = async () => {
-    if (!location) return '';
+    // Use default location if user location is not available
+    let currentLocation = location;
+    if (!location) {
+      currentLocation = {
+        coords: {
+          latitude: 33.5586493,
+          longitude: -117.1574504
+        }
+      };
+    }
     
-    const userLat = location.coords.latitude;
-    const userLng = location.coords.longitude;
+    const userLat = currentLocation.coords.latitude;
+    const userLng = currentLocation.coords.longitude;
     
     // Use real truck data if available, otherwise fallback to mock data ONLY if no Firebase data received
     // CRITICAL: Don't use mock data if trucks are just hidden for privacy reasons
@@ -3736,9 +3753,64 @@ export default function MapScreen() {
                 border-radius: 8px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             }
+            
+            /* Ping Marker Cluster Styles */
+            .ping-cluster {
+                background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+                border: 3px solid #ffffff;
+                border-radius: 50%;
+                box-shadow: 0 3px 10px rgba(155, 89, 182, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .ping-cluster div {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+            }
+            
+            .ping-cluster span {
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            }
+            
+            .ping-cluster-small {
+                width: 30px;
+                height: 30px;
+            }
+            
+            .ping-cluster-small span {
+                font-size: 12px;
+            }
+            
+            .ping-cluster-medium {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .ping-cluster-large {
+                width: 50px;
+                height: 50px;
+                background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+                box-shadow: 0 3px 10px rgba(231, 76, 60, 0.4);
+            }
+            
+            .ping-cluster-large span {
+                font-size: 16px;
+            }
         </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
         <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
         <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     </head>
     <body>
@@ -3938,6 +4010,59 @@ export default function MapScreen() {
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+            
+            // Initialize marker cluster group for ping markers
+            let pingMarkerCluster = L.markerClusterGroup({
+                disableClusteringAtZoom: 16, // Disable clustering when zoomed in close
+                maxClusterRadius: 50, // Maximum distance between markers to cluster
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 10) size = 'large';
+                    else if (count > 5) size = 'medium';
+                    
+                    return L.divIcon({
+                        html: '<div><span>' + count + '</span></div>',
+                        className: 'ping-cluster ping-cluster-' + size,
+                        iconSize: L.point(40, 40)
+                    });
+                }
+            });
+            map.addLayer(pingMarkerCluster);
+            
+            // Helper function to clear and refresh ping markers
+            function refreshPingMarkers(pings) {
+        ('Refreshing ping markers with', pings.length, 'pings');
+                pingMarkerCluster.clearLayers();
+                
+                pings.forEach((ping, index) => {
+                    if (ping.lat && ping.lng) {
+                        const marker = L.marker([ping.lat, ping.lng], {
+                            icon: L.divIcon({
+                                className: 'ping-marker',
+                                html: '<div style="background: #9b59b6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 12px;">📍</div>',
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            })
+                        });
+                        
+                        const popupContent = \`
+                            <div style="font-family: Arial, sans-serif; min-width: 200px;">
+                                <h4 style="margin: 0 0 8px 0; color: #9b59b6;">🍴 Customer Ping</h4>
+                                <p style="margin: 4px 0;"><strong>Cuisine:</strong> \${ping.cuisineType || 'Not specified'}</p>
+                                <p style="margin: 4px 0;"><strong>Customer:</strong> \${ping.username || 'Anonymous'}</p>
+                                <p style="margin: 4px 0;"><strong>Address:</strong> \${ping.address || 'Not provided'}</p>
+                                <p style="margin: 4px 0;"><strong>Time:</strong> \${ping.timestamp ? new Date(ping.timestamp.seconds * 1000).toLocaleString() : 'Unknown'}</p>
+                            </div>
+                        \`;
+                        
+                        marker.bindPopup(popupContent);
+                        pingMarkerCluster.addLayer(marker);
+                    }
+                });
+                
+          
+            }
        
 
             // User location marker
@@ -4208,7 +4333,7 @@ export default function MapScreen() {
                 events = [];
             }
             
-            // Customer ping data for heatmap (Pro/All-Access only)
+            // Customer ping data for heatmap (kitchen owners/event organizers) and individual markers (customers)
     
             let customerPings = [];
             try {
@@ -4240,7 +4365,11 @@ export default function MapScreen() {
 
             const userPlan = '${userPlan}';
             const userRole = '${userRole}';
-            const showHeatmapFeatures = userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium';
+   
+            // Show heatmap for kitchen owners and event organizers, individual markers for customers
+            const showHeatmapFeatures = userRole === 'owner' || userRole === 'event-organizer';
+            const showIndividualPingMarkers = userRole === 'customer';
+   
             
             let truckMarkers = [];
             let eventMarkers = [];
@@ -4251,7 +4380,7 @@ export default function MapScreen() {
             var statusFilter = 'all';
             
             // User favorites from React state
-            var userFavorites = new Set(${JSON.stringify(Array.from(userFavorites || new Set()))}); // From React state
+            var userFavorites = new Set([${Array.from(userFavorites || new Set()).map(fav => `"${fav}"`).join(', ')}]); // From React state
             
      
 
@@ -4442,6 +4571,22 @@ export default function MapScreen() {
 
                     // Log the actual truck data we're working with
                     trucksToUse = trucks || foodTrucks || [];
+                    
+                    // Apply cuisine filtering if active
+                    if (typeof selectedCuisineType !== 'undefined' && selectedCuisineType && selectedCuisineType.length > 0) {
+                        trucksToUse = trucksToUse.filter(truck => {
+                            const truckCuisine = (
+                                truck.cuisineType || 
+                                truck.cuisine || 
+                                truck.type || 
+                                truck.cuisinetype ||
+                                'food'
+                            ).toLowerCase().trim();
+                            
+                            const shouldExclude = isCuisineExcluded(truckCuisine, selectedCuisineType);
+                            return !shouldExclude;
+                        });
+                    }
                     
                     
                     // Clear existing markers
@@ -4767,7 +4912,7 @@ export default function MapScreen() {
                 }));
             }
 
-            // Create heatmap from customer pings (Pro/All-Access only)
+            // Create heatmap from customer pings (kitchen owners/event organizers only)
             function createHeatmap() {
   
                 
@@ -4849,7 +4994,7 @@ export default function MapScreen() {
        
                 
                 if (!showHeatmapFeatures) {
-                    alert('Heatmap features are available for Pro and All-Access plans only!');
+                    alert('Heatmap features are available for kitchen owners and event organizers only!');
                     return;
                 }
                 
@@ -5103,20 +5248,17 @@ export default function MapScreen() {
                 
                 const itemCuisine = cuisineType.toLowerCase().trim();
                 
-                
                 const isExcluded = excludedCuisines.some(excludedType => {
                     const normalizedExcluded = excludedType.toLowerCase().trim();
               
                     
                     // Direct match
                     if (itemCuisine === normalizedExcluded) {
-                 
                         return true;
                     }
                     
                     // Partial match for compound cuisines
                     if (itemCuisine.includes(normalizedExcluded) || normalizedExcluded.includes(itemCuisine)) {
-                   
                         return true;
                     }
                     
@@ -5133,7 +5275,9 @@ export default function MapScreen() {
                     
                     for (const [category, variants] of Object.entries(variations)) {
                         if (variants.includes(normalizedExcluded) && variants.includes(itemCuisine)) {
-               
+                            if (itemCuisine.includes('bbq') || normalizedExcluded.includes('bbq')) {
+                              
+                            }
                             return true;
                         }
                     }
@@ -5142,27 +5286,31 @@ export default function MapScreen() {
                     return false;
                 });
                 
+                // Debug logging for BBQ results
+                if (itemCuisine.includes('bbq') || excludedCuisines.some(exc => exc.includes('bbq'))) {
+                
+                }
 
                 return isExcluded;
             }
 
             // Filter customer pings by excluded cuisines
             function filterPingsByCuisine(pings, excludedCuisines) {
-               onsole.log('🍽️ filterPingsByCuisine called with', pings.length, 'pings and excluded cuisines:', excludedCuisines);
+            
                 
                 if (excludedCuisines.length === 0) {
-                   
+            
                     return pings;
                 }
                 
                 const filtered = pings.filter(ping => {
                     const pingCuisine = ping.cuisineType || ping.cuisine || 'food';
                     const shouldExclude = isCuisineExcluded(pingCuisine, excludedCuisines);
-                   
+              
                     return !shouldExclude;
                 });
                 
-      
+             
                 return filtered;
             }
 
@@ -5382,50 +5530,17 @@ export default function MapScreen() {
                     
                     // Also update heatmap and ping markers with cuisine filter
                     if (showHeatmapFeatures) {
-             
+                        // Update heatmap for kitchen owners and event organizers
                         createHeatmap();
-                    } else {
-                
-                        // Clear existing ping markers
-                        map.eachLayer(function(layer) {
-                            if (layer.options && layer.options.icon && 
-                                layer.options.icon.options && 
-                                layer.options.icon.options.className === 'ping-marker') {
-                                map.removeLayer(layer);
-                            }
-                        });
+                    } else if (showIndividualPingMarkers) {
+                        // Update individual ping markers for customers only
                         
-                        // Add filtered ping markers for basic users
+                        // Filter and refresh ping markers using helper function
                         const realPings = ${JSON.stringify(customerPings)};
-                       
-                        
                         const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
-                    
-                        
-                        filteredPings.forEach((ping, index) => {
-                            if (ping.lat && ping.lng) {
-                                const marker = L.marker([ping.lat, ping.lng], {
-                                    icon: L.divIcon({
-                                        className: 'ping-marker',
-                                        html: '<div style="background: #9b59b6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 12px;">📍</div>',
-                                        iconSize: [20, 20],
-                                        iconAnchor: [10, 10]
-                                    })
-                                });
-                                
-                                // Add popup with ping info including cuisine
-                                const popupContent = \`
-                                    <div style="text-align: center; padding: 5px;">
-                                        <strong>Customer Ping</strong><br>
-                                        <small>Cuisine: \${ping.cuisineType || 'Not specified'}</small><br>
-                                        <small>User: \${ping.username || 'Anonymous'}</small>
-                                    </div>
-                                \`;
-                                marker.bindPopup(popupContent);
-                                marker.addTo(map);
-                      
-                            }
-                        });
+                        refreshPingMarkers(filteredPings);
+                    } else {
+                        // No ping marker updates for other user roles during cuisine filtering
                     }
                 }
             }
@@ -5433,10 +5548,10 @@ export default function MapScreen() {
 
             
             if (showHeatmapFeatures) {
- 
+                // Show heatmap for kitchen owners and event organizers
                 createHeatmap();
                 
-                // Always show heatmap by default for testing (Pro/All-Access users)
+                // Always show heatmap by default for owners and event organizers
                 if (heatmapLayer) {
              
                     map.addLayer(heatmapLayer);
@@ -5445,41 +5560,27 @@ export default function MapScreen() {
                 } else {
           
                 }
-            } else {
-         
+            } else if (showIndividualPingMarkers) {
+                // Show individual ping markers for customers only
+          
                 
-                // Add individual ping markers for basic users (with cuisine filtering)
+                // Add individual ping markers for customers (with cuisine filtering)
                 const realPings = ${JSON.stringify(customerPings)};
-                const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
-              
-                
-                filteredPings.forEach((ping, index) => {
-                    if (ping.lat && ping.lng) {
-                        const marker = L.marker([ping.lat, ping.lng], {
-                            icon: L.divIcon({
-                                className: 'ping-marker',
-                                html: '<div style="background: #9b59b6; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 12px;">📍</div>',
-                                iconSize: [20, 20],
-                                iconAnchor: [10, 10]
-                            })
-                        }).addTo(map);
-                        
-                        const popupContent = \`
-                            <div style="font-family: Arial, sans-serif; min-width: 200px;">
-                                <h4 style="margin: 0 0 8px 0; color: #9b59b6;">🍴 Customer Ping</h4>
-                                <p style="margin: 4px 0;"><strong>Cuisine:</strong> \${ping.cuisineType || 'Not specified'}</p>
-                                <p style="margin: 4px 0;"><strong>Customer:</strong> \${ping.username || 'Anonymous'}</p>
-                                <p style="margin: 4px 0;"><strong>Address:</strong> \${ping.address || 'Not provided'}</p>
-                                <p style="margin: 4px 0;"><strong>Time:</strong> \${ping.timestamp ? new Date(ping.timestamp.seconds * 1000).toLocaleString() : 'Unknown'}</p>
-                            </div>
-                        \`;
-                        
-                        marker.bindPopup(popupContent);
-                       
-                    }
-                });
-                
             
+                const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
+             
+                
+                if (filteredPings.length === 0) {
+                 
+                } else {
+              
+                }
+                
+                // Use helper function to create clustered ping markers
+                refreshPingMarkers(filteredPings);
+                
+            } else {
+                // No ping display for other user roles
             }
 
             // Real-time status update system
@@ -5902,7 +6003,8 @@ export default function MapScreen() {
                 {getCuisineDisplayName(selectedTruck?.cuisine)} Cuisine
               </Text>
               
-              {/* Open/Closed Status Indicator */}
+              {/* Open/Closed Status Indicator - REMOVED */}
+              {/* 
               {selectedTruck?.businessHours && (
                 <View style={[
                   styles.statusIndicator,
@@ -5923,12 +6025,9 @@ export default function MapScreen() {
                   )}
                 </View>
               )}
+              */}
               
               {/* Clean Rating Display */}
-              {(() => {
- 
-                return null;
-              })()}
               {reviews.length > 0 ? (
                 <View style={styles.ratingContainer}>
                   <View style={styles.starRatingContainer}>
@@ -6540,9 +6639,8 @@ export default function MapScreen() {
                               : null
                           ]}
                           onPress={() => {
- 
                             const status = selectedTruck?.businessHours ? checkTruckOpenStatus(selectedTruck.businessHours) : 'no-hours';
-                           
+                            addToCart(item);
                           }}
                           disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
                         >
@@ -8232,10 +8330,10 @@ const createThemedStyles = (theme) => StyleSheet.create({
     ...theme.shadows.neonPink,
   },
   headerLogo: {
-    width: 240,
-    height: 132,
+    width: 380,
+    height: 250,
     marginTop: -20,
-    marginBottom: -35,
+    marginBottom: 0,
   },
   title: {
     fontSize: 24,
@@ -8340,10 +8438,11 @@ const createThemedStyles = (theme) => StyleSheet.create({
     zIndex: 1,
   },
   headerLogo: {
-    width: 180,
-    height: 60,
+    width: 280,
+    height: 150,
     backgroundColor: 'transparent',
-    marginBottom: 15,
+    marginTop: -50,
+    marginBottom: -50,
   },
   closeButton: {
     position: 'absolute',

@@ -15,6 +15,7 @@ export const CUISINE_TYPES = [
   { value: 'indian', label: 'Indian' },
   { value: 'italian', label: 'Italian' },
   { value: 'korean', label: 'Korean' },
+  { value: 'caribbean', label: 'Caribbean' },
   { value: 'latin', label: 'Latin American' },
   { value: 'mediterranean', label: 'Mediterranean' },
   { value: 'mexican', label: 'Mexican' },
