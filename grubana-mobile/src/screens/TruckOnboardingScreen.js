@@ -12,6 +12,7 @@ import {
   Animated,
   Modal,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,6 +21,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { colors } from '../theme/colors';
+import { API_ENDPOINTS, debugConfig } from '../utils/apiConfig';
 
 export default function TruckOnboardingScreen({ navigation }) {
   const { user, userData } = useAuth();
@@ -125,6 +127,8 @@ export default function TruckOnboardingScreen({ navigation }) {
 
   useEffect(() => {
     if (user) {
+      // Add debugging for production environment
+      debugConfig();
       checkAccountStatus();
       loadMenuItems();
       // Load stored new item IDs
@@ -132,13 +136,45 @@ export default function TruckOnboardingScreen({ navigation }) {
     }
   }, [user]);
 
+  // Handle deep link returns from Stripe onboarding
+  useFocusEffect(
+    React.useCallback(() => {
+      // Check if we're returning from Stripe onboarding
+      const handleStripeReturn = async () => {
+        try {
+          // Get the current URL to check for Stripe completion parameters
+          const url = await Linking.getInitialURL();
+          if (url && url.includes('stripe-onboarding')) {
+            console.log('🎉 Returned from Stripe onboarding:', url);
+            
+            // Show success message
+            showToast('Welcome back! Checking your Stripe account status...', 'success');
+            
+            // Refresh account status after a short delay to allow Stripe to update
+            setTimeout(() => {
+              checkAccountStatus();
+            }, 2000);
+          }
+        } catch (error) {
+          console.log('Deep link check error:', error);
+        }
+      };
+
+      handleStripeReturn();
+      
+      // Always refresh account status when screen comes into focus
+      // This ensures we catch any Stripe updates
+      if (user) {
+        checkAccountStatus();
+      }
+    }, [user])
+  );
+
   const checkAccountStatus = async () => {
     try {
       const token = await user.getIdToken();
       
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/status`, {
+      const response = await fetch(API_ENDPOINTS.STRIPE_CONNECT_STATUS, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -160,9 +196,8 @@ export default function TruckOnboardingScreen({ navigation }) {
       setLoading(true);
       
       const token = await user.getIdToken();
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/sync-payment-data`, {
+      const response = await fetch(API_ENDPOINTS.STRIPE_SYNC_PAYMENT_DATA, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -203,8 +238,7 @@ export default function TruckOnboardingScreen({ navigation }) {
 
   const loadMenuItems = async () => {
     try {
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
+      const response = await fetch(`${API_ENDPOINTS.MENU_ITEMS}/${user.uid}/menu`, {
         headers: {
           'Authorization': `Bearer ${await user.getIdToken()}`
         }
@@ -227,12 +261,11 @@ export default function TruckOnboardingScreen({ navigation }) {
   const createStripeAccount = async () => {
     setLoading(true);
     try {
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
       const businessName = userData?.truckName || user?.displayName || 'Mobile Kitchen Business';
       
       const token = await user.getIdToken();
       
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboard`, {
+      const response = await fetch(API_ENDPOINTS.STRIPE_CONNECT_ONBOARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,9 +300,7 @@ export default function TruckOnboardingScreen({ navigation }) {
     try {
       const token = await user.getIdToken();
       
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/onboarding-link`, {
+      const response = await fetch(API_ENDPOINTS.STRIPE_ONBOARDING_LINK, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +308,9 @@ export default function TruckOnboardingScreen({ navigation }) {
         },
         body: JSON.stringify({
           truckId: user.uid,
-          accountId: accountDetails?.stripeAccountId || accountDetails?.accountId
+          accountId: accountDetails?.stripeAccountId || accountDetails?.accountId,
+          isMobile: true, // Add flag to indicate mobile request
+          returnScheme: 'grubana' // Add app scheme for deep linking
         })
       });
 
@@ -316,8 +349,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         image: imageUrl
       };
 
-      const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-      const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu`, {
+      const response = await fetch(`${API_ENDPOINTS.MENU_ITEMS}/${user.uid}/menu`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -371,8 +403,7 @@ export default function TruckOnboardingScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              const apiUrl = 'https://pingmyappetite-production.up.railway.app';
-              const response = await fetch(`${apiUrl}/api/marketplace/trucks/${user.uid}/menu/${itemId}`, {
+              const response = await fetch(`${API_ENDPOINTS.MENU_ITEMS}/${user.uid}/menu/${itemId}`, {
                 method: 'DELETE',
                 headers: {
                   'Authorization': `Bearer ${await user.getIdToken()}`

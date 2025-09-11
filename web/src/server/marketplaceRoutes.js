@@ -550,10 +550,17 @@ router.post('/trucks/onboard', async (req, res) => {
 // Generate onboarding link for existing Stripe account
 router.post('/trucks/onboarding-link', async (req, res) => {
   try {
-    const { truckId, accountId } = req.body;
+    const { truckId, accountId, isMobile, returnScheme } = req.body;
     
     // Use authenticated user's ID if no truckId provided
     const actualTruckId = truckId || req.user?.uid;
+    
+    console.log('📱 Creating onboarding link for:', {
+      actualTruckId,
+      accountId,
+      isMobile,
+      returnScheme
+    });
     
     if (!actualTruckId) {
       return res.status(401).json({ 
@@ -584,12 +591,27 @@ router.post('/trucks/onboarding-link', async (req, res) => {
       }
     }
 
+    // Create appropriate URLs based on platform
+    let refreshUrl, returnUrl;
+    
+    if (isMobile && returnScheme) {
+      // Mobile deep link URLs
+      refreshUrl = `${returnScheme}://stripe-onboarding?refresh=true`;
+      returnUrl = `${returnScheme}://stripe-onboarding?complete=true`;
+      console.log('📱 Using mobile deep link URLs:', { refreshUrl, returnUrl });
+    } else {
+      // Web URLs
+      const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
+      refreshUrl = `${baseUrl}/truck-onboarding?refresh=true`;
+      returnUrl = `${baseUrl}/truck-onboarding?complete=true`;
+      console.log('🌐 Using web URLs:', { refreshUrl, returnUrl });
+    }
+
     // Create account link for onboarding
-    const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: `${baseUrl}/truck-onboarding?refresh=true`,
-      return_url: `${baseUrl}/truck-onboarding?complete=true`,
+      refresh_url: refreshUrl,
+      return_url: returnUrl,
       type: 'account_onboarding',
     });
 

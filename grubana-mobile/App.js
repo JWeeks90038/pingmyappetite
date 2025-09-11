@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthContextProvider, useAuth } from './src/components/AuthContext';
@@ -33,6 +33,42 @@ import CustomerOrdersScreen from './src/screens/CustomerOrdersScreen.js';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Deep linking configuration
+const linking = {
+  prefixes: ['grubana://'],
+  config: {
+    screens: {
+      MainTabs: {
+        screens: {
+          Profile: 'profile',
+        },
+      },
+      TruckOnboarding: {
+        path: 'stripe-onboarding',
+        parse: {
+          complete: (complete) => complete === 'true',
+          refresh: (refresh) => refresh === 'true',
+        },
+      },
+    },
+  },
+  // Handle deep link events
+  async getInitialURL() {
+    // Check if app was opened from a deep link
+    const url = await Linking.getInitialURL();
+    return url;
+  },
+  subscribe(listener) {
+    // Listen for incoming deep links when app is already open
+    const onReceiveURL = ({ url }) => listener(url);
+    
+    const eventType = 'url';
+    Linking.addEventListener(eventType, onReceiveURL);
+    
+    return () => Linking.removeEventListener(eventType, onReceiveURL);
+  },
+};
 
 // Auth Stack for login/register
 function AuthStack() {
@@ -356,6 +392,7 @@ function AppContent() {
 
     return (
       <NavigationContainer
+        linking={linking}
         theme={{
           dark: true,
           colors: {
@@ -387,6 +424,7 @@ function AppContent() {
 
   return (
     <NavigationContainer
+      linking={linking}
       theme={{
         dark: true,
         colors: {
@@ -406,8 +444,10 @@ function AppContent() {
 }
 
 export default function App() {
-  // Use the same Stripe publishable key from your web app
-  const stripePublishableKey = 'pk_live_51RSgWMRsRfaVTYCjJJtygE6gtMfcv5Gi0EIK4GGB2IefhoK4gVgf6NxwQSXgJbc8zu1VskfzN3ghavd3awwRafXk00FjrvGznT';
+  // Use environment variable for Stripe publishable key with fallback
+  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_live_51RSgWMRsRfaVTYCjJJtygE6gtMfcv5Gi0EIK4GGB2IefhoK4gVgf6NxwQSXgJbc8zu1VskfzN3ghavd3awwRafXk00FjrvGznT';
+  
+
   
   const stripeConfig = {
     publishableKey: stripePublishableKey,
