@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform, Animated, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1914,6 +1914,33 @@ export default function MapScreen() {
       'Cancel',
       true
     );
+  };
+
+  // Social media URL opener with error handling
+  const openURL = async (url, platform) => {
+    try {
+      if (!url) {
+        Alert.alert('Error', `No ${platform} link available for this truck.`);
+        return;
+      }
+      
+      // Ensure URL has proper protocol
+      let formattedUrl = url;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        formattedUrl = `https://${url}`;
+      }
+      
+      const supported = await Linking.canOpenURL(formattedUrl);
+      
+      if (supported) {
+        await Linking.openURL(formattedUrl);
+      } else {
+        Alert.alert('Error', `Cannot open ${platform} link. Please check if the app is installed.`);
+      }
+    } catch (error) {
+      console.error(`Error opening ${platform} URL:`, error);
+      Alert.alert('Error', `Failed to open ${platform} link.`);
+    }
   };
 
   // Scroll to menu section function
@@ -6280,25 +6307,37 @@ export default function MapScreen() {
                   <Text style={styles.sectionTitle}>🌐 Social Media</Text>
                   <View style={styles.socialLinks}>
                     {selectedTruck.socialLinks?.instagram && (
-                      <TouchableOpacity style={[styles.socialButton, styles.instagramButton]}>
+                      <TouchableOpacity 
+                        style={[styles.socialButton, styles.instagramButton]}
+                        onPress={() => openURL(selectedTruck.socialLinks.instagram, 'Instagram')}
+                      >
                         <Ionicons name="logo-instagram" size={20} color="#E4405F" />
                         <Text style={[styles.socialButtonText, { color: '#E4405F' }]}>Instagram</Text>
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.facebook && (
-                      <TouchableOpacity style={[styles.socialButton, styles.facebookButton]}>
+                      <TouchableOpacity 
+                        style={[styles.socialButton, styles.facebookButton]}
+                        onPress={() => openURL(selectedTruck.socialLinks.facebook, 'Facebook')}
+                      >
                         <Ionicons name="logo-facebook" size={20} color="#1877F2" />
                         <Text style={[styles.socialButtonText, { color: '#1877F2' }]}>Facebook</Text>
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.twitter && (
-                      <TouchableOpacity style={[styles.socialButton, styles.xButton]}>
+                      <TouchableOpacity 
+                        style={[styles.socialButton, styles.xButton]}
+                        onPress={() => openURL(selectedTruck.socialLinks.twitter, 'X/Twitter')}
+                      >
                         <Ionicons name="logo-twitter" size={20} color="#000000" />
                         <Text style={[styles.socialButtonText, { color: '#000000' }]}>X</Text>
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.tiktok && (
-                      <TouchableOpacity style={[styles.socialButton, styles.tiktokButton]}>
+                      <TouchableOpacity 
+                        style={[styles.socialButton, styles.tiktokButton]}
+                        onPress={() => openURL(selectedTruck.socialLinks.tiktok, 'TikTok')}
+                      >
                         <Ionicons name="logo-tiktok" size={20} color="#000000" />
                         <Text style={[styles.socialButtonText, { color: '#000000' }]}>TikTok</Text>
                       </TouchableOpacity>

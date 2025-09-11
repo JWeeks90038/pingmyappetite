@@ -42,3 +42,6 @@ export * from "./orderCleanupService.js";
 
 // Export FCM token refresh function
 export * from "./forceFcmTokenRefresh.js";
+
+// Export vendor application functions
+export * from "./vendorApplicationTriggers.js";

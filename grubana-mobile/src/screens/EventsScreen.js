@@ -839,24 +839,27 @@ const EventsScreen = () => {
 
   // Remove event attendance
   const removeEventAttendance = async (eventId) => {
-    try {
+    // Use setTimeout to avoid useInsertionEffect warning
+    setTimeout(async () => {
+      try {
 
 
-      const attendanceRecord = attendedEvents.find(a => a.eventId === eventId);
-      if (!attendanceRecord) {
-        showToast('Attendance record not found.', 'error');
-        return;
+        const attendanceRecord = attendedEvents.find(a => a.eventId === eventId);
+        if (!attendanceRecord) {
+          showToast('Attendance record not found.', 'error');
+          return;
+        }
+
+        await deleteDoc(doc(db, 'eventAttendance', attendanceRecord.id));
+        
+        showToast('Event attendance removed.', 'success');
+
+
+      } catch (error) {
+
+        showToast('Failed to remove event attendance. Please try again.', 'error');
       }
-
-      await deleteDoc(doc(db, 'eventAttendance', attendanceRecord.id));
-      
-      showToast('Event attendance removed.', 'success');
-
-
-    } catch (error) {
-
-      showToast('Failed to remove event attendance. Please try again.', 'error');
-    }
+    }, 0);
   };
 
   // Mark event as attending (for upcoming events)
@@ -902,24 +905,27 @@ const EventsScreen = () => {
 
   // Remove attending status
   const removeEventAttending = async (eventId) => {
-    try {
+    // Use setTimeout to avoid useInsertionEffect warning
+    setTimeout(async () => {
+      try {
 
 
-      const attendingRecord = attendingEvents.find(a => a.eventId === eventId);
-      if (!attendingRecord) {
-        showToast('Attending record not found.', 'error');
-        return;
+        const attendingRecord = attendingEvents.find(a => a.eventId === eventId);
+        if (!attendingRecord) {
+          showToast('Attending record not found.', 'error');
+          return;
+        }
+
+        await deleteDoc(doc(db, 'eventInterest', attendingRecord.id));
+        
+        showToast('Attending status removed.', 'success');
+    
+
+      } catch (error) {
+
+        showToast('Failed to remove attending status. Please try again.', 'error');
       }
-
-      await deleteDoc(doc(db, 'eventInterest', attendingRecord.id));
-      
-      showToast('Attending status removed.', 'success');
-  
-
-    } catch (error) {
-
-      showToast('Failed to remove attending status. Please try again.', 'error');
-    }
+    }, 0);
   };
 
   // Format date for display
