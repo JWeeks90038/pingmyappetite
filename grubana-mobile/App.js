@@ -36,7 +36,11 @@ const Stack = createStackNavigator();
 
 // Deep linking configuration
 const linking = {
-  prefixes: ['grubana://'],
+  prefixes: [
+    'grubana://', // Custom scheme for development
+    'https://grubana.com/app', // Universal Links for production
+    'https://grubana.com/stripe-redirect' // Stripe completion Universal Links
+  ],
   config: {
     screens: {
       MainTabs: {
@@ -49,6 +53,18 @@ const linking = {
         parse: {
           complete: (complete) => complete === 'true',
           refresh: (refresh) => refresh === 'true',
+        },
+      },
+      StripeComplete: {
+        path: 'stripe-redirect/complete',
+        parse: {
+          complete: () => true,
+        },
+      },
+      StripeRefresh: {
+        path: 'stripe-redirect/refresh', 
+        parse: {
+          refresh: () => true,
         },
       },
     },

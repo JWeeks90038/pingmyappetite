@@ -32,6 +32,16 @@ export const sendWelcomeEmailOnSignup = onDocumentCreated("users/{userId}", asyn
       userType = 'organizer';
     }
 
+    logger.info(`🔍 DEBUG - User signup detected:`, {
+      userId,
+      email: userData.email,
+      detectedRole: userData.role,
+      finalUserType: userType,
+      hasOwnerName: !!userData.ownerName,
+      hasTruckName: !!userData.truckName,
+      hasOrgName: !!userData.organizationName
+    });
+
     logger.info(`Sending welcome email to new ${userType}: ${userData.email}`);
 
     // Send welcome email to user

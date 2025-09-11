@@ -190,7 +190,7 @@ export default function CustomerSignupScreen({ navigation }) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#2c6f57" />
+            <Ionicons name="arrow-back" size={24} color="#FF4EC9" />
           </TouchableOpacity>
           <Text style={styles.title}>Join as Customer</Text>
           <Text style={styles.subtitle}>Discover amazing mobile kitchen businesses in your area</Text>
@@ -289,7 +289,7 @@ export default function CustomerSignupScreen({ navigation }) {
                 <Ionicons 
                   name={showPassword ? "eye-off" : "eye"} 
                   size={20} 
-                  color="#666" 
+                  color="#4DBFFF" 
                 />
               </TouchableOpacity>
             </View>
@@ -313,7 +313,7 @@ export default function CustomerSignupScreen({ navigation }) {
                 <Ionicons 
                   name={showConfirmPassword ? "eye-off" : "eye"} 
                   size={20} 
-                  color="#666" 
+                  color="#4DBFFF" 
                 />
               </TouchableOpacity>
             </View>
@@ -324,7 +324,7 @@ export default function CustomerSignupScreen({ navigation }) {
             <Switch
               value={formData.smsConsent}
               onValueChange={(value) => handleInputChange('smsConsent', value)}
-              trackColor={{ false: '#ccc', true: '#2c6f57' }}
+              trackColor={{ false: '#555', true: '#FF4EC9' }}
               thumbColor={formData.smsConsent ? '#fff' : '#f4f3f4'}
             />
             <Text style={styles.consentText}>
@@ -399,7 +399,7 @@ export default function CustomerSignupScreen({ navigation }) {
 const styles = {
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   scrollContainer: {
     flexGrow: 1,
@@ -408,7 +408,7 @@ const styles = {
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036', // Deep purple header
     alignItems: 'center',
   },
   backButton: {
@@ -420,13 +420,13 @@ const styles = {
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White title
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue subtitle
     textAlign: 'center',
   },
   form: {
@@ -438,35 +438,37 @@ const styles = {
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#FFFFFF', // White labels
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple input background
+    color: '#FFFFFF', // White text
   },
   inputSuccess: {
-    borderColor: '#28a745',
+    borderColor: '#00E676', // Success green
   },
   inputError: {
-    borderColor: '#dc3545',
+    borderColor: '#F44336', // Error red
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple background
   },
   passwordInput: {
     flex: 1,
     padding: 12,
     fontSize: 16,
+    color: '#FFFFFF', // White text
   },
   eyeButton: {
     padding: 12,
@@ -476,10 +478,10 @@ const styles = {
     fontSize: 14,
   },
   successMessage: {
-    color: '#28a745',
+    color: '#00E676', // Success green
   },
   errorMessage: {
-    color: '#dc3545',
+    color: '#F44336', // Error red
   },
   consentContainer: {
     flexDirection: 'row',
@@ -490,21 +492,29 @@ const styles = {
     flex: 1,
     marginLeft: 12,
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
     lineHeight: 20,
   },
   signupButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   signupButtonDisabled: {
-    backgroundColor: '#aaa',
+    backgroundColor: '#555',
   },
   signupButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -515,35 +525,37 @@ const styles = {
   },
   loginText: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
   },
   loginLink: {
     fontSize: 16,
-    color: '#2c6f57',
+    color: '#FF4EC9', // Neon pink link
     fontWeight: 'bold',
   },
   // Success Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(11, 11, 26, 0.9)', // Dark overlay
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple modal
     borderRadius: 12,
     padding: 30,
     alignItems: 'center',
     marginHorizontal: 20,
     maxWidth: 300,
-    shadowColor: '#000',
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border
+    shadowColor: '#FF4EC9',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
   successIcon: {
     marginBottom: 20,
@@ -554,25 +566,33 @@ const styles = {
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White title
     marginBottom: 10,
   },
   successMessage: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue message
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
   },
   successButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 8,
     minWidth: 120,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   successButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
@@ -597,13 +617,13 @@ const styles = {
     elevation: 5,
   },
   toastSuccess: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#00E676', // Success green
   },
   toastError: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#F44336', // Error red
   },
   toastText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',

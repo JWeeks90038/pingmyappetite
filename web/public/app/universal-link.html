@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opening Grubana App...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2c6f57 0%, #4a9d7f 100%);
+            color: white;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin: 0 0 30px 0;
+            font-size: 16px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fallback {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .fallback a {
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            background: rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        .app-store-link {
+            color: #87CEEB !important;
+            background: rgba(135, 206, 235, 0.2) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🚚</div>
+        <h1 id="pageTitle">Opening Grubana App...</h1>
+        <p id="pageMessage">Please wait while we redirect you to the app.</p>
+        <div class="spinner" id="spinner"></div>
+        
+        <div class="fallback" id="fallback" style="display: none;">
+            <p><strong>Need to open the app manually?</strong></p>
+            <p>
+                <a href="#" id="appStoreLink" class="app-store-link">Download from App Store</a>
+            </p>
+            <p>
+                <a href="#" id="fallbackAction">Continue in Web Browser</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Parse the URL to determine what action to take
+        const currentUrl = window.location.href;
+        const urlParts = new URL(currentUrl);
+        const pathParts = urlParts.pathname.split('/').filter(part => part.length > 0);
+        
+        console.log('Universal Link Handler:', {
+            currentUrl,
+            pathname: urlParts.pathname,
+            pathParts,
+            search: urlParts.search
+        });
+        
+        // Determine the action based on the URL path
+        let action = 'home';
+        let params = {};
+        
+        if (pathParts.includes('stripe-redirect')) {
+            action = 'stripe-complete';
+            params.complete = 'true';
+            
+            // Update UI for Stripe completion
+            document.getElementById('pageTitle').textContent = 'Stripe Setup Complete!';
+            document.getElementById('pageMessage').textContent = 'Redirecting you back to the Grubana app...';
+            document.getElementById('fallbackAction').textContent = 'Continue Stripe Setup in Browser';
+        } else if (pathParts.includes('app')) {
+            // Handle other app deep links
+            const subPath = pathParts[pathParts.indexOf('app') + 1];
+            if (subPath) {
+                action = subPath;
+            }
+        }
+        
+        // Add URL search parameters to params
+        for (const [key, value] of urlParts.searchParams.entries()) {
+            params[key] = value;
+        }
+        
+        console.log('Parsed action and params:', { action, params });
+        
+        // Function to try opening the app with Universal Links
+        function openApp() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isIOS) {
+                // For iOS, the Universal Link should automatically open the app
+                // If we reach this page, it means the app isn't installed
+                console.log('iOS detected - app may not be installed');
+                showFallbackOptions(true);
+                return;
+            }
+            
+            if (isMobile) {
+                // For other mobile platforms, try intent URI or play store
+                console.log('Mobile detected (non-iOS)');
+                showFallbackOptions(false);
+                return;
+            }
+            
+            // Desktop - show web app option
+            console.log('Desktop detected');
+            showFallbackOptions(false);
+        }
+        
+        function showFallbackOptions(isIOS) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('fallback').style.display = 'block';
+            
+            const appStoreLink = document.getElementById('appStoreLink');
+            const fallbackAction = document.getElementById('fallbackAction');
+            
+            if (isIOS) {
+                // Show App Store link for iOS
+                appStoreLink.href = 'https://apps.apple.com/us/app/grubana/id123456789'; // Replace with actual App Store URL
+                appStoreLink.textContent = '📱 Download from App Store';
+                appStoreLink.style.display = 'inline-block';
+            } else {
+                // Hide App Store link for non-iOS
+                appStoreLink.style.display = 'none';
+            }
+            
+            // Set up fallback action based on the original action
+            if (action === 'stripe-complete') {
+                fallbackAction.href = '/owner-dashboard?stripe_setup=complete';
+                fallbackAction.textContent = '🌐 Complete Setup in Web Dashboard';
+            } else {
+                fallbackAction.href = '/';
+                fallbackAction.textContent = '🌐 Open Grubana Web App';
+            }
+        }
+        
+        // Try to open the app immediately
+        setTimeout(openApp, 1000);
+        
+        // Show fallback after 3 seconds regardless
+        setTimeout(() => {
+            showFallbackOptions(/iPad|iPhone|iPod/.test(navigator.userAgent));
+        }, 3000);
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Setup Complete - Grubana</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2c6f57 0%, #4a9d7f 100%);
+            color: white;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .success-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+            animation: bounce 1s ease-in-out;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #FFE55C;
+            font-size: 20px;
+        }
+        
+        .instructions ol {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        
+        .action-buttons {
+            margin-top: 30px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #FFD700;
+            color: #2c6f57;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .status-indicator {
+            background: rgba(40, 167, 69, 0.2);
+            border: 2px solid #28a745;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .status-indicator .icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">🎉</div>
+        <h1>Stripe Setup Complete!</h1>
+        <p class="subtitle">Your payment processing is now configured and ready to use.</p>
+        
+        <div class="status-indicator">
+            <span class="icon">✅</span>
+            <strong>Payment processing activated!</strong>
+        </div>
+        
+        <div class="instructions">
+            <h3>📱 Next Steps:</h3>
+            <ol>
+                <li><strong>Open the Grubana app</strong> on your phone</li>
+                <li>Go to your <strong>Profile</strong> tab</li>
+                <li>Check that your <strong>Stripe status shows "Connected"</strong></li>
+                <li>You can now <strong>receive payments</strong> from customers!</li>
+            </ol>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="#" id="openAppBtn" class="btn btn-primary">
+                📱 Open Grubana App
+            </a>
+            <a href="/owner-dashboard" class="btn btn-secondary">
+                🌐 Web Dashboard
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">
+            Having trouble? Contact support at 
+            <a href="mailto:flavor@grubana.com" style="color: #FFD700;">flavor@grubana.com</a>
+        </p>
+    </div>
+
+    <script>
+        // Universal Link approach for opening the app
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        
+        console.log('Stripe completion page loaded', {
+            isIOS,
+            isAndroid,
+            userAgent: navigator.userAgent
+        });
+        
+        // Set up the "Open App" button
+        const openAppBtn = document.getElementById('openAppBtn');
+        
+        function attemptAppOpen() {
+            if (isIOS) {
+                // For iOS, use Universal Link
+                // This will only work if the app is installed
+                window.location.href = 'https://grubana.com/app/stripe-complete';
+                
+                // Fallback after short delay
+                setTimeout(() => {
+                    // If still on this page, app probably not installed
+                    openAppBtn.textContent = '📱 Get App from App Store';
+                    openAppBtn.href = 'https://apps.apple.com/us/app/grubana/id123456789'; // Replace with actual URL
+                }, 2000);
+                
+            } else if (isAndroid) {
+                // For Android, try intent URI
+                const intentUri = 'intent://stripe-complete#Intent;scheme=grubana;package=com.grubana.mobile;end';
+                window.location.href = intentUri;
+                
+                // Fallback to Play Store
+                setTimeout(() => {
+                    openAppBtn.textContent = '📱 Get App from Play Store';
+                    openAppBtn.href = 'https://play.google.com/store/apps/details?id=com.grubana.mobile';
+                }, 2000);
+                
+            } else {
+                // Desktop or other - redirect to web dashboard
+                window.location.href = '/owner-dashboard?stripe_setup=complete';
+            }
+        }
+        
+        // Set up click handler
+        openAppBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            attemptAppOpen();
+        });
+        
+        // Auto-attempt to open app after 1 second
+        setTimeout(attemptAppOpen, 1000);
+        
+        // Mark Stripe setup as complete in sessionStorage for web dashboard
+        sessionStorage.setItem('stripe_setup_complete', 'true');
+        sessionStorage.setItem('stripe_setup_timestamp', new Date().toISOString());
+    </script>
+</body>
+</html>

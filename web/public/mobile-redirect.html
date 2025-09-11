@@ -85,11 +85,21 @@
         
         <div class="fallback" id="fallback" style="display: none;">
             <p><strong>App didn't open automatically?</strong></p>
+            <div id="testflightInstructions" style="display: none; background: rgba(255, 215, 0, 0.2); padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <p><strong>📱 TestFlight Users:</strong></p>
+                <ol style="text-align: left; font-size: 14px; color: #FFE55C;">
+                    <li>Go to your iPhone home screen</li>
+                    <li>Open the <strong>Grubana</strong> app manually</li>
+                    <li>Navigate to your Profile tab</li>
+                    <li>Tap "Complete Stripe Setup" again</li>
+                    <li>Your payment setup should now be complete!</li>
+                </ol>
+            </div>
             <p>
-                <a href="#" id="appLink">Tap here to open Grubana</a>
+                <a href="#" id="appLink">Tap here to try opening Grubana again</a>
             </p>
             <p style="margin-top: 15px; font-size: 12px; opacity: 0.7;">
-                If the app still doesn't open, please open Grubana manually from your home screen.
+                If the app still doesn't open, please open Grubana manually from your home screen and check your Stripe setup status.
             </p>
         </div>
     </div>
@@ -111,23 +121,86 @@
         }
         
         console.log('Redirecting to:', deepLinkUrl);
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
         
         // Set the fallback link
         document.getElementById('appLink').href = deepLinkUrl;
         
-        // Try to open the app immediately
-        window.location.href = deepLinkUrl;
+        // Enhanced iOS detection and handling
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isTestFlight = window.location.href.includes('TestFlight') || 
+                           sessionStorage.getItem('isTestFlight') === 'true';
         
-        // Show fallback after 3 seconds
+        // Function to attempt app opening with multiple strategies
+        function attemptAppOpen() {
+            console.log('Attempting to open app...', { isIOS, isTestFlight });
+            
+            if (isIOS) {
+                // Strategy 1: Try custom scheme
+                console.log('Strategy 1: Custom scheme');
+                window.location.href = deepLinkUrl;
+                
+                // Strategy 2: Try with a iframe (sometimes works better on iOS)
+                setTimeout(() => {
+                    console.log('Strategy 2: iframe approach');
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = deepLinkUrl;
+                    document.body.appendChild(iframe);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                    }, 1000);
+                }, 500);
+                
+                // Strategy 3: Try window.open
+                setTimeout(() => {
+                    console.log('Strategy 3: window.open approach');
+                    try {
+                        const newWindow = window.open(deepLinkUrl, '_self');
+                        if (newWindow) {
+                            newWindow.close();
+                        }
+                    } catch (e) {
+                        console.log('window.open failed:', e);
+                    }
+                }, 1000);
+                
+            } else {
+                // Non-iOS: standard approach
+                window.location.href = deepLinkUrl;
+            }
+        }
+        
+        // Try to open the app immediately
+        attemptAppOpen();
+        
+        // Show fallback after 2 seconds (reduced time for better UX)
         setTimeout(() => {
             document.getElementById('fallback').style.display = 'block';
-        }, 3000);
+            
+            // Show TestFlight-specific instructions if likely using TestFlight
+            if (isIOS) {
+                document.getElementById('testflightInstructions').style.display = 'block';
+            }
+            
+            console.log('Showing fallback options');
+        }, 2000);
         
-        // Also try to open the app when the page loads
+        // Try again when page loads
         window.addEventListener('load', () => {
             setTimeout(() => {
-                window.location.href = deepLinkUrl;
-            }, 500);
+                console.log('Page loaded - trying again');
+                attemptAppOpen();
+            }, 300);
+        });
+        
+        // Add click handler for manual fallback link
+        document.getElementById('appLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('Manual fallback link clicked');
+            attemptAppOpen();
         });
     </script>
 </body>

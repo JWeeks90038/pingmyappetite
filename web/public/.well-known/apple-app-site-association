@@ -1,0 +1,26 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "TEAMID.com.grubana.mobile"
+        ],
+        "components": [
+          {
+            "/": "/app/*",
+            "comment": "Matches any URL with path that starts with /app/"
+          },
+          {
+            "/": "/stripe-redirect/*",
+            "comment": "Matches Stripe redirect URLs for payment onboarding"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "TEAMID.com.grubana.mobile"
+    ]
+  }
+}

@@ -31,7 +31,7 @@ export default function SignupSelectionScreen({ navigation }) {
           onPress={() => navigation.navigate('CustomerSignup')}
         >
           <View style={styles.optionHeader}>
-            <Ionicons name="restaurant" size={40} color="#2c6f57" />
+            <Ionicons name="restaurant" size={40} color="#FF4EC9" />
             <Text style={styles.optionTitle}>Foodie Fan</Text>
           </View>
           <Text style={styles.optionDescription}>
@@ -45,7 +45,7 @@ export default function SignupSelectionScreen({ navigation }) {
           </View>
           <View style={styles.optionButton}>
             <Text style={styles.optionButtonText}>Sign Up as Foodie Fan</Text>
-            <Ionicons name="arrow-forward" size={16} color="#2c6f57" />
+            <Ionicons name="arrow-forward" size={16} color="#FF4EC9" />
           </View>
         </TouchableOpacity>
 
@@ -55,7 +55,7 @@ export default function SignupSelectionScreen({ navigation }) {
           onPress={() => navigation.navigate('OwnerSignup')}
         >
           <View style={styles.optionHeader}>
-            <Ionicons name="car" size={40} color="#2c6f57" />
+            <Ionicons name="car" size={40} color="#FF4EC9" />
             <Text style={styles.optionTitle}>Mobile Kitchen Vendor</Text>
           </View>
           <Text style={styles.optionDescription}>
@@ -69,7 +69,7 @@ export default function SignupSelectionScreen({ navigation }) {
           </View>
           <View style={styles.optionButton}>
             <Text style={styles.optionButtonText}>Sign Up as Mobile Kitchen</Text>
-            <Ionicons name="arrow-forward" size={16} color="#2c6f57" />
+            <Ionicons name="arrow-forward" size={16} color="#FF4EC9" />
           </View>
         </TouchableOpacity>
 
@@ -79,7 +79,7 @@ export default function SignupSelectionScreen({ navigation }) {
           onPress={() => navigation.navigate('EventOrganizerSignup')}
         >
           <View style={styles.optionHeader}>
-            <Ionicons name="calendar" size={40} color="#2c6f57" />
+            <Ionicons name="calendar" size={40} color="#FF4EC9" />
             <Text style={styles.optionTitle}>Event Organizer</Text>
           </View>
           <Text style={styles.optionDescription}>
@@ -93,7 +93,7 @@ export default function SignupSelectionScreen({ navigation }) {
           </View>
           <View style={styles.optionButton}>
             <Text style={styles.optionButtonText}>Sign Up as Organizer</Text>
-            <Ionicons name="arrow-forward" size={16} color="#2c6f57" />
+            <Ionicons name="arrow-forward" size={16} color="#FF4EC9" />
           </View>
         </TouchableOpacity>
       </View>
@@ -113,7 +113,7 @@ export default function SignupSelectionScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e', // Deep navy blue background
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   scrollContainer: {
     flexGrow: 1,
@@ -134,38 +134,35 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57', // Green title
+    color: '#FFFFFF', // White title
     marginBottom: 10,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#87ceeb', // Light blue subtitle
+    color: '#4DBFFF', // Neon blue subtitle
     textAlign: 'center',
     marginBottom: 20,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
     lineHeight: 22,
   },
   optionsContainer: {
     flex: 1,
   },
   optionCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#1A1036', // Deep purple surface
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: '#FF4EC9',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
     borderWidth: 2,
-    borderColor: '#2c6f57', // Green border
+    borderColor: '#FF4EC9', // Neon pink border
   },
   optionHeader: {
     alignItems: 'center',
@@ -174,13 +171,13 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#2c6f57', // Green option titles
+    color: '#FFFFFF', // White option titles
     marginTop: 10,
     textAlign: 'center',
   },
   optionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue description
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 15,
@@ -190,7 +187,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 14,
-    color: '#555',
+    color: '#FFFFFF', // White feature text
     marginBottom: 5,
     lineHeight: 18,
   },
@@ -198,15 +195,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f8f5',
+    backgroundColor: 'rgba(255, 78, 201, 0.2)', // Semi-transparent neon pink
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2c6f57',
+    borderColor: '#FF4EC9', // Neon pink border
   },
   optionButtonText: {
-    color: '#2c6f57',
+    color: '#FF4EC9', // Neon pink text
     fontSize: 16,
     fontWeight: 'bold',
     marginRight: 8,
@@ -217,7 +214,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   backButtonText: {
-    color: '#2c6f57',
+    color: '#4DBFFF', // Neon blue link
     fontSize: 16,
     textDecorationLine: 'underline',
   },

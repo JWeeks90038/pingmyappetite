@@ -285,6 +285,15 @@ export const sendWelcomeEmail = async (userData, userType) => {
  */
 export const sendAdminSignupNotification = async (userData, userType) => {
   try {
+    logger.info(`🔍 DEBUG - Admin notification triggered:`, {
+      email: userData.email,
+      userType,
+      role: userData.role,
+      ownerName: userData.ownerName,
+      truckName: userData.truckName,
+      organizationName: userData.organizationName
+    });
+
     // Determine user role display name
     const roleNames = {
       'customer': 'Customer (Foodie Fan)',
@@ -294,6 +303,8 @@ export const sendAdminSignupNotification = async (userData, userType) => {
     };
 
     const roleName = roleNames[userType] || userType;
+    logger.info(`🔍 DEBUG - Role mapping: ${userType} → ${roleName}`);
+
     const userName = userData.username || userData.ownerName || userData.contactName || userData.displayName || 'Unknown';
     const userEmail = userData.email;
     const userPhone = userData.phone || 'Not provided';

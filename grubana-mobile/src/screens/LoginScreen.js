@@ -257,9 +257,10 @@ const createThemedStyles = (theme) => StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    width: 180,
-    height: 72,
-    marginBottom: 20,
+    width: 390, // Increased from 180
+    height: 246, // Increased from 72 (maintaining aspect ratio)
+    marginBottom: -40,
+    marginTop: -20,
   },
   title: {
     fontSize: 32,

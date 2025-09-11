@@ -204,7 +204,7 @@ export default function EventOrganizerSignupScreen({ navigation }) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#2c6f57" />
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           
           <Text style={styles.title}>Join as Event Organizer</Text>
@@ -550,13 +550,13 @@ export default function EventOrganizerSignupScreen({ navigation }) {
 const styles = {
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   scrollContainer: {
     paddingBottom: 50,
   },
   header: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#1A1036', // Deep purple header
     paddingTop: 60,
     paddingBottom: 30,
     paddingHorizontal: 20,
@@ -571,13 +571,14 @@ const styles = {
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#FFFFFF', // White title
     textAlign: 'center',
+    marginTop: 20, // Move title down
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: '#e8f5e8',
+    color: '#4DBFFF', // Neon blue subtitle
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -590,55 +591,64 @@ const styles = {
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#FFFFFF', // White labels
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple input background
+    color: '#FFFFFF', // White text
   },
   textArea: {
     height: 80,
     textAlignVertical: 'top',
   },
   inputSuccess: {
-    borderColor: '#28a745',
+    borderColor: '#00E676', // Success green
   },
   inputError: {
-    borderColor: '#dc3545',
+    borderColor: '#F44336', // Error red
   },
   referralMessage: {
     marginTop: 5,
     fontSize: 14,
   },
   successMessage: {
-    color: '#28a745',
+    color: '#00E676', // Success green
   },
   errorMessage: {
-    color: '#dc3545',
+    color: '#F44336', // Error red
   },
   planHelpText: {
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
     marginBottom: 15,
     lineHeight: 20,
   },
   planOption: {
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple background
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
   planOptionSelected: {
-    borderColor: '#2c6f57',
-    backgroundColor: '#f8fdf9',
+    borderColor: '#00E676', // Success green for selected
+    backgroundColor: 'rgba(0, 230, 118, 0.1)', // Semi-transparent green
   },
   planHeader: {
     flexDirection: 'row',
@@ -649,62 +659,70 @@ const styles = {
   planName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   planNameSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   planPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: '#4DBFFF', // Neon blue price
   },
   planPriceSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   planDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue description
     marginBottom: 8,
   },
   planDescriptionSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   planFeatures: {
     marginTop: 8,
   },
   featureText: {
     fontSize: 13,
-    color: '#888',
+    color: '#4DBFFF', // Neon blue features
     marginBottom: 2,
   },
   freePlanNotice: {
-    backgroundColor: '#e8f5e8',
+    backgroundColor: 'rgba(26, 16, 54, 0.8)', // Semi-transparent deep purple
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
     marginTop: 15,
     borderWidth: 1,
-    borderColor: '#2c6f57',
+    borderColor: '#FF4EC9', // Neon pink border
   },
   freePlanText: {
-    color: '#2c6f57',
+    color: '#4DBFFF', // Neon blue text
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   signupButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#555', // Gray disabled button
   },
   signupButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -714,7 +732,7 @@ const styles = {
   },
   termsText: {
     fontSize: 12,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue terms text
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -726,7 +744,7 @@ const styles = {
   },
   consentText: {
     fontSize: 14,
-    color: '#333',
+    color: '#4DBFFF', // Neon blue consent text
     marginLeft: 10,
     flex: 1,
     lineHeight: 20,
@@ -773,26 +791,34 @@ const styles = {
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#00E676', // Success green
     marginBottom: 10,
     textAlign: 'center',
   },
   successMessage: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
   },
   successButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 8,
     minWidth: 120,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   successButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
@@ -800,13 +826,13 @@ const styles = {
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White title
     marginBottom: 15,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue message
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: 22,
@@ -825,20 +851,28 @@ const styles = {
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#555', // Gray cancel button
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#777',
   },
   confirmButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink confirm
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   cancelButtonText: {
-    color: '#333',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
   },
   confirmButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
   },

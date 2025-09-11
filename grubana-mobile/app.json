@@ -37,8 +37,8 @@
       "edgeToEdgeEnabled": true,
       "package": "com.grubana.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#170B1F"
+        "foregroundImage": "./assets/foreground.png",
+        "backgroundImage": "./assets/background.png"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",

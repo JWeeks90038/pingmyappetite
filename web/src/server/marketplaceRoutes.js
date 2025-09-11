@@ -595,11 +595,11 @@ router.post('/trucks/onboarding-link', async (req, res) => {
     let refreshUrl, returnUrl;
     
     if (isMobile && returnScheme) {
-      // Mobile: Use web URLs that redirect to deep links
+      // Mobile: Use Universal Links that work in production iOS/Android apps
       const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
-      refreshUrl = `${baseUrl}/mobile-redirect?action=stripe-refresh&scheme=${returnScheme}`;
-      returnUrl = `${baseUrl}/mobile-redirect?action=stripe-complete&scheme=${returnScheme}`;
-      console.log('📱 Using mobile redirect URLs:', { refreshUrl, returnUrl });
+      refreshUrl = `${baseUrl}/stripe-redirect/refresh`;
+      returnUrl = `${baseUrl}/stripe-redirect/complete`;
+      console.log('📱 Using Universal Link URLs:', { refreshUrl, returnUrl });
     } else {
       // Web URLs
       const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');

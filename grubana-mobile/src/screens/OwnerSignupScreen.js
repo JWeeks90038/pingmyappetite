@@ -649,7 +649,7 @@ export default function OwnerSignupScreen({ navigation }) {
 const styles = {
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#0B0B1A', // Dark navy background
   },
   scrollContainer: {
     flexGrow: 1,
@@ -658,7 +658,7 @@ const styles = {
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#1A1036', // Deep purple header
     alignItems: 'center',
   },
   backButton: {
@@ -666,20 +666,20 @@ const styles = {
     left: 20,
     top: 70,
     padding: 12,
-    backgroundColor: 'rgba(248, 249, 250, 0.8)',
+    backgroundColor: 'rgba(26, 16, 54, 0.8)', // Semi-transparent deep purple
     borderRadius: 20,
     zIndex: 1000,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2c6f57',
+    color: '#FFFFFF', // White title
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue subtitle
     textAlign: 'center',
   },
   form: {
@@ -691,32 +691,33 @@ const styles = {
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#FFFFFF', // White labels
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple input background
+    color: '#FFFFFF', // White text
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
   inputSuccess: {
-    borderColor: '#28a745',
+    borderColor: '#00E676', // Success green
   },
   inputError: {
-    borderColor: '#dc3545',
+    borderColor: '#F44336', // Error red
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple background
     overflow: 'hidden',
     height: 50,
     justifyContent: 'center',
@@ -725,13 +726,13 @@ const styles = {
   picker: {
     height: 50,
     width: '100%',
-    color: '#333',
+    color: '#FFFFFF', // White text
     backgroundColor: 'transparent',
     marginTop: Platform.OS === 'ios' ? -8 : 0,
   },
   pickerItem: {
     fontSize: 16,
-    color: '#333',
+    color: '#FFFFFF', // White text
     textAlign: 'center',
     height: Platform.OS === 'ios' ? 50 : 50,
     lineHeight: Platform.OS === 'ios' ? 50 : undefined,
@@ -740,14 +741,15 @@ const styles = {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple background
   },
   passwordInput: {
     flex: 1,
     padding: 12,
     fontSize: 16,
+    color: '#FFFFFF', // White text
   },
   eyeButton: {
     padding: 12,
@@ -757,25 +759,33 @@ const styles = {
     fontSize: 14,
   },
   successMessage: {
-    color: '#28a745',
+    color: '#00E676', // Success green
   },
   errorMessage: {
-    color: '#dc3545',
+    color: '#F44336', // Error red
   },
   plansContainer: {
     marginTop: 10,
   },
   planOption: {
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: '#FF4EC9', // Neon pink border
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple background
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
   planOptionSelected: {
-    borderColor: '#2c6f57',
-    backgroundColor: '#f0f8f5',
+    borderColor: '#00E676', // Success green for selected
+    backgroundColor: 'rgba(0, 230, 118, 0.1)', // Semi-transparent green
   },
   planHeader: {
     flexDirection: 'row',
@@ -786,29 +796,29 @@ const styles = {
   planName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White text
   },
   planNameSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   planPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#4DBFFF', // Neon blue price
   },
   planPriceSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   planFeatures: {
     marginTop: 8,
   },
   planFeature: {
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue features
     marginBottom: 4,
   },
   planFeatureSelected: {
-    color: '#2c6f57',
+    color: '#00E676', // Success green for selected
   },
   consentContainer: {
     flexDirection: 'row',
@@ -819,21 +829,29 @@ const styles = {
     flex: 1,
     marginLeft: 12,
     fontSize: 14,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
     lineHeight: 20,
   },
   signupButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   signupButtonDisabled: {
-    backgroundColor: '#aaa',
+    backgroundColor: '#555',
   },
   signupButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -844,11 +862,11 @@ const styles = {
   },
   loginText: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue text
   },
   loginLink: {
     fontSize: 16,
-    color: '#2c6f57',
+    color: '#FF4EC9', // Neon pink link
     fontWeight: 'bold',
   },
   // Toast notification styles (replaces Alert.alert)
@@ -863,7 +881,7 @@ const styles = {
     elevation: 1000,
   },
   toastText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
@@ -871,28 +889,38 @@ const styles = {
   // Custom modal styles (replaces Alert.alert)
   customModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(11, 11, 26, 0.9)', // Dark overlay
     justifyContent: 'center',
     alignItems: 'center',
   },
   customModalContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036', // Deep purple modal
     borderRadius: 12,
     padding: 20,
     margin: 20,
     maxWidth: 350,
     width: '90%',
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Neon pink border
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
   customModalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF', // White title
     marginBottom: 10,
     textAlign: 'center',
   },
   customModalMessage: {
     fontSize: 16,
-    color: '#666',
+    color: '#4DBFFF', // Neon blue message
     lineHeight: 22,
     marginBottom: 20,
     textAlign: 'center',
@@ -902,22 +930,30 @@ const styles = {
     justifyContent: 'space-around',
   },
   customModalButton: {
-    backgroundColor: '#2c6f57',
+    backgroundColor: '#FF4EC9', // Neon pink button
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 6,
     minWidth: 80,
+    shadowColor: '#FF4EC9',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
   customModalButtonCancel: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#555', // Gray cancel button
   },
   customModalButtonText: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
   },
   customModalButtonTextCancel: {
-    color: '#fff',
+    color: '#FFFFFF', // White text
   },
 };
