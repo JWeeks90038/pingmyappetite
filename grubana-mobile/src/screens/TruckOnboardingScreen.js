@@ -300,6 +300,14 @@ export default function TruckOnboardingScreen({ navigation }) {
     try {
       const token = await user.getIdToken();
       
+      console.log('🔗 Creating onboarding link with:', {
+        endpoint: API_ENDPOINTS.STRIPE_ONBOARDING_LINK,
+        truckId: user.uid,
+        accountId: accountDetails?.stripeAccountId || accountDetails?.accountId,
+        isMobile: true,
+        returnScheme: 'grubana'
+      });
+      
       const response = await fetch(API_ENDPOINTS.STRIPE_ONBOARDING_LINK, {
         method: 'POST',
         headers: {
@@ -314,15 +322,28 @@ export default function TruckOnboardingScreen({ navigation }) {
         })
       });
 
-      const data = await response.json();
+      console.log('🔗 Response status:', response.status);
+      const responseText = await response.text();
+      console.log('🔗 Response text:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('🔗 Failed to parse response:', parseError);
+        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
+      }
 
       if (response.ok) {
+        console.log('🔗 Opening URL:', data.onboardingUrl);
         Linking.openURL(data.onboardingUrl);
       } else {
+        console.error('🔗 API Error:', data);
         throw new Error(data.error || 'Failed to create onboarding link');
       }
     } catch (error) {
-      showToast('Failed to get onboarding link. Please try again.');
+      console.error('🔗 Full error:', error);
+      showToast(`Failed to get onboarding link: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
