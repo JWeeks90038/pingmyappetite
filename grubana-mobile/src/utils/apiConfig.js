@@ -30,13 +30,7 @@ export const API_ENDPOINTS = {
 
 // Debug configuration
 export const debugConfig = () => {
-  console.log('🔧 API Configuration:');
-  console.log('📡 API_BASE_URL:', API_BASE_URL);
-  console.log('🔥 FIREBASE_FUNCTIONS_URL:', FIREBASE_FUNCTIONS_URL);
-  console.log('💳 Stripe Key Available:', !!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-  console.log('🗺️ Google Maps Key Available:', !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
-  console.log('🔗 Stripe Onboarding Endpoint:', API_ENDPOINTS.STRIPE_ONBOARDING_LINK);
-  console.log('🏪 All API Endpoints:', API_ENDPOINTS);
+
 };
 
 export default {

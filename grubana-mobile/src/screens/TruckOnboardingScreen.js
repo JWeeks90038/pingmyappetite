@@ -145,7 +145,7 @@ export default function TruckOnboardingScreen({ navigation }) {
           // Get the current URL to check for Stripe completion parameters
           const url = await Linking.getInitialURL();
           if (url && url.includes('stripe-onboarding')) {
-            console.log('🎉 Returned from Stripe onboarding:', url);
+ 
             
             // Show success message
             showToast('Welcome back! Checking your Stripe account status...', 'success');
@@ -156,7 +156,7 @@ export default function TruckOnboardingScreen({ navigation }) {
             }, 2000);
           }
         } catch (error) {
-          console.log('Deep link check error:', error);
+
         }
       };
 
@@ -300,13 +300,8 @@ export default function TruckOnboardingScreen({ navigation }) {
     try {
       const token = await user.getIdToken();
       
-      console.log('🔗 Creating onboarding link with:', {
-        endpoint: API_ENDPOINTS.STRIPE_ONBOARDING_LINK,
-        truckId: user.uid,
-        accountId: accountDetails?.stripeAccountId || accountDetails?.accountId,
-        isMobile: true,
-        returnScheme: 'grubana'
-      });
+
+
       
       const response = await fetch(API_ENDPOINTS.STRIPE_ONBOARDING_LINK, {
         method: 'POST',
@@ -322,27 +317,27 @@ export default function TruckOnboardingScreen({ navigation }) {
         })
       });
 
-      console.log('🔗 Response status:', response.status);
+   
       const responseText = await response.text();
-      console.log('🔗 Response text:', responseText);
+
 
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('🔗 Failed to parse response:', parseError);
+     
         throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
       }
 
       if (response.ok) {
-        console.log('🔗 Opening URL:', data.onboardingUrl);
+
         Linking.openURL(data.onboardingUrl);
       } else {
-        console.error('🔗 API Error:', data);
+  
         throw new Error(data.error || 'Failed to create onboarding link');
       }
     } catch (error) {
-      console.error('🔗 Full error:', error);
+  
       showToast(`Failed to get onboarding link: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);

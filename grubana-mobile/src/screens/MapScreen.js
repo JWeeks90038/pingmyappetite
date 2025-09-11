@@ -1920,7 +1920,7 @@ export default function MapScreen() {
   const openURL = async (url, platform) => {
     try {
       if (!url) {
-        Alert.alert('Error', `No ${platform} link available for this truck.`);
+
         return;
       }
       
@@ -1935,11 +1935,10 @@ export default function MapScreen() {
       if (supported) {
         await Linking.openURL(formattedUrl);
       } else {
-        Alert.alert('Error', `Cannot open ${platform} link. Please check if the app is installed.`);
+
       }
     } catch (error) {
-      console.error(`Error opening ${platform} URL:`, error);
-      Alert.alert('Error', `Failed to open ${platform} link.`);
+
     }
   };
 
