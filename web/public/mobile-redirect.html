@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting to Grubana App...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin: 0 0 30px 0;
+            font-size: 16px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fallback {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .fallback a {
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🎉</div>
+        <h1>Stripe Setup Complete!</h1>
+        <p>Redirecting you back to the Grubana app...</p>
+        <div class="spinner"></div>
+        
+        <div class="fallback" id="fallback" style="display: none;">
+            <p><strong>App didn't open automatically?</strong></p>
+            <p>
+                <a href="#" id="appLink">Tap here to open Grubana</a>
+            </p>
+            <p style="margin-top: 15px; font-size: 12px; opacity: 0.7;">
+                If the app still doesn't open, please open Grubana manually from your home screen.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const action = urlParams.get('action');
+        const scheme = urlParams.get('scheme') || 'grubana';
+        
+        // Construct deep link URL
+        let deepLinkUrl;
+        if (action === 'stripe-complete') {
+            deepLinkUrl = `${scheme}://stripe-onboarding?complete=true`;
+        } else if (action === 'stripe-refresh') {
+            deepLinkUrl = `${scheme}://stripe-onboarding?refresh=true`;
+        } else {
+            deepLinkUrl = `${scheme}://`;
+        }
+        
+        console.log('Redirecting to:', deepLinkUrl);
+        
+        // Set the fallback link
+        document.getElementById('appLink').href = deepLinkUrl;
+        
+        // Try to open the app immediately
+        window.location.href = deepLinkUrl;
+        
+        // Show fallback after 3 seconds
+        setTimeout(() => {
+            document.getElementById('fallback').style.display = 'block';
+        }, 3000);
+        
+        // Also try to open the app when the page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                window.location.href = deepLinkUrl;
+            }, 500);
+        });
+    </script>
+</body>
+</html>

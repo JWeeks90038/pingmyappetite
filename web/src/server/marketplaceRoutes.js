@@ -595,10 +595,11 @@ router.post('/trucks/onboarding-link', async (req, res) => {
     let refreshUrl, returnUrl;
     
     if (isMobile && returnScheme) {
-      // Mobile deep link URLs
-      refreshUrl = `${returnScheme}://stripe-onboarding?refresh=true`;
-      returnUrl = `${returnScheme}://stripe-onboarding?complete=true`;
-      console.log('📱 Using mobile deep link URLs:', { refreshUrl, returnUrl });
+      // Mobile: Use web URLs that redirect to deep links
+      const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
+      refreshUrl = `${baseUrl}/mobile-redirect?action=stripe-refresh&scheme=${returnScheme}`;
+      returnUrl = `${baseUrl}/mobile-redirect?action=stripe-complete&scheme=${returnScheme}`;
+      console.log('📱 Using mobile redirect URLs:', { refreshUrl, returnUrl });
     } else {
       // Web URLs
       const baseUrl = ensureHttpsUrl(process.env.CLIENT_URL || process.env.FRONTEND_URL || 'grubana.com');
