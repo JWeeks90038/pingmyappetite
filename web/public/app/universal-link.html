@@ -110,13 +110,7 @@
         const urlParts = new URL(currentUrl);
         const pathParts = urlParts.pathname.split('/').filter(part => part.length > 0);
         
-        console.log('Universal Link Handler:', {
-            currentUrl,
-            pathname: urlParts.pathname,
-            pathParts,
-            search: urlParts.search
-        });
-        
+  
         // Determine the action based on the URL path
         let action = 'home';
         let params = {};
@@ -142,7 +136,7 @@
             params[key] = value;
         }
         
-        console.log('Parsed action and params:', { action, params });
+    
         
         // Function to try opening the app with Universal Links
         function openApp() {
@@ -152,20 +146,20 @@
             if (isIOS) {
                 // For iOS, the Universal Link should automatically open the app
                 // If we reach this page, it means the app isn't installed
-                console.log('iOS detected - app may not be installed');
+          
                 showFallbackOptions(true);
                 return;
             }
             
             if (isMobile) {
                 // For other mobile platforms, try intent URI or play store
-                console.log('Mobile detected (non-iOS)');
+         
                 showFallbackOptions(false);
                 return;
             }
             
             // Desktop - show web app option
-            console.log('Desktop detected');
+       
             showFallbackOptions(false);
         }
         

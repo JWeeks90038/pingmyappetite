@@ -79,10 +79,15 @@ const linking = {
     // Listen for incoming deep links when app is already open
     const onReceiveURL = ({ url }) => listener(url);
     
-    const eventType = 'url';
-    Linking.addEventListener(eventType, onReceiveURL);
+    // Use the new Linking.addEventListener that returns a subscription object
+    const subscription = Linking.addEventListener('url', onReceiveURL);
     
-    return () => Linking.removeEventListener(eventType, onReceiveURL);
+    return () => {
+      // Use the subscription's remove method
+      if (subscription && subscription.remove) {
+        subscription.remove();
+      }
+    };
   },
 };
 
@@ -102,6 +107,16 @@ function AuthStack() {
 
 // Main App Tabs - Customer Version
 function CustomerTabs() {
+  // Defensive check for theme structure
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      accent: { pink: '#FF4EC9' },
+      text: { secondary: '#B0B3C2' },
+      background: { secondary: '#1A1036' },
+      border: '#2A2A3A'
+    }
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -124,11 +139,11 @@ function CustomerTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.accent.pink,
-        tabBarInactiveTintColor: theme.colors.text.secondary,
+        tabBarActiveTintColor: safeTheme.colors.accent.pink,
+        tabBarInactiveTintColor: safeTheme.colors.text.secondary,
         tabBarStyle: {
-          backgroundColor: theme.colors.background.secondary,
-          borderTopColor: theme.colors.border,
+          backgroundColor: safeTheme.colors.background.secondary,
+          borderTopColor: safeTheme.colors.border,
           borderTopWidth: 1,
         },
         tabBarLabelStyle: {
@@ -230,6 +245,16 @@ function EventOrganizerTabs() {
 
 // Main App Tabs - Mobile Kitchen Business Owner Version
 function OwnerTabs() {
+  // Defensive check for theme structure
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      accent: { pink: '#FF4EC9' },
+      text: { secondary: '#B0B3C2' },
+      background: { secondary: '#1A1036' },
+      border: '#2A2A3A'
+    }
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -252,11 +277,11 @@ function OwnerTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.colors.accent.pink,
-        tabBarInactiveTintColor: theme.colors.text.secondary,
+        tabBarActiveTintColor: safeTheme.colors.accent.pink,
+        tabBarInactiveTintColor: safeTheme.colors.text.secondary,
         tabBarStyle: {
-          backgroundColor: theme.colors.background.secondary,
-          borderTopColor: theme.colors.border,
+          backgroundColor: safeTheme.colors.background.secondary,
+          borderTopColor: safeTheme.colors.border,
           borderTopWidth: 1,
         },
         tabBarLabelStyle: {
@@ -405,23 +430,33 @@ function AppContent() {
 
 
   if (needsPayment) {
+    const safeTheme = theme?.colors ? theme : {
+      colors: {
+        accent: { pink: '#FF4EC9', blue: '#4DBFFF' },
+        background: { primary: '#0B0B1A', secondary: '#1A1036' },
+        text: { primary: '#FFFFFF' },
+        border: '#2A2A3A'
+      }
+    };
+
+    const navigationTheme = {
+      dark: true,
+      colors: {
+        primary: safeTheme.colors.accent.pink,
+        background: safeTheme.colors.background.primary,
+        card: safeTheme.colors.background.secondary,
+        text: safeTheme.colors.text.primary,
+        border: safeTheme.colors.border,
+        notification: safeTheme.colors.accent.blue,
+      },
+    };
 
     return (
       <NavigationContainer
         linking={linking}
-        theme={{
-          dark: true,
-          colors: {
-            primary: theme.colors.accent.pink,
-            background: theme.colors.background.primary,
-            card: theme.colors.background.secondary,
-            text: theme.colors.text.primary,
-            border: theme.colors.border,
-            notification: theme.colors.accent.blue,
-          },
-        }}
+        theme={navigationTheme}
       >
-        <StatusBar style="light" backgroundColor={theme.colors.background.primary} />
+        <StatusBar style="light" backgroundColor={safeTheme.colors.background.primary} />
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen 
             name="SecureCheckoutScreen" 
@@ -438,22 +473,33 @@ function AppContent() {
     );
   }
 
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      accent: { pink: '#FF4EC9', blue: '#4DBFFF' },
+      background: { primary: '#0B0B1A', secondary: '#1A1036' },
+      text: { primary: '#FFFFFF' },
+      border: '#2A2A3A'
+    }
+  };
+
+  const navigationTheme = {
+    dark: true,
+    colors: {
+      primary: safeTheme.colors.accent.pink,
+      background: safeTheme.colors.background.primary,
+      card: safeTheme.colors.background.secondary,
+      text: safeTheme.colors.text.primary,
+      border: safeTheme.colors.border,
+      notification: safeTheme.colors.accent.blue,
+    },
+  };
+
   return (
     <NavigationContainer
       linking={linking}
-      theme={{
-        dark: true,
-        colors: {
-          primary: theme.colors.accent.pink,
-          background: theme.colors.background.primary,
-          card: theme.colors.background.secondary,
-          text: theme.colors.text.primary,
-          border: theme.colors.border,
-          notification: theme.colors.accent.blue,
-        },
-      }}
+      theme={navigationTheme}
     >
-      <StatusBar style="light" backgroundColor={theme.colors.background.primary} />
+      <StatusBar style="light" backgroundColor={safeTheme.colors.background.primary} />
       {user ? <MainStackNavigator /> : <AuthStack />}
     </NavigationContainer>
   );

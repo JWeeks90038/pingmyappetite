@@ -937,6 +937,26 @@ export default function MapScreen() {
     }
   };
 
+  // Helper function to format phone numbers for display
+  const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+    
+    // Remove all non-digits
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Format based on length
+    if (cleaned.length === 10) {
+      // US format: (123) 456-7890
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    } else if (cleaned.length === 11 && cleaned[0] === '1') {
+      // US format with country code: +1 (123) 456-7890
+      return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+    } else {
+      // Return original if doesn't match expected format
+      return phone;
+    }
+  };
+
   // Helper function to get rating summary for a truck (for map markers)
   const getTruckRatingSummary = async (truckId) => {
     if (!truckId) return { averageRating: 0, reviewCount: 0 };
@@ -1246,18 +1266,21 @@ export default function MapScreen() {
       return;
     }
 
+    // Check user role permission
+    if (userRole !== 'owner') {
+      showToastMessage("Only business owners can create drops.", 'error');
+      return;
+    }
+
+    // Check subscription plan - only Pro and All-Access can create drops
+    if (userPlan === 'basic' || userPlan === 'starter') {
+      showToastMessage("Drop creation is available for Pro and All-Access subscribers only. Please upgrade your plan to create drops.", 'error');
+      return;
+    }
+
     setCreatingDrop(true);
     
     try {
-      // Check if user has permission (similar to web app)
-  
-      
-      if (userRole !== 'owner') {
-        showToastMessage("Only business owners can create drops.", 'error');
-        setCreatingDrop(false);
-        return;
-      }
-
       const expiresAt = Timestamp.fromDate(
         new Date(Date.now() + dropFormData.expiresInMinutes * 60 * 1000)
       );
@@ -2783,7 +2806,8 @@ export default function MapScreen() {
               tiktok: ownerData.tiktok,
               email: ownerData.email, // Add email for catering requests
               kitchenType: ownerData.kitchenType || truckData.kitchenType || 'truck',
-              businessHours: ownerData.businessHours // Add business hours for status calculation
+              businessHours: ownerData.businessHours, // Add business hours for status calculation
+              description: ownerData.description // Add description for display in modal
             };
             
             
@@ -5787,8 +5811,8 @@ export default function MapScreen() {
         const { id, name, cuisine, coverUrl, menuUrl, socialLinks, businessHours } = message.data;
 
         // Fetch payment data from trucks collection for this specific truck
-
         let paymentData = {};
+        let ownerData = {};
         
         try {
           const paymentDoc = await getDoc(doc(db, 'trucks', id));
@@ -5800,6 +5824,42 @@ export default function MapScreen() {
           }
         } catch (error) {
 
+        }
+        
+        // Fetch owner data (including phone number) from users collection
+        try {
+          // Get the ownerId from the truck document (paymentData) or use truck id as fallback
+          const ownerId = paymentData.ownerId || id;
+  
+          
+          const userDoc = await getDoc(doc(db, 'users', ownerId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            ownerData = {
+              phone: userData.phone,
+              email: userData.email,
+              ownerName: userData.displayName || userData.username || userData.truckName,
+              description: userData.description,
+              // Don't include coverUrl here as it's passed from WebView
+            };
+   
+          } else {
+  
+            // Fallback: try to get from mobileKitchens collection
+            const mobileKitchenDoc = await getDoc(doc(db, 'mobileKitchens', id));
+            if (mobileKitchenDoc.exists()) {
+              const kitchenData = mobileKitchenDoc.data();
+              ownerData = {
+                phone: kitchenData.phone,
+                email: kitchenData.email,
+                ownerName: kitchenData.ownerName,
+                description: kitchenData.description,
+                // Don't include coverUrl here as it's passed from WebView
+              };
+            }
+          }
+        } catch (error) {
+    
         }
         
         // Build social media links display
@@ -5826,7 +5886,9 @@ export default function MapScreen() {
           ownerId: id,
           businessHours: businessHours || {},
           // Include payment data for pre-order processing
-          ...paymentData
+          ...paymentData,
+          // Include owner contact information
+          ...ownerData
         };
         
 
@@ -6069,173 +6131,201 @@ export default function MapScreen() {
               )}
             </View>
             
-            <View style={styles.headerButtonsContainer}>
-              {/* Quick Menu Button - Show for all trucks */}
-              <TouchableOpacity 
-                style={styles.quickMenuButton}
-                onPress={() => scrollToMenuSection()}
-                activeOpacity={0.8}
-              >
-                <Ionicons 
-                  name="restaurant" 
-                  size={20} 
-                  color={colors.accent.blue} 
-                />
-                <Text style={styles.quickMenuButtonText}>Menu</Text>
-              </TouchableOpacity>
+            {/* Header Buttons - Organized in rows */}
+            <View style={styles.headerButtonsWrapper}>
+              {/* First Row - Primary Actions */}
+              <View style={styles.headerButtonsRow}>
+                {/* Favorite Button - Show for all customers */}
+                {userRole === 'customer' && selectedTruck?.ownerId && (
+                  <TouchableOpacity 
+                    style={[
+                      styles.favoriteButton,
+                      userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonActive : styles.favoriteButtonInactive
+                    ]}
+                    onPress={() => {
+                      const truckId = selectedTruck.ownerId;
+                      const truckName = selectedTruck.name || 'Food Truck';
+      
+                      toggleFavorite(truckId, truckName);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons 
+                      name={userFavorites.has(selectedTruck.ownerId) ? "heart" : "heart-outline"} 
+                      size={20} 
+                      color={userFavorites.has(selectedTruck.ownerId) ? colors.accent.pink : colors.accent.blue} 
+                    />
+                    <Text style={[
+                      styles.favoriteButtonText,
+                      userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonTextActive : styles.favoriteButtonTextInactive
+                    ]}>
+                      {userFavorites.has(selectedTruck.ownerId) ? 'Favorited' : 'Favorite'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Reviews Button - Show for all users */}
+                <TouchableOpacity 
+                  style={styles.reviewsButton}
+                  onPress={() => {
+             
+                    
+                    // Close truck modal first to prevent modal conflicts
+                    setShowMenuModal(false);
+                    
+                    // Small delay to ensure truck modal closes before opening reviews modal
+                    setTimeout(() => {
+                      setShowReviewsModal(true);
+            
+                      loadReviews(selectedTruck?.ownerId);
+                    }, 100);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="star" 
+                    size={20} 
+                    color={colors.accent.blue} 
+                  />
+                  <Text style={styles.reviewsButtonText}>Reviews</Text>
+                </TouchableOpacity>
+                
+                {/* Quick Menu Button - Show for all trucks */}
+                <TouchableOpacity 
+                  style={styles.quickMenuButton}
+                  onPress={() => scrollToMenuSection()}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons 
+                    name="restaurant" 
+                    size={20} 
+                    color={colors.accent.blue} 
+                  />
+                  <Text style={styles.quickMenuButtonText}>Menu</Text>
+                </TouchableOpacity>
+              </View>
               
-              {/* Favorite Button - Show for all customers */}
-              {userRole === 'customer' && selectedTruck?.ownerId && (
+              {/* Second Row - Order Actions */}
+              <View style={styles.headerButtonsRow}>
+                {/* Cart Button */}
                 <TouchableOpacity 
                   style={[
-                    styles.favoriteButton,
-                    userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonActive : styles.favoriteButtonInactive
+                    styles.cartButton,
+                    getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive,
+                    selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                      ? styles.cartButtonDisabled 
+                      : null
                   ]}
                   onPress={() => {
-                    const truckId = selectedTruck.ownerId;
-                    const truckName = selectedTruck.name || 'Food Truck';
-    
-                    toggleFavorite(truckId, truckName);
+          
+                    const status = selectedTruck?.businessHours ? checkTruckOpenStatus(selectedTruck.businessHours) : 'no-hours';
+                   
+                    // Check if truck is open before accessing cart
+                    if (selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed') {
+                      showCustomModal(
+                        '🚫 Mobile Kitchen Closed', 
+                        'This mobile kitchen is currently closed. Pre-orders are only available during their open hours.',
+                        null,
+                        'OK',
+                        '',
+                        false
+                      );
+                      return;
+                    }
+                    
+
+                    setShowCartModal(true);
                   }}
+                  disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
                   activeOpacity={0.8}
                 >
-                  <Ionicons 
-                    name={userFavorites.has(selectedTruck.ownerId) ? "heart" : "heart-outline"} 
-                    size={20} 
-                    color={userFavorites.has(selectedTruck.ownerId) ? colors.accent.pink : colors.accent.blue} 
-                  />
-                  <Text style={[
-                    styles.favoriteButtonText,
-                    userFavorites.has(selectedTruck.ownerId) ? styles.favoriteButtonTextActive : styles.favoriteButtonTextInactive
-                  ]}>
-                    {userFavorites.has(selectedTruck.ownerId) ? 'Favorited' : 'Favorite'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              
-              {/* Reviews Button - Show for all users */}
-              <TouchableOpacity 
-                style={styles.reviewsButton}
-                onPress={() => {
-           
-                  
-                  // Close truck modal first to prevent modal conflicts
-                  setShowMenuModal(false);
-                  
-                  // Small delay to ensure truck modal closes before opening reviews modal
-                  setTimeout(() => {
-                    setShowReviewsModal(true);
-          
-                    loadReviews(selectedTruck?.ownerId);
-                  }, 100);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons 
-                  name="star" 
-                  size={20} 
-                  color={colors.accent.blue} 
-                />
-                <Text style={styles.reviewsButtonText}>Reviews</Text>
-              </TouchableOpacity>
-              
-              {/* Cart Button */}
-              <TouchableOpacity 
-                style={[
-                  styles.cartButton,
-                  getTotalItems() > 0 ? styles.cartButtonActive : styles.cartButtonInactive,
-                  selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
-                    ? styles.cartButtonDisabled 
-                    : null
-                ]}
-                onPress={() => {
-        
-                  const status = selectedTruck?.businessHours ? checkTruckOpenStatus(selectedTruck.businessHours) : 'no-hours';
-                 
-                  // Check if truck is open before accessing cart
-                  if (selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed') {
-                    showCustomModal(
-                      '🚫 Mobile Kitchen Closed', 
-                      'This mobile kitchen is currently closed. Pre-orders are only available during their open hours.',
-                      null,
-                      'OK',
-                      '',
-                      false
-                    );
-                    return;
-                  }
-                  
-
-                  setShowCartModal(true);
-                }}
-                disabled={selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed'}
-                activeOpacity={0.8}
-              >
-                <View style={styles.cartButtonContent}>
-                  <View style={styles.cartIconContainer}>
-                    <Ionicons 
-                      name="cart" 
-                      size={22} 
-                      color="#fff" 
-                      style={styles.cartIcon}
-                    />
-                    {getTotalItems() > 0 && (
-                      <View style={styles.cartBadge}>
-                        <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
-                      </View>
-                    )}
+                  <View style={styles.cartButtonContent}>
+                    <View style={styles.cartIconContainer}>
+                      <Ionicons 
+                        name="cart" 
+                        size={22} 
+                        color="#fff" 
+                        style={styles.cartIcon}
+                      />
+                      {getTotalItems() > 0 && (
+                        <View style={styles.cartBadge}>
+                          <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.cartButtonText}>
+                      {selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
+                        ? 'Closed' 
+                        : 'Pre-order Cart'
+                      }
+                    </Text>
                   </View>
-                  <Text style={styles.cartButtonText}>
-                    {selectedTruck?.businessHours && checkTruckOpenStatus(selectedTruck.businessHours) === 'closed' 
-                      ? 'Closed' 
-                      : 'Pre-order Cart'
-                    }
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              
-              {/* Book Truck for Catering Button - Show for all trucks */}
-              <TouchableOpacity 
-                style={styles.cateringButton}
-                onPress={() => {
-      
-                  setShowCateringModal(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons 
-                  name="calendar" 
-                  size={20} 
-                  color={colors.accent.blue} 
-                />
-                <Text style={styles.cateringButtonText}>Book Catering</Text>
-              </TouchableOpacity>
-
-              {/* Book Festival Button - Show only for event organizers */}
-              {userRole === 'event-organizer' && (
+                </TouchableOpacity>
+                
+                {/* Book Truck for Catering Button - Show for all trucks */}
                 <TouchableOpacity 
-                  style={[styles.cateringButton, styles.festivalButton]}
+                  style={styles.cateringButton}
                   onPress={() => {
         
-                    setFestivalFormData(prev => ({
-                      ...prev,
-                      organizerName: userData?.organizationName || userData?.username || '',
-                      organizerEmail: userData?.email || '',
-                      organizerPhone: userData?.phone || '',
-                    }));
-                    setShowFestivalModal(true);
+                    setShowCateringModal(true);
                   }}
                   activeOpacity={0.8}
                 >
                   <Ionicons 
-                    name="musical-notes" 
+                    name="calendar" 
                     size={20} 
-                    color={colors.accent.pink} 
+                    color={colors.accent.blue} 
                   />
-                  <Text style={[styles.cateringButtonText, styles.festivalButtonText]}>Book Festival</Text>
+                  <Text style={styles.cateringButtonText}>Book Catering</Text>
                 </TouchableOpacity>
-              )}
+
+                {/* Book Festival Button - Show only for event organizers */}
+                {userRole === 'event-organizer' && (
+                  <TouchableOpacity 
+                    style={[styles.cateringButton, styles.festivalButton]}
+                    onPress={() => {
+          
+                      setFestivalFormData(prev => ({
+                        ...prev,
+                        organizerName: userData?.organizationName || userData?.username || '',
+                        organizerEmail: userData?.email || '',
+                        organizerPhone: userData?.phone || '',
+                      }));
+                      setShowFestivalModal(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons 
+                      name="musical-notes" 
+                      size={20} 
+                      color={colors.accent.pink} 
+                    />
+                    <Text style={[styles.cateringButtonText, styles.festivalButtonText]}>Book Festival</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
+            
+            {/* Phone Number Display */}
+            {selectedTruck?.phone && (
+              <TouchableOpacity 
+                style={styles.phoneContainer}
+                onPress={() => {
+                  const phoneNumber = selectedTruck.phone.replace(/\D/g, ''); // Remove non-digits
+                  const phoneUrl = `tel:${phoneNumber}`;
+                  Linking.openURL(phoneUrl).catch(err => {
+     
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="call" size={16} color={colors.accent.blue} />
+                <Text style={styles.phoneText}>
+                  {formatPhoneNumber(selectedTruck.phone)}
+                </Text>
+                <Text style={styles.phoneCallText}>Questions? Call us</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <ScrollView ref={modalScrollViewRef} style={styles.modalContent}>
@@ -6273,6 +6363,16 @@ export default function MapScreen() {
                 </View>
               )}
               
+              {/* Mobile Kitchen Description */}
+         
+              {selectedTruck?.description && selectedTruck.description.trim() && (
+                <View style={styles.descriptionSection}>
+                  <Text style={styles.descriptionText}>
+                    {selectedTruck.description}
+                  </Text>
+                </View>
+              )}
+              
               {/* Menu Image Section */}
               {selectedTruck?.menuUrl && (
                 <View style={styles.menuImageSection}>
@@ -6306,38 +6406,34 @@ export default function MapScreen() {
                   <View style={styles.socialLinks}>
                     {selectedTruck.socialLinks?.instagram && (
                       <TouchableOpacity 
-                        style={[styles.socialButton, styles.instagramButton]}
+                        style={styles.socialIcon}
                         onPress={() => openURL(selectedTruck.socialLinks.instagram, 'Instagram')}
                       >
-                        <Ionicons name="logo-instagram" size={20} color="#E4405F" />
-                        <Text style={[styles.socialButtonText, { color: '#E4405F' }]}>Instagram</Text>
+                        <Ionicons name="logo-instagram" size={28} color="#E4405F" />
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.facebook && (
                       <TouchableOpacity 
-                        style={[styles.socialButton, styles.facebookButton]}
+                        style={styles.socialIcon}
                         onPress={() => openURL(selectedTruck.socialLinks.facebook, 'Facebook')}
                       >
-                        <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                        <Text style={[styles.socialButtonText, { color: '#1877F2' }]}>Facebook</Text>
+                        <Ionicons name="logo-facebook" size={28} color="#1877F2" />
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.twitter && (
                       <TouchableOpacity 
-                        style={[styles.socialButton, styles.xButton]}
+                        style={styles.socialIcon}
                         onPress={() => openURL(selectedTruck.socialLinks.twitter, 'X/Twitter')}
                       >
-                        <Ionicons name="logo-twitter" size={20} color="#000000" />
-                        <Text style={[styles.socialButtonText, { color: '#000000' }]}>X</Text>
+                        <Ionicons name="logo-twitter" size={28} color="#000000" />
                       </TouchableOpacity>
                     )}
                     {selectedTruck.socialLinks?.tiktok && (
                       <TouchableOpacity 
-                        style={[styles.socialButton, styles.tiktokButton]}
+                        style={styles.socialIcon}
                         onPress={() => openURL(selectedTruck.socialLinks.tiktok, 'TikTok')}
                       >
-                        <Ionicons name="logo-tiktok" size={20} color="#000000" />
-                        <Text style={[styles.socialButtonText, { color: '#000000' }]}>TikTok</Text>
+                        <Ionicons name="logo-tiktok" size={28} color="#000000" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -6345,28 +6441,45 @@ export default function MapScreen() {
               )}
             </View>
 
-            {/* Drops Section - Only for truck owners viewing their own truck */}
+            {/* Drops Section - Only for truck owners viewing their own truck with Pro/All-Access plans */}
             {userRole === 'owner' && selectedTruck?.ownerId === user?.uid && (
               <View style={styles.dropsSection}>
                 <View style={styles.dropsTitleContainer}>
                   <Text style={styles.sectionTitle}>🎁 Exclusive Deal Drops</Text>
                 </View>
-                <View style={styles.dropsButtonContainer}>
-                  <TouchableOpacity 
-                    style={styles.createDropButton}
-                    onPress={() => setShowDropForm(!showDropForm)}
-                    disabled={creatingDrop}
-                  >
-                    <Ionicons 
-                      name={showDropForm ? "remove-circle" : "add-circle"} 
-                      size={20} 
-                      color="#fff" 
-                    />
-                    <Text style={styles.createDropButtonText}>
-                      {showDropForm ? 'Cancel' : 'Create Drop'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                
+                {/* Plan restriction check for drop creation */}
+                {(userPlan === 'basic' || userPlan === 'starter') ? (
+                  <View style={styles.planUpgradeContainer}>
+                    <View style={styles.planUpgradeCard}>
+                      <Ionicons name="lock-closed" size={24} color="#f39c12" />
+                      <Text style={styles.planUpgradeTitle}>Pro Feature</Text>
+                      <Text style={styles.planUpgradeText}>
+                        Drop creation is available for Pro and All-Access subscribers only.
+                      </Text>
+                      <Text style={styles.planUpgradeSubtext}>
+                        Upgrade your plan to create exclusive deals and attract more customers!
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.dropsButtonContainer}>
+                    <TouchableOpacity 
+                      style={styles.createDropButton}
+                      onPress={() => setShowDropForm(!showDropForm)}
+                      disabled={creatingDrop}
+                    >
+                      <Ionicons 
+                        name={showDropForm ? "remove-circle" : "add-circle"} 
+                        size={20} 
+                        color="#fff" 
+                      />
+                      <Text style={styles.createDropButtonText}>
+                        {showDropForm ? 'Cancel' : 'Create Drop'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {dropCreationMessage ? (
                   <View style={styles.dropMessageContainer}>
@@ -8453,9 +8566,9 @@ const createThemedStyles = (theme) => StyleSheet.create({
   },
   modalHeader: {
     backgroundColor: theme.colors.background.secondary,
-    padding: 15,
-    paddingTop: 35,
-    paddingRight: 60,
+    padding: 5,
+    paddingTop: 0,
+    paddingRight: -10,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     position: 'relative',
@@ -8483,7 +8596,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 60,
+    top: 55,
     right: 20,
     backgroundColor: '#4682b4', // Steel blue close button
     borderRadius: 20,
@@ -8578,6 +8691,37 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: theme.colors.text.secondary,
     fontWeight: '500',
   },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    marginHorizontal: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: colors.accent.blue,
+    shadowColor: colors.accent.blue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  phoneText: {
+    fontSize: 15,
+    color: colors.accent.blue,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  phoneCallText: {
+    fontSize: 11,
+    color: colors.text.secondary,
+    marginLeft: 8,
+    fontStyle: 'italic',
+    opacity: 0.8,
+  },
   modalContent: {
     flex: 1,
     padding: 20,
@@ -8617,6 +8761,17 @@ const createThemedStyles = (theme) => StyleSheet.create({
     maxHeight: 400,
     borderRadius: 10,
     resizeMode: 'contain',
+  },
+  descriptionSection: {
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
   imageLoadingIndicator: {
     position: 'absolute',
@@ -8662,44 +8817,18 @@ const createThemedStyles = (theme) => StyleSheet.create({
   },
   socialLinks: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
   },
-  socialButton: {
-    backgroundColor: '#1A1036',
-    padding: 12,
+  socialIcon: {
+    padding: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4DBFFF',
-    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 120,
-  },
-  instagramButton: {
-    backgroundColor: '#1A1036',
-    borderColor: '#E4405F',
-  },
-  facebookButton: {
-    backgroundColor: '#1A1036',
-    borderColor: '#1877F2',
-  },
-  twitterButton: {
-    backgroundColor: '#1A1036',
-    borderColor: '#1DA1F2',
-  },
-  xButton: {
-    backgroundColor: '#1A1036',
-    borderColor: '#FFFFFF',
-  },
-  tiktokButton: {
-    backgroundColor: '#1A1036',
-    borderColor: '#FFFFFF',
-  },
-  socialButtonText: {
-    fontWeight: 'bold',
-    marginLeft: 8,
+    minWidth: 44,
+    minHeight: 44,
   },
   
   // Drops Section Styles
@@ -8724,6 +8853,35 @@ const createThemedStyles = (theme) => StyleSheet.create({
   dropsButtonContainer: {
     alignItems: 'flex-start',
     marginBottom: 15,
+  },
+  planUpgradeContainer: {
+    marginBottom: 15,
+  },
+  planUpgradeCard: {
+    backgroundColor: '#fff3cd',
+    borderWidth: 1,
+    borderColor: '#f39c12',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    gap: 8,
+  },
+  planUpgradeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f39c12',
+  },
+  planUpgradeText: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  planUpgradeSubtext: {
+    fontSize: 12,
+    color: '#856404',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   createDropButton: {
     backgroundColor: theme.colors.accent.blue,
@@ -9341,10 +9499,22 @@ const createThemedStyles = (theme) => StyleSheet.create({
   headerButtonsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     flexWrap: 'wrap',
     gap: 8,
-    paddingHorizontal: 5,
+    paddingHorizontal: 0,
+    width: '100%',
+  },
+  headerButtonsWrapper: {
+    width: '100%',
+    gap: 8,
+  },
+  headerButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   quickMenuButton: {
     backgroundColor: '#fff',

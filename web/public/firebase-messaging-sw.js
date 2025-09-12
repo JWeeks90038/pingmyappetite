@@ -21,7 +21,7 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log('🔔 Background message received:', payload);
+
 
   const notificationTitle = payload.notification?.title || 'Grubana';
   const notificationOptions = {
@@ -50,7 +50,7 @@ messaging.onBackgroundMessage((payload) => {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-  console.log('🔔 Notification clicked:', event);
+
   
   event.notification.close();
   
@@ -78,7 +78,7 @@ self.addEventListener('notificationclick', (event) => {
     );
   } else if (event.action === 'dismiss') {
     // Just close the notification (already done above)
-    console.log('🔔 Notification dismissed');
+
   } else {
     // Default click action (no specific action button)
     const urlToOpen = event.notification.data?.clickAction || '/customer-dashboard';
@@ -91,7 +91,7 @@ self.addEventListener('notificationclick', (event) => {
 
 // Handle notification close
 self.addEventListener('notificationclose', (event) => {
-  console.log('🔔 Notification closed:', event);
+
   
   // Track notification close analytics if needed
   // This could be used to understand which notifications users dismiss
@@ -99,11 +99,11 @@ self.addEventListener('notificationclose', (event) => {
 
 // Handle push events (additional handling if needed)
 self.addEventListener('push', (event) => {
-  console.log('🔔 Push event received:', event);
+
   
   if (event.data) {
     const data = event.data.json();
-    console.log('🔔 Push data:', data);
+ 
     
     // Handle custom push logic if needed
     // This is automatically handled by Firebase Messaging onBackgroundMessage

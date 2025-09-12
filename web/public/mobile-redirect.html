@@ -120,9 +120,7 @@
             deepLinkUrl = `${scheme}://`;
         }
         
-        console.log('Redirecting to:', deepLinkUrl);
-        console.log('User Agent:', navigator.userAgent);
-        console.log('Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
+
         
         // Set the fallback link
         document.getElementById('appLink').href = deepLinkUrl;
@@ -134,16 +132,16 @@
         
         // Function to attempt app opening with multiple strategies
         function attemptAppOpen() {
-            console.log('Attempting to open app...', { isIOS, isTestFlight });
+       
             
             if (isIOS) {
                 // Strategy 1: Try custom scheme
-                console.log('Strategy 1: Custom scheme');
+            
                 window.location.href = deepLinkUrl;
                 
                 // Strategy 2: Try with a iframe (sometimes works better on iOS)
                 setTimeout(() => {
-                    console.log('Strategy 2: iframe approach');
+             
                     const iframe = document.createElement('iframe');
                     iframe.style.display = 'none';
                     iframe.src = deepLinkUrl;
@@ -156,14 +154,14 @@
                 
                 // Strategy 3: Try window.open
                 setTimeout(() => {
-                    console.log('Strategy 3: window.open approach');
+              
                     try {
                         const newWindow = window.open(deepLinkUrl, '_self');
                         if (newWindow) {
                             newWindow.close();
                         }
                     } catch (e) {
-                        console.log('window.open failed:', e);
+                     
                     }
                 }, 1000);
                 
@@ -185,13 +183,13 @@
                 document.getElementById('testflightInstructions').style.display = 'block';
             }
             
-            console.log('Showing fallback options');
+        
         }, 2000);
         
         // Try again when page loads
         window.addEventListener('load', () => {
             setTimeout(() => {
-                console.log('Page loaded - trying again');
+              
                 attemptAppOpen();
             }, 300);
         });
@@ -199,7 +197,7 @@
         // Add click handler for manual fallback link
         document.getElementById('appLink').addEventListener('click', (e) => {
             e.preventDefault();
-            console.log('Manual fallback link clicked');
+         
             attemptAppOpen();
         });
     </script>

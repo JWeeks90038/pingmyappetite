@@ -229,20 +229,14 @@ const CustomerOrdersScreen = () => {
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        console.log('📋 Fetched mobile kitchen profile for:', truckId, {
-          truckName: userData.truckName,
-          coverUrl: userData.coverUrl,
-          coverURL: userData.coverURL,
-          hasBusinessName: !!userData.businessName,
-          hasUsername: !!userData.username
-        });
+   
         
         const profileData = {
           truckName: userData.truckName || userData.businessName || userData.username || 'Unknown Restaurant',
           coverImageUrl: userData.coverUrl || userData.coverURL || null // Check both case variations
         };
         
-        console.log('🎯 Final profile data:', profileData);
+
         
         setMobileKitchenProfiles(prev => {
           const updated = {
@@ -301,7 +295,7 @@ const CustomerOrdersScreen = () => {
               source={{ uri: mobileKitchenProfiles[item.truckId].coverImageUrl }} 
               style={styles.truckAvatar}
               onError={(error) => {
-                console.log('❌ Image failed to load for truck:', item.truckId, 'URL:', mobileKitchenProfiles[item.truckId].coverImageUrl);
+       
                 // Fallback: Set coverImageUrl to null so placeholder shows
                 setMobileKitchenProfiles(prev => ({
                   ...prev,
@@ -312,7 +306,7 @@ const CustomerOrdersScreen = () => {
                 }));
               }}
               onLoad={() => {
-                console.log('✅ Image loaded successfully for truck:', item.truckId);
+       
               }}
             />
           ) : (

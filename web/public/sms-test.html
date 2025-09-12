@@ -136,28 +136,25 @@
             measurementId: "G-MHVKR07V99"
         };
         
-        console.log('🔥 Initializing Firebase for SMS testing...');
+ 
         
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        console.log('✅ Firebase app initialized');
+
         
         // Initialize Functions with region
         const functions = getFunctions(app, 'us-central1');
-        console.log('✅ Firebase Functions initialized for region us-central1');
+      
         
         // Create callable functions
         window.testSMS = httpsCallable(functions, 'testSMS');
         window.sendWelcomeSMS = httpsCallable(functions, 'sendWelcomeSMS');
         
-        console.log('✅ SMS Functions ready:', ['testSMS', 'sendWelcomeSMS']);
+     
         
         // Test function availability
         window.addEventListener('load', () => {
-            console.log('Page loaded. Functions available:', {
-                testSMS: typeof window.testSMS,
-                sendWelcomeSMS: typeof window.sendWelcomeSMS
-            });
+        
         });
     </script>
 
