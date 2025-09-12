@@ -998,7 +998,7 @@ export default function MapScreen() {
       const snapshot = await getDocs(reviewsQuery);
       const reviewsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        let createdAt = new Date();
+        let createdAt = new Date('2024-01-01'); // Default to old date instead of current time
         
         if (data.createdAt) {
           if (typeof data.createdAt.toDate === 'function') {
@@ -1042,7 +1042,7 @@ export default function MapScreen() {
         const simpleSnapshot = await getDocs(simpleQuery);
         const simpleReviewsData = simpleSnapshot.docs.map(doc => {
           const data = doc.data();
-          let createdAt = new Date();
+          let createdAt = new Date('2024-01-01'); // Default to old date instead of current time
           
           if (data.createdAt) {
             if (typeof data.createdAt.toDate === 'function') {
@@ -2135,8 +2135,6 @@ export default function MapScreen() {
         // Status tracking
         status: 'pending_payment',
         paymentStatus: 'pending',
-        timestamp: serverTimestamp(),
-        orderDate: new Date().toISOString(),
         deliveryMethod: 'pickup',
         
         // Smart estimated time
@@ -2144,7 +2142,8 @@ export default function MapScreen() {
         estimatedTimeCalculation: estimatedTimeData.breakdown,
         estimatedTimeDescription: getTimeDescription(estimatedTimeData.estimatedMinutes),
         isEstimatedTimeOverridden: false,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
 
@@ -8098,8 +8097,8 @@ export default function MapScreen() {
             <View style={styles.headerLogoContainer}>
               <Image 
                 source={require('../../assets/logo.png')}
-                style={styles.headerLogo}
-                resizeMode="center"
+                style={styles.reviewsModalLogo}
+                resizeMode="contain"
               />
             </View>
             
@@ -8368,8 +8367,8 @@ const createThemedStyles = (theme) => StyleSheet.create({
     ...theme.shadows.neonPink,
   },
   headerLogo: {
-    width: 380,
-    height: 250,
+    width: 280,
+    height: 120,
     marginTop: -20,
     marginBottom: 0,
   },
@@ -8475,12 +8474,12 @@ const createThemedStyles = (theme) => StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  headerLogo: {
-    width: 280,
-    height: 150,
+  reviewsModalLogo: {
+    width: 200,
+    height: 80,
     backgroundColor: 'transparent',
-    marginTop: -50,
-    marginBottom: -50,
+    marginTop: -20,
+    marginBottom: -20,
   },
   closeButton: {
     position: 'absolute',

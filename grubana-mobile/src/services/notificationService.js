@@ -31,11 +31,11 @@ class NotificationService {
 
     try {
       // Request permissions
-      const token = await this.requestNotificationPermissions();
+      const tokenData = await this.requestNotificationPermissions();
       
-      if (token) {
+      if (tokenData && tokenData.token) {
         // Save token to user's Firestore document
-        await this.saveTokenToFirestore(userId, token);
+        await this.saveTokenToFirestore(userId, tokenData.token, tokenData.tokenType);
         
         // Set up notification listeners
         this.setupNotificationListeners();
@@ -72,33 +72,67 @@ class NotificationService {
         return null;
       }
 
-      // Get FCM token directly (this will work after Expo ejection)
+      // Get FCM token for production/TestFlight, Expo token for Expo Go
       let token;
+      let tokenType = 'expo'; // Default to expo
+      
       try {
-        // For production React Native, use Firebase messaging directly
+        // Check if we're running in a standalone app (TestFlight/production)
+        const isStandalone = !__DEV__ || Platform.OS !== 'web';
+        
         if (Platform.OS === 'web') {
           // Web implementation
           const messaging = getMessaging();
           token = await getToken(messaging, { 
-            vapidKey: 'your-vapid-key-here' // You'll need to set this up
+            vapidKey: 'BNxZ8PbrR8F6P7hqjWZz7Qq3Q8HbXhF5JQB3D2J4K9L1M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9A0B1C2D3E4F5' // Replace with your actual VAPID key
           });
+          tokenType = 'fcm';
         } else {
-          // Mobile implementation - use Expo for now, but prepare for FCM
-          const expoPushToken = await Notifications.getExpoPushTokenAsync();
-          token = expoPushToken.data;
-          
-          // Future: Replace with react-native-firebase/messaging
-          // import messaging from '@react-native-firebase/messaging';
-          // token = await messaging().getToken();
+          // Try to get FCM token first (for standalone builds)
+          try {
+            // For standalone/TestFlight builds, use FCM
+            // This requires @react-native-firebase/messaging to be installed
+            // import messaging from '@react-native-firebase/messaging';
+            // token = await messaging().getToken();
+            // tokenType = 'fcm';
+            
+            // For now, detect if we're in Expo Go vs standalone
+            const isExpoGo = typeof expo !== 'undefined' && expo?.modules?.ExponentConstants?.appOwnership === 'expo';
+            
+            if (isExpoGo) {
+              // Use Expo tokens for Expo Go
+              const expoPushToken = await Notifications.getExpoPushTokenAsync();
+              token = expoPushToken.data;
+              tokenType = 'expo';
+            } else {
+              // For TestFlight/production, get device push token which works with FCM
+              const deviceToken = await Notifications.getDevicePushTokenAsync();
+              token = deviceToken.data || deviceToken;
+              tokenType = 'fcm';
+            }
+          } catch (fcmError) {
+            // Fallback to Expo token
+            const expoPushToken = await Notifications.getExpoPushTokenAsync();
+            token = expoPushToken.data;
+            tokenType = 'expo';
+          }
         }
       } catch (tokenError) {
-        const deviceToken = await Notifications.getDevicePushTokenAsync();
-        token = deviceToken.data || deviceToken;
+        // Final fallback
+        try {
+          const deviceToken = await Notifications.getDevicePushTokenAsync();
+          token = deviceToken.data || deviceToken;
+          tokenType = 'fcm';
+        } catch (fallbackError) {
+          const expoPushToken = await Notifications.getExpoPushTokenAsync();
+          token = expoPushToken.data;
+          tokenType = 'expo';
+        }
       }
 
       this.expoPushToken = token;
       
-      return token;
+      return { token, tokenType };
     } catch (error) {
       return null;
     }
@@ -107,22 +141,32 @@ class NotificationService {
   /**
    * Save push token to user's Firestore document
    */
-  async saveTokenToFirestore(userId, token) {
+  async saveTokenToFirestore(userId, token, tokenType = 'expo') {
     try {
       const userRef = doc(db, 'users', userId);
       
-      await updateDoc(userRef, {
-        expoPushToken: token,
-        fcmToken: token, // Also save as fcmToken for backend compatibility
+      const updateData = {
         notificationPermission: 'granted',
-        expoPushTokenUpdatedAt: new Date(),
+        tokenUpdatedAt: new Date(),
+        tokenType: tokenType,
         // Enable notifications by default
         notificationPreferences: {
           push: true,
           sms: false,
           email: true
         }
-      });
+      };
+      
+      // Save token based on type
+      if (tokenType === 'fcm') {
+        updateData.fcmToken = token;
+        updateData.expoPushToken = null; // Clear expo token
+      } else {
+        updateData.expoPushToken = token;
+        updateData.fcmToken = token; // Also save as fcmToken for backend compatibility
+      }
+      
+      await updateDoc(userRef, updateData);
       
     } catch (error) {
       throw error;

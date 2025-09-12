@@ -390,8 +390,9 @@ export default function AnalyticsScreen() {
     } else if (order.orderDate) {
       return new Date(order.orderDate);
     } else {
-
-      return new Date();
+      // If all timestamp fields fail, use a very old date instead of current time
+      // This way we know there's a data issue but don't mess up sorting/analytics
+      return new Date('2024-01-01');
     }
   };
 

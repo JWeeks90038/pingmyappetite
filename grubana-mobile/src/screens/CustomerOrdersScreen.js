@@ -49,11 +49,47 @@ const CustomerOrdersScreen = () => {
       (snapshot) => {
  
         
-        const ordersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date()
-        }))
+        const ordersData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          
+          // Smart timestamp extraction - try multiple fields in order of preference
+          let createdAt = null;
+          
+          // Try createdAt field first
+          if (data.createdAt?.toDate) {
+            createdAt = data.createdAt.toDate();
+          } else if (data.createdAt?.seconds) {
+            createdAt = new Date(data.createdAt.seconds * 1000);
+          } else if (data.createdAt instanceof Date) {
+            createdAt = data.createdAt;
+          } else if (typeof data.createdAt === 'string') {
+            createdAt = new Date(data.createdAt);
+          }
+          // Try timestamp field as fallback
+          else if (data.timestamp?.toDate) {
+            createdAt = data.timestamp.toDate();
+          } else if (data.timestamp?.seconds) {
+            createdAt = new Date(data.timestamp.seconds * 1000);
+          } else if (data.timestamp instanceof Date) {
+            createdAt = data.timestamp;
+          } else if (typeof data.timestamp === 'string') {
+            createdAt = new Date(data.timestamp);
+          }
+          // Try orderDate as last resort
+          else if (data.orderDate) {
+            createdAt = new Date(data.orderDate);
+          }
+          // If all else fails, use a very old date instead of current time
+          else {
+            createdAt = new Date('2024-01-01'); // Default to old date so we know it's problematic
+          }
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: createdAt
+          };
+        })
         // Filter out pending_payment orders (payment processing)
         .filter(order => order.status !== 'pending_payment');
 
@@ -193,13 +229,20 @@ const CustomerOrdersScreen = () => {
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
-   
- 
+        console.log('📋 Fetched mobile kitchen profile for:', truckId, {
+          truckName: userData.truckName,
+          coverUrl: userData.coverUrl,
+          coverURL: userData.coverURL,
+          hasBusinessName: !!userData.businessName,
+          hasUsername: !!userData.username
+        });
         
         const profileData = {
           truckName: userData.truckName || userData.businessName || userData.username || 'Unknown Restaurant',
-          coverImageUrl: userData.coverUrl || null
+          coverImageUrl: userData.coverUrl || userData.coverURL || null // Check both case variations
         };
+        
+        console.log('🎯 Final profile data:', profileData);
         
         setMobileKitchenProfiles(prev => {
           const updated = {
@@ -258,10 +301,18 @@ const CustomerOrdersScreen = () => {
               source={{ uri: mobileKitchenProfiles[item.truckId].coverImageUrl }} 
               style={styles.truckAvatar}
               onError={(error) => {
-              
+                console.log('❌ Image failed to load for truck:', item.truckId, 'URL:', mobileKitchenProfiles[item.truckId].coverImageUrl);
+                // Fallback: Set coverImageUrl to null so placeholder shows
+                setMobileKitchenProfiles(prev => ({
+                  ...prev,
+                  [item.truckId]: {
+                    ...prev[item.truckId],
+                    coverImageUrl: null
+                  }
+                }));
               }}
               onLoad={() => {
-        
+                console.log('✅ Image loaded successfully for truck:', item.truckId);
               }}
             />
           ) : (

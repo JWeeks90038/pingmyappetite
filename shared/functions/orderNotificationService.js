@@ -156,9 +156,7 @@ const sendPushNotification = async (token, title, body, data = {}) => {
     
     if (isExpoToken) {
       logger.info('📱 Sending via Expo Push Service');
-      // For now, try FCM anyway since Expo tokens might work with FCM
-      // In the future, implement proper Expo push service
-      return await sendFCMNotification(token, title, body, data, badgeCount);
+      return await sendExpoNotification(token, title, body, data, badgeCount);
     } else {
       logger.info('📱 Sending via Firebase FCM');
       return await sendFCMNotification(token, title, body, data, badgeCount);
@@ -183,69 +181,149 @@ const sendPushNotification = async (token, title, body, data = {}) => {
   }
 };
 
+// Removed duplicate sendExpoNotification function - using the one defined in sendFCMNotification above
+
 /**
- * Send notification via Firebase FCM
+ * Send notification via Firebase FCM or Expo Push
  */
-const sendFCMNotification = async (fcmToken, title, body, data, badgeCount) => {
-  const message = {
-    token: fcmToken,
-    notification: {
-      title,
-      body
-    },
-    data: {
-      ...data,
-      clickAction: data.clickAction || '/my-orders',
-      type: data.type || 'order_status'
-    },
-    // iOS specific badge count
-    apns: {
-      payload: {
-        aps: {
-          badge: badgeCount,
-          sound: 'default'
-        }
-      }
-    },
-    // Android specific badge count
-    android: {
-      notification: {
-        notificationCount: badgeCount
-      }
-    },
-    webpush: {
+const sendFCMNotification = async (token, title, body, data, badgeCount) => {
+  try {
+    // Check if it's an Expo token
+    if (token && token.startsWith('ExponentPushToken')) {
+      return await sendExpoNotification(token, title, body, data, badgeCount);
+    }
+    
+    // Handle FCM token
+    const message = {
+      token: token,
       notification: {
         title,
-        body,
-        icon: '/logo.png',
-        badge: '/truck-icon.png',
-        requireInteraction: true,
-        actions: [
-          {
-            action: 'view',
-            title: '👀 View Order'
-          },
-          {
-            action: 'dismiss',
-            title: '✖️ Dismiss'
-          }
-        ]
+        body
       },
-      fcmOptions: {
-        link: data.clickAction || '/my-orders'
+      data: {
+        ...data,
+        clickAction: data.clickAction || '/my-orders',
+        type: data.type || 'order_status',
+        // Convert all values to strings (FCM requirement)
+        orderId: String(data.orderId || ''),
+        status: String(data.status || ''),
+      },
+      // iOS specific badge count
+      apns: {
+        payload: {
+          aps: {
+            badge: badgeCount,
+            sound: 'default'
+          }
+        }
+      },
+      // Android specific badge count
+      android: {
+        notification: {
+          notificationCount: badgeCount,
+          sound: 'default',
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        }
+      },
+      webpush: {
+        notification: {
+          title,
+          body,
+          icon: '/logo.png',
+          badge: '/truck-icon.png',
+          requireInteraction: true,
+          actions: [
+            {
+              action: 'view',
+              title: '👀 View Order'
+            },
+            {
+              action: 'dismiss',
+              title: '✖️ Dismiss'
+            }
+          ]
+        },
+        fcmOptions: {
+          link: data.clickAction || '/my-orders'
+        }
       }
+    };
+    
+    const response = await admin.messaging().send(message);
+    
+    logger.info(`📱 FCM notification sent: ${response}`);
+    
+    return {
+      success: true,
+      messageId: response,
+      method: 'fcm'
+    };
+    
+  } catch (error) {
+    logger.error('FCM notification failed:', error);
+    
+    let errorMessage = error.message;
+    
+    // Handle specific FCM errors
+    if (error.code === 'messaging/registration-token-not-registered') {
+      errorMessage = 'Token not registered - user may have uninstalled app';
+    } else if (error.code === 'messaging/invalid-registration-token') {
+      errorMessage = 'Invalid token format';
     }
-  };
-  
-  const response = await admin.messaging().send(message);
-  
-  logger.info(`📱 FCM notification sent: ${response}`);
-  
-  return {
-    success: true,
-    messageId: response,
-    method: 'fcm'
-  };
+    
+    return {
+      success: false,
+      method: 'fcm',
+      error: errorMessage,
+    };
+  }
+};
+
+/**
+ * Send notification via Expo Push Service (for Expo Go compatibility)
+ */
+const sendExpoNotification = async (token, title, body, data, badgeCount) => {
+  try {
+    const message = {
+      to: token,
+      sound: 'default',
+      title: title,
+      body: body,
+      data: data,
+      badge: badgeCount || 1,
+    };
+
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    
+    if (result.data && result.data[0] && result.data[0].status === 'ok') {
+      logger.info(`📱 Expo notification sent: ${result.data[0].id}`);
+      return {
+        success: true,
+        messageId: result.data[0].id,
+        method: 'expo'
+      };
+    } else {
+      throw new Error(result.data?.[0]?.message || 'Expo push failed');
+    }
+    
+  } catch (error) {
+    logger.error('Expo notification failed:', error);
+    return {
+      success: false,
+      method: 'expo',
+      error: error.message,
+    };
+  }
 };
 
 /**
@@ -374,6 +452,13 @@ const sendOrderStatusNotification = async (orderId, status, customData = {}) => 
             }
           );
           results.push(pushResult);
+        } else {
+          logger.warn(`🚚 Truck owner ${truckId} missing push notification setup: pushEnabled=${truckPreferences.pushNotifications}, hasToken=${!!truckPreferences.fcmToken}`);
+          results.push({
+            success: false,
+            error: 'No FCM token or push notifications disabled for truck owner',
+            method: 'push'
+          });
         }
 
         // Send SMS notification to truck owner
@@ -399,11 +484,71 @@ const sendOrderStatusNotification = async (orderId, status, customData = {}) => 
         logger.info(`🚚 New order notifications sent to truck owner ${truckId} for order ${orderId}`);
       }
 
+      // ALSO notify customer that their order was placed successfully
+      if (customerId && customerId !== 'guest') {
+        logger.info(`📱 Sending order confirmation notification to customer: ${customerId}`);
+        
+        const customerPreferences = await getUserNotificationPreferences(customerId);
+        
+        // Prepare notification data for customer (order placed confirmation)
+        const customerNotificationData = {
+          orderId,
+          truckName: truckData.businessName || truckData.username || 'Food Truck',
+          customerName: customerPreferences.username,
+          items: orderData.items,
+          totalAmount: orderData.totalAmount,
+          ...customData
+        };
+
+        // Create custom content for order placed confirmation
+        const shortOrderId = orderId.substring(0, 8);
+        const customerContent = {
+          title: '✅ Order Placed!',
+          body: `Your order #${shortOrderId} was placed with ${customerNotificationData.truckName} • $${orderData.totalAmount?.toFixed(2) || '0.00'}`,
+          emoji: '✅'
+        };
+
+        // Send push notification to customer
+        if (customerPreferences.pushNotifications && customerPreferences.fcmToken) {
+          const pushResult = await sendPushNotification(
+            customerPreferences.fcmToken,
+            customerContent.title,
+            customerContent.body,
+            {
+              orderId,
+              status: 'order_placed',
+              type: 'order_confirmation',
+              clickAction: '/my-orders',
+              userId: customerId // Add userId for badge counting
+            }
+          );
+          results.push(pushResult);
+        } else {
+          logger.warn(`📱 Customer ${customerId} missing push notification setup: pushEnabled=${customerPreferences.pushNotifications}, hasToken=${!!customerPreferences.fcmToken}`);
+        }
+
+        // Record notification sent to customer
+        await db.collection('sentNotifications').add({
+          userId: customerId,
+          orderId,
+          type: 'order_confirmation',
+          status: 'order_placed',
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          content: customerContent,
+          results: results.filter(r => r.method === 'push'), // Only include customer's push result
+          success: results.filter(r => r.method === 'push').some(r => r.success),
+          recipient: 'customer',
+          read: false // Initialize as unread for badge counting
+        });
+
+        logger.info(`📱 Order confirmation notification sent to customer ${customerId} for order ${orderId}`);
+      }
+
       return {
         success: true,
         results,
         notificationsSent: results.filter(r => r.success).length,
-        recipient: 'truck_owner'
+        recipients: ['truck_owner', 'customer']
       };
     }
 

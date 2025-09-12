@@ -115,11 +115,47 @@ const OrderManagementScreen = () => {
         } else {
         }
         
-        const ordersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date()
-        }))
+        const ordersData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          
+          // Smart timestamp extraction - try multiple fields in order of preference
+          let createdAt = null;
+          
+          // Try createdAt field first
+          if (data.createdAt?.toDate) {
+            createdAt = data.createdAt.toDate();
+          } else if (data.createdAt?.seconds) {
+            createdAt = new Date(data.createdAt.seconds * 1000);
+          } else if (data.createdAt instanceof Date) {
+            createdAt = data.createdAt;
+          } else if (typeof data.createdAt === 'string') {
+            createdAt = new Date(data.createdAt);
+          }
+          // Try timestamp field as fallback
+          else if (data.timestamp?.toDate) {
+            createdAt = data.timestamp.toDate();
+          } else if (data.timestamp?.seconds) {
+            createdAt = new Date(data.timestamp.seconds * 1000);
+          } else if (data.timestamp instanceof Date) {
+            createdAt = data.timestamp;
+          } else if (typeof data.timestamp === 'string') {
+            createdAt = new Date(data.timestamp);
+          }
+          // Try orderDate as last resort
+          else if (data.orderDate) {
+            createdAt = new Date(data.orderDate);
+          }
+          // If all else fails, use a very old date instead of current time
+          else {
+            createdAt = new Date('2024-01-01'); // Default to old date so we know it's problematic
+          }
+          
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: createdAt
+          };
+        })
         .filter(order => {
           const now = Date.now();
           const orderAge = now - order.createdAt.getTime();
@@ -156,8 +192,8 @@ const OrderManagementScreen = () => {
             return aPriority - bPriority;
           }
 
-          // Within same priority, show oldest first (FIFO - first in, first out)
-          return a.createdAt - b.createdAt;
+          // Within same priority, show newest first so new orders appear at top immediately
+          return b.createdAt - a.createdAt;
         });
         
         // Set up customer profile listeners for orders (only for new userIds)
