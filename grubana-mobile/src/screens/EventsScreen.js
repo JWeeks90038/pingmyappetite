@@ -95,6 +95,35 @@ const EventsScreen = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmModalData, setConfirmModalData] = useState({ title: '', message: '', onConfirm: null });
 
+  // Vendor application modal states
+  const [showVendorApplicationModal, setShowVendorApplicationModal] = useState(false);
+  const [selectedEventForApplication, setSelectedEventForApplication] = useState(null);
+  const [vendorApplicationForm, setVendorApplicationForm] = useState({
+    businessName: '',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
+    businessWebsite: '',
+    equipmentType: 'food-truck',
+    cuisineType: '',
+    menuDescription: '',
+    specialRequests: '',
+    yearsInBusiness: '',
+    servingCapacity: '',
+    electricalNeeds: '',
+    spaceRequirements: '',
+    // Permits and licensing
+    hasBusinessLicense: false,
+    hasHealthPermit: false,
+    hasFirePermit: false,
+    hasInsurance: false,
+    hasFoodHandlersCert: false,
+    // Additional requirements
+    agreeToTerms: false,
+    agreeToFees: false,
+    cancellationPolicy: false
+  });
+
   const showToast = (message, type = 'success') => {
     setToast({ visible: true, message, type });
     Animated.sequence([
@@ -655,6 +684,103 @@ const EventsScreen = () => {
       monthlyRecurrenceType: event.monthlyRecurrenceType || 'date'
     });
     setShowEventModal(true);
+  };
+
+  // Open vendor application modal
+  const openVendorApplicationModal = (event) => {
+    setSelectedEventForApplication(event);
+    // Pre-fill form with user data if available
+    setVendorApplicationForm({
+      businessName: userData?.businessName || '',
+      contactName: userData?.displayName || user?.displayName || '',
+      contactEmail: userData?.email || user?.email || '',
+      contactPhone: userData?.phone || '',
+      businessWebsite: userData?.website || '',
+      equipmentType: 'food-truck',
+      cuisineType: '',
+      menuDescription: '',
+      specialRequests: '',
+      yearsInBusiness: '',
+      servingCapacity: '',
+      electricalNeeds: '',
+      spaceRequirements: '',
+      hasBusinessLicense: false,
+      hasHealthPermit: false,
+      hasFirePermit: false,
+      hasInsurance: false,
+      hasFoodHandlersCert: false,
+      agreeToTerms: false,
+      agreeToFees: false,
+      cancellationPolicy: false
+    });
+    setShowVendorApplicationModal(true);
+  };
+
+  // Submit vendor application
+  const submitVendorApplication = async () => {
+    if (!selectedEventForApplication || !user) {
+      showToast('Error: Missing event or user data.', 'error');
+      return;
+    }
+
+    // Validate required fields
+    if (!vendorApplicationForm.businessName || !vendorApplicationForm.contactName || 
+        !vendorApplicationForm.contactEmail || !vendorApplicationForm.contactPhone ||
+        !vendorApplicationForm.cuisineType || !vendorApplicationForm.menuDescription) {
+      showToast('Please fill in all required fields.', 'error');
+      return;
+    }
+
+    // Validate permits and agreements
+    if (!vendorApplicationForm.hasBusinessLicense || !vendorApplicationForm.hasHealthPermit || 
+        !vendorApplicationForm.hasInsurance || !vendorApplicationForm.agreeToTerms) {
+      showToast('Please confirm all required permits and agreements.', 'error');
+      return;
+    }
+
+    try {
+      // Create vendor application document
+      const applicationData = {
+        ...vendorApplicationForm,
+        eventId: selectedEventForApplication.id,
+        applicantId: user.uid,
+        applicationDate: serverTimestamp(),
+        status: 'pending'
+      };
+
+      await addDoc(collection(db, 'vendorApplications'), applicationData);
+      
+      showToast('Vendor application submitted successfully!', 'success');
+      setShowVendorApplicationModal(false);
+      
+      // Reset form
+      setVendorApplicationForm({
+        businessName: '',
+        contactName: '',
+        contactEmail: '',
+        contactPhone: '',
+        businessWebsite: '',
+        equipmentType: 'food-truck',
+        cuisineType: '',
+        menuDescription: '',
+        specialRequests: '',
+        yearsInBusiness: '',
+        servingCapacity: '',
+        electricalNeeds: '',
+        spaceRequirements: '',
+        hasBusinessLicense: false,
+        hasHealthPermit: false,
+        hasFirePermit: false,
+        hasInsurance: false,
+        hasFoodHandlersCert: false,
+        agreeToTerms: false,
+        agreeToFees: false,
+        cancellationPolicy: false
+      });
+    } catch (error) {
+
+      showToast('Failed to submit application. Please try again.', 'error');
+    }
   };
 
   // Save event (create or update)
@@ -2085,6 +2211,344 @@ const EventsScreen = () => {
     );
   };
 
+  // Render vendor application modal
+  const renderVendorApplicationModal = () => {
+    return (
+      <Modal
+        visible={showVendorApplicationModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVendorApplicationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.vendorModalContent}>
+            <View style={styles.vendorModalHeader}>
+              <Text style={styles.vendorModalTitle}>🚚 Apply as Vendor</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowVendorApplicationModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.vendorModalBody} showsVerticalScrollIndicator={false}>
+              {selectedEventForApplication && (
+                <View style={styles.vendorEventInfoSection}>
+                  <Text style={styles.vendorEventTitle}>📅 {selectedEventForApplication.title}</Text>
+                  <Text style={styles.vendorEventDate}>
+                    {formatDate(selectedEventForApplication.startDate || selectedEventForApplication.date)}
+                  </Text>
+                  <Text style={styles.vendorEventLocation}>
+                    📍 {selectedEventForApplication.location}
+                  </Text>
+                </View>
+              )}
+
+              {/* Business Information Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>🏢 Business Information</Text>
+                
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Business Name *</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.businessName}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, businessName: text }))}
+                    placeholder="Enter your business name"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Business Website</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.businessWebsite}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, businessWebsite: text }))}
+                    placeholder="https://yourwebsite.com"
+                    placeholderTextColor="#999"
+                    keyboardType="url"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Years in Business</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.yearsInBusiness}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, yearsInBusiness: text }))}
+                    placeholder="e.g., 3 years"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </View>
+
+              {/* Contact Information Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>📞 Contact Information</Text>
+                
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Contact Name *</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.contactName}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, contactName: text }))}
+                    placeholder="Enter contact person name"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Contact Email *</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.contactEmail}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, contactEmail: text }))}
+                    placeholder="Enter contact email"
+                    placeholderTextColor="#999"
+                    keyboardType="email-address"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Contact Phone *</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.contactPhone}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, contactPhone: text }))}
+                    placeholder="Enter contact phone number"
+                    placeholderTextColor="#999"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+
+              {/* Equipment & Menu Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>🍽️ Equipment & Menu</Text>
+                
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Equipment Type</Text>
+                  <View style={styles.vendorEquipmentContainer}>
+                    {[
+                      { value: 'food-truck', label: '🚚 Food Truck', emoji: '🚚' },
+                      { value: 'food-trailer', label: '🚛 Food Trailer', emoji: '🚛' },
+                      { value: 'cart', label: '🛒 Food Cart', emoji: '🛒' },
+                      { value: 'catering', label: '🍴 Catering Setup', emoji: '🍴' },
+                      { value: 'other', label: '❓ Other', emoji: '❓' }
+                    ].map((type) => (
+                      <TouchableOpacity
+                        key={type.value}
+                        style={[
+                          styles.vendorEquipmentButton,
+                          vendorApplicationForm.equipmentType === type.value && styles.vendorEquipmentButtonSelected
+                        ]}
+                        onPress={() => setVendorApplicationForm(prev => ({ ...prev, equipmentType: type.value }))}
+                      >
+                        <Text style={[
+                          styles.vendorEquipmentButtonText,
+                          vendorApplicationForm.equipmentType === type.value && styles.vendorEquipmentButtonTextSelected
+                        ]}>
+                          {type.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Cuisine Type *</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.cuisineType}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, cuisineType: text }))}
+                    placeholder="e.g., Mexican, BBQ, Italian, Fusion"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Menu Description *</Text>
+                  <TextInput
+                    style={[styles.vendorFormInput, styles.vendorTextArea]}
+                    value={vendorApplicationForm.menuDescription}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, menuDescription: text }))}
+                    placeholder="Describe your menu items, specialties, and what makes your food unique..."
+                    placeholderTextColor="#999"
+                    multiline={true}
+                    numberOfLines={4}
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Serving Capacity</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.servingCapacity}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, servingCapacity: text }))}
+                    placeholder="e.g., 100-150 customers per hour"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+              </View>
+
+              {/* Requirements Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>⚡ Event Requirements</Text>
+                
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Electrical Needs</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.electricalNeeds}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, electricalNeeds: text }))}
+                    placeholder="e.g., 30 amp, 110V, None required"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Space Requirements</Text>
+                  <TextInput
+                    style={styles.vendorFormInput}
+                    value={vendorApplicationForm.spaceRequirements}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, spaceRequirements: text }))}
+                    placeholder="e.g., 20x10 feet, close to entrance"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+
+                <View style={styles.vendorFormGroup}>
+                  <Text style={styles.vendorFormLabel}>Special Requests</Text>
+                  <TextInput
+                    style={[styles.vendorFormInput, styles.vendorTextArea]}
+                    value={vendorApplicationForm.specialRequests}
+                    onChangeText={(text) => setVendorApplicationForm(prev => ({ ...prev, specialRequests: text }))}
+                    placeholder="Any special requirements, setup needs, or requests?"
+                    placeholderTextColor="#999"
+                    multiline={true}
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+
+              {/* Permits & Licensing Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>📋 Permits & Licensing</Text>
+                <Text style={styles.vendorSectionSubtitle}>Please confirm you have all required permits and certifications</Text>
+                
+                <View style={styles.vendorCheckboxGroup}>
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, hasBusinessLicense: !prev.hasBusinessLicense }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.hasBusinessLicense && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.hasBusinessLicense && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>Business License * (Required)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, hasHealthPermit: !prev.hasHealthPermit }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.hasHealthPermit && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.hasHealthPermit && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>Health Department Permit * (Required)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, hasFirePermit: !prev.hasFirePermit }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.hasFirePermit && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.hasFirePermit && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>Fire Department Permit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, hasInsurance: !prev.hasInsurance }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.hasInsurance && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.hasInsurance && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>General Liability Insurance * (Required)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, hasFoodHandlersCert: !prev.hasFoodHandlersCert }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.hasFoodHandlersCert && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.hasFoodHandlersCert && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>Food Handler's Certification</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Terms & Agreements Section */}
+              <View style={styles.vendorSection}>
+                <Text style={styles.vendorSectionTitle}>📝 Terms & Agreements</Text>
+                
+                <View style={styles.vendorCheckboxGroup}>
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, agreeToTerms: !prev.agreeToTerms }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.agreeToTerms && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.agreeToTerms && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>I agree to the event terms and conditions * (Required)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, agreeToFees: !prev.agreeToFees }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.agreeToFees && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.agreeToFees && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>I understand and agree to all vendor fees</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.vendorCheckboxRow}
+                    onPress={() => setVendorApplicationForm(prev => ({ ...prev, cancellationPolicy: !prev.cancellationPolicy }))}
+                  >
+                    <View style={[styles.vendorCheckbox, vendorApplicationForm.cancellationPolicy && styles.vendorCheckboxChecked]}>
+                      {vendorApplicationForm.cancellationPolicy && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.vendorCheckboxLabel}>I understand the cancellation policy</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.vendorModalFooter}>
+              <TouchableOpacity
+                style={styles.vendorModalCancelButton}
+                onPress={() => setShowVendorApplicationModal(false)}
+              >
+                <Text style={styles.vendorModalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.vendorModalSubmitButton}
+                onPress={submitVendorApplication}
+              >
+                <Text style={styles.vendorModalSubmitButtonText}>Submit Application</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   // Render event card
   const renderEventCard = (event) => {
     const attended = isEventAttended(event.id);
@@ -2178,6 +2642,17 @@ const EventsScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
+          {/* For truck owners - show vendor application button for upcoming events */}
+          {!isPast && userRole === 'owner' && event.organizerId !== user.uid && (
+            <TouchableOpacity
+              style={styles.vendorApplicationButton}
+              onPress={() => openVendorApplicationModal(event)}
+            >
+              <Ionicons name="business-outline" size={20} color="#FF6B6B" />
+              <Text style={styles.vendorApplicationButtonText}>Apply as Vendor</Text>
+            </TouchableOpacity>
+          )}
+
           {/* For upcoming events - show attending button only if not the event organizer */}
           {!isPast && !attending && !attended && event.organizerId !== user.uid && (
             <TouchableOpacity
@@ -2487,6 +2962,9 @@ const EventsScreen = () => {
 
       {/* Event Management Modal */}
       {renderEventModal()}
+
+      {/* Vendor Application Modal */}
+      {renderVendorApplicationModal()}
 
       {/* Confirmation Modal */}
       <Modal
@@ -2937,6 +3415,30 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: '#f44336',
     marginLeft: 6,
     fontWeight: '500',
+  },
+  vendorApplicationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1036', // Secondary Background
+    borderColor: '#FF4EC9', // Primary Accent
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
+    justifyContent: 'center',
+  },
+  vendorApplicationButtonText: {
+    fontSize: 11,
+    color: '#FF4EC9', // Primary Accent
+    marginLeft: 4,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
   attendingBadge: {
     flexDirection: 'row',
@@ -3427,6 +3929,345 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Vendor Application Modal Styles
+  eventInfoSection: {
+    backgroundColor: theme.surfaceColor,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B6B',
+  },
+  eventInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.textColor,
+    marginBottom: 4,
+  },
+  eventInfoDate: {
+    fontSize: 14,
+    color: theme.secondaryTextColor,
+    marginBottom: 2,
+  },
+  eventInfoLocation: {
+    fontSize: 14,
+    color: theme.secondaryTextColor,
+  },
+  equipmentTypeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  equipmentTypeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#f9f9f9',
+  },
+  equipmentTypeButtonSelected: {
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
+  },
+  equipmentTypeButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  equipmentTypeButtonTextSelected: {
+    color: '#fff',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  modalSubmitButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flex: 1,
+    marginLeft: 8,
+  },
+  modalSubmitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flex: 1,
+    marginRight: 8,
+  },
+  modalCancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  // Enhanced Vendor Application Modal Styles
+  vendorModalContent: {
+    backgroundColor: '#0B0B1A', // Primary Background
+    margin: 16,
+    borderRadius: 24,
+    maxHeight: '94%',
+    shadowColor: '#FF4EC9', // Primary Accent
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FF4EC9',
+  },
+  vendorModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    backgroundColor: '#1A1036', // Secondary Background
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF4EC9', // Primary Accent
+  },
+  vendorModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    backgroundColor: '#1A1036', // Secondary Background
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF4EC9', // Primary Accent
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  vendorModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF', // White text
+    flex: 1,
+    letterSpacing: 0.5,
+    textShadowColor: '#FF4EC9',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  vendorModalBody: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    backgroundColor: '#0B0B1A', // Primary Background
+  },
+  vendorEventInfoSection: {
+    backgroundColor: '#1A1036', // Secondary Background
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Primary Accent
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  vendorEventTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF', // White text
+    marginBottom: 8,
+    textShadowColor: '#FF4EC9',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  vendorEventDate: {
+    fontSize: 15,
+    color: '#4DBFFF', // Secondary Accent
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  vendorEventLocation: {
+    fontSize: 15,
+    color: '#4DBFFF', // Secondary Accent
+    fontWeight: '500',
+  },
+  vendorSection: {
+    marginBottom: 28,
+  },
+  vendorSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FF4EC9', // Primary Accent
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF4EC9',
+  },
+  vendorSectionSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF', // White text
+    marginBottom: 16,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  vendorFormGroup: {
+    marginBottom: 20,
+  },
+  vendorFormLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF', // White text
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  vendorFormInput: {
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Primary Accent
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: '#1A1036', // Secondary Background
+    color: '#FFFFFF', // White text
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  vendorTextArea: {
+    height: 100,
+    textAlignVertical: 'top',
+    paddingTop: 14,
+  },
+  vendorEquipmentContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  vendorEquipmentButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Primary Accent
+    backgroundColor: '#1A1036', // Secondary Background
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  vendorEquipmentButtonSelected: {
+    borderColor: '#FF4EC9',
+    backgroundColor: '#FF4EC9', // Primary Accent
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  vendorEquipmentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF', // White text
+  },
+  vendorEquipmentButtonTextSelected: {
+    color: '#0B0B1A', // Dark text on neon background
+    fontWeight: '700',
+  },
+  vendorCheckboxGroup: {
+    gap: 12,
+    marginTop: 12,
+  },
+  vendorCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#1A1036', // Secondary Background
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#FF4EC9', // Primary Accent
+  },
+  vendorCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Primary Accent
+    backgroundColor: '#1A1036', // Secondary Background
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  vendorCheckboxChecked: {
+    backgroundColor: '#FF4EC9', // Primary Accent
+    borderColor: '#FF4EC9',
+  },
+  vendorCheckboxLabel: {
+    fontSize: 15,
+    color: '#FFFFFF', // White text
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 20,
+  },
+  vendorModalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#FF4EC9', // Primary Accent
+    backgroundColor: '#1A1036', // Secondary Background
+  },
+  vendorModalCancelButton: {
+    backgroundColor: '#1A1036', // Secondary Background
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 20,
+    flex: 1,
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: '#4DBFFF', // Secondary Accent
+  },
+  vendorModalCancelButtonText: {
+    color: '#4DBFFF', // Secondary Accent
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  vendorModalSubmitButton: {
+    backgroundColor: '#FF4EC9', // Primary Accent
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 20,
+    flex: 1,
+    marginLeft: 8,
+    shadowColor: '#FF4EC9',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  vendorModalSubmitButtonText: {
+    color: '#FFFFFF', // White text
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });
 

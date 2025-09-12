@@ -17,8 +17,18 @@ export const onVendorApplicationCreated = onDocumentCreated(
       logger.info('Processing new vendor application', {
         applicationId,
         eventId: applicationData.eventId,
-        vendorName: applicationData.businessName
+        vendorName: applicationData.businessName,
+        fullApplicationData: JSON.stringify(applicationData)
       });
+
+      // Check if eventId exists
+      if (!applicationData.eventId) {
+        logger.error('No eventId found in vendor application', {
+          applicationId,
+          applicationData: JSON.stringify(applicationData)
+        });
+        return;
+      }
 
       // Get event details to find the organizer
       const eventDoc = await db.collection('events').doc(applicationData.eventId).get();
@@ -33,25 +43,45 @@ export const onVendorApplicationCreated = onDocumentCreated(
 
       const eventData = eventDoc.data();
       
-      // Get organizer details
-      const organizerDoc = await db.collection('users').doc(eventData.organizer).get();
+      // Get organizer details using organizerId field
+      const organizerDoc = await db.collection('users').doc(eventData.organizerId).get();
       
       if (!organizerDoc.exists) {
         logger.error('Event organizer not found', {
           applicationId,
-          organizerId: eventData.organizer
+          organizerId: eventData.organizerId
         });
         return;
       }
 
       const organizerData = organizerDoc.data();
 
+      // Format event date properly
+      let formattedDate = 'TBD';
+      let formattedTime = eventData.time || 'TBD';
+      
+      if (eventData.startDate) {
+        try {
+          // Handle Firestore Timestamp
+          const eventDate = eventData.startDate.toDate ? eventData.startDate.toDate() : new Date(eventData.startDate);
+          formattedDate = eventDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } catch (error) {
+          logger.error('Error formatting event date', { error: error.message, startDate: eventData.startDate });
+          formattedDate = 'Date formatting error';
+        }
+      }
+
       // Prepare complete application data with event details
       const completeApplicationData = {
         ...applicationData,
         eventTitle: eventData.title,
-        eventDate: eventData.date,
-        eventTime: eventData.time,
+        eventDate: formattedDate,
+        eventTime: formattedTime,
         eventLocation: eventData.location || eventData.address
       };
 

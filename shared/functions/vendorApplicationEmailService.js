@@ -23,10 +23,18 @@ export const sendVendorApplicationNotification = async (applicationData, organiz
     };
 
     const applicationType = equipmentTypes[applicationData.equipmentType] || applicationData.equipmentType;
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'flavor@grubana.com';
+    
+    logger.info('Sending vendor application notification', {
+      to: organizerData.email,
+      from: fromEmail,
+      eventTitle: applicationData.eventTitle,
+      vendorName: applicationData.businessName
+    });
     
     const msg = {
       to: organizerData.email,
-      from: 'flavor@grubana.com', // Verified sender email
+      from: fromEmail, // Use environment variable
       subject: `New Vendor Application for ${applicationData.eventTitle}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -111,10 +119,18 @@ export const sendVendorApplicationConfirmation = async (applicationData) => {
     };
 
     const applicationType = equipmentTypes[applicationData.equipmentType] || applicationData.equipmentType;
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'flavor@grubana.com';
+    
+    logger.info('Sending vendor application confirmation', {
+      to: applicationData.contactEmail,
+      from: fromEmail,
+      eventTitle: applicationData.eventTitle,
+      vendorName: applicationData.businessName
+    });
     
     const msg = {
       to: applicationData.contactEmail,
-      from: 'flavor@grubana.com', // Verified sender email
+      from: fromEmail, // Use environment variable
       subject: `Application Received - ${applicationData.eventTitle}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
