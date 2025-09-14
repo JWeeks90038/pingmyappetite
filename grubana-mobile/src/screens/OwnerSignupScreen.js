@@ -432,7 +432,7 @@ export default function OwnerSignupScreen({ navigation }) {
               >
                 <Picker.Item label="Select cuisine type" value="" color="#999" />
                 {cuisineTypes.map(cuisine => (
-                  <Picker.Item key={cuisine} label={cuisine} value={cuisine} color="#333" />
+                  <Picker.Item key={cuisine} label={cuisine} value={cuisine} color="#FFFFFF" />
                 ))}
               </Picker>
             </View>
@@ -450,7 +450,7 @@ export default function OwnerSignupScreen({ navigation }) {
                 itemStyle={styles.pickerItem}
               >
                 {kitchenTypes.map(type => (
-                  <Picker.Item key={type.value} label={type.label} value={type.value} color="#333" />
+                  <Picker.Item key={type.value} label={type.label} value={type.value} color="#FFFFFF" />
                 ))}
               </Picker>
             </View>

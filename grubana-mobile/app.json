@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "requireFullScreen": false,
       "userInterfaceStyle": "automatic",
       "infoPlist": {

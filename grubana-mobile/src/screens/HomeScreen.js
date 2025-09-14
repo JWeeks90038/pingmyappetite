@@ -157,8 +157,8 @@ const HomeScreen = () => {
                   style={styles.primaryButton}
                   onPress={() => navigation.navigate('Map')}
                 >
-                  <Text style={styles.buttonText}>🗺️ Find Trucks</Text>
-                  <Text style={styles.buttonSubtext}>Discover food trucks near you</Text>
+                  <Text style={styles.buttonText}>Find Mobile Food Vendors</Text>
+                  <Text style={styles.buttonSubtext}>Discover mobile kitchens near you</Text>
                 </TouchableOpacity>
               </View>
             </View>
