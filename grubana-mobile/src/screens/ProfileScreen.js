@@ -1073,7 +1073,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
         
         {(userRole === 'owner' ? [
-          { key: 'truckName', label: 'Truck Name' },
+          { key: 'truckName', label: 'Mobile Business Name' },
           { key: 'ownerName', label: 'Owner Name' },
           { key: 'username', label: 'Username' },
           { key: 'phone', label: 'Phone Number' },

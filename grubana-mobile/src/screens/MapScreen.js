@@ -575,39 +575,7 @@ export default function MapScreen() {
   };
 
   // Function to add test ping data to Firestore for heatmap testing
-  const addTestPingData = async () => {
-    if (!user || !location) return;
-    
-
-    
-    const testPings = [
-      { lat: location.coords.latitude + 0.01, lng: location.coords.longitude + 0.01 },
-      { lat: location.coords.latitude - 0.01, lng: location.coords.longitude - 0.01 },
-      { lat: location.coords.latitude + 0.005, lng: location.coords.longitude + 0.005 },
-      { lat: location.coords.latitude - 0.005, lng: location.coords.longitude - 0.005 },
-      { lat: location.coords.latitude + 0.008, lng: location.coords.longitude - 0.008 }
-    ];
-    
-    try {
-      for (let i = 0; i < testPings.length; i++) {
-        const pingData = {
-          lat: testPings[i].lat,
-          lng: testPings[i].lng,
-          latitude: testPings[i].lat, // Also add as latitude for compatibility
-          longitude: testPings[i].lng, // Also add as longitude for compatibility
-          timestamp: serverTimestamp(),
-          userId: user.uid,
-          type: 'test_ping',
-          created: Date.now()
-        };
-        
-        await setDoc(doc(db, 'pings', `test_ping_${i}_${Date.now()}`), pingData);
-
-      }
-   
-    } catch (error) {
-    }
-  };
+  // (Removed addTestPingData and test ping logic)
 
   // Generate session ID when user first logs in
   useEffect(() => {
@@ -4400,17 +4368,8 @@ export default function MapScreen() {
             }
             
             // Add some mock ping data for testing if no real data
-            const mockPings = [
-                { lat: ${userLat + 0.01}, lng: ${userLng + 0.01} },
-                { lat: ${userLat - 0.01}, lng: ${userLng - 0.01} },
-                { lat: ${userLat + 0.005}, lng: ${userLng + 0.005} },
-                { lat: ${userLat - 0.005}, lng: ${userLng - 0.005} },
-                { lat: ${userLat + 0.008}, lng: ${userLng - 0.008} }
-            ];
-            
-            // Use real Firebase ping data if available, otherwise fallback to mock for testing
-            const realPings = ${JSON.stringify(customerPings)};
-            const testPings = realPings.length > 0 ? realPings : mockPings;
+      // (Removed mockPings and testPings fallback logic)
+      const testPings = customerPings;
 
             const userPlan = '${userPlan}';
             const userRole = '${userRole}';

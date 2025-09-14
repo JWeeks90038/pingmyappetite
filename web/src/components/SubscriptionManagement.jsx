@@ -109,7 +109,7 @@ const SubscriptionManagement = () => {
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h2 style={{ color: '#333', marginBottom: '10px' }}>Subscription Management</h2>
       <p style={{ color: '#666', marginBottom: '30px' }}>
-        Manage your food truck's subscription plan and platform fees
+        Manage your mobile kitchens subscription plan and platform fees
       </p>
 
       {error && (

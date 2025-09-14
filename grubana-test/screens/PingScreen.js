@@ -288,7 +288,7 @@ export default function PingScreen() {
               This feature is only available for customers.
             </Text>
             <Text style={styles.ownerSubtext}>
-              Use the other tabs to manage your truck location and view customer requests!
+              Use the other tabs to manage your mobile kitchen location and view customer requests!
             </Text>
           </View>
         </View>

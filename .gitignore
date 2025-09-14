@@ -132,3 +132,5 @@ grubana-mobile/src/screens/*_temp.*
 grubana-mobile/src/screens/*_test.*
 
 .vercel
+
+southern_california.geojson

@@ -5,7 +5,7 @@ export default function LocationManagementScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Location Management</Text>
-      <Text style={styles.subtitle}>Manage your truck location</Text>
+      <Text style={styles.subtitle}>Manage your mobile kitchen location</Text>
     </View>
   );
 }

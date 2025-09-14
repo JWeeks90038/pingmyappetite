@@ -28,7 +28,7 @@ const HomeScreen = () => {
         
         <Text style={styles.subtitle}>
           {userRole === 'owner' 
-            ? 'Manage your food truck and connect with customers'
+            ? 'Manage your food truck, food trailer, food cart or pop-up kitchen and connect with customers'
             : userRole === 'event-organizer'
             ? 'Plan amazing events and connect with food trucks'
             : 'Find amazing food trucks near you'
@@ -57,7 +57,7 @@ const HomeScreen = () => {
                 <View style={styles.featureItem}>
                   <Text style={styles.featureTitle}>📍 Live Location Tracking</Text>
                   <Text style={styles.featureDescription}>
-                    Go live on the map! Customers can track your truck in real-time, follow your route, and place pre-orders with a tap of your truck icon.
+                    Go live on the map! Customers and event organizers can track your business location in real-time, follow your route, and place pre-orders with a tap of your truck icon.
                   </Text>
                 </View>
                 <View style={styles.featureItem}>
@@ -85,7 +85,7 @@ const HomeScreen = () => {
                   style={styles.primaryButton}
                   onPress={() => navigation.navigate('TruckOnboarding')}
                 >
-                  <Text style={styles.buttonText}>🚚 Manage Your Truck</Text>
+                  <Text style={styles.buttonText}>Manage Your Mobile Kitchen</Text>
                   <Text style={styles.buttonSubtext}>Payment Setup & Menu Management</Text>
                 </TouchableOpacity>
               </View>
@@ -169,16 +169,16 @@ const HomeScreen = () => {
           <Text style={styles.sectionTitle}>About Grubana</Text>
           <Text style={styles.aboutText}>
             <Text style={styles.aboutBold}>Why We Built Grubana{'\n'}</Text>
-            The mobile food industry faced fragmented communication, unpredictable customer discovery, and missed opportunities for collaboration. Food truck owners struggled with inconsistent foot traffic, customers couldn't reliably find their favorite trucks, and event organizers lacked efficient ways to coordinate with multiple vendors.{'\n\n'}
+            The mobile food industry faced fragmented communication, unpredictable customer discovery, and missed opportunities for collaboration. Mobile kitchen owners struggled with inconsistent foot traffic, customers couldn't reliably find their favorite mobile food vendors, and event organizers lacked efficient ways to coordinate with multiple vendors.{'\n\n'}
             
             <Text style={styles.aboutBold}>The Problems We Solve{'\n'}</Text>
-            • <Text style={styles.aboutBold}>Customer Discovery:</Text> No more scouring social media and driving around hoping to find food trucks - see real-time locations and menus instantly{'\n'}
+            • <Text style={styles.aboutBold}>Customer Discovery:</Text> No more scouring social media and driving around hoping to find mobile food vendors - see real-time locations and menus instantly{'\n'}
             • <Text style={styles.aboutBold}>Vendor Visibility:</Text> Eliminate unpredictable sales by connecting directly with hungry customers through live tracking, pre-orders and catering/event bookings{'\n'}
-            • <Text style={styles.aboutBold}>Event Coordination:</Text> Streamline vendor management and customer engagement for seamless food truck events{'\n'}
+            • <Text style={styles.aboutBold}>Event Coordination:</Text> Streamline vendor management and customer engagement for seamless mobile food vendor events{'\n'}
             • <Text style={styles.aboutBold}>Community Building:</Text> Foster lasting relationships between customers, vendors, and organizers through favorites, reviews, and event participation{'\n\n'}
             
             <Text style={styles.aboutBold}>Strengthening the Mobile Food Industry{'\n'}</Text>
-            Grubana connects food truck lovers, truck owners, and event organizers in one powerful community platform. We're enriching the mobile food industry by providing the technology infrastructure that increases efficiency for all participants. Through real-time location sharing, intelligent event coordination, and community-driven food discovery, we're building a stronger, more connected mobile food ecosystem where everyone thrives together.
+            Grubana connects food lovers, mobile kitchen owners, and event organizers in one powerful community platform. We're enriching the mobile food industry by providing the technology infrastructure that increases efficiency for all participants. Through real-time location sharing, intelligent event coordination, and community-driven food discovery, we're building a stronger, more connected mobile food ecosystem where everyone thrives together.
           </Text>
         </View>
       </View>

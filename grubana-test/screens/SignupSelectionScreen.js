@@ -59,7 +59,7 @@ export default function SignupSelectionScreen({ navigation }) {
             <Text style={styles.optionTitle}>Food Truck</Text>
           </View>
           <Text style={styles.optionDescription}>
-            Manage your food truck or trailer, connect with customers, and grow your business
+            Manage your food truck, food trailer, food cart or pop-up kitchen to connect with customers, and grow your business
           </Text>
           <View style={styles.optionFeatures}>
             <Text style={styles.featureText}>• Real-time location tracking</Text>
