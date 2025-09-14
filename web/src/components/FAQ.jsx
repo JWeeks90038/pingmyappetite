@@ -13,7 +13,7 @@ const FAQ = () => {
             "Grubana is a real-time discovery platform for trucks, trailers, carts, and pop-ups. It helps you find local mobile kitchens, see what they're serving, and grab exclusive time-limited deals called 'drops' — all from an interactive live map."
         },
         {
-          q: "How do I find trucks near me?",
+          q: "How do I find mobile food vendors near me?",
           a:
             "View the map on your dashboard. You'll see icons representing active trucks, trailers, carts, and pop-ups near your location. Use filters like cuisine type to discover what's cooking nearby."
         },
