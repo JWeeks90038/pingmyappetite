@@ -36,6 +36,7 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.grubana.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/foreground.png",
         "backgroundImage": "./assets/background.png"
