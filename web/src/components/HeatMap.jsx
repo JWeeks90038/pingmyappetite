@@ -201,20 +201,20 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         },
         (error) => {
           console.log("❌ HeatMap: Geolocation failed:", error.message);
-          // Use USA center as fallback instead of LA
-          console.log("🗺️ HeatMap: Using USA center coordinates as final fallback");
-          setMapCenter({ lat: 39.8283, lng: -98.5795 });
+          // Use Southern California center as fallback for better user experience
+          console.log("🗺️ HeatMap: Using Southern California coordinates as fallback");
+          setMapCenter({ lat: 34.0522, lng: -118.2437 }); // Los Angeles, CA
           setLocationDetermined(true);
         },
         { 
-          enableHighAccuracy: true,
-          maximumAge: 5000, // Cache for 5 seconds
-          timeout: 8000, // Give more time for geolocation
+          enableHighAccuracy: false, // Disable high accuracy to speed up response
+          maximumAge: 10000, // Cache for 10 seconds
+          timeout: 15000, // Increase timeout to 15 seconds
         }
       );
     } else {
-      console.log("❌ HeatMap: Geolocation not supported, using USA center coordinates");
-      setMapCenter({ lat: 39.8283, lng: -98.5795 });
+      console.log("❌ HeatMap: Geolocation not supported, using Southern California coordinates");
+      setMapCenter({ lat: 34.0522, lng: -118.2437 }); // Los Angeles, CA
       setLocationDetermined(true);
     }
   };
@@ -594,18 +594,28 @@ const getEventIcon = (eventStatus, organizerLogoUrl = null) => {
 };
 
   const animateMarkerTo = useCallback((marker, newPosition) => {
+    if (!marker || !newPosition) {
+      console.warn('🗺️ HeatMap: Invalid marker or position provided to animateMarkerTo');
+      return;
+    }
+
     // Check if it's a custom marker (has div property) or standard marker
-    if (marker && marker.div) {
+    if (marker.div && typeof marker.draw === 'function') {
       // Custom marker - update position and redraw
       console.log('🗺️ HeatMap: Updating custom marker position');
       marker.position = newPosition;
       marker.draw();
-    } else if (marker && marker.setPosition) {
+    } else if (typeof marker.setPosition === 'function') {
       // Standard Google Maps marker
       console.log('🗺️ HeatMap: Updating standard marker position');
       marker.setPosition(newPosition);
     } else {
-      console.error('🗺️ HeatMap: Unknown marker type or missing setPosition method', marker);
+      console.warn('🗺️ HeatMap: Marker type not recognized or missing required methods:', {
+        hasDiv: !!marker.div,
+        hasDraw: typeof marker.draw === 'function',
+        hasSetPosition: typeof marker.setPosition === 'function',
+        markerType: marker.constructor?.name || 'unknown'
+      });
     }
   }, []);
 
@@ -786,17 +796,22 @@ const updateTruckMarkers = useCallback(async () => {
           marker.div.innerHTML = customMarkerContent;
         }
       } else {
-        // Standard marker
-        animateMarkerTo(marker, position);
+        // Standard marker - use animateMarkerTo with safety check
+        if (marker && (typeof marker.setPosition === 'function' || marker.div)) {
+          animateMarkerTo(marker, position);
+        } else {
+          console.warn('🗺️ HeatMap: Cannot update marker position - invalid marker type for truck', truck.id);
+        }
+        
         const currentTruckName = truckNames[truck.id] || truck.truckName || truck.name || "Food Truck";
         
         // Only call setTitle if it's a standard Google Maps marker
-        if (marker.setTitle && typeof marker.setTitle === 'function') {
+        if (marker && typeof marker.setTitle === 'function') {
           marker.setTitle(currentTruckName);
         }
         
         // Only set icon if it's a valid Google Maps icon (not custom)
-        if (icon && icon.type !== 'custom' && marker.setIcon && typeof marker.setIcon === 'function') {
+        if (icon && icon.type !== 'custom' && marker && typeof marker.setIcon === 'function') {
           marker.setIcon(icon);
         }
       }

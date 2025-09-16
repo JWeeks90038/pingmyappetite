@@ -71,6 +71,7 @@ const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 console.log('🗺️ Google Maps API key loaded:', googleMapsKey ? `${googleMapsKey.substring(0, 7)}...` : 'NOT FOUND');
 
 // Conditionally create Stripe promise
+// Note: Stripe HTTPS warning in development is expected - will work fine in production
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 // Safely pass Google Maps API key (with fallback)
@@ -339,7 +340,10 @@ function App() {
     return (
       <ErrorBoundary>
       <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
-        <BrowserRouter>
+        <BrowserRouter future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}>
           <NetworkStatus />
           <div style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -459,7 +463,10 @@ function App() {
         onError={(error) => ('')}
         loadingElement={<div>Loading Maps...</div>}
       >
-        <BrowserRouter>
+        <BrowserRouter future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}>
           <NetworkStatus />
           <Navbar />
           <ScrollToTop />
