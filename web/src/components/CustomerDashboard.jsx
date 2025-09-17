@@ -30,6 +30,8 @@ import cartIconImg from '/cart-icon.png';
 import { QRCodeCanvas } from "qrcode.react";
 import PreOrderContent from './PreOrderContent';
 import OrderCart from './OrderCart';
+import '../assets/dashboard.css'; // Import shared dashboard styles
+import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 // Component to handle individual favorite items with dynamic name loading
 const FavoriteListItem = ({ favorite }) => {
@@ -740,14 +742,27 @@ const handleViewMenu = () => {
 
   useEffect(() => {
     if (window.google && mapRef.current && !mapInstance.current) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
+      // Bulletproof geolocation approach
+      const initializeMap = async () => {
+        try {
+          console.log("🎯 CustomerDashboard: Starting bulletproof geolocation...");
+          
+          const position = await getBulletproofLocation({
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000
+          });
+          
           const userLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
 
+          console.log(`✅ CustomerDashboard: Geolocation successful (${position.source}):`, userLocation);
           setUserLocation(userLocation);
+          
+          // Cache the location
+          cacheLocation(position);
 
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             center: userLocation,
@@ -776,23 +791,21 @@ const handleViewMenu = () => {
               window.google.maps.event.trigger(mapInstance.current, 'resize');
             }
           }, 100);
-        },
-        () => {
-          const fallbackLocation = { lat: 37.7749, lng: -122.4194 };
+          
+        } catch (error) {
+          console.log("❌ CustomerDashboard: Even bulletproof geolocation failed (rare):", error.message);
+          
+          // Emergency fallback - this should virtually never happen
+          const fallbackLocation = { lat: 39.8283, lng: -98.5795 };
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             center: fallbackLocation,
-            zoom: 12,
+            zoom: 4,
           });
           initializeMapFeatures();
-          
-          // Trigger map resize after initialization
-          setTimeout(() => {
-            if (mapInstance.current) {
-              window.google.maps.event.trigger(mapInstance.current, 'resize');
-            }
-          }, 100);
         }
-      );
+      };
+      
+      initializeMap();
     }
   }, []);
 
@@ -1415,16 +1428,19 @@ const filtered = snapshot.docs.filter((doc) => {
   };  
 
 return (
-  <div className="dashboard">
+  <div className="dashboard-container">
     <div id="top"></div>
-    <h2>Welcome{username ? `, ${username}` : ''}!</h2>
+    <div className="dashboard-header">
+      <h2 className="dashboard-title">Welcome{username ? `, ${username}` : ''}!</h2>
+      <p className="dashboard-subtitle">Discover amazing food trucks and manage your favorites</p>
+    </div>
 
     <MediaUploader showCover={false} showProfile={true} showMenu={false} />
 
-    <section className="ping-form">
-      <h3>Send a Ping</h3>
+    <section className="dashboard-section">
+      <h3 className="section-title">Send a Ping</h3>
 
-      <p style={{ color: dailyPingCount >= 3 ? 'red' : 'black' }}>
+      <p style={{ color: dailyPingCount >= 3 ? '#FF4444' : '#FFFFFF' }}>
         You’ve sent <strong>{dailyPingCount}</strong> of 3 pings today.
       </p>
       <label>
@@ -1438,6 +1454,7 @@ return (
 
       {!useGeoLocation && (
         <input
+          className="form-input"
           type="text"
           value={manualAddress}
           onChange={(e) => setManualAddress(e.target.value)}
@@ -1445,7 +1462,7 @@ return (
         />
       )}
 
-      <select value={cuisineType} onChange={(e) => setCuisineType(e.target.value)}>
+      <select className="form-input" value={cuisineType} onChange={(e) => setCuisineType(e.target.value)}>
         <option value="">Select Cuisine</option>
         <option value="american">American</option>
         <option value="asian-fusion">Asian Fusion</option>
@@ -1474,10 +1491,10 @@ return (
         <option value="other">Other</option>
       </select>
 
-      <button onClick={handleSendPing}>Send Ping</button>
+      <button className="btn-primary" onClick={handleSendPing}>Send Ping</button>
 
       {pingError && (
-        <p style={{ color: 'red', marginTop: '10px' }}>{pingError}</p>
+        <p style={{ color: '#FF4444', marginTop: '10px' }}>{pingError}</p>
       )}
       
       {/* My Orders Button */}

@@ -26,7 +26,7 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || 'Grubana';
   const notificationOptions = {
     body: payload.notification?.body || 'New notification',
-    icon: payload.notification?.icon || '/grubana-logo.png',
+    icon: payload.notification?.icon || '/grubana-logo-vector.png',
     image: payload.notification?.image,
     badge: '/truck-icon.png',
     tag: payload.data?.type || 'grubana-notification',

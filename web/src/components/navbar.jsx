@@ -5,7 +5,7 @@ import LogoutLink from './logout';
 import '../assets/navbar.css';
 import useSubscriptionStatus from "../hooks/useSubscriptionStatus";
 import { useAuthState } from "react-firebase-hooks/auth";
-import grubanaLogoImg from "../assets/grubana-logo-1.png";
+import grubanaLogoImg from "../assets/grubana-logo-vector.png";
 
 const Navbar = () => {
   const { user, userRole, loading } = useAuth();
@@ -53,7 +53,7 @@ const Navbar = () => {
         <li><Link to="/about" onClick={() => setMenuOpen(false)}>About Us</Link></li>
         
         {loading ? (
-          <li><span style={{ color: '#2c6f57', padding: '15px 20px', display: 'block' }}>Loading...</span></li>
+          <li><span style={{ color: '#FFFFFF', padding: '15px 20px', display: 'block' }}>Loading...</span></li>
         ) : user ? (
           <>
             <li>

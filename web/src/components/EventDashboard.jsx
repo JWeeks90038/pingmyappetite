@@ -16,6 +16,7 @@ import CreateEventForm from './CreateEventForm';
 import EventSubscriptionPlans from './EventSubscriptionPlans';
 import EventOrganizerMap from './EventOrganizerMap';
 import '../assets/styles.css';
+import '../assets/dashboard.css'; // Shared dashboard styles
 import '../assets/EventDashboard.css';
 
 const EventDashboard = () => {
@@ -400,54 +401,54 @@ const EventDashboard = () => {
   }
 
   return (
-    <div className="dashboard-wrapper">
+    <div className="dashboard-container">
       
-      <div className="event-dashboard-container">
-        <div className="dashboard-header">
-          <h1>Event Organizer Dashboard</h1>
-          {organizerData && (
-            <div className="organizer-info">
-              <h2>Welcome, {organizerData.organizationName}!</h2>
-            </div>
-          )}
-        </div>
+      <div className="dashboard-header">
+        <h1 className="dashboard-title">Event Organizer Dashboard</h1>
+        {organizerData && (
+          <div className="organizer-info">
+            <h2 className="dashboard-subtitle">Welcome, {organizerData.organizationName}!</h2>
+          </div>
+        )}
+      </div>
 
+      <div className="dashboard-content">
         <div className="dashboard-tabs">
           <button 
-            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
+            className={`dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
             Overview
           </button>
           <button 
-            className={`tab ${activeTab === 'events' ? 'active' : ''}`}
+            className={`dashboard-tab ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => setActiveTab('events')}
           >
             My Events ({events.length})
           </button>
           <button 
-            className={`tab ${activeTab === 'applications' ? 'active' : ''}`}
+            className={`dashboard-tab ${activeTab === 'applications' ? 'active' : ''}`}
             onClick={() => setActiveTab('applications')}
           >
             Applications ({applications.filter(app => app.status === 'pending').length})
           </button>
           <button 
-            className={`tab ${activeTab === 'create' ? 'active' : ''}`}
+            className={`dashboard-tab ${activeTab === 'create' ? 'active' : ''}`}
             onClick={() => setActiveTab('create')}
           >
             Create Event
           </button>
           <button 
-            className={`tab ${activeTab === 'subscription' ? 'active' : ''}`}
+            className={`dashboard-tab ${activeTab === 'subscription' ? 'active' : ''}`}
             onClick={() => setActiveTab('subscription')}
           >
             💳 Subscription
           </button>
         </div>
 
-        <div className="dashboard-content">
+        <div className="dashboard-main-content">
           {activeTab === 'overview' && (
-            <div className="overview-section">
+            <div className="dashboard-section">
               <div className="stats-grid">
                 <div className="stat-card">
                   <h3>Total Events</h3>
@@ -477,7 +478,7 @@ const EventDashboard = () => {
           )}
 
           {activeTab === 'events' && (
-            <div className="events-section">
+            <div className="dashboard-section">
               <div className="section-header">
                 <h2>My Events</h2>
                 <button 
@@ -528,7 +529,7 @@ const EventDashboard = () => {
           )}
 
           {activeTab === 'applications' && (
-            <div className="applications-section">
+            <div className="dashboard-section">
               <h2>Vendor Applications</h2>
               
               {applications.length === 0 ? (
@@ -695,7 +696,7 @@ const EventDashboard = () => {
           )}
 
           {activeTab === 'create' && (
-            <div className="create-section">
+            <div className="dashboard-section">
               <h2>Create New Event</h2>
               <CreateEventForm 
                 onEventCreated={() => console.log('Event created')}
@@ -705,7 +706,7 @@ const EventDashboard = () => {
           )}
 
           {activeTab === 'subscription' && (
-            <div className="subscription-section">
+            <div className="dashboard-section">
               <h2>Subscription Management</h2>
               <EventSubscriptionPlans 
                 currentPlan={organizerData?.plan}

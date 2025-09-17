@@ -272,8 +272,8 @@ function App() {
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(payload.notification?.title || 'Grubana', {
               body: payload.notification?.body || 'New notification',
-              icon: '/grubana-logo.png',
-              badge: '/grubana-logo.png',
+              icon: '/grubana-logo-vector.png',
+              badge: '/grubana-logo-vector.png',
               tag: payload.data?.type || 'general',
               data: payload.data
             });

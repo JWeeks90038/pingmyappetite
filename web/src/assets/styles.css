@@ -1,19 +1,33 @@
 /* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body, html, #root {
     font-family: Arial, sans-serif;
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
-    color: #333;
-    width: 100%;
+    background-color: #0B0B1A; /* Dark navy primary background */
+    color: #FFFFFF; /* White text */
+    width: 100vw; /* Full viewport width */
     min-width: 0;
+    box-sizing: border-box;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Ensure all main sections extend full width */
+section, header, main, footer {
+    width: 100%;
+    margin: 0;
     box-sizing: border-box;
 }
 
 /* Navigation Menu */
 nav {
-    background-color: #333;
+    background-color: #1A1036; /* Deep purple secondary background */
     padding: 10px 0;
     text-align: center;
 }
@@ -30,31 +44,47 @@ nav ul li {
 }
 
 nav ul li a {
-    color: white;
+    color: #FFFFFF; /* White text */
     text-decoration: none;
     font-size: 18px;
 }
 
 nav ul li a:hover {
     text-decoration: underline;
+    color: #FF4EC9; /* Neon pink accent on hover */
 }
 
 /* Hero Section */
 .hero {
     text-align: center;
     padding: 80px 20px;
-    color: white;
-    background-color: #dcdcdc;
-    border-radius: 10px;
+    color: #FFFFFF; /* White text */
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple gradient */
+    width: 100%;
+    margin: 0;
 }
 
 .hero h1 {
     font-size: 40px;
-    margin: 0;
+    margin: 0 0 20px 0;
+    color: #FFFFFF; /* White text */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+}
+
+.hero h2 {
+    font-size: 24px;
+    margin: 0 0 30px 0;
+    color: #4DBFFF; /* Neon blue for subtitle */
+    font-weight: 400;
+    line-height: 1.4;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .hero h3 {
-   color: black;
+   color: #FFFFFF; /* White text instead of black */
 }
 
 .hero p {
@@ -77,9 +107,9 @@ nav ul li a:hover {
 .hero-buttons .btn {
     display: inline-block;
     padding: 16px 30px;
-    background: linear-gradient(135deg, #059669 0%, #047857 100%);
-    border: 2px solid #10b981;
-    color: white;
+    background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); /* Neon pink to neon blue gradient */
+    border: 2px solid #FF4EC9; /* Neon pink border */
+    color: #FFFFFF; /* White text */
     text-decoration: none;
     font-weight: 600;
     font-size: 1.1rem;
@@ -89,27 +119,32 @@ nav ul li a:hover {
     overflow: hidden;
     min-width: 200px;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(255, 78, 201, 0.3); /* Pink glow */
 }
 
 .hero-buttons .btn:hover {
-    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-    border-color: #059669;
+    background: linear-gradient(135deg, #4DBFFF 0%, #FF4EC9 100%); /* Reverse gradient on hover */
+    border-color: #4DBFFF; /* Neon blue border on hover */
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3);
-    color: white;
+    box-shadow: 0 8px 25px rgba(77, 191, 255, 0.4); /* Blue glow on hover */
+    color: #FFFFFF; /* White text */
     text-decoration: none;
 }
 
 .heat-map {
   position: relative;
   overflow: hidden;
-  max-width: 1000px; /* or your preferred width */
-  margin: 50px auto;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  width: 100vw; /* Full viewport width */
+  margin: 0 auto; /* Center the section */
+  padding: 0; /* Remove any padding */
+  background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Deep purple to dark navy */
+  box-shadow: 0 4px 8px rgba(255, 78, 201, 0.2); /* Pink glow */
   min-height: 400px; /* ensures the section has height */
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .heatmap-video-bg {
@@ -138,15 +173,22 @@ nav ul li a:hover {
 .heatmap-content {
   position: relative;
   z-index: 2;
-  color: #fff;
+  color: #FFFFFF; /* White text */
   padding: 2em 1em;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .heatmap-content p {
   font-size: 1.2rem;
   margin: 0;
-  color: #fff;
+  color: #FFFFFF; /* White text */
 }
 
 /* Responsive: adjust height for mobile */
@@ -160,6 +202,10 @@ nav ul li a:hover {
     height: 100%;
     min-height: 0;
     border-radius: 8px;
+  }
+  #map {
+    width: 95%;
+    height: 400px;
   }
 }
 
@@ -182,22 +228,74 @@ nav ul li a:hover {
 
 /* Testimonials */
 .testimonials {
-    background-color: #2c6f57;
-    color: white;
+    background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Deep purple to dark navy */
+    color: #FFFFFF; /* White text */
     text-align: center;
-    padding: 50px 20px;
+    padding: 60px 20px;
 }
 
-.testimonial {
-    background: #ace1af;
-    padding: 20px;
-    margin: 20px auto;
-    width: 90%;
-    max-width: 700px;
-    border-radius: 10px;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.2rem;
-    color: #fff;
+.testimonials h2 {
+    font-size: 2.5rem;
+    color: #FF4EC9; /* Neon pink for heading */
+    margin-bottom: 40px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.testimonials .testimonial {
+    background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%) !important; /* Deep purple to dark navy */
+    border: 2px solid #FF4EC9 !important; /* Neon pink border */
+    padding: 30px !important;
+    margin: 30px auto !important;
+    width: 90% !important;
+    max-width: 800px !important;
+    border-radius: 20px !important;
+    font-size: 1.1rem !important;
+    color: #FFFFFF !important; /* White text */
+    box-shadow: 0 6px 20px rgba(255, 78, 201, 0.3) !important; /* Pink glow */
+    line-height: 1.6 !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.testimonials .testimonial::before {
+    content: '"' !important;
+    position: absolute !important;
+    top: 10px !important;
+    left: 20px !important;
+    font-size: 4rem !important;
+    color: #4DBFFF !important;
+    opacity: 0.4 !important;
+    font-family: serif !important;
+    text-shadow: 0 0 10px rgba(77, 191, 255, 0.6) !important;
+}
+
+.testimonials .testimonial::after {
+    content: '"' !important;
+    position: absolute !important;
+    bottom: -10px !important;
+    right: 20px !important;
+    font-size: 4rem !important;
+    color: #4DBFFF !important;
+    opacity: 0.4 !important;
+    font-family: serif !important;
+    text-shadow: 0 0 10px rgba(77, 191, 255, 0.6) !important;
+}
+
+.testimonials .testimonial p {
+    margin: 0 !important;
+    font-style: italic !important;
+    color: #FFFFFF !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7) !important;
+    font-size: 1.2rem !important;
+    line-height: 1.7 !important;
+}
+
+.testimonials .testimonial strong {
+    color: #4DBFFF !important; /* Neon blue for names - better contrast */
+    font-style: normal !important;
+    font-weight: bold !important;
+    text-shadow: 0 0 8px rgba(77, 191, 255, 0.8) !important; /* Blue glow effect */
+    font-size: 1.1em !important;
 }
 
 @media (max-width: 600px) {
@@ -206,23 +304,155 @@ nav ul li a:hover {
     padding: 15px;
     font-size: 1rem;
   }
+  
+  .hero h1 {
+    font-size: 28px;
+  }
+  
+  .hero h2 {
+    font-size: 18px;
+  }
+  
+  .how-it-works h2 {
+    font-size: 2rem;
+  }
+  
+  .testimonials h2, .blog-social h2 {
+    font-size: 2rem;
+  }
+  
+  .steps > div {
+    width: 100%;
+    min-width: auto;
+    margin-bottom: 20px;
+  }
 }
 
 /* Blog & Social Media */
 .blog-social {
     text-align: center;
-    padding: 50px 20px;
-    background-color: white;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
+    color: #FFFFFF; /* White text */
+    position: relative;
+}
+
+.blog-social::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 70%, rgba(255, 78, 201, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 70% 30%, rgba(77, 191, 255, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.blog-social .social-media {
+    background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%) !important;
+    border: 2px solid #4DBFFF !important;
+    border-radius: 20px !important;
+    padding: 40px 20px !important;
+    margin: 20px auto !important;
+    max-width: 600px !important;
+    box-shadow: 0 6px 20px rgba(77, 191, 255, 0.3) !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+.blog-social h2 {
+    font-size: 2.5rem;
+    color: #FF4EC9; /* Neon pink for heading */
+    margin-bottom: 30px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.blog-social h3 {
+    font-size: 1.8rem;
+    color: #4DBFFF; /* Neon blue for subheading */
+    margin: 30px 0 20px 0;
 }
 
 .blog-preview {
-    margin-bottom: 20px;
+    margin-bottom: 40px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-.social-media a {
-    color: #ff5733;
-    font-weight: bold;
-    margin: 0 10px;
+.blog-preview p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: #FFFFFF;
+}
+
+.blog-social .social-media a {
+    font-weight: bold !important;
+    margin: 0 20px !important;
+    transition: all 0.3s ease !important;
+    display: inline-block !important;
+    padding: 15px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    font-size: 1.8rem !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+.blog-social .social-media a:hover {
+    transform: translateY(-3px) scale(1.1) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 2px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Keep individual social media brand colors */
+.blog-social .social-media a[href*="instagram"] {
+    color: #E1306C !important; /* Instagram pink */
+}
+
+.blog-social .social-media a[href*="facebook"] {
+    color: #1877F2 !important; /* Facebook blue */
+}
+
+.blog-social .social-media a[href*="tiktok"] {
+    color: #000000 !important; /* TikTok black */
+    background: rgba(255, 255, 255, 0.9) !important; /* Light background for visibility */
+}
+
+.blog-social .social-media a[style*="color: #000000"] {
+    color: #000000 !important; /* X/Twitter black */
+    background: rgba(255, 255, 255, 0.9) !important; /* Light background for visibility */
+}
+
+/* Back to Top Button - Subtle and Small */
+.back-to-top {
+    display: inline-block !important;
+    margin: 20px auto 0 auto !important;
+    color: rgba(77, 191, 255, 0.7) !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    font-weight: normal !important;
+    font-size: 0.9rem !important;
+    transition: all 0.3s ease !important;
+    padding: 8px 12px !important;
+    border-radius: 15px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(77, 191, 255, 0.3) !important;
+}
+
+.back-to-top:hover {
+    color: rgba(255, 78, 201, 0.8) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 78, 201, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+.blog-social .social-media h3 {
+    color: #FFFFFF !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    margin-bottom: 30px !important;
 }
 
 /* Map Section */
@@ -239,9 +469,19 @@ nav ul li a:hover {
 
 #map {
     height: 500px;
-    width: 100%;
+    width: 90%;
+    max-width: 800px;
     border-radius: 10px;
-    margin-top: 15px;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(255, 78, 201, 0.2); /* Pink glow */
+}
+
+/* HeatMap Component Container */
+.heatmap-wrapper > div {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 /* Filters and Search Bar */
@@ -1307,7 +1547,29 @@ p a:hover {
 /* How It Works */
 .how-it-works {
     padding: 50px 20px;
-    background: #fff;
+    background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Deep purple to dark navy */
+    color: #FFFFFF; /* White text */
+    text-align: center;
+}
+
+.how-it-works h2 {
+    color: #FF4EC9; /* Neon pink for main heading */
+    font-size: 2.5rem;
+    margin-bottom: 40px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.how-it-works h3 {
+    color: #4DBFFF; /* Neon blue for subheadings */
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+}
+
+.how-it-works p {
+    color: #FFFFFF; /* White text */
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 15px;
 }
 
 .steps {
@@ -1315,25 +1577,58 @@ p a:hover {
     justify-content: center;
     gap: 30px;
     flex-wrap: wrap;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
-.step {
-    background: #007BFF;
-    color: #474747;
-    padding: 20px;
-    border-radius: 10px;
+.steps > div {
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
+    color: #FFFFFF; /* White text */
+    padding: 30px 20px;
+    border-radius: 15px;
     width: 30%;
+    min-width: 300px;
+    border: 2px solid #FF4EC9; /* Neon pink border */
+    box-shadow: 0 4px 15px rgba(255, 78, 201, 0.2); /* Pink glow */
+    text-align: left;
 }
 
-.step h3 {
-    font-size: 1.5rem;
+.steps > div h3 {
+    font-size: 1.8rem;
+    color: #FF4EC9; /* Neon pink for titles */
+    margin-bottom: 20px;
+    text-align: center;
+    border-bottom: 2px solid #4DBFFF;
+    padding-bottom: 10px;
+}
+
+.steps > div p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    color: #FFFFFF;
+}
+
+.steps > div p strong {
+    color: #4DBFFF; /* Neon blue for step numbers and emphasis */
 }
 
 /* Success Stories */
 .success-stories {
     text-align: center;
     padding: 50px 20px;
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
+    color: #FFFFFF; /* White text */
+}
+
+/* Success Elements */
+.success, .success-message, .alert-success {
+    background-color: #00E676; /* Success green */
+    color: #FFFFFF; /* White text */
+    border: 1px solid #00E676;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin: 10px 0;
 }
 
 /* Dashboard Section */
@@ -2364,6 +2659,8 @@ footer a:hover {
     display: flex;
     justify-content: center;
     align-items: center;
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
+    padding: 20px 0;
 }
 
 .image-section img {

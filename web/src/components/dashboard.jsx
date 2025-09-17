@@ -23,6 +23,7 @@ import { useUpgradeNudges } from './UpgradeNudges';
 import ManualLocationIndicator from './ManualLocationIndicator';
 import { GPSTrackingCallout, HeatMapCallout, AnalyticsCallout } from './ProFeatureCallout';
 import "../assets/index.css";
+import "../assets/dashboard.css"; // Shared dashboard styles
 import { logoutUser, cleanupNonOwnerTruckLocations } from "../utils/firebaseUtils";
 import HeatMap from "../components/HeatMap";
 import Navbar from "../components/navbar";
@@ -31,12 +32,13 @@ import "../assets/social-icon.css";
 import truckIconImg from "/truck-icon.png";
 import trailerIconImg from "/trailer-icon.png";
 import cartIconImg from "/cart-icon.png";
-import grubanaLogoImg from "../assets/grubana-logo.png";
+import grubanaLogoImg from "../assets/grubana-logo-vector.png";
 import Analytics from "./analytics";
 import { FaInstagram, FaFacebook, FaTiktok, FaXTwitter } from "react-icons/fa6";
 import { useAuth } from "./AuthContext";
 import NewDropForm from "./NewDropForm";
 import { QRCodeCanvas } from "qrcode.react";
+import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 
 const Dashboard = ({ isLoaded }) => {
@@ -66,6 +68,58 @@ const Dashboard = ({ isLoaded }) => {
   console.log('userPlan:', userPlan);
   console.log('Dashboard component rendering for', userRole?.toUpperCase());
   
+  // Simple browser geolocation state
+  const [sharedLocation, setSharedLocation] = useState(null);
+  const [geolocationLoading, setGeolocationLoading] = useState(false);
+  const [geolocationError, setGeolocationError] = useState(null);
+  const sharedLocationSource = 'browser';
+
+  // Get user location with simple browser geolocation
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeolocationError(new Error('Geolocation not supported'));
+      return;
+    }
+
+    setGeolocationLoading(true);
+    
+    // First try with high accuracy
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('✅ Dashboard geolocation success with accuracy:', position.coords.accuracy);
+        setSharedLocation(position);
+        setGeolocationLoading(false);
+      },
+      (error) => {
+        console.log('⚠️ Dashboard high accuracy failed, trying low accuracy:', error.message);
+        
+        // Fallback to low accuracy with longer timeout
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('✅ Dashboard low accuracy geolocation success with accuracy:', position.coords.accuracy);
+            setSharedLocation(position);
+            setGeolocationLoading(false);
+          },
+          (finalError) => {
+            console.error('❌ Dashboard geolocation completely failed:', finalError);
+            setGeolocationError(finalError);
+            setGeolocationLoading(false);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 30000,
+            maximumAge: 300000 // Allow 5 minute old position as fallback
+          }
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  }, []);
+  
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState("");
   const [manualLocation, setManualLocation] = useState("");
@@ -81,6 +135,8 @@ const Dashboard = ({ isLoaded }) => {
   const [truckLat, setTruckLat] = useState(null);
   const [truckLng, setTruckLng] = useState(null);
   const [drops, setDrops] = useState([]);
+  const [geolocationStatus, setGeolocationStatus] = useState("checking"); // checking, success, failed, permission-denied
+  const [locationSource, setLocationSource] = useState(null); // gps, ip, cache, timezone-fallback, etc.
   const [socialLinks, setSocialLinks] = useState({
     instagram: "",
     facebook: "",
@@ -317,23 +373,36 @@ const createCustomMarker = (position, content, map) => {
     }
   }, [userPlan, userRole, user, previousPlan]);
 
-  // Geolocation for all food truck owners (Basic, Pro, All Access Plans)
+  // Sync shared geolocation with local state
   useEffect(() => {
-    console.log('🌍 Geolocation useEffect running for:', userPlan);
-    if (userRole === "owner") {
-      console.log('🌍 Requesting geolocation for food truck owner...');
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          console.log('🌍 Geolocation success:', position.coords);
-          const { latitude, longitude } = position.coords;
-          
-          setLocation({
-            latitude: latitude,
-            longitude: longitude,
-          });
-          
-          // Immediately save to Firestore to ensure marker appears
-          if (user?.uid && sessionId) {
+    console.log('🌍 Dashboard location effect running:', { 
+      sharedLocation: sharedLocation?.coords, 
+      sharedLocationSource, 
+      geolocationLoading,
+      currentLocation: location
+    });
+    
+    if (userRole === "owner" && sharedLocation) {
+      console.log(`🌍 Dashboard: Using shared geolocation (${sharedLocationSource}):`, sharedLocation.coords);
+      const { latitude, longitude } = sharedLocation.coords;
+      
+      // Check if location has actually changed to prevent unnecessary updates
+      const hasLocationChanged = !location || 
+        Math.abs(location.latitude - latitude) > 0.0001 || 
+        Math.abs(location.longitude - longitude) > 0.0001;
+      
+      if (hasLocationChanged) {
+        console.log('🔄 Dashboard: Location changed, updating state');
+        setLocation({
+          latitude: latitude,
+          longitude: longitude,
+        });
+        setGeolocationStatus("success");
+        setLocationSource(sharedLocationSource);
+        
+        // Immediately save to Firestore to ensure marker appears
+        if (user?.uid && sessionId) {
+          const saveLocationToFirestore = async () => {
             try {
               const truckDocRef = doc(db, 'truckLocations', user.uid);
               const locationData = {
@@ -350,27 +419,32 @@ const createCustomMarker = (position, content, map) => {
               };
               
               await setDoc(truckDocRef, locationData, { merge: true });
-              console.log('🌍 Location immediately saved to Firestore with both visible and isLive set to true:', locationData);
+              console.log('🌍 Dashboard: Location saved to Firestore:', locationData);
             } catch (error) {
-              console.error('🌍 Error saving initial location:', error);
+              console.error('🌍 Dashboard: Error saving shared location:', error);
             }
-          }
-        },
-        (error) => {
-          console.error("🌍 Geolocation error: ", error);
-          console.error("🌍 Error code:", error.code);
-          console.error("🌍 Error message:", error.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000 // 5 minutes
+          };
+          
+          saveLocationToFirestore();
         }
-      );
-    } else {
-      console.log('🌍 Not requesting geolocation - userRole:', userRole, 'userPlan:', userPlan);
+      } else {
+        console.log('🔄 Dashboard: Location unchanged, skipping update');
+      }
+    } else if (userRole === "owner" && geolocationLoading) {
+      setGeolocationStatus("checking");
+    } else if (userRole === "owner" && geolocationError) {
+      console.error("🌍 Shared geolocation failed:", geolocationError);
+      setGeolocationStatus("failed");
+      
+      // Emergency fallback
+      setLocation({
+        latitude: 39.8283,
+        longitude: -98.5795,
+        accuracy: 0,
+        timestamp: Date.now()
+      });
     }
-  }, [userRole, userPlan, user, sessionId, ownerData]);
+  }, [sharedLocation, sharedLocationSource, geolocationLoading, geolocationError, userRole, user, sessionId, ownerData, isVisible]);
 
   useEffect(() => {
   if (location && window.google && window.google.maps) {
@@ -1115,9 +1189,138 @@ useEffect(() => {
   };
 
   return (
-    <div className="dashboard">
+    <div className="dashboard-container">
 
-      <h2>Welcome{username ? `, ${username}` : ""}!</h2>
+      <div className="dashboard-header">
+        <h2 className="dashboard-title">Welcome{username ? `, ${username}` : ""}!</h2>
+        <p className="dashboard-subtitle">Manage your mobile kitchen business</p>
+      </div>
+
+      {/* Geolocation Status */}
+      {userRole === "owner" && (
+        <div style={{ marginBottom: "20px" }}>
+          {geolocationStatus === "checking" && (
+            <div style={{
+              backgroundColor: "#E7F3FF",
+              border: "1px solid #B6D7FF",
+              borderRadius: "8px",
+              padding: "12px",
+              color: "#0066CC"
+            }}>
+              🗺️ Getting your location for better map accuracy...
+            </div>
+          )}
+          {geolocationStatus === "permission-denied" && (
+            <div style={{
+              backgroundColor: "#FFF3CD",
+              border: "1px solid #FFEAA7",
+              borderRadius: "8px",
+              padding: "12px",
+              color: "#856404"
+            }}>
+              🔒 <strong>Location Access Needed:</strong> Please enable location permissions in your browser to show your truck's accurate position on the map. Using default location for now.
+              <br />
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  marginTop: "8px",
+                  padding: "6px 12px",
+                  backgroundColor: "#856404",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+          {geolocationStatus === "failed" && (
+            <div style={{
+              backgroundColor: "#F8D7DA",
+              border: "1px solid #F1B2B5",
+              borderRadius: "8px",
+              padding: "12px",
+              color: "#721C24"
+            }}>
+              📍 <strong>Location Unavailable:</strong> Unable to get your precise location. Make sure location services are enabled. Using default map location.
+              {!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && (
+                <>
+                  <br />
+                  <small>Note: Location services work better on HTTPS websites.</small>
+                </>
+              )}
+              <br />
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  marginTop: "8px",
+                  padding: "6px 12px",
+                  backgroundColor: "#721C24",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+          {geolocationStatus === "success" && (
+            <div style={{
+              backgroundColor: "#D1F2EB",
+              border: "1px solid #B0E4D4",
+              borderRadius: "8px",
+              padding: "12px",
+              color: "#0E6B47"
+            }}>
+              ✅ Location detected successfully! 
+              {locationSource && (
+                <small style={{ display: "block", marginTop: "4px", opacity: 0.8 }}>
+                  Source: {locationSource === 'gps' || locationSource === 'gps-final' ? '🛰️ GPS/Network (High Accuracy)' : 
+                          locationSource === 'ip' ? '🌐 IP Address (Approximate)' : 
+                          locationSource === 'cache' ? '💾 Cached Location' : 
+                          locationSource === 'timezone-fallback' ? '🕐 Timezone-based' : 
+                          '📍 ' + locationSource}
+                  {locationSource === 'ip' && (
+                    <span style={{ color: '#e67e22', fontWeight: 'bold', marginLeft: '8px' }}>
+                      ⚠️ May be a few miles off
+                    </span>
+                  )}
+                  {locationSource === 'ip' && (
+                    <button
+                      onClick={() => {
+                        console.log('🔄 Retrying GPS for higher accuracy...');
+                        setGeolocationStatus("checking");
+                        // Clear cache to force fresh GPS request
+                        localStorage.removeItem('bulletproof_location_cache');
+                        // Trigger refresh of shared geolocation
+                        window.location.reload();
+                      }}
+                      style={{
+                        marginLeft: '8px',
+                        padding: '4px 8px',
+                        backgroundColor: '#3498db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📍 Try GPS Again
+                    </button>
+                  )}
+                </small>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Truck Photo and Menu Display */}
     {ownerData?.coverUrl && (
@@ -1245,15 +1448,13 @@ useEffect(() => {
       
      
       {userPlan ? (
-        <div style={{ margin: "15px 0", padding: "15px", backgroundColor: 
-          userPlan === "basic" ? "#f8f9fa" : 
-          userPlan === "pro" ? "#e8f5e8" : "#e3f2fd", 
-          borderRadius: "8px", border: `2px solid ${
-          userPlan === "basic" ? "#dee2e6" : 
-          userPlan === "pro" ? "#28a745" : "#2196f3"}`
+        <div className="dashboard-section" style={{ 
+          border: `2px solid ${
+          userPlan === "basic" ? "rgba(255, 78, 201, 0.3)" : 
+          userPlan === "pro" ? "#00E676" : "#4DBFFF"}`
         }}>
           
-          <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#666" }}>
+          <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#FFFFFF" }}>
             {userPlan === "basic" && (
               <div>
                 ✅ Discovery map • ✅ Menu display • ✅ Manual location updates

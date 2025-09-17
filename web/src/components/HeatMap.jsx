@@ -15,6 +15,7 @@ import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey compone
 import EventModal from "./EventModal"; // Import EventModal component
 //import Supercluster from "supercluster";
 import { throttle } from "lodash";
+import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 
 // Function to dynamically calculate the radius based on zoom level
@@ -24,7 +25,11 @@ const calculateRadius = (zoom) => {
 
 const mapContainerStyle = {
   width: "100%",
-  height: "600px",
+  maxWidth: "100%",
+  height: "500px",
+  margin: "0",
+  borderRadius: "10px",
+  boxShadow: "0 4px 15px rgba(255, 78, 201, 0.2)",
 };
 
 // Place the FilterButton component here
@@ -107,6 +112,58 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [showCuisineModal, setShowCuisineModal] = useState(false);
   const [tempCuisineFilters, setTempCuisineFilters] = useState(filters);
 
+  // Simple browser geolocation state
+  const [sharedLocation, setSharedLocation] = useState(null);
+  const [geolocationLoading, setGeolocationLoading] = useState(false);
+  const [geolocationError, setGeolocationError] = useState(null);
+  const sharedLocationSource = 'browser';
+
+  // Get user location with simple browser geolocation
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeolocationError(new Error('Geolocation not supported'));
+      return;
+    }
+
+    setGeolocationLoading(true);
+    
+    // First try with high accuracy
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('✅ HeatMap geolocation success with accuracy:', position.coords.accuracy);
+        setSharedLocation(position);
+        setGeolocationLoading(false);
+      },
+      (error) => {
+        console.log('⚠️ HeatMap high accuracy failed, trying low accuracy:', error.message);
+        
+        // Fallback to low accuracy with longer timeout
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('✅ HeatMap low accuracy geolocation success with accuracy:', position.coords.accuracy);
+            setSharedLocation(position);
+            setGeolocationLoading(false);
+          },
+          (finalError) => {
+            console.error('❌ HeatMap geolocation completely failed:', finalError);
+            setGeolocationError(finalError);
+            setGeolocationLoading(false);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 30000,
+            maximumAge: 300000 // Allow 5 minute old position as fallback
+          }
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  }, []);
+
   const mapRef = useRef(null);
   const markerRefs = useRef({});
   const infoWindowRef = useRef(null);
@@ -153,71 +210,56 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
     
     console.log("🗺️ HeatMap: Starting location determination for", currentUser.role);
     
-    // For food truck owners, wait briefly for truck location data to load
+    // For food truck owners, check if they have a truck location first
     if (currentUser.role === 'owner') {
-      console.log("🚚 HeatMap: Waiting for truck location data...");
+      console.log("🚚 HeatMap: Checking for existing truck location...");
       
-      // Set a timeout to wait for truck data, but not indefinitely
-      const truckLocationTimeout = setTimeout(() => {
-        console.log("🚚 HeatMap: Truck location timeout, falling back to geolocation");
-        attemptGeolocation();
-      }, 2000); // Wait 2 seconds for truck location data
-      
-      // If truck locations are already available, use them immediately
-      if (truckLocations.length > 0) {
-        clearTimeout(truckLocationTimeout);
-        const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
-        if (userTruck && userTruck.latitude && userTruck.longitude) {
-          const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
-          console.log("🗺️ HeatMap: Using truck owner's location:", truckCenter);
-          setMapCenter(truckCenter);
-          setLocationDetermined(true);
-          return;
-        } else {
-          console.log("� HeatMap: No truck location found, using geolocation");
-          attemptGeolocation();
-        }
+      // Check for existing truck location data
+      const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
+      if (userTruck && userTruck.latitude && userTruck.longitude) {
+        const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
+        console.log("🗺️ HeatMap: Using truck owner's location:", truckCenter);
+        setMapCenter(truckCenter);
+        setLocationDetermined(true);
+        return;
+      } else {
+        console.log("🚚 HeatMap: No truck location found, will use shared geolocation");
+        // Shared geolocation will handle this automatically in the next effect
       }
-      
-      return () => clearTimeout(truckLocationTimeout);
-    } else {
-      // For non-truck owners, use geolocation immediately
-      attemptGeolocation();
     }
-  }, [currentUser, truckLocations, locationDetermined]);
+    // For non-truck owners, shared geolocation handles everything
+  }, [currentUser?.uid, currentUser?.role, locationDetermined]);
 
-  const attemptGeolocation = () => {
-    if (navigator.geolocation) {
-      console.log("� HeatMap: Attempting geolocation...");
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          console.log("✅ HeatMap: Geolocation successful:", coords);
-          setMapCenter(coords);
-          setLocationDetermined(true);
-        },
-        (error) => {
-          console.log("❌ HeatMap: Geolocation failed:", error.message);
-          // Use Southern California center as fallback for better user experience
-          console.log("🗺️ HeatMap: Using Southern California coordinates as fallback");
-          setMapCenter({ lat: 34.0522, lng: -118.2437 }); // Los Angeles, CA
-          setLocationDetermined(true);
-        },
-        { 
-          enableHighAccuracy: false, // Disable high accuracy to speed up response
-          maximumAge: 10000, // Cache for 10 seconds
-          timeout: 15000, // Increase timeout to 15 seconds
-        }
-      );
-    } else {
-      console.log("❌ HeatMap: Geolocation not supported, using Southern California coordinates");
-      setMapCenter({ lat: 34.0522, lng: -118.2437 }); // Los Angeles, CA
+  // Separate effect to handle truck location updates for owners
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'owner' || locationDetermined) return;
+    
+    // Check if truck location data has arrived
+    const userTruck = truckLocations.find(truck => truck.id === currentUser.uid || truck.ownerUid === currentUser.uid);
+    if (userTruck && userTruck.latitude && userTruck.longitude) {
+      const truckCenter = { lat: userTruck.latitude, lng: userTruck.longitude };
+      console.log("🗺️ HeatMap: Truck location data arrived, updating map center:", truckCenter);
+      setMapCenter(truckCenter);
       setLocationDetermined(true);
     }
-  };
+  }, [truckLocations, currentUser?.uid, currentUser?.role, locationDetermined]);
+
+  // Effect to handle shared geolocation updates
+  useEffect(() => {
+    if (sharedLocation && !locationDetermined) {
+      console.log("✅ HeatMap: Using shared geolocation:", sharedLocation);
+      const coords = {
+        lat: sharedLocation.coords.latitude,
+        lng: sharedLocation.coords.longitude
+      };
+      
+      console.log(`✅ HeatMap: Geolocation successful (${sharedLocationSource}):`, coords);
+      setMapCenter(coords);
+      setLocationDetermined(true);
+    }
+  }, [sharedLocation, sharedLocationSource, locationDetermined]);
+
+  // Effects for event and truck data fetching...
 
   useEffect(() => {
     if (!currentUser) return;
@@ -796,22 +838,17 @@ const updateTruckMarkers = useCallback(async () => {
           marker.div.innerHTML = customMarkerContent;
         }
       } else {
-        // Standard marker - use animateMarkerTo with safety check
-        if (marker && (typeof marker.setPosition === 'function' || marker.div)) {
-          animateMarkerTo(marker, position);
-        } else {
-          console.warn('🗺️ HeatMap: Cannot update marker position - invalid marker type for truck', truck.id);
-        }
-        
+        // Standard marker
+        animateMarkerTo(marker, position);
         const currentTruckName = truckNames[truck.id] || truck.truckName || truck.name || "Food Truck";
         
         // Only call setTitle if it's a standard Google Maps marker
-        if (marker && typeof marker.setTitle === 'function') {
+        if (marker.setTitle && typeof marker.setTitle === 'function') {
           marker.setTitle(currentTruckName);
         }
         
         // Only set icon if it's a valid Google Maps icon (not custom)
-        if (icon && icon.type !== 'custom' && marker && typeof marker.setIcon === 'function') {
+        if (icon && icon.type !== 'custom' && marker.setIcon && typeof marker.setIcon === 'function') {
           marker.setIcon(icon);
         }
       }
@@ -1525,7 +1562,11 @@ useEffect(() => {
   };
 
 return (
-  <div>
+  <div style={{ 
+    width: "100%",
+    maxWidth: "800px",
+    margin: "0 auto"
+  }}>
     {mapCenter ? (
       <GoogleMap
         mapContainerStyle={mapContainerStyle}

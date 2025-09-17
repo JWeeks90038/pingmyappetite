@@ -1,28 +1,32 @@
 .navbar {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Space between logo and nav links */
-  background-color: #b7b3b3;
+  justify-content: flex-start; /* Changed from space-between */
+  background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
   padding: 0 16px;
   position: relative;
   min-height: 70px; /* Increased to accommodate larger logo */
+  box-shadow: 0 4px 15px rgba(255, 78, 201, 0.2); /* Pink glow */
 }
 
 /* navbar.css */
 .navbar-logo {
   flex: 0 0 auto;      /* Do not grow or shrink */
-  width: 200px;        /* Increased width to accommodate larger logo */
-  min-width: 140px;
+  width: 350px;        /* Increased to accommodate 40% larger logo */
+  min-width: 220px;
   display: flex;
   align-items: center;
+  justify-content: center; /* Center the logo within its container */
+  margin-right: auto; /* Push nav links to the right */
+  margin-left: 80px; /* Push logo to the right from left edge */
 }
 
 /* Logo image styling within navbar */
 .navbar-logo-img {
   width: 100%;
-  max-width: 220px; /* Increased from 160px */
+  max-width: 390px; /* 40% larger than original 280px */
   height: auto;
-  max-height: 100px; /* Increased from 50px to make logo larger */
+  max-height: 168px; /* 40% larger than original 120px */
   object-fit: contain; /* Maintain aspect ratio */
   display: block;
 }
@@ -35,7 +39,7 @@
 
 .navbar a, .logout-link {
     text-decoration: none;
-    color: #2c6f57;
+    color: #FFFFFF; /* White text */
     font-weight: bold;
     background: none;
     border: none;
@@ -45,6 +49,7 @@
     padding: 10px 4px;
     line-height: 2;
     white-space: nowrap; /* Prevent text wrapping */
+    transition: color 0.3s ease; /* Smooth color transition */
 }
 
 .nav-links {
@@ -61,11 +66,12 @@
 
 .logout-link:hover,
 .navbar a:hover {
-    color: #ace1af;
+    color: #FF4EC9; /* Neon pink accent on hover */
+    transform: scale(1.05); /* Slight scale effect */
 }
 
 .navbar {
-    background-color: #b7b3b3;
+    background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%); /* Dark navy to deep purple */
     padding-bottom: 0px;
     position: relative;
 }
@@ -87,7 +93,7 @@
     display: block;
     height: 4px;
     width: 100%;
-    background: #2c6f57;
+    background: #FF4EC9; /* Neon pink hamburger lines */
     border-radius: 2px;
     transition: 0.3s;
 }
@@ -97,8 +103,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  justify-content: flex-start; /* Align items to start */
+  flex: 0 0 auto; /* Don't grow or shrink */
 }
 
 /* Responsive styles - increased breakpoint to handle overflow earlier */
@@ -117,12 +123,13 @@
   }
   
   .navbar-logo {
-    width: 140px; /* Smaller on mobile */
+    width: 252px; /* 40% larger than original 180px */
+    margin-left: 20px; /* Reduced left margin for mobile */
   }
   
   .navbar-logo-img {
-    max-width: 120px;
-    max-height: 40px; /* Smaller height on mobile */
+    max-width: 224px; /* 40% larger than original 160px */
+    max-height: 70px; /* 40% larger than original 50px */
   }
   
   .nav-links {
@@ -130,13 +137,13 @@
     margin-left: 0;
     display: flex;
     flex-direction: column;
-    background: #b7b3b3;
+    background: linear-gradient(135deg, #1A1036 0%, #0B0B1A 100%); /* Deep purple to dark navy */
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.3s ease;
     border-radius: 0 0 15px 15px;
     padding: 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(77, 191, 255, 0.2); /* Blue glow */
   }
   
   .nav-links.open {
@@ -164,7 +171,7 @@
   }
   
   .nav-links li a, .nav-links li .logout-link {
-    color: #2c6f57 !important;
+    color: #FFFFFF !important; /* White text */
     font-weight: bold !important;
     font-size: 0.9rem;
     padding: 2px 15px;
@@ -172,16 +179,19 @@
     text-decoration: none;
     width: 100%;
     box-sizing: border-box;
+    transition: all 0.3s ease; /* Smooth transitions */
   }
   
   .nav-links li a:hover, .nav-links li .logout-link:hover {
-    background-color: rgba(44, 111, 87, 0.1);
+    background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); /* Neon pink to blue gradient on hover */
     border-radius: 5px;
+    color: #FFFFFF !important; /* Keep white text on hover */
+    transform: translateX(5px); /* Slight slide effect */
   }
   
   /* Ensure logout link is styled consistently on mobile */
   .nav-links li .logout-link {
-    color: #2c6f57 !important;
+    color: #FFFFFF !important; /* White text */
     font-weight: bold !important;
     font-size: 0.9rem !important;
     padding: 2px 15px !important;
@@ -190,6 +200,7 @@
     width: 100% !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
+    transition: all 0.3s ease !important;
   }
 }
 

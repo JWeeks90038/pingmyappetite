@@ -1,13 +1,13 @@
 /* New Feature Banner Styles */
 .new-feature-banner {
   position: relative;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
+  background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); /* Neon pink to neon blue */
+  color: #FFFFFF; /* White text */
   padding: 12px 0;
   text-align: center;
   overflow: hidden;
   z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(255, 78, 201, 0.3); /* Pink glow */
 }
 
 .new-feature-banner::before {

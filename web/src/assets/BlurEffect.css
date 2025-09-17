@@ -1,7 +1,10 @@
 .heatmap-wrapper {
   position: relative;
-  width: 100%;
-  height: 400px; /* or whatever size your map needs */
+  display: block !important;
+  width: 800px !important;
+  margin: 20px auto !important;
+  padding: 0 !important;
+  height: 500px; /* Match the map height */
   overflow: hidden;
 }
 
@@ -42,4 +45,13 @@
 
 .blur-link:hover {
   color: #ace1af;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .heatmap-wrapper {
+    margin: 10px auto;
+    padding: 0 10px;
+    height: 400px;
+  }
 }

@@ -161,8 +161,8 @@ export function useNotifications() {
         const registration = await navigator.serviceWorker.ready;
         await registration.showNotification('Test Notification', {
           body: 'This is a test notification from Grubana!',
-          icon: '/grubana-logo.png',
-          badge: '/grubana-logo.png',
+          icon: '/grubana-logo-vector.png',
+          badge: '/grubana-logo-vector.png',
           tag: 'test-notification',
           requireInteraction: false,
           actions: [

@@ -169,7 +169,7 @@ const PreOrderSystem = ({ truckId, menuItems, cart, setCart, onOrderComplete }) 
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, {
         body,
-        icon: '/grubana-logo.png',
+        icon: '/grubana-logo-vector.png',
         badge: '/truck-icon.png'
       });
     }
