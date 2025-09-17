@@ -8,27 +8,20 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
-  Linking,
   Animated,
   Modal,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
 import { colors } from '../theme/colors';
-import { API_ENDPOINTS, debugConfig } from '../utils/apiConfig';
+import { API_ENDPOINTS } from '../utils/apiConfig';
 
 export default function TruckOnboardingScreen({ navigation }) {
   const { user, userData } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [accountStatus, setAccountStatus] = useState(null);
-  const [accountDetails, setAccountDetails] = useState(null);
-  const [activeTab, setActiveTab] = useState('payment');
   const [menuItems, setMenuItems] = useState([]);
   const [newMenuItem, setNewMenuItem] = useState({
     name: '',
@@ -87,7 +80,7 @@ export default function TruckOnboardingScreen({ navigation }) {
     setModalVisible(true);
   };
 
-  // Client-side new items tracking (temporary workaround)
+  // Client-side new items tracking
   const getNewItemIds = async () => {
     try {
       const stored = await AsyncStorage.getItem(`newItemIds_${user?.uid}`);
@@ -102,6 +95,7 @@ export default function TruckOnboardingScreen({ navigation }) {
       await AsyncStorage.setItem(`newItemIds_${user?.uid}`, JSON.stringify([...ids]));
       setNewItemIds(ids);
     } catch (error) {
+      console.error('Error saving new item IDs:', error);
     }
   };
 
@@ -115,126 +109,12 @@ export default function TruckOnboardingScreen({ navigation }) {
     return newItemIds.has(itemId);
   };
 
-  const toggleNewItemStatus = async (itemId) => {
-    const currentIds = await getNewItemIds();
-    if (currentIds.has(itemId)) {
-      currentIds.delete(itemId);
-    } else {
-      currentIds.add(itemId);
-    }
-    await saveNewItemIds(currentIds);
-  };
-
   useEffect(() => {
     if (user) {
-      // Add debugging for production environment
-      debugConfig();
-      checkAccountStatus();
       loadMenuItems();
-      // Load stored new item IDs
       getNewItemIds().then(setNewItemIds);
     }
   }, [user]);
-
-  // Handle deep link returns from Stripe onboarding
-  useFocusEffect(
-    React.useCallback(() => {
-      // Check if we're returning from Stripe onboarding
-      const handleStripeReturn = async () => {
-        try {
-          // Get the current URL to check for Stripe completion parameters
-          const url = await Linking.getInitialURL();
-          if (url && url.includes('stripe-onboarding')) {
- 
-            
-            // Show success message
-            showToast('Welcome back! Checking your Stripe account status...', 'success');
-            
-            // Refresh account status after a short delay to allow Stripe to update
-            setTimeout(() => {
-              checkAccountStatus();
-            }, 2000);
-          }
-        } catch (error) {
-
-        }
-      };
-
-      handleStripeReturn();
-      
-      // Always refresh account status when screen comes into focus
-      // This ensures we catch any Stripe updates
-      if (user) {
-        checkAccountStatus();
-      }
-    }, [user])
-  );
-
-  const checkAccountStatus = async () => {
-    try {
-      const token = await user.getIdToken();
-      
-      const response = await fetch(API_ENDPOINTS.STRIPE_CONNECT_STATUS, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      
-      // Use real Stripe status from API response
-      setAccountStatus(data.status || 'no_account');
-      setAccountDetails(data);
-    } catch (error) {
-      setAccountStatus('error');
-      setAccountDetails(null);
-    }
-  };
-
-  const syncPaymentData = async () => {
-    try {
-      setLoading(true);
-      
-      const token = await user.getIdToken();
-      
-      const response = await fetch(API_ENDPOINTS.STRIPE_SYNC_PAYMENT_DATA, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // Get response as text first to see what we're actually getting
-      const responseText = await response.text();
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
-      }
-      
-      if (response.ok) {
-        showModal(
-          'Success!', 
-          'Payment data synced successfully. Pre-orders should now work properly!',
-          [
-            {
-              text: 'OK',
-              onPress: () => checkAccountStatus() // Refresh status
-            }
-          ]
-        );
-      } else {
-        throw new Error(data.error || 'Failed to sync payment data');
-      }
-    } catch (error) {
-      showToast(`Failed to sync payment data: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadMenuItems = async () => {
     try {
@@ -246,102 +126,71 @@ export default function TruckOnboardingScreen({ navigation }) {
 
       if (response.ok) {
         const data = await response.json();
-        // Log all fields for each item to check what's missing
-        data.items?.forEach((item, index) => {
-          const imageUrl = item.image || item.imageUrl;
-        });
         setMenuItems(data.items || []);
       } else {
-        const errorText = await response.text();
+        console.error('Failed to load menu items');
       }
     } catch (error) {
+      console.error('Error loading menu items:', error);
     }
   };
 
-  const createStripeAccount = async () => {
-    setLoading(true);
+  const uploadImageToFirebase = async (file) => {
     try {
-      const businessName = userData?.truckName || user?.displayName || 'Mobile Kitchen Business';
+      setUploadingImage(true);
+      const storage = getStorage();
+      const fileName = `menu-items/${user.uid}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const storageRef = ref(storage, fileName);
       
-      const token = await user.getIdToken();
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
       
-      const response = await fetch(API_ENDPOINTS.STRIPE_CONNECT_ONBOARD, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          truckId: user.uid,
-          email: user.email,
-          businessName,
-          country: 'US'
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setAccountStatus('created');
-        setAccountDetails(data);
-        await checkAccountStatus();
-      } else {
-        throw new Error(data.error || 'Failed to create account');
-      }
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
     } catch (error) {
-      showToast(`Failed to create Stripe account. ${error.message || 'Please try again.'}`);
+      console.error('Error uploading image:', error);
+      showToast('Failed to upload image. Please try again.');
+      return null;
     } finally {
-      setLoading(false);
+      setUploadingImage(false);
     }
   };
 
-  const getOnboardingLink = async () => {
-    setLoading(true);
+  const handleImageSelect = async () => {
     try {
-      const token = await user.getIdToken();
-      
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Sorry, we need camera roll permissions to upload images.');
+        return;
+      }
 
-
-      
-      const response = await fetch(API_ENDPOINTS.STRIPE_ONBOARDING_LINK, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          truckId: user.uid,
-          accountId: accountDetails?.stripeAccountId || accountDetails?.accountId,
-          isMobile: true, // Add flag to indicate mobile request
-          returnScheme: 'grubana' // Add app scheme for deep linking
-        })
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        maxWidth: 800,
+        maxHeight: 600,
       });
 
-   
-      const responseText = await response.text();
-
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-     
-        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}...`);
-      }
-
-      if (response.ok) {
-
-        Linking.openURL(data.onboardingUrl);
-      } else {
-  
-        throw new Error(data.error || 'Failed to create onboarding link');
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setImageFile(asset);
+        setImagePreview(asset.uri);
+        setNewMenuItem(prev => ({ ...prev, image: asset.uri }));
       }
     } catch (error) {
-  
-      showToast(`Failed to get onboarding link: ${error.message || 'Please try again.'}`);
-    } finally {
-      setLoading(false);
+      console.error('Error selecting image:', error);
+      showToast('Failed to select image. Please try again.');
     }
+  };
+
+  const clearImageSelection = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setNewMenuItem(prev => ({ ...prev, image: null }));
   };
 
   const addMenuItem = async () => {
@@ -354,7 +203,6 @@ export default function TruckOnboardingScreen({ navigation }) {
     try {
       let imageUrl = null;
 
-      // Upload image if selected
       if (imageFile) {
         imageUrl = await uploadImageToFirebase(imageFile);
       }
@@ -377,7 +225,6 @@ export default function TruckOnboardingScreen({ navigation }) {
       if (response.ok) {
         const responseData = await response.json();
         
-        // If this was marked as a new item, track it client-side
         if (newMenuItem.isNewItem && responseData.item && responseData.item.id) {
           await addNewItemId(responseData.item.id);
         }
@@ -394,14 +241,13 @@ export default function TruckOnboardingScreen({ navigation }) {
         setImageFile(null);
         setImagePreview(null);
         
-        // Reload menu items to see what was actually saved
         await loadMenuItems();
         showToast('Menu item added successfully!', 'success');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add menu item');
+        showToast('Failed to add menu item. Please try again.');
       }
     } catch (error) {
+      console.error('Error adding menu item:', error);
       showToast('Failed to add menu item. Please try again.');
     } finally {
       setLoading(false);
@@ -411,11 +257,11 @@ export default function TruckOnboardingScreen({ navigation }) {
   const deleteMenuItem = async (itemId) => {
     showModal(
       'Delete Menu Item',
-      'Are you sure you want to delete this menu item?',
+      'Are you sure you want to delete this menu item? This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
+        { text: 'Cancel', onPress: () => setModalVisible(false) },
+        { 
+          text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
             try {
@@ -430,10 +276,10 @@ export default function TruckOnboardingScreen({ navigation }) {
                 await loadMenuItems();
                 showToast('Menu item deleted successfully!', 'success');
               } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to delete menu item');
+                showToast('Failed to delete menu item. Please try again.');
               }
             } catch (error) {
+              console.error('Error deleting menu item:', error);
               showToast('Failed to delete menu item. Please try again.');
             }
           }
@@ -442,166 +288,38 @@ export default function TruckOnboardingScreen({ navigation }) {
     );
   };
 
-  const handleImageSelect = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      showToast('Permission to access camera roll is required!');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      setImageFile(asset);
-      setImagePreview(asset.uri);
-    }
-  };
-
-  const uploadImageToFirebase = async (file) => {
-    try {
-      setUploadingImage(true);
-      
-      const storage = getStorage();
-      const fileName = `menu-items/${user.uid}/${Date.now()}-${file.fileName || 'image.jpg'}`;
-      const storageRef = ref(storage, fileName);
-      
-      // Convert URI to blob for upload
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-      
-      // Upload file
-      await uploadBytes(storageRef, blob);
-      
-      // Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
-      return downloadURL;
-    } catch (error) {
-      throw new Error('Failed to upload image');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const clearImageSelection = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    setNewMenuItem(prev => ({ ...prev, image: null }));
-  };
-
-  const renderAccountStatus = () => {
-    if (!accountStatus) {
-      return (
-        <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color="#2c6f57" />
-          <Text style={styles.statusText}>Loading account status...</Text>
-        </View>
-      );
-    }
-
-    switch (accountStatus) {
-      case 'no_account':
-        return (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>🏪 Set Up Your Stripe Connect Account</Text>
-            <Text style={styles.statusDescription}>
-              To start accepting orders and payments from customers, you need to set up a Stripe Connect account. 
-              This allows you to receive payments directly with our flexible tiered platform fee structure based on your chosen subscription plan.
-            </Text>
-            <TouchableOpacity
-              style={[styles.button, styles.primaryButton]}
-              onPress={createStripeAccount}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Setting up...' : '🔗 Connect with Stripe'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'created':
-      case 'pending':
-        return (
-          <View style={[styles.statusCard, styles.pendingCard]}>
-            <Text style={styles.statusTitle}>⏳ Complete Your Stripe Setup</Text>
-            <Text style={styles.statusDescription}>
-              Your Stripe account has been created! Complete the onboarding process to start receiving payments.
-            </Text>
-            <TouchableOpacity
-              style={[styles.button, styles.blueButton]}
-              onPress={getOnboardingLink}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Loading...' : '✅ Complete Stripe Onboarding'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'active':
-        return (
-          <View style={[styles.statusCard, styles.successCard]}>
-            <Text style={styles.statusTitle}>✅ Payment Setup Complete!</Text>
-            <Text style={styles.statusDescription}>
-              Your Stripe account is active and ready to receive payments. Customers can now place pre-orders!
-            </Text>
-            <View style={styles.accountDetailsCard}>
-              <Text style={styles.accountDetailsTitle}>Account Details:</Text>
-              <Text style={styles.accountDetailsText}>
-                • Account ID: {accountDetails?.stripeAccountId?.slice(0, 12)}...{'\n'}
-                • Status: Ready to accept payments{'\n'}
-                • Platform fees: Based on your subscription plan (Starter: 5%, Pro: 2.5%, All-Access: 0%)
-              </Text>
-            </View>
-            
-            <View style={styles.troubleshootingSection}>
-              <Text style={styles.troubleshootingTitle}>🔧 Troubleshooting</Text>
-              <Text style={styles.troubleshootingText}>
-                Payment sync happens automatically. Only use this if customers report payment issues:
-              </Text>
-              
-              <TouchableOpacity
-                style={[styles.button, styles.secondaryButton, { marginTop: 8, paddingVertical: 8 }]}
-                onPress={syncPaymentData}
-                disabled={loading}
-              >
-                <Text style={[styles.buttonText, { fontSize: 14 }]}>
-                  {loading ? 'Syncing...' : '🔄 Manual Sync (Support Only)'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        );
-
-      default:
-        return (
-          <View style={[styles.statusCard, styles.errorCard]}>
-            <Text style={styles.statusTitle}>❌ Account Setup Issue</Text>
-            <Text style={styles.statusDescription}>
-              There's an issue with your payment account setup. Please try again or contact support.
-            </Text>
-            <TouchableOpacity
-              style={[styles.button, styles.dangerButton]}
-              onPress={() => checkAccountStatus()}
-            >
-              <Text style={styles.buttonText}>🔄 Refresh Status</Text>
-            </TouchableOpacity>
-          </View>
-        );
-    }
-  };
-
-  const renderMenuManagement = () => {
+  const renderPaymentInfo = () => {
     return (
-      <ScrollView style={styles.tabContent}>
+      <View style={styles.paymentInfoCard}>
+        <Text style={styles.cardTitle}>💳 Payment Setup</Text>
+        <Text style={styles.paymentInfoText}>
+          To accept payments and enable online ordering, please complete your payment setup on our web platform.
+        </Text>
+        <TouchableOpacity
+          style={[styles.button, styles.primaryButton]}
+          onPress={() => {
+            showToast('Please visit grubana.com/dashboard to complete payment setup', 'success');
+          }}
+        >
+          <Text style={styles.buttonText}>
+            🌐 Setup Payments on Web Platform
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Mobile Kitchen Management</Text>
+        <Text style={styles.headerSubtitle}>Manage your menu and settings</Text>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {/* Payment Info */}
+        {renderPaymentInfo()}
+
         {/* Add New Menu Item */}
         <View style={styles.addItemCard}>
           <Text style={styles.cardTitle}>🍽️ Add New Menu Item</Text>
@@ -684,7 +402,7 @@ export default function TruckOnboardingScreen({ navigation }) {
             </Picker>
           </View>
 
-          {/* New Item Checkbox - Simple */}
+          {/* New Item Checkbox */}
           <TouchableOpacity
             style={styles.newItemCheckbox}
             onPress={() => {
@@ -728,180 +446,95 @@ export default function TruckOnboardingScreen({ navigation }) {
               {menuItems.map((item, index) => {
                 const imageUrl = item.image || item.imageUrl;
                 return (
-                <View key={item.id || index} style={styles.menuItem}>
-                  {imageUrl && !imageErrors[item.id] ? (
-                    <View style={styles.menuItemImageContainer}>
-                      <Image 
-                        source={{ uri: imageUrl }} 
-                        style={styles.menuItemImage}
-                        onError={(error) => {
-                          setImageErrors(prev => ({ ...prev, [item.id]: true }));
-                        }}
-                      />
-                      {(item.isNewItem || isItemNew(item.id)) && (
-                        <View style={styles.newItemBadge}>
-                          <Text style={styles.newItemBadgeText}>NEW</Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => deleteMenuItem(item.id)}
-                      >
-                        <Text style={styles.deleteButtonText}>🗑️</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : imageUrl && imageErrors[item.id] ? (
-                    <View style={styles.menuItemImageContainer}>
-                      <View style={styles.imagePlaceholder}>
-                        <Text style={styles.imagePlaceholderText}>🍽️</Text>
-                        <Text style={styles.imagePlaceholderSubtext}>Image unavailable</Text>
-                        <TouchableOpacity
-                          style={styles.retryButton}
-                          onPress={() => {
-                            setImageErrors(prev => ({ ...prev, [item.id]: false }));
+                  <View key={item.id || index} style={styles.menuItem}>
+                    {imageUrl && !imageErrors[item.id] ? (
+                      <View style={styles.menuItemImageContainer}>
+                        <Image 
+                          source={{ uri: imageUrl }} 
+                          style={styles.menuItemImage}
+                          onError={(error) => {
+                            setImageErrors(prev => ({ ...prev, [item.id]: true }));
                           }}
-                        >
-                          <Text style={styles.retryButtonText}>🔄 Retry</Text>
-                        </TouchableOpacity>
-                      </View>
-                      {(item.isNewItem || isItemNew(item.id)) && (
-                        <View style={styles.newItemBadge}>
-                          <Text style={styles.newItemBadgeText}>NEW</Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => deleteMenuItem(item.id)}
-                      >
-                        <Text style={styles.deleteButtonText}>🗑️</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.menuItemContent}>
-                    <View style={styles.menuItemHeader}>
-                      <Text style={styles.menuItemName}>{item.name}</Text>
-                      <View style={styles.headerButtonsContainer}>
-                        {(item.isNewItem || isItemNew(item.id)) && !imageUrl && (
-                          <View style={styles.newItemTextBadge}>
-                            <Text style={styles.newItemTextBadgeText}>NEW</Text>
+                        />
+                        {(item.isNewItem || isItemNew(item.id)) && (
+                          <View style={styles.newItemBadge}>
+                            <Text style={styles.newItemBadgeText}>NEW</Text>
                           </View>
                         )}
-                        {!imageUrl && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => deleteMenuItem(item.id)}
+                        >
+                          <Text style={styles.deleteButtonText}>🗑️</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : imageUrl && imageErrors[item.id] ? (
+                      <View style={styles.menuItemImageContainer}>
+                        <View style={styles.imagePlaceholder}>
+                          <Text style={styles.imagePlaceholderText}>🍽️</Text>
+                          <Text style={styles.imagePlaceholderSubtext}>Image unavailable</Text>
                           <TouchableOpacity
-                            style={styles.smallDeleteButton}
-                            onPress={() => deleteMenuItem(item.id)}
+                            style={styles.retryButton}
+                            onPress={() => {
+                              setImageErrors(prev => ({ ...prev, [item.id]: false }));
+                            }}
                           >
-                            <Text style={styles.smallDeleteButtonText}>🗑️</Text>
+                            <Text style={styles.retryButtonText}>🔄 Retry</Text>
                           </TouchableOpacity>
+                        </View>
+                        {(item.isNewItem || isItemNew(item.id)) && (
+                          <View style={styles.newItemBadge}>
+                            <Text style={styles.newItemBadgeText}>NEW</Text>
+                          </View>
                         )}
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={() => deleteMenuItem(item.id)}
+                        >
+                          <Text style={styles.deleteButtonText}>🗑️</Text>
+                        </TouchableOpacity>
                       </View>
+                    ) : null}
+
+                    <View style={styles.menuItemContent}>
+                      <View style={styles.menuItemHeader}>
+                        <Text style={styles.menuItemName}>{item.name}</Text>
+                        <View style={styles.headerButtonsContainer}>
+                          {(item.isNewItem || isItemNew(item.id)) && !imageUrl && (
+                            <View style={styles.newItemTextBadge}>
+                              <Text style={styles.newItemTextBadgeText}>NEW</Text>
+                            </View>
+                          )}
+                          {!imageUrl && (
+                            <TouchableOpacity
+                              style={styles.smallDeleteButton}
+                              onPress={() => deleteMenuItem(item.id)}
+                            >
+                              <Text style={styles.smallDeleteButtonText}>🗑️</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                      
+                      <Text style={styles.menuItemPrice}>${parseFloat(item.price).toFixed(2)}</Text>
+                      
+                      {item.description && (
+                        <Text style={styles.menuItemDescription}>{item.description}</Text>
+                      )}
+                      
+                      {item.category && (
+                        <View style={styles.categoryTag}>
+                          <Text style={styles.categoryText}>{item.category}</Text>
+                        </View>
+                      )}
                     </View>
-                    
-                    <Text style={styles.menuItemPrice}>${parseFloat(item.price).toFixed(2)}</Text>
-                    
-                    {item.description && (
-                      <Text style={styles.menuItemDescription}>{item.description}</Text>
-                    )}
-                    
-                    {item.category && (
-                      <View style={styles.categoryTag}>
-                        <Text style={styles.categoryText}>{item.category}</Text>
-                      </View>
-                    )}
                   </View>
-                </View>
-              );
+                );
               })}
             </View>
           )}
         </View>
       </ScrollView>
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mobile Kitchen Business Management</Text>
-        <Text style={styles.headerSubtitle}>Set up payments and manage your menu</Text>
-      </View>
-
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'payment' && styles.activeTab]}
-          onPress={() => setActiveTab('payment')}
-        >
-          <Text style={[styles.tabText, activeTab === 'payment' && styles.activeTabText]}>
-            💳 Payment Setup
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'menu' && styles.activeTab]}
-          onPress={() => setActiveTab('menu')}
-        >
-          <Text style={[styles.tabText, activeTab === 'menu' && styles.activeTabText]}>
-            🍽️ Menu Management
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab Content */}
-      {activeTab === 'payment' ? (
-        <ScrollView style={styles.tabContent}>
-          {renderAccountStatus()}
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>💰 How Our Tiered Payment Structure Works</Text>
-            
-            <View style={styles.infoSection}>
-              <Text style={styles.infoSectionTitle}>📋 Order Process:</Text>
-              <Text style={styles.infoText}>
-                • Customers browse your menu and place orders before arriving{'\n'}
-                • You receive instant notifications when orders come in{'\n'}
-                • Payments are processed securely through Stripe Connect{'\n'}
-                • You get paid directly to your bank account within 2 business days
-              </Text>
-            </View>
-            
-            <View style={styles.infoSection}>
-              <Text style={styles.infoSectionTitle}>💳 Subscription Plans & Platform Fees:</Text>
-              
-              <View style={styles.planCard}>
-                <Text style={styles.planTitle}>🆓 Starter Plan</Text>
-                <Text style={styles.planDetails}>Free • 5% platform fee per order</Text>
-              </View>
-              
-              <View style={styles.planCard}>
-                <Text style={styles.planTitle}>⭐ Pro Plan</Text>
-                <Text style={styles.planDetails}>$9.99/month • 2.5% platform fee per order</Text>
-              </View>
-              
-              <View style={styles.planCard}>
-                <Text style={styles.planTitle}>🏆 All-Access Plan</Text>
-                <Text style={styles.planDetails}>$19.99/month • 0% platform fee per order</Text>
-              </View>
-              
-              <Text style={styles.infoNote}>
-                💡 Platform fees are automatically deducted from your payout - customers always pay full menu price
-              </Text>
-            </View>
-            
-            <View style={styles.infoSection}>
-              <Text style={styles.infoSectionTitle}>🔒 Security & Support:</Text>
-              <Text style={styles.infoText}>
-                • Bank-level security with PCI DSS compliance{'\n'}
-                • 24/7 fraud monitoring and chargeback protection{'\n'}
-                • Dedicated customer support for order issues{'\n'}
-                • Real-time order tracking and analytics dashboard
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      ) : (
-        renderMenuManagement()
-      )}
 
       {/* Back Button */}
       <TouchableOpacity
@@ -1002,124 +635,25 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.background.secondary,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  activeTab: {
-    backgroundColor: colors.accent.pink,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  activeTabText: {
-    color: colors.text.primary,
-  },
-  tabContent: {
+  content: {
     flex: 1,
     padding: 20,
   },
-  statusContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  statusText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  statusCard: {
+  paymentInfoCard: {
     backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.accent.blue,
     borderRadius: 8,
     padding: 20,
     marginBottom: 20,
     borderLeftWidth: 4,
     borderLeftColor: colors.accent.blue,
   },
-  pendingCard: {
-    backgroundColor: colors.background.secondary,
-    borderColor: colors.accent.blue,
-  },
-  successCard: {
-    backgroundColor: colors.background.secondary,
-    borderColor: colors.status.success,
-  },
-  errorCard: {
-    backgroundColor: colors.background.secondary,
-    borderColor: colors.status.error,
-  },
-  statusTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  statusDescription: {
+  paymentInfoText: {
     fontSize: 14,
     color: colors.text.secondary,
     marginBottom: 15,
     lineHeight: 20,
-    textAlign: 'center',
-  },
-  accountDetailsCard: {
-    backgroundColor: colors.background.secondary,
-    padding: 15,
-    borderRadius: 6,
-    marginTop: 15,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderTopWidth: 3,
-    borderTopColor: colors.accent.blue,
-  },
-  accountDetailsTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 10,
-  },
-  accountDetailsText: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginTop: 150,
-  },
-  primaryButton: {
-    backgroundColor: colors.accent.pink,
-  },
-  blueButton: {
-    backgroundColor: colors.accent.blue,
-  },
-  dangerButton: {
-    backgroundColor: colors.status.error,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.text.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
     textAlign: 'center',
   },
   addItemCard: {
@@ -1128,15 +662,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     padding: 20,
-    marginBottom: 30,
-    borderBottomWidth: 4,
-    borderBottomColor: colors.accent.blue,
+    marginBottom: 20,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text.primary,
-    marginBottom: 20,
+    marginBottom: 15,
     textAlign: 'center',
   },
   inputRow: {
@@ -1145,16 +677,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: colors.background.primary,
+    fontSize: 16,
     color: colors.text.primary,
+    backgroundColor: colors.background.primary,
   },
   halfInput: {
-    width: '48%',
+    flex: 0.48,
   },
   textArea: {
     marginBottom: 15,
@@ -1165,130 +697,133 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   imageLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: colors.text.primary,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 10,
   },
   imageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    marginBottom: 10,
   },
   imagePickerButton: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    borderRadius: 6,
-    padding: 15,
-    flex: 1,
-    alignItems: 'center',
+    backgroundColor: colors.accent.blue,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginRight: 15,
   },
   imagePickerText: {
-    fontSize: 14,
-    color: colors.text.secondary,
+    color: colors.text.primary,
+    fontWeight: 'bold',
   },
   imagePreviewContainer: {
     position: 'relative',
+  },
+  imagePreview: {
     width: 80,
     height: 80,
     borderRadius: 8,
-    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#2c6f57',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
+    borderColor: colors.border,
   },
   removeImageButton: {
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: '#dc3545',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
+    backgroundColor: colors.status.error,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   removeImageText: {
-    color: '#fff',
-    fontSize: 12,
+    color: colors.text.primary,
     fontWeight: 'bold',
+    fontSize: 16,
   },
   uploadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 10,
-    padding: 8,
-    backgroundColor: '#cce5ff',
-    borderRadius: 4,
-    gap: 8,
   },
   uploadingText: {
+    marginLeft: 10,
     fontSize: 14,
-    color: '#0066cc',
+    color: colors.text.secondary,
   },
   pickerContainer: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: 8,
     marginBottom: 15,
     backgroundColor: colors.background.primary,
-    height: 50,
-    justifyContent: 'center',
   },
   picker: {
     height: 50,
-    color: colors.text.primary,
-    fontSize: 16,
-    marginTop: -6,
-    marginBottom: -6,
+    width: '100%',
   },
   pickerItem: {
-    height: 50,
-    color: colors.text.primary,
     fontSize: 16,
+    color: colors.text.primary,
   },
   newItemCheckbox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: -85,
-    paddingVertical: 0,
+    marginBottom: 20,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: 3,
+    borderRadius: 4,
     marginRight: 10,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.background.primary,
   },
   checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.accent.pink,
     fontWeight: 'bold',
+    fontSize: 14,
   },
   checkboxLabel: {
     fontSize: 16,
     color: colors.text.primary,
   },
+  button: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  primaryButton: {
+    backgroundColor: colors.accent.pink,
+  },
+  disabledButton: {
+    backgroundColor: colors.text.secondary,
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: colors.text.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   menuListCard: {
     backgroundColor: colors.background.secondary,
+    borderWidth: 2,
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 20,
+    marginBottom: 20,
   },
   emptyMenuContainer: {
     alignItems: 'center',
     padding: 40,
-    backgroundColor: colors.background.secondary,
-    borderRadius: 8,
   },
   emptyMenuIcon: {
     fontSize: 48,
@@ -1298,7 +833,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text.primary,
-    marginBottom: 5,
+    marginBottom: 10,
   },
   emptyMenuText: {
     fontSize: 14,
@@ -1306,74 +841,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   menuGrid: {
-    gap: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   menuItem: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
+    width: '48%',
+    backgroundColor: colors.background.primary,
+    borderWidth: 2,
     borderColor: colors.border,
     borderRadius: 8,
+    marginBottom: 15,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   menuItemImageContainer: {
     position: 'relative',
-    height: 180,
   },
   menuItemImage: {
     width: '100%',
-    height: '100%',
-  },
-  deleteButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(220, 53, 69, 0.9)',
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-  },
-  newItemBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#ff6b35',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  newItemBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    height: 120,
+    resizeMode: 'cover',
   },
   imagePlaceholder: {
     width: '100%',
-    height: '100%',
+    height: 120,
     backgroundColor: colors.background.secondary,
-    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
+    alignItems: 'center',
   },
   imagePlaceholderText: {
-    fontSize: 32,
+    fontSize: 24,
     marginBottom: 5,
   },
   imagePlaceholderSubtext: {
@@ -1382,217 +879,157 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   retryButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent.blue,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   retryButtonText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 10,
     fontWeight: 'bold',
   },
+  newItemBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: colors.accent.pink,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newItemBadgeText: {
+    color: colors.text.primary,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: colors.status.error,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+  },
   menuItemContent: {
-    padding: 15,
+    padding: 12,
   },
   menuItemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   headerButtonsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   newItemTextBadge: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: colors.accent.pink,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 4,
+    marginRight: 8,
   },
   newItemTextBadgeText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  smallDeleteButton: {
+    backgroundColor: colors.status.error,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smallDeleteButtonText: {
+    fontSize: 12,
   },
   menuItemName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.text.primary,
     flex: 1,
-    textAlign: 'center',
-  },
-  smallDeleteButton: {
-    backgroundColor: '#dc3545',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  smallDeleteButtonText: {
-    fontSize: 12,
+    marginRight: 8,
   },
   menuItemPrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 8,
-    textAlign: 'center',
+    color: colors.accent.pink,
+    marginBottom: 4,
   },
   menuItemDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.text.secondary,
     marginBottom: 8,
-    lineHeight: 20,
-    textAlign: 'center',
+    lineHeight: 16,
   },
   categoryTag: {
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.accent.blue,
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
   },
   categoryText: {
-    fontSize: 12,
-    fontWeight: 'bold',
     color: colors.text.primary,
-    textAlign: 'center',
-  },
-  infoCard: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 20,
-    marginTop: 20,
-  },
-  infoTitle: {
-    fontSize: 18,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  infoSection: {
-    marginBottom: 20,
-  },
-  infoSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.accent.blue,
-    marginBottom: 10,
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    lineHeight: 22,
-  },
-  planCard: {
-    backgroundColor: colors.background.secondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  planTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 5,
-  },
-  planDetails: {
-    fontSize: 12,
-    color: colors.text.secondary,
-  },
-  infoNote: {
-    fontSize: 12,
-    color: colors.text.secondary,
-    fontStyle: 'italic',
-    marginTop: 10,
+    textTransform: 'uppercase',
   },
   backButton: {
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.accent.blue,
     margin: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 6,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   backButtonText: {
     color: colors.text.primary,
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: 'bold',
   },
-  troubleshootingSection: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.background.tertiary,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  troubleshootingTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.text.secondary,
-    marginBottom: 8,
-  },
-  troubleshootingText: {
-    fontSize: 12,
-    color: colors.text.secondary,
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  // Toast styles
   toast: {
     position: 'absolute',
-    top: 50,
+    bottom: 100,
     left: 20,
     right: 20,
     padding: 15,
-    borderRadius: 12,
-    borderWidth: 2,
-    zIndex: 1000,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   toastSuccess: {
-    backgroundColor: '#d4edda',
-    borderColor: '#28a745',
+    backgroundColor: colors.status.success,
   },
   toastError: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#dc3545',
+    backgroundColor: colors.status.error,
   },
   toastText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: '#1a1a2e',
+    color: colors.text.primary,
+    fontWeight: 'bold',
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   modalContainer: {
     backgroundColor: colors.background.secondary,
-    borderRadius: 20,
-    width: '100%',
+    borderRadius: 8,
+    padding: 0,
+    margin: 20,
     maxWidth: 400,
-    borderWidth: 2,
-    borderColor: colors.accent.blue,
-    borderTopWidth: 4,
-    borderTopColor: colors.accent.pink,
+    width: '90%',
   },
   modalHeader: {
     padding: 20,
@@ -1600,9 +1037,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: colors.accent.pink,
+    color: colors.text.primary,
     textAlign: 'center',
   },
   modalBody: {
@@ -1610,7 +1047,7 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 16,
-    color: colors.text.primary,
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -1621,7 +1058,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    padding: 15,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },

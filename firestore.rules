@@ -27,11 +27,21 @@ service cloud.firestore {
         (resource.data.role == 'owner' || 
          resource.data.role == 'truck_owner' ||
          resource.data.kitchenType != null);
+         
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse truck owner profiles
+      // This enables guest mode to see truck names, menus, and details
+      allow read: if resource.data.role == 'owner' || 
+        resource.data.role == 'truck_owner' ||
+        resource.data.kitchenType != null;
         
       // Allow authenticated users to read event organizer information for logo display
       // This is needed for displaying organization logos on event markers
       allow read: if request.auth != null && 
         resource.data.role == 'event-organizer';
+        
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse event organizer profiles
+      // This enables guest mode to see event organizer details and logos
+      allow read: if resource.data.role == 'event-organizer';
       
       // TEMPORARY: Allow all authenticated users to read customer profiles for testing
       // This will be restricted later to only mobile kitchen owners
@@ -74,6 +84,10 @@ service cloud.firestore {
       
       // Allow all authenticated users to read truck locations (privacy filtering done in app code)
       allow read: if request.auth != null;
+      
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse truck locations
+      // This enables guest mode browsing as required by Apple App Store Guidelines 5.1.1
+      allow read: if true;
     }
     
     // Trucks collection - allow truck owners to manage their truck data and activity tracking
@@ -92,6 +106,10 @@ service cloud.firestore {
       
       // Allow all authenticated users to read truck data (privacy filtering done in app code)
       allow read: if request.auth != null;
+      
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse truck visibility data
+      // This enables guest mode browsing as required by Apple App Store Guidelines 5.1.1
+      allow read: if true;
     }
     
     // Drops collection - allow owners to manage their drops and customers to read active drops
@@ -136,6 +154,10 @@ service cloud.firestore {
       
       // Allow any authenticated user to read pings (for heatmap)
       allow read: if request.auth != null;
+      
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse ping heatmap data
+      // This enables guest mode to see food demand patterns on the map
+      allow read: if true;
     }
     
     // Notification records collection - allow users to manage their notification history
@@ -160,6 +182,10 @@ service cloud.firestore {
       // Allow all authenticated users to read any events for map display and discovery
       // This includes draft, published, active, completed events for proper map functionality
       allow read: if request.auth != null;
+      
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse events  
+      // This enables guest mode browsing as required by Apple App Store Guidelines 5.1.1
+      allow read: if true;
     }
     
     // Event applications collection - manage truck applications to events
@@ -200,6 +226,10 @@ service cloud.firestore {
       
       // Allow all authenticated users to read menu items for discovery
       allow read: if request.auth != null;
+      
+      // APPLE COMPLIANCE: Allow unauthenticated users to browse menu items
+      // This enables guest mode to see truck menus and food options
+      allow read: if true;
     }
     
     // Favorites collection - allow customers to manage their favorite trucks

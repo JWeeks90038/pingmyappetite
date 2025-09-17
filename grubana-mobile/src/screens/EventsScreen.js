@@ -429,12 +429,12 @@ const EventsScreen = () => {
 
   // Fetch events from Firebase
   useEffect(() => {
-    if (!user) return;
-
+    // Allow guest users to browse events without authentication
+    
 
     
-    // Clear badge count when viewing events screen - role-specific clearing
-    if (userRole) {
+    // Clear badge count when viewing events screen - role-specific clearing (only for authenticated users)
+    if (userRole && user) {
       NotificationService.clearBadgeForUserRole(userRole, 'Events');
     }
     
@@ -466,7 +466,7 @@ const EventsScreen = () => {
 
   // Fetch user's created events (for event organizers)
   useEffect(() => {
-    if (!user || (userRole !== 'event-organizer' && userRole !== 'owner')) return;
+    if (!user || !user.uid || (userRole !== 'event-organizer' && userRole !== 'owner')) return;
 
 
     
@@ -505,7 +505,7 @@ const EventsScreen = () => {
 
   // Fetch user's attended events
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.uid) return;
 
     
     const attendanceQuery = query(
@@ -530,7 +530,7 @@ const EventsScreen = () => {
 
   // Fetch user's attending events (interested/planning to attend)
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.uid) return;
 
 
     
@@ -718,7 +718,7 @@ const EventsScreen = () => {
 
   // Submit vendor application
   const submitVendorApplication = async () => {
-    if (!selectedEventForApplication || !user) {
+    if (!selectedEventForApplication || !user || !user.uid) {
       showToast('Error: Missing event or user data.', 'error');
       return;
     }
@@ -785,6 +785,11 @@ const EventsScreen = () => {
 
   // Save event (create or update)
   const saveEvent = async () => {
+    if (!user || !user.uid) {
+      showToast('Authentication required to save event', 'error');
+      return;
+    }
+    
     try {
 
 
@@ -921,6 +926,11 @@ const EventsScreen = () => {
     );
   };
   const markEventAttended = async (event) => {
+    if (!user || !user.uid) {
+      showToast('Please sign in to mark events as attended', 'error');
+      return;
+    }
+    
     try {
 
 
@@ -990,6 +1000,11 @@ const EventsScreen = () => {
 
   // Mark event as attending (for upcoming events)
   const markEventAttending = async (event) => {
+    if (!user || !user.uid) {
+      showToast('Please sign in to mark events as attending', 'error');
+      return;
+    }
+    
     try {
 
 
@@ -1254,6 +1269,11 @@ const EventsScreen = () => {
 
   // Get available filter tabs based on user role
   const getFilterTabs = () => {
+    // For guest users, only show basic browsing tabs
+    if (!user) {
+      return ['upcoming', 'past'];
+    }
+    
     const baseTabs = ['upcoming', 'past', 'attended', 'attending'];
     if (canManageEvents()) {
       baseTabs.push('my-events');
@@ -2576,7 +2596,7 @@ const EventsScreen = () => {
               </View>
             )}
             {/* Show attendance counts for event organizers */}
-            {userRole === 'event-organizer' && event.organizerId === user.uid && (
+            {userRole === 'event-organizer' && user?.uid && event.organizerId === user.uid && (
               <View style={styles.attendanceCountBadge}>
                 <Text style={styles.attendanceCountText}>
                   {isPast ? `${attendanceCount.attended} attended` : `${attendanceCount.attending} interested`}
@@ -2643,7 +2663,7 @@ const EventsScreen = () => {
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           {/* For truck owners - show vendor application button for upcoming events */}
-          {!isPast && userRole === 'owner' && event.organizerId !== user.uid && (
+          {!isPast && userRole === 'owner' && user?.uid && event.organizerId !== user.uid && (
             <TouchableOpacity
               style={styles.vendorApplicationButton}
               onPress={() => openVendorApplicationModal(event)}
@@ -2654,7 +2674,7 @@ const EventsScreen = () => {
           )}
 
           {/* For upcoming events - show attending button only if not the event organizer */}
-          {!isPast && !attending && !attended && event.organizerId !== user.uid && (
+          {!isPast && !attending && !attended && user?.uid && event.organizerId !== user.uid && (
             <TouchableOpacity
               style={styles.attendingButton}
               onPress={() => markEventAttending(event)}
@@ -3011,6 +3031,22 @@ const EventsScreen = () => {
         >
           <Text style={styles.toastText}>{toast.message}</Text>
         </Animated.View>
+      )}
+
+      {/* Guest Sign-in Prompt */}
+      {!user && (
+        <View style={styles.guestPrompt}>
+          <Text style={styles.guestPromptTitle}>Want to do more?</Text>
+          <Text style={styles.guestPromptText}>
+            Sign in to mark events as attending, mark as attended, create your own events, and more!
+          </Text>
+          <TouchableOpacity 
+            style={styles.guestSignInButton}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={styles.guestSignInButtonText}>Sign In / Sign Up</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -4268,6 +4304,46 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: 0.3,
+  },
+  guestPrompt: {
+    backgroundColor: theme.colors.background.secondary,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 20,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.pink,
+    alignItems: 'center',
+  },
+  guestPromptTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
+  },
+  guestPromptText: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  guestSignInButton: {
+    backgroundColor: theme.colors.accent.pink,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: theme.colors.accent.pink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  guestSignInButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
 

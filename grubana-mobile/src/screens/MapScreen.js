@@ -2517,12 +2517,9 @@ export default function MapScreen() {
   useEffect(() => {
 
     
-    if (!user) {
-
-      return;
-    }
-
- 
+    // Allow guest users to browse trucks and events without authentication
+    // Only skip loading if we're in a state where user status is still being determined
+    
 
     // 🌍 PERFORMANCE: Calculate geographic bounds for truck filtering
     const getUserLocationBounds = () => {
@@ -5762,6 +5759,12 @@ export default function MapScreen() {
           webViewRef.current?.postMessage(JSON.stringify(filterMessage));
           setPendingCuisineFilter(null);
         }
+        return;
+      }
+      
+      // GUEST MODE RESTRICTION: Prevent guests from opening modals
+      if (!user && (message.type === 'OPEN_TRUCK_DETAILS' || message.type === 'OPEN_EVENT_DETAILS')) {
+        showToastMessage('Sign in to view details and interact with food trucks and events', 'success');
         return;
       }
       

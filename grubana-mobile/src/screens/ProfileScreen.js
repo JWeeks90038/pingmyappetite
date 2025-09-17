@@ -441,43 +441,6 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  const openCustomerPortal = async () => {
-    try {
-      setLoading(true);
-      
-      // Call Firebase Function to create Customer Portal session
-      const response = await fetch('https://us-central1-foodtruckfinder-27eba.cloudfunctions.net/createCustomerPortalSession', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          returnUrl: 'grubana://profile' // Deep link back to profile screen
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.url) {
-        // Open the Stripe Customer Portal in external browser
-        const supported = await Linking.canOpenURL(data.url);
-        if (supported) {
-          await Linking.openURL(data.url);
-        } else {
-          showToastMessage('Unable to open subscription management portal', 'error');
-        }
-      } else {
-        showToastMessage(data.error || 'Failed to open subscription management', 'error');
-      }
-    } catch (error) {
-
-      showToastMessage('Failed to open subscription management portal', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveSocialLinks = async () => {
     setLoading(true);
     try {
@@ -1253,26 +1216,20 @@ export default function ProfileScreen({ navigation }) {
         </View>
       )}
 
-      {/* Subscription Management (Owner Only) */}
+      {/* Subscription Information (Owner Only) */}
       {userRole === 'owner' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription Management</Text>
+          <Text style={styles.sectionTitle}>Current Plan</Text>
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Current Plan</Text>
-            <Text style={styles.fieldValue}>
+            <Text style={[styles.fieldLabel, styles.centeredText]}>Plan Type</Text>
+            <Text style={[styles.fieldValue, styles.centeredText]}>
               {userPlan === 'all-access' ? 'All-Access (Paid)' : 
                userPlan === 'pro' ? 'Pro (Paid)' : 'Starter (Free)'}
             </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.manageButton}
-            onPress={openCustomerPortal}
-            disabled={loading}
-          >
-            <Text style={styles.manageButtonText}>
-              {loading ? 'Loading...' : 'Manage Subscription'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionNote}>
+            To manage your subscription, please visit grubana.com/dashboard
+          </Text>
         </View>
       )}
 
@@ -1706,6 +1663,14 @@ const createThemedStyles = (theme) => StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
   },
+  sectionNote: {
+    fontSize: 14,
+    color: theme.colors.text.secondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 10,
+    opacity: 0.8,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1821,6 +1786,9 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: theme.colors.text.primary,
     marginBottom: 8,
   },
+  centeredText: {
+    textAlign: 'center',
+  },
   fieldRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1898,21 +1866,6 @@ const createThemedStyles = (theme) => StyleSheet.create({
     ...theme.shadows.neonPink,
   },
   saveButtonText: {
-    color: theme.colors.text.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  manageButton: {
-    backgroundColor: theme.colors.accent.blue,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    ...theme.shadows.neonBlue,
-  },
-  manageButtonText: {
     color: theme.colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',

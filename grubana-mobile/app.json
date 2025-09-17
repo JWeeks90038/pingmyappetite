@@ -14,7 +14,7 @@
       "backgroundColor": "#170B1F"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.grubana.mobile",
       "buildNumber": "23",
       "requireFullScreen": false,

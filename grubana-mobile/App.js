@@ -105,6 +105,73 @@ function AuthStack() {
   );
 }
 
+// Guest Navigation - Browse without authentication
+function GuestTabs() {
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      accent: { pink: '#FF4EC9' },
+      text: { secondary: '#B0B3C2' },
+      background: { secondary: '#1A1036' },
+      border: '#2A2A3A'
+    }
+  };
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Browse') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Map') {
+            iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Login') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: safeTheme.colors.accent.pink,
+        tabBarInactiveTintColor: safeTheme.colors.text.secondary,
+        tabBarStyle: {
+          backgroundColor: safeTheme.colors.background.secondary,
+          borderTopColor: safeTheme.colors.border,
+          borderTopWidth: 1,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Browse" 
+        component={HomeScreen}
+        options={{ title: 'Browse' }}
+      />
+      <Tab.Screen 
+        name="Map" 
+        component={MapScreen}
+        options={{ title: 'Map' }}
+      />
+      <Tab.Screen 
+        name="Events" 
+        component={EventsScreen}
+        options={{ title: 'Events' }}
+      />
+      <Tab.Screen 
+        name="Login" 
+        component={AuthStack}
+        options={{ title: 'Sign In' }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 // Main App Tabs - Customer Version
 function CustomerTabs() {
   // Defensive check for theme structure
@@ -500,7 +567,7 @@ function AppContent() {
       theme={navigationTheme}
     >
       <StatusBar style="light" backgroundColor={safeTheme.colors.background.primary} />
-      {user ? <MainStackNavigator /> : <AuthStack />}
+      {user ? <MainStackNavigator /> : <GuestTabs />}
     </NavigationContainer>
   );
 }

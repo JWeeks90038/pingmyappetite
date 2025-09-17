@@ -10,11 +10,14 @@ import {
 import { useAuth } from '../components/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import GuestAuthPrompt from '../components/GuestAuthPrompt';
+import useGuestAuth from '../hooks/useGuestAuth';
 
 const HomeScreen = () => {
   const { user, userData, userRole } = useAuth();
   const navigation = useNavigation();
   const theme = useTheme();
+  const { showAuthPrompt, authPromptFeature, requireAuth, handleLogin, hideAuthPrompt } = useGuestAuth();
 
   const styles = createThemedStyles(theme);
 
@@ -31,7 +34,7 @@ const HomeScreen = () => {
             ? 'Manage your food truck, food trailer, food cart or pop-up kitchen and connect with customers'
             : userRole === 'event-organizer'
             ? 'Plan amazing events and connect with food trucks'
-            : 'Find amazing food trucks near you'
+            : 'Find amazing mobile food vendors and events near you'
           }
         </Text>
       </View>
@@ -46,11 +49,9 @@ const HomeScreen = () => {
         )}
 
         <View style={styles.featureSection}>
-          <Text style={styles.sectionTitle}>
-            {userRole === 'owner' ? 'Owner Features' : userRole === 'event-organizer' ? 'Event Organizer Features' : 'Customer Features'}
-          </Text>
-          
-          
+        <Text style={styles.sectionTitle}>
+          {userRole === 'owner' ? 'Owner Features' : userRole === 'event-organizer' ? 'Event Organizer Features' : user ? 'Your Features' : 'Browse & Discover'}
+        </Text>          
           {userRole === 'owner' ? (
             <View>
               <View style={styles.featuresList}>
@@ -86,7 +87,7 @@ const HomeScreen = () => {
                   onPress={() => navigation.navigate('TruckOnboarding')}
                 >
                   <Text style={styles.buttonText}>Manage Your Mobile Kitchen</Text>
-                  <Text style={styles.buttonSubtext}>Payment Setup & Menu Management</Text>
+                  <Text style={styles.buttonSubtext}>Menu Management</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -133,23 +134,33 @@ const HomeScreen = () => {
             <View>
               <View style={styles.featuresList}>
                 <View style={styles.featureItem}>
-                  <Text style={styles.featureTitle}>📍 Send Pings</Text>
+                  <Text style={styles.featureTitle}>Live Map</Text>
                   <Text style={styles.featureDescription}>
-                    Let food trucks know what you're craving
+                    See active food trucks in real-time, view their menus, place pre-orders for pickup, rate and leave reviews, plush more!
                   </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={styles.featureTitle}>🗺️ Live Map</Text>
+                  <Text style={styles.featureTitle}>Events</Text>
                   <Text style={styles.featureDescription}>
-                    See active food trucks in real-time
+                    Discover events happening near you
                   </Text>
                 </View>
-                <View style={styles.featureItem}>
-                  <Text style={styles.featureTitle}>❤️ Favorites</Text>
-                  <Text style={styles.featureDescription}>
-                    Save your favorite food trucks
-                  </Text>
-                </View>
+                {user && (
+                  <>
+                    <View style={styles.featureItem}>
+                      <Text style={styles.featureTitle}>Send Pings</Text>
+                      <Text style={styles.featureDescription}>
+                        Let food trucks know what you're craving
+                      </Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <Text style={styles.featureTitle}>Favorites</Text>
+                      <Text style={styles.featureDescription}>
+                        Save your favorite food trucks
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
               
               <View style={styles.actionSection}>
@@ -160,6 +171,16 @@ const HomeScreen = () => {
                   <Text style={styles.buttonText}>Find Mobile Food Vendors</Text>
                   <Text style={styles.buttonSubtext}>Discover mobile kitchens near you</Text>
                 </TouchableOpacity>
+                
+                {!user && (
+                  <TouchableOpacity 
+                    style={styles.secondaryButton}
+                    onPress={() => navigation.navigate('Login')}
+                  >
+                    <Text style={styles.secondaryButtonText}>Sign In for More Features</Text>
+                    <Text style={styles.buttonSubtext}>Ping vendors, save favorites & order food</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}
@@ -182,6 +203,13 @@ const HomeScreen = () => {
           </Text>
         </View>
       </View>
+      
+      <GuestAuthPrompt
+        visible={showAuthPrompt}
+        onClose={hideAuthPrompt}
+        onLogin={handleLogin}
+        feature={authPromptFeature}
+      />
     </ScrollView>
   );
 };
@@ -292,6 +320,22 @@ const createThemedStyles = (theme) => StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     ...theme.shadows.neonPink,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: theme.colors.accent.blue,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    ...theme.shadows.neonBlue,
+  },
+  secondaryButtonText: {
+    color: theme.colors.accent.blue,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   buttonText: {
     color: theme.colors.text.primary,
