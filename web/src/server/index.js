@@ -1316,7 +1316,8 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <ul>
             <li>✅ Appear on the Grubana discovery map</li>
             <li>✅ Access to your truck dashboard</li>
-            <li>✅ Manual location updates</li>
+            <li>✅ Real-time GPS tracking</li>
+            <li>✅ Use the Pre-order system</li>
           </ul>
           
           <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">

@@ -105,13 +105,50 @@ const CustomerSignUp = () => {
   };
 
   return (
-    <div className="signup-customer-wrapper">
-      <div className="form-container">
-        <h1>Create Your Account</h1>
-        <form onSubmit={handleSubmit}>
-          {error && <div className="error-message">{error}</div>}
+    <div className="signup-customer-wrapper" style={{
+      backgroundColor: '#0B0B1A',
+      minHeight: '100vh',
+      padding: '40px 20px'
+    }}>
+      <div className="form-container" style={{
+        backgroundColor: '#0B0B1A',
+        color: '#FFFFFF',
+        padding: '40px',
+        borderRadius: '12px',
+        maxWidth: '600px',
+        margin: '0 auto',
+        boxShadow: '0 8px 32px rgba(255, 78, 201, 0.1)',
+        border: '1px solid #1A1036'
+      }}>
+        <h1 style={{ 
+          color: '#FF4EC9', 
+          textAlign: 'center', 
+          marginBottom: '30px',
+          fontSize: '2.5rem',
+          fontWeight: '700'
+        }}>Create Your Account</h1>
+        <form onSubmit={handleSubmit} style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          textAlign: 'center'
+        }}>
+          {error && <div className="error-message" style={{
+            backgroundColor: '#FF4EC9',
+            color: '#0B0B1A',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            textAlign: 'center',
+            marginBottom: '20px'
+          }}>{error}</div>}
 
-          <label htmlFor="full-name">Full Name</label>
+          <label htmlFor="full-name" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Full Name</label>
           <input
             type="text"
             id="full-name"
@@ -119,9 +156,25 @@ const CustomerSignUp = () => {
             value={formData.fullName}
             onChange={handleChange}
             required
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
 
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Email</label>
           <input
             type="email"
             id="email"
@@ -129,9 +182,25 @@ const CustomerSignUp = () => {
             value={formData.email}
             onChange={handleChange}
             required
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
 
-          <label htmlFor="phone-number">Phone Number</label>
+          <label htmlFor="phone-number" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Phone Number</label>
           <input
             type="tel"
             id="phone-number"
@@ -139,27 +208,67 @@ const CustomerSignUp = () => {
             value={formData.phoneNumber}
             onChange={handleChange}
             required
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
           
           {formData.phoneNumber && (
-            <div className="sms-consent-section">
-              <label className="consent-checkbox">
+            <div className="sms-consent-section" style={{
+              backgroundColor: '#1A1036',
+              padding: '20px',
+              borderRadius: '8px',
+              border: '1px solid #4DBFFF',
+              marginTop: '10px'
+            }}>
+              <label className="consent-checkbox" style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                cursor: 'pointer'
+              }}>
                 <input
                   type="checkbox"
                   name="smsConsent"
                   checked={formData.smsConsent}
                   onChange={handleChange}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    accentColor: '#FF4EC9',
+                    marginTop: '2px'
+                  }}
                 />
-                <span className="consent-text">
+                <span className="consent-text" style={{
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
                   I agree to receive SMS notifications from Grubana about food truck locations, deals, and account updates. 
                   Message and data rates may apply. Text STOP to opt out at any time. 
-                  <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+                  <a href="/sms-consent" target="_blank" rel="noopener noreferrer" style={{
+                    color: '#4DBFFF',
+                    textDecoration: 'underline'
+                  }}>View SMS Terms</a>
                 </span>
               </label>
             </div>
           )}
 
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Password</label>
           <input
             type="password"
             id="password"
@@ -167,9 +276,25 @@ const CustomerSignUp = () => {
             value={formData.password}
             onChange={handleChange}
             required
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
 
-          <label htmlFor="confirm-password">Confirm Password</label>
+          <label htmlFor="confirm-password" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Confirm Password</label>
           <input
             type="password"
             id="confirm-password"
@@ -177,21 +302,73 @@ const CustomerSignUp = () => {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
 
-          <label htmlFor="address">Address (Optional)</label>
+          <label htmlFor="address" style={{
+            color: '#4DBFFF',
+            fontWeight: '600',
+            marginBottom: '8px',
+            textAlign: 'center'
+          }}>Address (Optional)</label>
           <input
             type="text"
             id="address"
             name="address"
             value={formData.address}
             onChange={handleChange}
+            style={{
+              backgroundColor: '#1A1036',
+              color: '#FFFFFF',
+              border: '2px solid #4DBFFF',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              textAlign: 'center'
+            }}
           />
 
-          <button type="submit">Sign Up</button>
+          <button type="submit" style={{
+            backgroundColor: '#FF4EC9',
+            color: '#0B0B1A',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '14px 32px',
+            fontSize: '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            marginTop: '20px',
+            width: '100%'
+          }} onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#4DBFFF';
+            e.target.style.transform = 'translateY(-2px)';
+          }} onMouseOut={(e) => {
+            e.target.style.backgroundColor = '#FF4EC9';
+            e.target.style.transform = 'translateY(0)';
+          }}>Sign Up</button>
         </form>
 
-        <p>Already have an account? <a href="/login-customer">Login here</a></p>
+        <p style={{
+          textAlign: 'center',
+          marginTop: '20px',
+          color: '#FFFFFF'
+        }}>Already have an account? <a href="/login-customer" style={{
+          color: '#4DBFFF',
+          textDecoration: 'underline'
+        }}>Login here</a></p>
       </div>
 
       <Footer />

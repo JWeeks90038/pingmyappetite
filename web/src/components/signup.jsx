@@ -333,20 +333,69 @@ const userData = {
   };
 
   return (
-    <div className="sign-up-container">
-      <h1>Sign Up</h1>
-      <p>Create your account to get started with Grubana.</p>
+    <div className="sign-up-container" style={{
+      backgroundColor: '#0B0B1A',
+      color: '#FFFFFF',
+      padding: '40px',
+      borderRadius: '12px',
+      maxWidth: '600px',
+      margin: '40px auto',
+      boxShadow: '0 8px 32px rgba(255, 78, 201, 0.1)',
+      border: '1px solid #1A1036'
+    }}>
+      <h1 style={{ 
+        color: '#FF4EC9', 
+        textAlign: 'center', 
+        marginBottom: '20px',
+        fontSize: '2.5rem',
+        fontWeight: '700'
+      }}>Sign Up</h1>
+      <p style={{ 
+        color: '#FFFFFF', 
+        textAlign: 'center', 
+        marginBottom: '30px',
+        fontSize: '1.1rem',
+        opacity: '0.9'
+      }}>Create your account to get started with Grubana.</p>
 
-      <form id="signup-form" onSubmit={handleSubmit}>
-  {error && <div className="error-message">{error}</div>}
+      <form id="signup-form" onSubmit={handleSubmit} style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
+        textAlign: 'center'
+      }}>
+  {error && <div className="error-message" style={{
+    backgroundColor: '#FF4EC9',
+    color: '#0B0B1A',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: '20px'
+  }}>{error}</div>}
 
-  <label htmlFor="role">Sign up as:</label>
+  <label htmlFor="role" style={{
+    color: '#4DBFFF',
+    fontWeight: '600',
+    marginBottom: '8px',
+    textAlign: 'center'
+  }}>Sign up as:</label>
   <select
     id="role"
     name="role"
     value={formData.role}
     onChange={handleChange}
     required
+    style={{
+      backgroundColor: '#1A1036',
+      color: '#FFFFFF',
+      border: '2px solid #4DBFFF',
+      borderRadius: '8px',
+      padding: '12px 16px',
+      fontSize: '16px',
+      outline: 'none',
+      transition: 'border-color 0.3s ease'
+    }}
   >
     <option value="">Select Role</option>
     <option value="customer">Foodie Fan</option>
@@ -354,7 +403,12 @@ const userData = {
     <option value="event-organizer">Event Organizer</option>
   </select>
 
-  <label htmlFor="username">Username</label>
+  <label htmlFor="username" style={{
+    color: '#4DBFFF',
+    fontWeight: '600',
+    marginBottom: '8px',
+    textAlign: 'center'
+  }}>Username</label>
   <input
     type="text"
     id="username"
@@ -363,11 +417,26 @@ const userData = {
     onChange={handleChange}
     required
     placeholder="Choose a username"
+    style={{
+      backgroundColor: '#1A1036',
+      color: '#FFFFFF',
+      border: '2px solid #4DBFFF',
+      borderRadius: '8px',
+      padding: '12px 16px',
+      fontSize: '16px',
+      outline: 'none',
+      transition: 'border-color 0.3s ease'
+    }}
   />
 
   {formData.role === 'customer' && (
     <>
-      <label htmlFor="phone">Phone Number</label>
+      <label htmlFor="phone" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px',
+        textAlign: 'center'
+      }}>Phone Number</label>
       <input
         type="tel"
         id="phone"
@@ -376,21 +445,56 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your phone number"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease',
+          textAlign: 'center'
+        }}
       />
       
       {formData.phone && (
-        <div className="sms-consent-section">
-          <label className="consent-checkbox">
+        <div className="sms-consent-section" style={{
+          backgroundColor: '#1A1036',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '1px solid #4DBFFF',
+          marginTop: '10px'
+        }}>
+          <label className="consent-checkbox" style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            cursor: 'pointer'
+          }}>
             <input
               type="checkbox"
               name="smsConsent"
               checked={formData.smsConsent}
               onChange={handleChange}
+              style={{
+                width: '18px',
+                height: '18px',
+                accentColor: '#FF4EC9',
+                marginTop: '2px'
+              }}
             />
-            <span className="consent-text">
+            <span className="consent-text" style={{
+              color: '#FFFFFF',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}>
               I agree to receive SMS notifications from Grubana about food truck locations, deals, and account updates. 
               Message and data rates may apply. Text STOP to opt out at any time. 
-              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer" style={{
+                color: '#4DBFFF',
+                textDecoration: 'underline'
+              }}>View SMS Terms</a>
             </span>
           </label>
         </div>
@@ -400,9 +504,27 @@ const userData = {
 
   {formData.role === 'owner' && (
     <>
-      <label>Type of Mobile Kitchen Business:</label>
-      <div className="kitchen-radio-group">
-      <label className="kitchen-radio-option">
+      <label style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '12px',
+        textAlign: 'center'
+      }}>Type of Mobile Kitchen Business:</label>
+      <div className="kitchen-radio-group" style={{
+        display: 'flex',
+        gap: '20px',
+        flexWrap: 'wrap',
+        marginBottom: '10px',
+        justifyContent: 'center',
+        textAlign: 'center'
+      }}>
+      <label className="kitchen-radio-option" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        cursor: 'pointer',
+        color: '#FFFFFF'
+      }}>
           <input
             type="radio"
             name="kitchenType"
@@ -410,11 +532,22 @@ const userData = {
             checked={formData.kitchenType === 'truck'}
             onChange={handleChange}
             required
+            style={{
+              width: '18px',
+              height: '18px',
+              accentColor: '#FF4EC9'
+            }}
           />{' '}
            <span>Truck</span>
         </label>
         {' '}
-        <label className="kitchen-radio-option">
+        <label className="kitchen-radio-option" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          color: '#FFFFFF'
+        }}>
           <input
             type="radio"
             name="kitchenType"
@@ -422,11 +555,22 @@ const userData = {
             checked={formData.kitchenType === 'trailer'}
             onChange={handleChange}
             required
+            style={{
+              width: '18px',
+              height: '18px',
+              accentColor: '#FF4EC9'
+            }}
           />{' '}
           <span>Trailer</span>
         </label>
         {' '}
-        <label className="kitchen-radio-option">
+        <label className="kitchen-radio-option" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          color: '#FFFFFF'
+        }}>
           <input
             type="radio"
             name="kitchenType"
@@ -434,11 +578,22 @@ const userData = {
             checked={formData.kitchenType === 'cart'}
             onChange={handleChange}
             required
+            style={{
+              width: '18px',
+              height: '18px',
+              accentColor: '#FF4EC9'
+            }}
           />{' '}
           <span>Cart</span>
         </label>
         {' '}
-        <label className="kitchen-radio-option">
+        <label className="kitchen-radio-option" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          color: '#FFFFFF'
+        }}>
           <input
             type="radio"
             name="kitchenType"
@@ -446,12 +601,21 @@ const userData = {
             checked={formData.kitchenType === 'popup'}
             onChange={handleChange}
             required
+            style={{
+              width: '18px',
+              height: '18px',
+              accentColor: '#FF4EC9'
+            }}
           />{' '}
           <span>Popup</span>
         </label>
       </div>
 
-      <label htmlFor="truck-name">Business Name</label>
+      <label htmlFor="truck-name" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Business Name</label>
       <input
         type="text"
         id="truck-name"
@@ -460,9 +624,23 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your business name"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="owner-name">Owner's Name</label>
+      <label htmlFor="owner-name" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Owner's Name</label>
       <input
         type="text"
         id="owner-name"
@@ -471,9 +649,23 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter the owner's name"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="phone">Phone Number</label>
+      <label htmlFor="phone" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Phone Number</label>
       <input
         type="tel"
         id="phone"
@@ -482,27 +674,65 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your phone number"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
       
       {formData.phone && (
-        <div className="sms-consent-section">
-          <label className="consent-checkbox">
+        <div className="sms-consent-section" style={{
+          backgroundColor: '#1A1036',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '1px solid #4DBFFF',
+          marginTop: '10px'
+        }}>
+          <label className="consent-checkbox" style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            cursor: 'pointer'
+          }}>
             <input
               type="checkbox"
               name="smsConsent"
               checked={formData.smsConsent}
               onChange={handleChange}
+              style={{
+                width: '18px',
+                height: '18px',
+                accentColor: '#FF4EC9',
+                marginTop: '2px'
+              }}
             />
-            <span className="consent-text">
+            <span className="consent-text" style={{
+              color: '#FFFFFF',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}>
               I agree to receive SMS notifications from Grubana about customer engagement, deals notifications, and account updates. 
               Message and data rates may apply. Text STOP to opt out at any time. 
-              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer" style={{
+                color: '#4DBFFF',
+                textDecoration: 'underline'
+              }}>View SMS Terms</a>
             </span>
           </label>
         </div>
       )}
 
-      <label htmlFor="location">Location (City)</label>
+      <label htmlFor="location" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Location (City)</label>
       <input
         type="text"
         id="location"
@@ -511,15 +741,39 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your business location"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="cuisine">Cuisine Type</label>
+      <label htmlFor="cuisine" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Cuisine Type</label>
       <select
         id="cuisine"
         name="cuisine"
         value={formData.cuisine}
         onChange={handleChange}
         required
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       >
         <option value="">Select Cuisine</option>
         <option value="american">American</option>
@@ -549,7 +803,11 @@ const userData = {
         <option value="other">Other</option>
       </select>
 
-      <label htmlFor="hours">Service Hours</label>
+      <label htmlFor="hours" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Service Hours</label>
       <input
         type="text"
         id="hours"
@@ -558,9 +816,23 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your service hours (e.g., 11 AM - 9 PM)"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="description">Business Description</label>
+      <label htmlFor="description" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Business Description</label>
       <textarea
         id="description"
         name="description"
@@ -568,6 +840,18 @@ const userData = {
         value={formData.description}
         onChange={handleChange}
         placeholder="Tell us more about your business and menu"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease',
+          resize: 'vertical',
+          minHeight: '100px'
+        }}
       />
 
       <MobileKitchenPlanSelector
@@ -579,7 +863,11 @@ const userData = {
 
   {formData.role === 'event-organizer' && (
     <>
-      <label htmlFor="organization-name">Organization Name</label>
+      <label htmlFor="organization-name" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Organization Name</label>
       <input
         type="text"
         id="organization-name"
@@ -588,15 +876,39 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your organization name"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="organization-type">Organization Type</label>
+      <label htmlFor="organization-type" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Organization Type</label>
       <select
         id="organization-type"
         name="organizationType"
         value={formData.organizationType}
         onChange={handleChange}
         required
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       >
         <option value="">Select Organization Type</option>
         <option value="non-profit">Non-Profit</option>
@@ -605,7 +917,11 @@ const userData = {
         <option value="corporate">Corporate</option>
       </select>
 
-      <label htmlFor="contact-person">Contact Person</label>
+      <label htmlFor="contact-person" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Contact Person</label>
       <input
         type="text"
         id="contact-person"
@@ -614,9 +930,23 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter primary contact person"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="phone">Phone Number</label>
+      <label htmlFor="phone" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Phone Number</label>
       <input
         type="tel"
         id="phone"
@@ -625,27 +955,65 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your phone number"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
       
       {formData.phone && (
-        <div className="sms-consent-section">
-          <label className="consent-checkbox">
+        <div className="sms-consent-section" style={{
+          backgroundColor: '#1A1036',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '1px solid #4DBFFF',
+          marginTop: '10px'
+        }}>
+          <label className="consent-checkbox" style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            cursor: 'pointer'
+          }}>
             <input
               type="checkbox"
               name="smsConsent"
               checked={formData.smsConsent}
               onChange={handleChange}
+              style={{
+                width: '18px',
+                height: '18px',
+                accentColor: '#FF4EC9',
+                marginTop: '2px'
+              }}
             />
-            <span className="consent-text">
+            <span className="consent-text" style={{
+              color: '#FFFFFF',
+              fontSize: '14px',
+              lineHeight: '1.5'
+            }}>
               I agree to receive SMS notifications from Grubana about vendor applications, event updates, and account notifications. 
               Message and data rates may apply. Text STOP to opt out at any time. 
-              <a href="/sms-consent" target="_blank" rel="noopener noreferrer">View SMS Terms</a>
+              <a href="/sms-consent" target="_blank" rel="noopener noreferrer" style={{
+                color: '#4DBFFF',
+                textDecoration: 'underline'
+              }}>View SMS Terms</a>
             </span>
           </label>
         </div>
       )}
 
-      <label htmlFor="organization-address">Organization Address</label>
+      <label htmlFor="organization-address" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Organization Address</label>
       <input
         type="text"
         id="organization-address"
@@ -654,9 +1022,23 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your organization address"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="website">Website (Optional)</label>
+      <label htmlFor="website" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Website (Optional)</label>
       <input
         type="url"
         id="website"
@@ -664,15 +1046,39 @@ const userData = {
         value={formData.website}
         onChange={handleChange}
         placeholder="Enter your website URL"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       />
 
-      <label htmlFor="experience-years">Years of Event Experience</label>
+      <label htmlFor="experience-years" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Years of Event Experience</label>
       <select
         id="experience-years"
         name="experienceYears"
         value={formData.experienceYears}
         onChange={handleChange}
         required
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
+        }}
       >
         <option value="">Select Experience Level</option>
         <option value="0">New to event organizing</option>
@@ -682,7 +1088,11 @@ const userData = {
         <option value="11">10+ years</option>
       </select>
 
-      <label htmlFor="event-description">Tell us about your events</label>
+      <label htmlFor="event-description" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Tell us about your events</label>
       <textarea
         id="event-description"
         name="eventDescription"
@@ -690,6 +1100,18 @@ const userData = {
         value={formData.eventDescription}
         onChange={handleChange}
         placeholder="Describe the types of events you organize (festivals, markets, corporate events, etc.)"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease',
+          resize: 'vertical',
+          minHeight: '100px'
+        }}
       />
 
       <EventOrganizerPlanSelector
@@ -699,7 +1121,11 @@ const userData = {
     </>
   )}
 
-  <label htmlFor="email">Email Address</label>
+  <label htmlFor="email" style={{
+    color: '#4DBFFF',
+    fontWeight: '600',
+    marginBottom: '8px'
+  }}>Email Address</label>
   <input
     type="email"
     id="email"
@@ -708,9 +1134,23 @@ const userData = {
     onChange={handleChange}
     required
     placeholder="Enter your email address"
+    style={{
+      backgroundColor: '#1A1036',
+      color: '#FFFFFF',
+      border: '2px solid #4DBFFF',
+      borderRadius: '8px',
+      padding: '12px 16px',
+      fontSize: '16px',
+      outline: 'none',
+      transition: 'border-color 0.3s ease'
+    }}
   />
 
-  <label htmlFor="password">Password</label>
+  <label htmlFor="password" style={{
+    color: '#4DBFFF',
+    fontWeight: '600',
+    marginBottom: '8px'
+  }}>Password</label>
   <input
     type="password"
     id="password"
@@ -719,9 +1159,23 @@ const userData = {
     onChange={handleChange}
     required
     placeholder="Enter a password"
+    style={{
+      backgroundColor: '#1A1036',
+      color: '#FFFFFF',
+      border: '2px solid #4DBFFF',
+      borderRadius: '8px',
+      padding: '12px 16px',
+      fontSize: '16px',
+      outline: 'none',
+      transition: 'border-color 0.3s ease'
+    }}
   />
 
-  <label htmlFor="confirm-password">Confirm Password</label>
+  <label htmlFor="confirm-password" style={{
+    color: '#4DBFFF',
+    fontWeight: '600',
+    marginBottom: '8px'
+  }}>Confirm Password</label>
   <input
     type="password"
     id="confirm-password"
@@ -730,12 +1184,26 @@ const userData = {
     onChange={handleChange}
     required
     placeholder="Confirm your password"
+    style={{
+      backgroundColor: '#1A1036',
+      color: '#FFFFFF',
+      border: '2px solid #4DBFFF',
+      borderRadius: '8px',
+      padding: '12px 16px',
+      fontSize: '16px',
+      outline: 'none',
+      transition: 'border-color 0.3s ease'
+    }}
   />
 
   {/* Referral code section for food truck owners with paid plans */}
   {formData.role === 'owner' && (formData.plan === 'pro' || formData.plan === 'all-access') && (
     <>
-      <label htmlFor="referralCode">Referral Code (Optional)</label>
+      <label htmlFor="referralCode" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Referral Code (Optional)</label>
       <input
         type="text"
         id="referralCode"
@@ -744,15 +1212,22 @@ const userData = {
         onChange={handleChange}
         placeholder="Enter referral code for special offers"
         style={{
-          borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
-                      formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: formData.referralCode && !isValidReferral ? '2px solid #dc3545' : 
+                  formData.referralCode && isValidReferral ? '2px solid #28a745' : '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
         }}
       />
       {referralMessage && (
         <div style={{
-          padding: '8px',
-          borderRadius: '4px',
-          marginTop: '5px',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginTop: '10px',
           fontSize: '14px',
           backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
           border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
@@ -767,7 +1242,11 @@ const userData = {
   {/* Referral code section for event organizers with paid plans */}
   {formData.role === 'event-organizer' && formData.plan && ['event-basic', 'event-premium'].includes(formData.plan) && (
     <>
-      <label htmlFor="referralCode">Referral Code (Optional)</label>
+      <label htmlFor="referralCode" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px'
+      }}>Referral Code (Optional)</label>
       <input
         type="text"
         id="referralCode"
@@ -776,15 +1255,22 @@ const userData = {
         onChange={handleChange}
         placeholder="Enter referral code for 30-day free trial"
         style={{
-          borderColor: formData.referralCode && !isValidReferral ? '#dc3545' : 
-                      formData.referralCode && isValidReferral ? '#28a745' : '#ccc'
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: formData.referralCode && !isValidReferral ? '2px solid #dc3545' : 
+                  formData.referralCode && isValidReferral ? '2px solid #28a745' : '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease'
         }}
       />
       {referralMessage && (
         <div style={{
-          padding: '8px',
-          borderRadius: '4px',
-          marginTop: '5px',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginTop: '10px',
           fontSize: '14px',
           backgroundColor: isValidReferral ? '#d4edda' : '#f8d7da',
           border: `1px solid ${isValidReferral ? '#c3e6cb' : '#f5c6cb'}`,
@@ -796,8 +1282,33 @@ const userData = {
     </>
   )}
 
-  <button type="submit" className="btn">Sign Up</button>
-  <p>Already have an account? <Link to="/login">Login</Link></p>
+  <button type="submit" className="btn" style={{
+    backgroundColor: '#FF4EC9',
+    color: '#0B0B1A',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '14px 32px',
+    fontSize: '18px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    marginTop: '20px',
+    width: '100%'
+  }} onMouseOver={(e) => {
+    e.target.style.backgroundColor = '#4DBFFF';
+    e.target.style.transform = 'translateY(-2px)';
+  }} onMouseOut={(e) => {
+    e.target.style.backgroundColor = '#FF4EC9';
+    e.target.style.transform = 'translateY(0)';
+  }}>Sign Up</button>
+  <p style={{
+    textAlign: 'center',
+    marginTop: '20px',
+    color: '#FFFFFF'
+  }}>Already have an account? <Link to="/login" style={{
+    color: '#4DBFFF',
+    textDecoration: 'underline'
+  }}>Login</Link></p>
 </form>
 
 <a

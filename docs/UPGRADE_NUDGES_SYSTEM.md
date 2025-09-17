@@ -7,7 +7,6 @@ A sophisticated automated upgrade nudging system designed to convert Basic plan 
 This monetization feature implements intelligent upgrade nudges that trigger based on user behavior patterns, specifically targeting Basic plan truck owners who frequently perform manual actions that could be automated with premium plans.
 
 ### Key Revenue Driver Features:
-- **Behavioral Triggers**: Nudges activate based on user actions (manual location updates, session length, usage patterns)
 - **Smart Timing**: Cooldown periods prevent annoyance while maximizing conversion opportunities
 - **A/B Testing Ready**: Built-in analytics track conversion rates and nudge effectiveness
 - **Non-Intrusive**: Contextual prompts that enhance rather than interrupt the user experience
@@ -61,14 +60,7 @@ Comprehensive analytics utilities:
 ## 🎮 Nudge Triggers
 
 ### 1. **Manual Location Frequency** 
-- **Trigger**: 3+ manual location updates in a day
-- **Message**: "Tired of updating your location? Pro users enjoy automatic GPS tracking!"
-- **Target**: High-engagement users ready for automation
 
-### 2. **Location Update Streak**
-- **Trigger**: 5+ consecutive days of manual updates
-- **Message**: "You're a location champion! Let us handle that for you."
-- **Target**: Dedicated users who would benefit most from automation
 
 ### 3. **Session Length**
 - **Trigger**: 30+ minutes of active usage

@@ -77,26 +77,6 @@ export const trackNudgeConversion = async (userId, nudgeType, conversionType = '
   }
 };
 
-// Track manual location updates (for frequency-based nudges)
-export const trackManualLocationUpdate = async (userId) => {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const analyticsRef = doc(db, 'locationUpdateAnalytics', userId);
-    
-    await setDoc(analyticsRef, {
-      userId,
-      lastUpdate: serverTimestamp(),
-      totalUpdates: increment(1),
-      [`updates_${today}`]: increment(1),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    
-    console.log(`📊 Manual location update tracked for user ${userId}`);
-  } catch (error) {
-
-  }
-};
-
 // Get nudge analytics for a specific user
 export const getNudgeAnalytics = async (userId) => {
   try {
@@ -163,5 +143,25 @@ export const trackFeatureCalloutClick = async (userId, feature, action = 'clicke
     console.log(`📊 Feature callout click tracked: ${feature} - ${action}`);
   } catch (error) {
 
+  }
+};
+
+// Track manual location updates for upgrade nudge optimization
+export const trackManualLocationUpdate = async (userId) => {
+  try {
+    const analyticsRef = doc(db, 'locationUpdateAnalytics', userId);
+    const today = new Date().toISOString().split('T')[0];
+    
+    await setDoc(analyticsRef, {
+      userId,
+      lastManualUpdate: serverTimestamp(),
+      totalManualUpdates: increment(1),
+      [`updates_${today}`]: increment(1),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log(`📊 Manual location update tracked for user ${userId}`);
+  } catch (error) {
+    console.error('Error tracking manual location update:', error);
   }
 };

@@ -31,7 +31,6 @@ import { QRCodeCanvas } from "qrcode.react";
 import PreOrderContent from './PreOrderContent';
 import OrderCart from './OrderCart';
 import '../assets/dashboard.css'; // Import shared dashboard styles
-import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 // Component to handle individual favorite items with dynamic name loading
 const FavoriteListItem = ({ favorite }) => {
@@ -742,15 +741,21 @@ const handleViewMenu = () => {
 
   useEffect(() => {
     if (window.google && mapRef.current && !mapInstance.current) {
-      // Bulletproof geolocation approach
+      // Simple geolocation approach
       const initializeMap = async () => {
         try {
-          console.log("🎯 CustomerDashboard: Starting bulletproof geolocation...");
+          console.log("🎯 CustomerDashboard: Starting geolocation...");
           
-          const position = await getBulletproofLocation({
-            enableHighAccuracy: false,
-            timeout: 10000,
-            maximumAge: 300000
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              resolve,
+              reject,
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000
+              }
+            );
           });
           
           const userLocation = {
@@ -758,11 +763,8 @@ const handleViewMenu = () => {
             lng: position.coords.longitude,
           };
 
-          console.log(`✅ CustomerDashboard: Geolocation successful (${position.source}):`, userLocation);
+          console.log(`✅ CustomerDashboard: Geolocation successful:`, userLocation);
           setUserLocation(userLocation);
-          
-          // Cache the location
-          cacheLocation(position);
 
           mapInstance.current = new window.google.maps.Map(mapRef.current, {
             center: userLocation,

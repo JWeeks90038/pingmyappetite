@@ -15,7 +15,6 @@ import HeatMapKey from "./HeatmapKey"; // Assuming you have a HeatMapKey compone
 import EventModal from "./EventModal"; // Import EventModal component
 //import Supercluster from "supercluster";
 import { throttle } from "lodash";
-import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 
 // Function to dynamically calculate the radius based on zoom level
@@ -118,7 +117,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
   const [geolocationError, setGeolocationError] = useState(null);
   const sharedLocationSource = 'browser';
 
-  // Get user location with simple browser geolocation
+  // Get user location quickly for fast map loading
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeolocationError(new Error('Geolocation not supported'));
@@ -127,7 +126,7 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
 
     setGeolocationLoading(true);
     
-    // First try with high accuracy
+    // Fast geolocation - prioritize speed over precision
     navigator.geolocation.getCurrentPosition(
       (position) => {
         console.log('✅ HeatMap geolocation success with accuracy:', position.coords.accuracy);
@@ -135,31 +134,14 @@ const HeatMap = ({isLoaded, onMapLoad, userPlan, onTruckMarkerClick}) => {
         setGeolocationLoading(false);
       },
       (error) => {
-        console.log('⚠️ HeatMap high accuracy failed, trying low accuracy:', error.message);
-        
-        // Fallback to low accuracy with longer timeout
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('✅ HeatMap low accuracy geolocation success with accuracy:', position.coords.accuracy);
-            setSharedLocation(position);
-            setGeolocationLoading(false);
-          },
-          (finalError) => {
-            console.error('❌ HeatMap geolocation completely failed:', finalError);
-            setGeolocationError(finalError);
-            setGeolocationLoading(false);
-          },
-          {
-            enableHighAccuracy: false,
-            timeout: 30000,
-            maximumAge: 300000 // Allow 5 minute old position as fallback
-          }
-        );
+        console.log('❌ HeatMap geolocation failed:', error.message);
+        setGeolocationError(error);
+        setGeolocationLoading(false);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+        enableHighAccuracy: false, // Use network/WiFi for speed
+        timeout: 8000,            // Quick 8 second timeout
+        maximumAge: 60000         // Allow 1-minute cached location for speed
       }
     );
   }, []);

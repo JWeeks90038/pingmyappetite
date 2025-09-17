@@ -51,42 +51,137 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container">
-      <h2>Login to Your Account</h2>
+    <div style={{
+      backgroundColor: '#0B0B1A',
+      padding: '40px',
+      borderRadius: '12px',
+      boxShadow: '0 8px 32px rgba(255, 78, 201, 0.2)',
+      border: '1px solid #1A1036',
+      width: '100%',
+      maxWidth: '500px',
+      margin: '20px auto',
+      textAlign: 'center'
+    }}>
+      <h2 style={{
+        color: '#FFFFFF',
+        marginBottom: '30px',
+        fontSize: '24px',
+        fontWeight: '600',
+        textAlign: 'center'
+      }}>Login to Your Account</h2>
 
-      <form onSubmit={handleLogin}>
-        <label htmlFor="email">Email Address:</label>
-        <input
-          type="email"
-          id="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <form onSubmit={handleLogin} style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <label htmlFor="email" style={{
+            color: '#FFFFFF',
+            display: 'block',
+            marginBottom: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            textAlign: 'center'
+          }}>Email Address:</label>
+          <input
+            type="email"
+            id="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              backgroundColor: '#1A1036',
+              border: '1px solid #4DBFFF',
+              borderRadius: '8px',
+              color: '#FFFFFF',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
 
-        <label htmlFor="password">Password:</label>
-        <input
-          type="password"
-          id="password"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <div style={{ textAlign: 'center' }}>
+          <label htmlFor="password" style={{
+            color: '#FFFFFF',
+            display: 'block',
+            marginBottom: '8px',
+            fontSize: '14px',
+            fontWeight: '500',
+            textAlign: 'center'
+          }}>Password:</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              backgroundColor: '#1A1036',
+              border: '1px solid #4DBFFF',
+              borderRadius: '8px',
+              color: '#FFFFFF',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
 
-        <button type="submit" disabled={isLoading}>
+        <button type="submit" disabled={isLoading} style={{
+          padding: '14px 28px',
+          backgroundColor: isLoading ? '#666' : '#FF4EC9',
+          color: '#FFFFFF',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: isLoading ? 'not-allowed' : 'pointer',
+          transition: 'background-color 0.3s ease',
+          marginTop: '10px'
+        }}>
           {isLoading ? 'Logging in...' : 'Login'}
         </button>
 
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p style={{ 
+          color: '#FF4EC9', 
+          margin: '10px 0 0 0', 
+          fontSize: '14px',
+          textAlign: 'center' 
+        }}>{error}</p>}
       </form>
 
-      <p className="signup-redirect">
-        Don't have an account? <Link to="/signup">Sign Up</Link>
+      <p style={{
+        color: '#FFFFFF',
+        marginTop: '30px',
+        fontSize: '14px',
+        textAlign: 'center'
+      }}>
+        Don't have an account?{' '}
+        <Link to="/signup" style={{
+          color: '#4DBFFF',
+          textDecoration: 'none',
+          fontWeight: '500'
+        }}>Sign Up</Link>
       </p>
-      <p style={{ marginTop: '6px' }}>
-        <Link to="/forgotpassword">Forgot Password?</Link>
+      <p style={{ 
+        marginTop: '10px',
+        textAlign: 'center'
+      }}>
+        <Link to="/forgotpassword" style={{
+          color: '#4DBFFF',
+          textDecoration: 'none',
+          fontSize: '14px'
+        }}>Forgot Password?</Link>
       </p>
     </div>
   );

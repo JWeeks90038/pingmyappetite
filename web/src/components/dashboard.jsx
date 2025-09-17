@@ -38,7 +38,6 @@ import { FaInstagram, FaFacebook, FaTiktok, FaXTwitter } from "react-icons/fa6";
 import { useAuth } from "./AuthContext";
 import NewDropForm from "./NewDropForm";
 import { QRCodeCanvas } from "qrcode.react";
-import { getBulletproofLocation, cacheLocation } from '../utils/geolocationHelper';
 
 
 const Dashboard = ({ isLoaded }) => {
@@ -83,41 +82,68 @@ const Dashboard = ({ isLoaded }) => {
 
     setGeolocationLoading(true);
     
-    // First try with high accuracy
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log('✅ Dashboard geolocation success with accuracy:', position.coords.accuracy);
-        setSharedLocation(position);
-        setGeolocationLoading(false);
-      },
-      (error) => {
-        console.log('⚠️ Dashboard high accuracy failed, trying low accuracy:', error.message);
-        
-        // Fallback to low accuracy with longer timeout
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            console.log('✅ Dashboard low accuracy geolocation success with accuracy:', position.coords.accuracy);
+    let attempts = 0;
+    const maxAttempts = 5;
+    let bestPosition = null;
+    
+    const tryGeolocation = () => {
+      attempts++;
+      console.log(`🎯 Dashboard: GPS attempt ${attempts}/${maxAttempts}`);
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const accuracy = position.coords.accuracy;
+          console.log(`✅ Dashboard GPS reading ${attempts}: ${accuracy}m accuracy`);
+          
+          // ONLY accept readings under 100m (0.06 miles)
+          if (accuracy <= 100) {
+            console.log('🎯 Dashboard: Excellent GPS accuracy achieved!');
             setSharedLocation(position);
             setGeolocationLoading(false);
-          },
-          (finalError) => {
-            console.error('❌ Dashboard geolocation completely failed:', finalError);
-            setGeolocationError(finalError);
-            setGeolocationLoading(false);
-          },
-          {
-            enableHighAccuracy: false,
-            timeout: 30000,
-            maximumAge: 300000 // Allow 5 minute old position as fallback
+            return;
           }
-        );
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+          
+          // Store best reading but keep trying
+          if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
+            bestPosition = position;
+            console.log(`🔄 Dashboard: Storing better reading: ${accuracy}m`);
+          }
+          
+          // Try again if we haven't hit max attempts
+          if (attempts < maxAttempts) {
+            console.log(`🔄 Dashboard: Accuracy too poor (${accuracy}m), trying again...`);
+            setTimeout(tryGeolocation, 2000); // Wait 2 seconds between attempts
+          } else {
+            // Use best reading if under 300m, otherwise show error
+            if (bestPosition && bestPosition.coords.accuracy <= 300) {
+              console.log(`⚠️ Dashboard: Using best available: ${bestPosition.coords.accuracy}m`);
+              setSharedLocation(bestPosition);
+              setGeolocationLoading(false);
+            } else {
+              console.error('❌ Dashboard: Could not achieve acceptable GPS accuracy');
+              setGeolocationError(new Error('GPS accuracy too poor for precise location'));
+              setGeolocationLoading(false);
+            }
+          }
+        },
+        (error) => {
+          console.error(`❌ Dashboard GPS attempt ${attempts} failed:`, error.message);
+          if (attempts < maxAttempts) {
+            setTimeout(tryGeolocation, 2000);
+          } else {
+            setGeolocationError(error);
+            setGeolocationLoading(false);
+          }
+        },
+        {
+          enableHighAccuracy: true,  // DEMAND GPS
+          timeout: 45000,           // Long timeout for GPS lock
+          maximumAge: 0             // NEVER use cache
+        }
+      );
+    };
+    
+    tryGeolocation();
   }, []);
   
   const [location, setLocation] = useState(null);
@@ -1457,7 +1483,7 @@ useEffect(() => {
           <div style={{ fontSize: "0.9rem", marginTop: "10px", color: "#FFFFFF" }}>
             {userPlan === "basic" && (
               <div>
-                ✅ Discovery map • ✅ Menu display • ✅ Manual location updates
+                ✅ Discovery map • ✅ Menu display • ✅ Real-time GPS tracking
                 <br />
                 <em>Upgrade for real-time GPS tracking and more!</em>
               </div>

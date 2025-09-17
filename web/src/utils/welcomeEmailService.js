@@ -41,8 +41,8 @@ Thank you for joining Grubana! You're now part of a thriving community of mobile
 Your Starter Plan includes:
 ✅ Appear on the Grubana discovery map
 ✅ Access to your truck dashboard
-✅ Manual location updates
-✅ Basic customer engagement tools
+✅ Real-time GPS tracking
+✅ Use the Pre-order system
 
 Next steps to get started:
 1. Complete your truck profile in the dashboard
