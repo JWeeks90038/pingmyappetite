@@ -15,53 +15,26 @@ const firebaseConfig = {
     measurementId: "G-MHVKR07V99"
 };
 
-console.log('🔥 Firebase: Initializing Firebase...');
-
-// Initialize Firebase with enhanced error handling
+// Initialize Firebase app and services immediately but efficiently
 let app, auth, db, storage;
 
 try {
     app = initializeApp(firebaseConfig);
-  
-    
-    // Initialize services with error handling
     auth = getAuth(app);
- 
-    
-    // Use standard getFirestore() to avoid initialization conflicts
     db = getFirestore(app);
-
-    
     storage = getStorage(app);
-
+    
+    // Set persistence without waiting
+    setPersistence(auth, browserLocalPersistence).catch(() => {
+        // Silently fail - not critical
+    });
     
 } catch (error) {
-
-    // Create fallback objects to prevent app crash
+    console.error('Firebase initialization failed:', error);
+    // Create fallback objects
     auth = null;
     db = null;
     storage = null;
 }
 
-// Enhanced Firebase persistence and auth setup
-if (db && auth) {
-    // Enable longer auth persistence with better error handling
-    setPersistence(auth, browserLocalPersistence).catch((error) => {
-
-    });
-
-    // Add connection state monitoring
-
-}
-
-// Add global error handler for Firebase
-window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason && event.reason.code && event.reason.code.includes('firebase')) {
-     
-        // Prevent the error from crashing the app
-        event.preventDefault();
-    }
-});
-
-// Export for use in the app
 export { auth, db, storage, app };

@@ -303,7 +303,7 @@ const OwnerSettings = ({
   }
 
   return (
-    <div className="settings-page" style={{ padding: '20px', maxWidth: '700px', margin: '0 auto' }}>
+    <div className="settings-page" style={{ padding: '20px', maxWidth: '700px', margin: '0 auto', backgroundColor: '#0B0B1A', color: '#FFFFFF' }}>
       <section>
         <h2>Account Information</h2>
         {[
@@ -326,7 +326,7 @@ const OwnerSettings = ({
           <span> {userProfile.email} </span>
         </div>
 
-        <div className="settings-item" style={{ marginTop: '10px' }}>
+        <div className="settings-item" style={{ marginTop: '10px', backgroundColor: '#1A1036', border: '1px solid #4DBFFF' }}>
           <input
             type="email"
             placeholder="New Email"
@@ -336,76 +336,135 @@ const OwnerSettings = ({
           <button onClick={handleChangeEmail}>Change Email</button>
         </div>
 
-        <div className="settings-item" style={{ marginTop: '10px' }}>
+        <div className="settings-item" style={{ marginTop: '10px', backgroundColor: '#1A1036', border: '1px solid #4DBFFF' }}>
           <button onClick={handleChangePassword}>Send Password Reset Email</button>
           {resetMsg && (
-  <p style={{ color: resetMsg.startsWith("Password reset") ? "green" : "red", marginTop: "10px" }}>
+  <p style={{ color: resetMsg.startsWith("Password reset") ? "#00E676" : "#EF4444", marginTop: "10px" }}>
     {resetMsg}
   </p>
 )}
         </div>
       </section>
       
-      <section style={{ marginTop: '40px' }}>
-        <h2>Media Uploader</h2>
-        <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "10px" }}>
+      <section style={{ marginTop: '40px', backgroundColor: '#1A1036', padding: '20px', borderRadius: '8px', border: '1px solid #4DBFFF' }}>
+        <h2 style={{ color: '#FF4EC9', marginBottom: '15px' }}>Media Uploader</h2>
+        <p style={{ fontSize: "0.9rem", color: "#FFFFFF", marginBottom: "10px", opacity: "0.9" }}>
           Upload your truck/logo and menu photos. These will be displayed on your dashboard and map icon.
         </p>
         <MediaUploader showCover={true} showProfile={false} showMenu={true} />
       </section>
 
-      <section style={{ marginTop: '40px' }}>
-        <h2>Social Media Links</h2>
-        <label>
-          Instagram:
-          <input
-            type="url"
-            name="instagram"
-            value={socialLinks.instagram}
-            onChange={handleChange}
-            placeholder="https://instagram.com/yourprofile"
-          />
-        </label>
-        <br />
-        <label>
-          Facebook:
-          <input
-            type="url"
-            name="facebook"
-            value={socialLinks.facebook}
-            onChange={handleChange}
-            placeholder="https://facebook.com/yourprofile"
-          />
-        </label>
-        <br />
-        <label>
-          TikTok:
-          <input
-            type="url"
-            name="tiktok"
-            value={socialLinks.tiktok}
-            onChange={handleChange}
-            placeholder="https://tiktok.com/@yourprofile"
-          />
-        </label>
-        <br />
-        <label>
-          X (Twitter):
-          <input
-            type="url"
-            name="twitter"
-            value={socialLinks.twitter}
-            onChange={handleChange}
-            placeholder="https://x.com/yourprofile"
-          />
-        </label>
+      <section style={{ marginTop: '40px', backgroundColor: '#1A1036', padding: '20px', borderRadius: '8px', border: '1px solid #4DBFFF' }}>
+        <h2 style={{ color: '#FF4EC9', marginBottom: '15px' }}>Social Media Links</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          
+          <div className="instagram-item" style={{ background: '#1A1036', border: '2px solid #E4405F', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#E4405F">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+              Instagram:
+            </label>
+            <input
+              type="url"
+              name="instagram"
+              value={socialLinks.instagram}
+              onChange={handleChange}
+              placeholder="https://instagram.com/yourprofile"
+              style={{ 
+                width: '100%', 
+                padding: '12px 16px', 
+                backgroundColor: '#0B0B1A', 
+                color: '#FFFFFF', 
+                border: '1px solid #4DBFFF', 
+                borderRadius: '8px',
+                fontSize: '0.95rem'
+              }}
+            />
+          </div>
+
+          <div className="facebook-item" style={{ background: '#1A1036', border: '2px solid #1877F2', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              Facebook:
+            </label>
+            <input
+              type="url"
+              name="facebook"
+              value={socialLinks.facebook}
+              onChange={handleChange}
+              placeholder="https://facebook.com/yourprofile"
+              style={{ 
+                width: '100%', 
+                padding: '12px 16px', 
+                backgroundColor: '#0B0B1A', 
+                color: '#FFFFFF', 
+                border: '1px solid #4DBFFF', 
+                borderRadius: '8px',
+                fontSize: '0.95rem'
+              }}
+            />
+          </div>
+
+          <div className="tiktok-item" style={{ background: '#1A1036', border: '2px solid #000000', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000" style={{ background: '#FFFFFF', borderRadius: '4px', padding: '2px' }}>
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+              </svg>
+              TikTok:
+            </label>
+            <input
+              type="url"
+              name="tiktok"
+              value={socialLinks.tiktok}
+              onChange={handleChange}
+              placeholder="https://tiktok.com/@yourprofile"
+              style={{ 
+                width: '100%', 
+                padding: '12px 16px', 
+                backgroundColor: '#0B0B1A', 
+                color: '#FFFFFF', 
+                border: '1px solid #4DBFFF', 
+                borderRadius: '8px',
+                fontSize: '0.95rem'
+              }}
+            />
+          </div>
+
+          <div className="twitter-item" style={{ background: '#1A1036', border: '2px solid #000000', borderRadius: '12px', padding: '16px' }}>
+            <label style={{ color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFFFFF">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              X (Twitter):
+            </label>
+            <input
+              type="url"
+              name="twitter"
+              value={socialLinks.twitter}
+              onChange={handleChange}
+              placeholder="https://x.com/yourprofile"
+              style={{ 
+                width: '100%', 
+                padding: '12px 16px', 
+                backgroundColor: '#0B0B1A', 
+                color: '#FFFFFF', 
+                border: '1px solid #4DBFFF', 
+                borderRadius: '8px',
+                fontSize: '0.95rem'
+              }}
+            />
+          </div>
+        </div>
         <br />
         <button onClick={handleSaveSocialLinks}>Save Social Media Links</button>
       </section>
 
-       <section style={{ marginTop: '40px' }}>
-        <h2>Subscription Management</h2>
-        <p>
+       <section style={{ marginTop: '40px', backgroundColor: '#1A1036', padding: '20px', borderRadius: '8px', border: '1px solid #4DBFFF' }}>
+        <h2 style={{ color: '#FF4EC9', marginBottom: '15px' }}>Subscription Management</h2>
+        <p style={{ color: '#FFFFFF', marginBottom: '10px' }}>
           <strong>Current Plan:</strong> {
             plan === 'all-access' ? 'All-Access (Paid)' : 
             plan === 'pro' ? 'Pro (Paid)' : 
@@ -413,7 +472,7 @@ const OwnerSettings = ({
           }
         </p>
         {cardInfo && (
-          <p>
+          <p style={{ color: '#FFFFFF', marginBottom: '10px' }}>
             <strong>Card on file:</strong> {cardInfo.brand?.toUpperCase()} ending in {cardInfo.last4}
           </p>
         )}
@@ -421,26 +480,28 @@ const OwnerSettings = ({
           Manage Subscription
         </button>
         {stripeMsg && (
-          <p style={{ color: "red", marginTop: "10px" }}>{stripeMsg}</p>
+          <p style={{ color: "#EF4444", marginTop: "10px" }}>{stripeMsg}</p>
         )}
       </section>
 
-      <section style={{ marginTop: '40px' }}>
-        <h2>Notifications</h2>
-        <label>
+      <section style={{ marginTop: '40px', backgroundColor: '#1A1036', padding: '20px', borderRadius: '8px', border: '1px solid #4DBFFF' }}>
+        <h2 style={{ color: '#FF4EC9', marginBottom: '15px' }}>Notifications</h2>
+        <label style={{ color: '#FFFFFF', display: 'block', marginBottom: '10px' }}>
           <input
             type="checkbox"
             checked={emailNotifications}
             onChange={() => setEmailNotifications(!emailNotifications)}
+            style={{ marginRight: '8px' }}
           />
           Email Notifications
         </label>
         <br />
-        <label>
+        <label style={{ color: '#FFFFFF', display: 'block', marginBottom: '10px' }}>
           <input
             type="checkbox"
             checked={smsNotifications}
             onChange={() => setSmsNotifications(!smsNotifications)}
+            style={{ marginRight: '8px' }}
           />
           SMS Notifications
         </label>
@@ -448,9 +509,9 @@ const OwnerSettings = ({
         <button onClick={saveNotificationPreferences}>Save Notification Settings</button>
       </section>
 
-      <section style={{ marginTop: '40px', backgroundColor: '#ffe6e6', padding: '20px', borderRadius: '8px' }}>
-        <h2 style={{ color: 'red' }}>Danger Zone</h2>
-        <button onClick={handleDeleteAccount} style={{ backgroundColor: 'red', color: 'white' }}>
+      <section style={{ marginTop: '40px', backgroundColor: '#DC2626', padding: '20px', borderRadius: '8px', border: '2px solid #EF4444' }}>
+        <h2 style={{ color: '#FFFFFF' }}>Danger Zone</h2>
+        <button onClick={handleDeleteAccount} style={{ backgroundColor: '#991B1B', color: '#FFFFFF', border: 'none', padding: '10px 20px', borderRadius: '6px' }}>
           Delete Account
         </button>
       </section>

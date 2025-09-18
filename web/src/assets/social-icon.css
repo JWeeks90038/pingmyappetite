@@ -1,8 +1,22 @@
 .social-icon {
   transition: transform 0.2s ease-in-out;
+  box-sizing: border-box; /* Ensure consistent sizing */
 }
 
 .social-icon:hover {
-  transform: scale(1.3);
+  transform: scale(1.2); /* Reduced from 1.3 to 1.2 for tighter mobile spacing */
   opacity: 0.85;
+}
+
+/* Mobile adjustments for social icons */
+@media (max-width: 600px) {
+  .social-icon:hover {
+    transform: scale(1.15); /* Even smaller scale on mobile to prevent overlap */
+  }
+}
+
+@media (max-width: 480px) {
+  .social-icon:hover {
+    transform: scale(1.1); /* Minimal scale on very small screens */
+  }
 }

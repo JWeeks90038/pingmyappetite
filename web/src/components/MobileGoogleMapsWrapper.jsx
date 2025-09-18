@@ -171,38 +171,9 @@ const MobileGoogleMapsWrapper = ({ children, googleMapsApiKey, libraries = LIBRA
     return () => clearTimeout(emergencyTimeout);
   }, [isLoading]);
 
-  // Loading state
+  // Loading state - hidden
   if (isLoading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '200px',
-        flexDirection: 'column',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid #f3f3f3',
-          borderTop: '3px solid #2c6f57',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
-        <p style={{ marginTop: '15px', color: '#666' }}>
-          {isMobile ? 'Loading Mobile Maps...' : 'Loading Maps...'}
-        </p>
-        <style>
-          {`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}
-        </style>
-      </div>
-    );
+    return null;
   }
 
   // Error state with retry option

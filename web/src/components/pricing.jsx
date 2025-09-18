@@ -138,9 +138,9 @@ const Pricing = () => {
               <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ Appear on discovery map</div>
               <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ View demand pins</div>
               <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ Access truck dashboard</div>
-              <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ Manual location updates</div>
+              <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ Real-time GPS tracking</div>
               <div style={{ color: '#00E676', marginBottom: '8px', fontSize: '14px' }}>✅ Menu photo uploads</div>
-              <div style={{ color: '#FF4EC9', marginBottom: '8px', fontSize: '14px' }}>❌ Real-time GPS tracking</div>
+              <div style={{ color: '#FF4EC9', marginBottom: '8px', fontSize: '14px' }}>❌ Lower pre-order fees</div>
               <div style={{ color: '#FF4EC9', marginBottom: '8px', fontSize: '14px' }}>❌ Citywide heat maps</div>
               <div style={{ color: '#FF4EC9', marginBottom: '8px', fontSize: '14px' }}>❌ Advanced analytics</div>
               <div style={{ color: '#FF4EC9', marginBottom: '8px', fontSize: '14px' }}>❌ Promotional drops</div>

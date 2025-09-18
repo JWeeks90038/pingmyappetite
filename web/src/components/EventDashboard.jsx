@@ -514,7 +514,23 @@ const EventDashboard = () => {
                         </span>
                       </div>
                       <div className="event-details">
-                        <p><strong>Date:</strong> {event.date}</p>
+                        <p><strong>Date:</strong> {(() => {
+                          try {
+                            if (event.date) {
+                              if (event.date.toDate) {
+                                return new Date(event.date.toDate()).toLocaleDateString();
+                              } else if (typeof event.date === 'string') {
+                                return event.date;
+                              } else {
+                                return new Date(event.date).toLocaleDateString();
+                              }
+                            }
+                            return 'Unknown date';
+                          } catch (error) {
+                            console.error('Error formatting event date:', error);
+                            return 'Invalid date';
+                          }
+                        })()}</p>
                         {event.time && (
                           <p><strong>Time:</strong> {event.time}{event.endTime && ` - ${event.endTime}`}</p>
                         )}
@@ -579,7 +595,23 @@ const EventDashboard = () => {
                       }}>
                         <div>
                           <p style={{ margin: '5px 0' }}><strong>Event:</strong> {application.eventTitle}</p>
-                          <p style={{ margin: '5px 0' }}><strong>Applied:</strong> {new Date(application.appliedAt.toDate()).toLocaleDateString()}</p>
+                          <p style={{ margin: '5px 0' }}><strong>Applied:</strong> {(() => {
+                            try {
+                              if (application.appliedAt) {
+                                if (application.appliedAt.toDate) {
+                                  return new Date(application.appliedAt.toDate()).toLocaleDateString();
+                                } else if (typeof application.appliedAt === 'string') {
+                                  return new Date(application.appliedAt).toLocaleDateString();
+                                } else {
+                                  return new Date(application.appliedAt).toLocaleDateString();
+                                }
+                              }
+                              return 'Unknown date';
+                            } catch (error) {
+                              console.error('Error formatting appliedAt date:', error);
+                              return 'Invalid date';
+                            }
+                          })()}</p>
                           <p style={{ margin: '5px 0' }}><strong>Food Type:</strong> {application.foodType}</p>
                           <p style={{ margin: '5px 0' }}><strong>Email:</strong> {application.email}</p>
                         </div>

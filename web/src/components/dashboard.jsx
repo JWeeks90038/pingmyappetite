@@ -50,7 +50,12 @@ const Dashboard = ({ isLoaded }) => {
   useEffect(() => {
     if (userRole && userRole !== "owner") {
       console.log("🚨 Dashboard: Non-owner user detected, redirecting immediately (role:", userRole, ")");
-      navigate("/customer-dashboard");
+      // Redirect event organizers to their specific dashboard
+      if (userRole === "event-organizer") {
+        navigate("/event-dashboard");
+      } else {
+        navigate("/customer-dashboard");
+      }
       return;
     }
   }, [userRole, navigate]);

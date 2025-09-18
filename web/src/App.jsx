@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import React from 'react';
 
@@ -14,29 +14,45 @@ import { notificationService } from './utils/notificationService';
 // Import mobile fixes CSS
 import './assets/mobile-fixes.css';
 
-import Login from './components/login';
-import Dashboard from './components/dashboard';
-import CustomerDashboard from './components/CustomerDashboard';
-import EventDashboard from './components/EventDashboard';
-import Home from './components/home';
-import ForgotPassword from './components/ForgotPassword';
-import Pricing from './components/pricing';
-import Success from './components/Success';
+// Immediate loading for lightweight components
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import RefundPolicy from './components/RefundPolicy';
-import Settings from './components/settings';
+import Login from './components/login';
 import Signup from './components/signup';
 import SignupCustomer from './components/SignupCustomer';
+import ForgotPassword from './components/ForgotPassword';
+import Pricing from './components/pricing';
+import Success from './components/Success';
+import Settings from './components/settings';
 import SMSConsent from './components/SMSConsent';
 import SMSTest from './components/SMSTest';
 import Logout from './components/logout';
-import Analytics from './components/analytics';
-import UpgradeAnalyticsDashboard from './components/UpgradeAnalyticsDashboard';
-import Messages from './components/messages';
-import PingRequests from './components/PingRequests';
 import FAQ from './components/FAQ';
 import NotificationPreferences from './components/NotificationPreferences';
+
+// Lazy loading for heavy components
+const Home = React.lazy(() => import('./components/home'));
+const Dashboard = React.lazy(() => import('./components/dashboard'));
+const CustomerDashboard = React.lazy(() => import('./components/CustomerDashboard'));
+const EventDashboard = React.lazy(() => import('./components/EventDashboard'));
+const Analytics = React.lazy(() => import('./components/analytics'));
+const UpgradeAnalyticsDashboard = React.lazy(() => import('./components/UpgradeAnalyticsDashboard'));
+const Messages = React.lazy(() => import('./components/messages'));
+const PingRequests = React.lazy(() => import('./components/PingRequests'));
+
+// Suspense wrapper for lazy components
+const SuspenseWrapper = ({ children }) => (
+  <React.Suspense fallback={<div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '200px', 
+    color: '#4DBFFF' 
+  }}>Loading...</div>}>
+    {children}
+  </React.Suspense>
+);
 import { getAuth } from 'firebase/auth';
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -63,19 +79,38 @@ const LIBRARIES = ['places', 'visualization'];
 // App version for cache busting
 const APP_VERSION = '1.0.8';
 
-// Initialize Stripe with environment variable
+// Load API keys but don't log them for performance
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-console.log('Stripe key loaded:', stripeKey ? `${stripeKey.substring(0, 7)}...` : 'NOT FOUND');
-
 const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-console.log('🗺️ Google Maps API key loaded:', googleMapsKey ? `${googleMapsKey.substring(0, 7)}...` : 'NOT FOUND');
-
-// Conditionally create Stripe promise
-// Note: Stripe HTTPS warning in development is expected - will work fine in production
-const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 // Safely pass Google Maps API key (with fallback)
 const safeGoogleMapsKey = googleMapsKey || 'test-key';
+
+// Create Stripe promise lazily
+let stripePromise = null;
+const getStripePromise = () => {
+  if (!stripePromise && stripeKey) {
+    stripePromise = loadStripe(stripeKey);
+  }
+  return stripePromise;
+};
+
+// Routes that need Google Maps
+const ROUTES_NEEDING_MAPS = [
+  '/',
+  '/home',
+  '/dashboard',
+  '/customer-dashboard',
+  '/event-dashboard'
+];
+
+// Check if current route needs maps
+const routeNeedsMaps = (pathname) => {
+  return ROUTES_NEEDING_MAPS.some(route => {
+    if (route === '/') return pathname === '/';
+    return pathname.startsWith(route);
+  });
+};
 
 // Add network connectivity check function
 const checkNetworkConnectivity = () => {
@@ -89,42 +124,37 @@ const checkNetworkConnectivity = () => {
 function ProtectedDashboardRoute({ children }) {
   const { user, userPlan, userSubscriptionStatus, loading } = useAuth();
 
-  console.log('🚀 LATEST CODE: ProtectedDashboardRoute - Version 8b0c6718');
-  console.log('🔍 ProtectedDashboardRoute DEBUG:', {
-    user: !!user,
-    userPlan,
-    userSubscriptionStatus,
-    loading,
-    userSubscriptionStatusType: typeof userSubscriptionStatus
-  });
+  // Don't log in production for performance
+  if (import.meta.env.MODE === 'development') {
+    console.log('🔍 ProtectedDashboardRoute DEBUG:', {
+      user: !!user,
+      userPlan,
+      userSubscriptionStatus,
+      loading,
+      userSubscriptionStatusType: typeof userSubscriptionStatus
+    });
+  }
 
   if (loading) return <div>Loading...</div>;
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
 
   // CRITICAL FIX: For paid plans, wait for subscription status to load
   // BUT allow admin overrides (null status) to pass through
-  const isPaidPlan = userPlan === "pro" || userPlan === "all-access";
+  const isPaidPlan = userPlan === "pro" || userPlan === "all-access" || userPlan === "event-premium";
   
   // Only consider it "loading" if we're still in the initial loading state
   // Don't block if userSubscriptionStatus is explicitly null (admin override)
   const subscriptionStatusLoading = isPaidPlan && userSubscriptionStatus === undefined && loading;
   
-  console.log('🔍 Subscription loading check:', {
-    isPaidPlan,
-    subscriptionStatusLoading,
-    userSubscriptionStatus,
-    userSubscriptionStatusIsNull: userSubscriptionStatus === null,
-    userSubscriptionStatusIsUndefined: userSubscriptionStatus === undefined
-  });
-  
   if (subscriptionStatusLoading) {
-    console.log('⏳ Waiting for subscription status to load...');
     return <div>Loading subscription status...</div>;
   }
 
   // SECURITY: Only allow access if user has valid plan and subscription status
+  // TEMP FIX: Always allow basic access to prevent infinite redirects
   const hasValidAccess = 
     userPlan === "basic" || 
+    !userPlan || // Allow access if plan is not yet loaded
     (userPlan === "pro" && (
       userSubscriptionStatus === "active" || 
       userSubscriptionStatus === "trialing" ||
@@ -136,26 +166,25 @@ function ProtectedDashboardRoute({ children }) {
       userSubscriptionStatus === "trialing" ||
       userSubscriptionStatus === "admin-override" ||
       userSubscriptionStatus === null
+    )) ||
+    (userPlan === "event-premium" && (
+      userSubscriptionStatus === "active" || 
+      userSubscriptionStatus === "trialing" ||
+      userSubscriptionStatus === "admin-override" ||
+      userSubscriptionStatus === null
     ));
 
-  console.log('🔍 Access validation:', {
-    hasValidAccess,
-    userPlan,
-    userSubscriptionStatus,
-    isBasic: userPlan === "basic",
-    isPro: userPlan === "pro",
-    isAllAccess: userPlan === "all-access",
-    statusIsActive: userSubscriptionStatus === "active",
-    statusIsTrialing: userSubscriptionStatus === "trialing",
-    statusIsAdminOverride: userSubscriptionStatus === "admin-override",
-    statusIsNull: userSubscriptionStatus === null
-  });
-
-  if (!hasValidAccess) {
-
-    return <Navigate to="/signup" />;
+  if (import.meta.env.MODE === 'development') {
+    console.log('🔍 Access validation:', {
+      hasValidAccess,
+      userPlan,
+      userSubscriptionStatus
+    });
   }
 
+  if (!hasValidAccess) {
+    return <Navigate to="/pricing" replace />;
+  }
 
   return children;
 }
@@ -165,8 +194,7 @@ function App() {
   
   // Debug logging with timestamp to track re-renders
   const renderTime = new Date().toISOString();
-  console.log(`🏁 App component render at ${renderTime}:`, { loading, user: user?.email, userRole });
-  console.log('🗺️ Current URL:', window.location.href);
+  // Performance: Removed debug logs for faster rendering
 
   // Check Firebase readiness
   useEffect(() => {
@@ -328,140 +356,18 @@ function App() {
   window.auth = getAuth();
   
   if (loading) {
- 
     return <div>Loading...</div>;
-  }
-
-
-
-  // Add Stripe validation before rendering Elements
-  if (!stripePromise) {
-
-    return (
-      <ErrorBoundary>
-      <MobileGoogleMapsWrapper googleMapsApiKey={safeGoogleMapsKey}>
-        <BrowserRouter future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}>
-          <NetworkStatus />
-          <div style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '16px 20px',
-            textAlign: 'center',
-            color: 'white',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
-            overflow: 'hidden',
-            position: 'relative',
-            borderBottom: '3px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              <div style={{
-                fontSize: '24px',
-                animation: 'mobileAppBounce 2s infinite'
-              }}>
-                📱
-              </div>
-              <span style={{
-                fontSize: '18px',
-                fontWeight: 'bold',
-                textShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                letterSpacing: '0.5px',
-                background: 'linear-gradient(45deg, #fff, #f0f8ff)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                Mobile App Launching Very Soon!!
-              </span>
-              <div style={{
-                fontSize: '20px',
-                animation: 'mobileAppPulse 1.5s infinite'
-              }}>
-                🚀
-              </div>
-            </div>
-            <div style={{
-              position: 'absolute',
-              top: '0',
-              left: '-100%',
-              width: '100%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-              animation: 'mobileAppShimmer 3s infinite'
-            }}></div>
-          </div>
-          <Navbar />
-          <ScrollToTop />
-          <Routes>
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={user ? <Navigate to={userRole === 'customer' ? "/customer-dashboard" : "/dashboard"} /> : <Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/home" element={<Home />} />
-              <Route path="/forgotpassword" element={<ForgotPassword />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/privacypolicy" element={<PrivacyPolicy />} />
-              <Route path="/termsofservice" element={<TermsOfService />} />
-              <Route path="/refundpolicy" element={<RefundPolicy />} />
-              <Route path="/sms-consent" element={<SMSConsent />} />
-              <Route path="/sms-test" element={<SMSTest />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/signup-customer" element={<SignupCustomer />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/logout" element={<Logout />} />
-              <Route path="/success" element={<Success />} />
-              <Route path="/truck-onboarding" element={<TruckOnboarding />} />
-              <Route path="/menu-management" element={
-                userRole === 'owner' ? <MenuManagement /> : <Navigate to="/login" />
-              } />
-              <Route path="/my-orders" element={<CustomerOrderTracking />} />
-              <Route path="/order-success" element={<OrderSuccess />} />
-              <Route path="/order-cancelled" element={<OrderCancelled />} />
-              <Route path="/marketplace-test" element={<MarketplaceTest />} />
-            </Route>
-
-            <Route element={<CustomerLayout />}>
-              <Route path="/customer-dashboard" element={userRole === 'customer' ? <CustomerDashboard /> : <Navigate to="/login" />} />
-              <Route path="/messages" element={userRole === 'customer' ? <Messages /> : <Navigate to="/login" />} />
-              <Route path="/ping-requests" element={userRole === 'customer' ? <PingRequests /> : <Navigate to="/login" />} />
-              <Route path="/settings" element={userRole === 'customer' ? <Settings /> : <Navigate to="/login" />} />
-              <Route path="/notifications" element={userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" />} />
-            </Route>
-
-            <Route element={<OwnerLayout />}>
-              <Route path="/dashboard" element={userRole === 'owner' ? <ProtectedDashboardRoute><Dashboard /></ProtectedDashboardRoute> : <Navigate to="/login" />} />
-              <Route path="/analytics" element={userRole === 'owner' ? <Analytics /> : <Navigate to="/login" />} />
-              <Route path="/upgrade-analytics" element={<UpgradeAnalyticsDashboard />} />
-            </Route>
-
-            <Route element={<PublicLayout />}>
-              <Route path="/event-dashboard" element={<EventDashboard />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </MobileGoogleMapsWrapper>
-      </ErrorBoundary>
-    );
   }
 
   return (
     <ErrorBoundary>
-      <Elements stripe={stripePromise}>
-      <MobileGoogleMapsWrapper
+      <Elements stripe={getStripePromise()}>
+      <MobileGoogleMapsWrapper 
         googleMapsApiKey={safeGoogleMapsKey}
         libraries={LIBRARIES}
-        onLoad={() => ('')}
-        onError={(error) => ('')}
-        loadingElement={<div>Loading Maps...</div>}
+        onLoad={() => console.log('Google Maps loaded successfully')}
+        onError={(error) => console.error('Maps loading error:', error)}
+        loadingElement={<div></div>}
       >
         <BrowserRouter future={{
           v7_startTransition: true,
@@ -474,10 +380,10 @@ function App() {
         <Routes>
           {/* Public Pages */}
           <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={user ? (userRole === 'customer' ? <Navigate to="/customer-dashboard" /> : userRole === 'owner' ? <Navigate to="/dashboard" /> : <div>Loading...</div>) : <Login />} />
+            <Route path="/" element={<SuspenseWrapper><Home /></SuspenseWrapper>} />
+            <Route path="/login" element={user ? (userRole === 'customer' ? <Navigate to="/customer-dashboard" replace /> : userRole === 'owner' ? <Navigate to="/dashboard" replace /> : userRole === 'event-organizer' ? <Navigate to="/event-dashboard" replace /> : <div>Loading...</div>) : <Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/home" element={<Home />} />
+            <Route path="/home" element={<SuspenseWrapper><Home /></SuspenseWrapper>} />
             <Route path="/forgotpassword" element={<ForgotPassword />} />
             <Route path="/about" element={<About />} />
             <Route path="/pricing" element={<Pricing />} />
@@ -491,7 +397,7 @@ function App() {
             <Route path="/logout" element={<Logout />} />
             <Route path="/success" element={<Success />} />
             <Route path="/truck-onboarding" element={<TruckOnboarding />} />
-            <Route path="/menu-management" element={userRole === 'owner' ? <MenuManagement /> : <Navigate to="/login" />} />
+            <Route path="/menu-management" element={userRole === 'owner' ? <MenuManagement /> : <Navigate to="/login" replace />} />
             <Route path="/order-success" element={<OrderSuccess />} />
             <Route path="/order-cancelled" element={<OrderCancelled />} />
             <Route path="/marketplace-test" element={<MarketplaceTest />} />
@@ -499,23 +405,23 @@ function App() {
 
           {/* Customer Pages */}
           <Route element={<CustomerLayout />}>
-            <Route path="/customer-dashboard" element={userRole === 'customer' ? <CustomerDashboard /> : <Navigate to="/login" />} />
-            <Route path="/my-orders" element={userRole === 'customer' ? <CustomerOrderTracking /> : <Navigate to="/login" />} />
-            <Route path="/messages" element={userRole === 'customer' ? <Messages /> : <Navigate to="/login" />} />
-            <Route path="/ping-requests" element={userRole === 'customer' ? <PingRequests /> : <Navigate to="/login" />} />
-            <Route path="/notifications" element={userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={userRole === 'customer' ? <Settings /> : <Navigate to="/login" />} />
+            <Route path="/customer-dashboard" element={userRole === 'customer' ? <SuspenseWrapper><CustomerDashboard /></SuspenseWrapper> : <Navigate to="/login" replace />} />
+            <Route path="/my-orders" element={userRole === 'customer' ? <CustomerOrderTracking /> : <Navigate to="/login" replace />} />
+            <Route path="/messages" element={userRole === 'customer' ? <SuspenseWrapper><Messages /></SuspenseWrapper> : <Navigate to="/login" replace />} />
+            <Route path="/ping-requests" element={userRole === 'customer' ? <SuspenseWrapper><PingRequests /></SuspenseWrapper> : <Navigate to="/login" replace />} />
+            <Route path="/notifications" element={userRole === 'customer' ? <NotificationPreferences /> : <Navigate to="/login" replace />} />
           </Route>
 
           {/* Owner Pages */}
           <Route element={<OwnerLayout />}>
-            <Route path="/dashboard" element={userRole === 'owner' ? <ProtectedDashboardRoute><Dashboard /></ProtectedDashboardRoute> : <Navigate to="/login" />} />
-            <Route path="/analytics" element={userRole === 'owner' ? <Analytics /> : <Navigate to="/login" />} />
+            <Route path="/dashboard" element={userRole === 'owner' ? <ProtectedDashboardRoute><SuspenseWrapper><Dashboard /></SuspenseWrapper></ProtectedDashboardRoute> : <Navigate to="/login" replace />} />
+            <Route path="/analytics" element={userRole === 'owner' ? <SuspenseWrapper><Analytics /></SuspenseWrapper> : <Navigate to="/login" replace />} />
+            <Route path="/upgrade-analytics" element={<SuspenseWrapper><UpgradeAnalyticsDashboard /></SuspenseWrapper>} />
           </Route>
 
           {/* Event Organizer Routes */}
           <Route element={<PublicLayout />}>
-            <Route path="/event-dashboard" element={<EventDashboard />} />
+            <Route path="/event-dashboard" element={userRole === 'event-organizer' ? <SuspenseWrapper><EventDashboard /></SuspenseWrapper> : <Navigate to="/login" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

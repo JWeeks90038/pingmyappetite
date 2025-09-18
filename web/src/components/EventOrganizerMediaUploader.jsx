@@ -89,8 +89,8 @@ const EventOrganizerMediaUploader = () => {
     <div className="event-organizer-media-uploader">
       {/* Logo Upload */}
       <div className="upload-section">
-        <h3>Organization Logo</h3>
-        <p className="upload-description">Upload your organization's logo. This will appear in your event markers on the map.</p>
+        <h3 style={{ textAlign: 'center' }}>Organization Logo</h3>
+        <p className="upload-description" style={{ textAlign: 'center' }}>Upload your organization's logo. This will appear in your event markers on the map.</p>
         {logoPhoto && (
           <div className="logo-preview">
             <img
@@ -162,8 +162,8 @@ const EventOrganizerMediaUploader = () => {
 
       {/* Event Space Photo */}
       <div className="upload-section">
-        <h3>Event Space Photo</h3>
-        <p className="upload-description">Upload a photo of your event space or venue to help attendees recognize your location.</p>
+        <h3 style={{ textAlign: 'center' }}>Event Space Photo</h3>
+        <p className="upload-description" style={{ textAlign: 'center' }}>Upload a photo of your event space or venue to help attendees recognize your location.</p>
         {eventSpacePhoto && (
           <img
             src={eventSpacePhoto}

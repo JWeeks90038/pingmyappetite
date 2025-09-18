@@ -154,9 +154,11 @@ const Home = () => {
             style={{
               display: "flex",
               justifyContent: "center",
-              gap: "20px",
+              gap: "15px", /* Reduced from 20px to 15px for better mobile fit */
               fontSize: "28px",
               marginTop: "10px",
+              flexWrap: "wrap", /* Allow wrapping on very small screens */
+              alignItems: "center",
             }}
           >
             <a

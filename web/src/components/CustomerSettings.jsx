@@ -173,7 +173,7 @@ const handleChangeEmail = async () => {
   };
 
   return (
-    <div className="settings-page" style={{ padding: '20px', maxWidth: '700px', margin: '0 auto' }}>
+    <div className="settings-page" style={{ padding: '20px', maxWidth: '700px', margin: '0 auto', backgroundColor: '#0B0B1A', color: '#FFFFFF' }}>
       <section>
         <h2>Account Information</h2>
 
@@ -201,25 +201,25 @@ const handleChangeEmail = async () => {
         <div className="settings-item" style={{ marginTop: '10px' }}>
           <button onClick={handleChangePassword}>Send Password Reset Email</button>
         {resetMsg && (
-  <p style={{ color: resetMsg.startsWith("Password reset") ? "green" : "red", marginTop: "10px" }}>
+  <p style={{ color: resetMsg.startsWith("Password reset") ? "#00E676" : "#EF4444", marginTop: "10px" }}>
     {resetMsg}
   </p>
 )}
         </div>
       </section>
 
-      <section style={{ marginTop: '40px' }}>
-        <h2>Notifications</h2>
+      <section style={{ marginTop: '40px', backgroundColor: '#1A1036', padding: '20px', borderRadius: '8px', border: '1px solid #4DBFFF' }}>
+        <h2 style={{ color: '#FF4EC9', marginBottom: '15px' }}>Notifications</h2>
         {notificationUpdateMsg && (
           <p style={{ 
-            color: notificationUpdateMsg.includes('✅') ? 'green' : 'red', 
+            color: notificationUpdateMsg.includes('✅') ? '#00E676' : '#EF4444', 
             marginBottom: '10px', 
             fontWeight: 'bold' 
           }}>
             {notificationUpdateMsg}
           </p>
         )}
-        <label style={{ display: 'block', marginBottom: '10px' }}>
+        <label style={{ display: 'block', marginBottom: '10px', color: '#FFFFFF' }}>
           <input
             type="checkbox"
             checked={emailNotifications}
@@ -228,23 +228,23 @@ const handleChangeEmail = async () => {
           />
           📧 Email Notifications
         </label>
-        <label style={{ display: 'block', marginBottom: '10px' }}>
+        <label style={{ display: 'block', marginBottom: '10px', color: '#FFFFFF' }}>
           <input
             type="checkbox"
             checked={smsNotifications}
             onChange={(e) => handleSmsNotificationChange(e.target.checked)}
             style={{ marginRight: '8px' }}
           />
-          📱 SMS Notifications {!userProfile.phone && <span style={{ color: 'orange' }}>(Add phone number to enable)</span>}
+          📱 SMS Notifications {!userProfile.phone && <span style={{ color: '#FB923C' }}>(Add phone number to enable)</span>}
         </label>
-        <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+        <p style={{ fontSize: '14px', color: '#FFFFFF', marginTop: '10px', opacity: '0.9' }}>
           Choose how you'd like to receive notifications about your favorite food trucks, deals, and updates.
         </p>
       </section>
 
-      <section style={{ marginTop: '40px', backgroundColor: '#ffe6e6', padding: '20px', borderRadius: '8px' }}>
-        <h2 style={{ color: 'red' }}>Danger Zone</h2>
-        <button onClick={handleDeleteAccount} style={{ backgroundColor: 'red', color: 'white' }}>
+      <section style={{ marginTop: '40px', backgroundColor: '#DC2626', padding: '20px', borderRadius: '8px', border: '2px solid #EF4444' }}>
+        <h2 style={{ color: '#FFFFFF' }}>Danger Zone</h2>
+        <button onClick={handleDeleteAccount} style={{ backgroundColor: '#991B1B', color: '#FFFFFF', border: 'none', padding: '10px 20px', borderRadius: '6px' }}>
           Delete Account
         </button>
       </section>

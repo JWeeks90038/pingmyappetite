@@ -26,9 +26,10 @@ const mapContainerStyle = {
   width: "100%",
   maxWidth: "100%",
   height: "500px",
-  margin: "0",
+  margin: "0 auto",
   borderRadius: "10px",
   boxShadow: "0 4px 15px rgba(255, 78, 201, 0.2)",
+  boxSizing: "border-box", // Ensure padding and border are included in width
 };
 
 // Place the FilterButton component here

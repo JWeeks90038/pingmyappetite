@@ -118,11 +118,28 @@ const Settings = () => {
   };
 
   if (loading) {
-    return <p>Loading settings...</p>;
+    return (
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center', 
+        backgroundColor: '#0B0B1A', 
+        color: '#FFFFFF', 
+        minHeight: '50vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <p style={{ fontSize: '1.1rem', margin: 0 }}>Loading settings...</p>
+      </div>
+    );
   }
   
   return (
-    <div>
+    <div style={{ 
+      backgroundColor: '#0B0B1A', 
+      minHeight: '100vh', 
+      color: '#FFFFFF' 
+    }}>
       {role === 'owner' && (
         <OwnerSettings
           plan={plan}
@@ -141,7 +158,22 @@ const Settings = () => {
       )}
       {role === 'customer' && <CustomerSettings />}
       {role && role !== 'customer' && role !== 'owner' && role !== 'event-organizer' && (
-        <p>Role not found. Please contact support. Current role: "{role}"</p>
+        <div style={{ 
+          padding: '40px', 
+          textAlign: 'center', 
+          backgroundColor: '#1A1036', 
+          margin: '20px', 
+          borderRadius: '8px', 
+          border: '1px solid #EF4444' 
+        }}>
+          <p style={{ 
+            color: '#EF4444', 
+            fontSize: '1.1rem', 
+            margin: 0 
+          }}>
+            Role not found. Please contact support. Current role: "{role}"
+          </p>
+        </div>
       )}
     </div>
   );
