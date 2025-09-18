@@ -204,8 +204,10 @@ const OrderManagementScreen = () => {
         });
 
         // Check for new orders and vibrate/alert
+        // Only alert for orders that have been fully paid for
         const newOrders = ordersData.filter(order => 
           order.status === 'pending' && 
+          order.paymentStatus === 'paid' && // Only paid orders
           !orders.find(existingOrder => existingOrder.id === order.id)
         );
 

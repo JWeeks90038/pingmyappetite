@@ -24,7 +24,7 @@ export const useGuestAuth = () => {
   const handleLogin = () => {
     setShowAuthPrompt(false);
     // Navigate to login tab in guest mode
-    navigation.navigate('Login');
+    navigation.navigate('GuestLogin');
   };
 
   const hideAuthPrompt = () => {

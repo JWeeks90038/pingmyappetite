@@ -31,7 +31,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, userData, userRole, userPlan } = useAuth();
+  const { user, userData, userRole } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
   const theme = useTheme();
   const styles = createThemedStyles(theme);
@@ -1010,16 +1010,6 @@ export default function ProfileScreen({ navigation }) {
         </Text>
         <Text style={styles.email}>{user?.email}</Text>
         <Text style={styles.role}>{getRoleDisplayName(userRole)}</Text>
-        {userPlan && (
-          <Text style={styles.planBadge}>
-            {userPlan === 'all-access' ? 'All-Access Plan' : 
-             userPlan === 'pro' ? 'Pro Plan' :
-             userPlan === 'event-premium' ? 'Event Premium Plan' :
-             userPlan === 'event-basic' ? 'Event Starter Plan' :
-             userPlan === 'basic' && userRole === 'event-organizer' ? 'Event Starter Plan (Free)' :
-             'Starter Plan'}
-          </Text>
-        )}
       </View>
 
       {/* Account Information */}
@@ -1217,21 +1207,7 @@ export default function ProfileScreen({ navigation }) {
       )}
 
       {/* Subscription Information (Owner Only) */}
-      {userRole === 'owner' && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Current Plan</Text>
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.fieldLabel, styles.centeredText]}>Plan Type</Text>
-            <Text style={[styles.fieldValue, styles.centeredText]}>
-              {userPlan === 'all-access' ? 'All-Access (Paid)' : 
-               userPlan === 'pro' ? 'Pro (Paid)' : 'Starter (Free)'}
-            </Text>
-          </View>
-          <Text style={styles.sectionNote}>
-            To manage your subscription, please visit grubana.com/dashboard
-          </Text>
-        </View>
-      )}
+      {/* Plan section removed - focusing on food orders only */}
 
       {/* Event Organizer Logo Section (Event Organizer Only) */}
       {userRole === 'event-organizer' && (
@@ -1750,18 +1726,6 @@ const createThemedStyles = (theme) => StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     marginBottom: 10,
-  },
-  planBadge: {
-    fontSize: 14,
-    color: theme.colors.background.primary,
-    textAlign: 'center',
-    backgroundColor: theme.colors.accent.pink,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 15,
-    alignSelf: 'center',
-    fontWeight: 'bold',
-    ...theme.shadows.neonPink,
   },
   fieldContainer: {
     marginBottom: 15,

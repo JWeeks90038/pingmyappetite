@@ -45,7 +45,9 @@ const linking = {
     screens: {
       MainTabs: {
         screens: {
-          Profile: 'profile',
+          CustomerProfile: 'profile',
+          OwnerProfile: 'profile',
+          EventOrganizerProfile: 'profile',
         },
       },
       TruckOnboarding: {
@@ -122,13 +124,13 @@ function GuestTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Browse') {
+          if (route.name === 'GuestBrowse') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Map') {
+          } else if (route.name === 'GuestMap') {
             iconName = focused ? 'map' : 'map-outline';
-          } else if (route.name === 'Events') {
+          } else if (route.name === 'GuestEvents') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Login') {
+          } else if (route.name === 'GuestLogin') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -149,22 +151,22 @@ function GuestTabs() {
       })}
     >
       <Tab.Screen 
-        name="Browse" 
+        name="GuestBrowse" 
         component={HomeScreen}
         options={{ title: 'Browse' }}
       />
       <Tab.Screen 
-        name="Map" 
+        name="GuestMap" 
         component={MapScreen}
         options={{ title: 'Map' }}
       />
       <Tab.Screen 
-        name="Events" 
+        name="GuestEvents" 
         component={EventsScreen}
         options={{ title: 'Events' }}
       />
       <Tab.Screen 
-        name="Login" 
+        name="GuestLogin" 
         component={AuthStack}
         options={{ title: 'Sign In' }}
       />
@@ -190,17 +192,17 @@ function CustomerTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Home') {
+          if (route.name === 'CustomerHome') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Map') {
+          } else if (route.name === 'CustomerMap') {
             iconName = focused ? 'map' : 'map-outline';
-          } else if (route.name === 'Orders') {
+          } else if (route.name === 'CustomerOrders') {
             iconName = focused ? 'receipt' : 'receipt-outline';
-          } else if (route.name === 'Events') {
+          } else if (route.name === 'CustomerEvents') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Ping') {
+          } else if (route.name === 'CustomerPing') {
             iconName = focused ? 'radio' : 'radio-outline';
-          } else if (route.name === 'Profile') {
+          } else if (route.name === 'CustomerProfile') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -221,32 +223,32 @@ function CustomerTabs() {
       })}
     >
       <Tab.Screen 
-        name="Home" 
+        name="CustomerHome" 
         component={HomeScreen}
         options={{ title: 'Home' }}
       />
       <Tab.Screen 
-        name="Map" 
+        name="CustomerMap" 
         component={MapScreen}
         options={{ title: 'Map' }}
       />
       <Tab.Screen 
-        name="Orders" 
+        name="CustomerOrders" 
         component={CustomerOrdersScreen}
         options={{ title: 'Orders' }}
       />
       <Tab.Screen 
-        name="Events" 
+        name="CustomerEvents" 
         component={EventsScreen}
         options={{ title: 'Events' }}
       />
       <Tab.Screen 
-        name="Ping" 
+        name="CustomerPing" 
         component={PingScreen}
         options={{ title: 'Send Ping' }}
       />
       <Tab.Screen 
-        name="Profile" 
+        name="CustomerProfile" 
         component={ProfileScreen}
         options={{ title: 'Profile' }}
       />
@@ -262,15 +264,15 @@ function EventOrganizerTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Home') {
+          if (route.name === 'EventOrganizerHome') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Map') {
+          } else if (route.name === 'EventOrganizerMap') {
             iconName = focused ? 'map' : 'map-outline';
-          } else if (route.name === 'Events') {
+          } else if (route.name === 'EventOrganizerEvents') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Analytics') {
+          } else if (route.name === 'EventOrganizerAnalytics') {
             iconName = focused ? 'analytics' : 'analytics-outline';
-          } else if (route.name === 'Profile') {
+          } else if (route.name === 'EventOrganizerProfile') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -282,27 +284,27 @@ function EventOrganizerTabs() {
       })}
     >
       <Tab.Screen 
-        name="Home" 
+        name="EventOrganizerHome" 
         component={HomeScreen}
         options={{ title: 'Home' }}
       />
       <Tab.Screen 
-        name="Map" 
+        name="EventOrganizerMap" 
         component={MapScreen}
         options={{ title: 'Map' }}
       />
       <Tab.Screen 
-        name="Events" 
+        name="EventOrganizerEvents" 
         component={EventsScreen}
         options={{ title: 'My Events' }}
       />
       <Tab.Screen 
-        name="Analytics" 
+        name="EventOrganizerAnalytics" 
         component={AnalyticsScreen}
         options={{ title: 'Analytics' }}
       />
       <Tab.Screen 
-        name="Profile" 
+        name="EventOrganizerProfile" 
         component={ProfileScreen}
         options={{ title: 'Profile' }}
       />
@@ -328,17 +330,17 @@ function OwnerTabs() {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Home') {
+          if (route.name === 'OwnerHome') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Orders') {
+          } else if (route.name === 'OwnerOrders') {
             iconName = focused ? 'restaurant' : 'restaurant-outline';
-          } else if (route.name === 'Map') {
+          } else if (route.name === 'OwnerMap') {
             iconName = focused ? 'map' : 'map-outline';
-          } else if (route.name === 'Events') {
+          } else if (route.name === 'OwnerEvents') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Analytics') {
+          } else if (route.name === 'OwnerAnalytics') {
             iconName = focused ? 'analytics' : 'analytics-outline';
-          } else if (route.name === 'Profile') {
+          } else if (route.name === 'OwnerProfile') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -359,32 +361,32 @@ function OwnerTabs() {
       })}
     >
       <Tab.Screen 
-        name="Home" 
+        name="OwnerHome" 
         component={HomeScreen}
         options={{ title: 'Home' }}
       />
       <Tab.Screen 
-        name="Orders" 
+        name="OwnerOrders" 
         component={OrderManagementScreen}
         options={{ title: 'Orders' }}
       />
       <Tab.Screen 
-        name="Map" 
+        name="OwnerMap" 
         component={MapScreen}
         options={{ title: 'Map' }}
       />
       <Tab.Screen 
-        name="Events" 
+        name="OwnerEvents" 
         component={EventsScreen}
         options={{ title: 'Events' }}
       />
       <Tab.Screen 
-        name="Analytics" 
+        name="OwnerAnalytics" 
         component={AnalyticsScreen}
         options={{ title: 'Analytics' }}
       />
       <Tab.Screen 
-        name="Profile" 
+        name="OwnerProfile" 
         component={ProfileScreen}
         options={{ title: 'Profile' }}
       />

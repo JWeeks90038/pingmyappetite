@@ -175,7 +175,7 @@ const HomeScreen = () => {
                 {!user && (
                   <TouchableOpacity 
                     style={styles.secondaryButton}
-                    onPress={() => navigation.navigate('Login')}
+                    onPress={() => navigation.navigate('GuestLogin')}
                   >
                     <Text style={styles.secondaryButtonText}>Sign In for More Features</Text>
                     <Text style={styles.buttonSubtext}>Ping vendors, save favorites & order food</Text>

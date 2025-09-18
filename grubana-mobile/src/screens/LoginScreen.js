@@ -21,7 +21,25 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const theme = useTheme();
+  
+  // Safely get theme with fallback
+  let theme;
+  try {
+    theme = useTheme();
+  } catch (error) {
+    console.warn('Theme context not available, using fallback theme');
+    theme = null;
+  }
+
+  // Defensive check for theme to prevent crashes
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      background: { primary: '#0B0B1A', secondary: '#1A1036' },
+      accent: { pink: '#FF4EC9', blue: '#4DBFFF' },
+      text: { primary: '#FFFFFF', secondary: '#B0B3C2' },
+      border: '#2A2A3A'
+    }
+  };
 
   // Toast notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -35,7 +53,7 @@ const LoginScreen = ({ navigation }) => {
   const [modalMessage, setModalMessage] = useState('');
   const [modalButtons, setModalButtons] = useState([]);
 
-  const styles = createThemedStyles(theme);
+  const styles = createThemedStyles(safeTheme);
 
   // Toast functions
   const showToast = (message, type = 'error') => {

@@ -8,7 +8,8 @@ import { getMessaging, getToken } from 'firebase/messaging';
 // Configure how notifications are handled when received
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),

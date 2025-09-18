@@ -10,12 +10,19 @@ import {
   ActivityIndicator,
   Animated,
   Modal,
+  Linking,
+  AppState,
+  ActionSheetIOS,
+  Platform,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../components/AuthContext';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
 import { colors } from '../theme/colors';
 import { API_ENDPOINTS } from '../utils/apiConfig';
 
@@ -36,6 +43,11 @@ export default function TruckOnboardingScreen({ navigation }) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
   const [newItemIds, setNewItemIds] = useState(new Set());
+
+  // Stripe Connect state
+  const [stripeConnectStatus, setStripeConnectStatus] = useState(null);
+  const [isSettingUpPayments, setIsSettingUpPayments] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Toast notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -80,6 +92,105 @@ export default function TruckOnboardingScreen({ navigation }) {
     setModalVisible(true);
   };
 
+  // Stripe Connect Functions
+  const checkStripeConnectStatus = async () => {
+    try {
+      setIsCheckingStatus(true);
+      const getStripeConnectStatus = httpsCallable(functions, 'getStripeConnectStatus');
+      const result = await getStripeConnectStatus();
+      
+      if (result.data.success) {
+        const newStatus = result.data.status;
+        
+        // Show success message if status changed to completed
+        if (newStatus === 'completed' && stripeConnectStatus !== 'completed') {
+          showToast('Payment setup completed successfully! You can now accept pre-orders.', 'success');
+        }
+        
+        setStripeConnectStatus(newStatus);
+        return newStatus;
+      }
+    } catch (error) {
+
+    } finally {
+      setIsCheckingStatus(false);
+    }
+    return null;
+  };
+
+  const handleStripeConnectOnboarding = async () => {
+    if (!user?.uid || !userData?.truckName) {
+      showToast('Please complete your truck profile first', 'error');
+      return;
+    }
+
+    setIsSettingUpPayments(true);
+
+    try {
+      // Call Firebase Function to create Stripe Connect onboarding link
+      const createOnboardingLink = httpsCallable(functions, 'createStripeConnectOnboardingLink');
+      
+      const result = await createOnboardingLink({
+        userId: user.uid,
+        email: user.email,
+        businessName: userData.truckName,
+        businessType: 'company',
+        returnUrl: 'https://grubana.com/stripe-return',
+        refreshUrl: 'https://grubana.com/stripe-refresh',
+      });
+
+      if (result.data?.onboardingUrl) {
+        // Open the Stripe onboarding URL
+        const supported = await Linking.canOpenURL(result.data.onboardingUrl);
+        if (supported) {
+          await Linking.openURL(result.data.onboardingUrl);
+          showToast('Complete your Stripe setup in the browser, then return to the app', 'success');
+        } else {
+          showToast('Unable to open Stripe onboarding. Please try again.', 'error');
+        }
+      } else {
+        showToast('Failed to create onboarding link. Please try again.', 'error');
+      }
+    } catch (error) {
+
+      showToast('Error setting up payments. Please try again.', 'error');
+    } finally {
+      setIsSettingUpPayments(false);
+    }
+  };
+
+  // Category selection function
+  const handleCategorySelect = () => {
+    const categories = [
+      { label: 'None (Remove Category)', value: '' },
+      { label: 'Appetizers', value: 'appetizers' },
+      { label: 'Main Dishes', value: 'mains' },
+      { label: 'Sides', value: 'sides' },
+      { label: 'Desserts', value: 'desserts' },
+      { label: 'Drinks', value: 'drinks' },
+      { label: 'Daily Specials', value: 'specials' },
+    ];
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', ...categories.map(cat => cat.label)],
+          cancelButtonIndex: 0,
+          title: 'Select Category',
+        },
+        (buttonIndex) => {
+          if (buttonIndex > 0) {
+            const selectedCategory = categories[buttonIndex - 1];
+            setNewMenuItem(prev => ({ ...prev, category: selectedCategory.value }));
+          }
+        }
+      );
+    } else {
+      // For Android, show an Alert with options
+   
+    }
+  };
+
   // Client-side new items tracking
   const getNewItemIds = async () => {
     try {
@@ -95,7 +206,7 @@ export default function TruckOnboardingScreen({ navigation }) {
       await AsyncStorage.setItem(`newItemIds_${user?.uid}`, JSON.stringify([...ids]));
       setNewItemIds(ids);
     } catch (error) {
-      console.error('Error saving new item IDs:', error);
+
     }
   };
 
@@ -113,7 +224,24 @@ export default function TruckOnboardingScreen({ navigation }) {
     if (user) {
       loadMenuItems();
       getNewItemIds().then(setNewItemIds);
+      checkStripeConnectStatus();
     }
+  }, [user]);
+
+  // Check Stripe Connect status periodically when app regains focus
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'active' && user) {
+        // User returned to the app, check Stripe status
+        checkStripeConnectStatus();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
   }, [user]);
 
   const loadMenuItems = async () => {
@@ -128,10 +256,10 @@ export default function TruckOnboardingScreen({ navigation }) {
         const data = await response.json();
         setMenuItems(data.items || []);
       } else {
-        console.error('Failed to load menu items');
+
       }
     } catch (error) {
-      console.error('Error loading menu items:', error);
+
     }
   };
 
@@ -150,7 +278,7 @@ export default function TruckOnboardingScreen({ navigation }) {
       
       return downloadURL;
     } catch (error) {
-      console.error('Error uploading image:', error);
+   
       showToast('Failed to upload image. Please try again.');
       return null;
     } finally {
@@ -182,7 +310,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         setNewMenuItem(prev => ({ ...prev, image: asset.uri }));
       }
     } catch (error) {
-      console.error('Error selecting image:', error);
+ 
       showToast('Failed to select image. Please try again.');
     }
   };
@@ -247,7 +375,7 @@ export default function TruckOnboardingScreen({ navigation }) {
         showToast('Failed to add menu item. Please try again.');
       }
     } catch (error) {
-      console.error('Error adding menu item:', error);
+    
       showToast('Failed to add menu item. Please try again.');
     } finally {
       setLoading(false);
@@ -279,7 +407,7 @@ export default function TruckOnboardingScreen({ navigation }) {
                 showToast('Failed to delete menu item. Please try again.');
               }
             } catch (error) {
-              console.error('Error deleting menu item:', error);
+ 
               showToast('Failed to delete menu item. Please try again.');
             }
           }
@@ -289,22 +417,89 @@ export default function TruckOnboardingScreen({ navigation }) {
   };
 
   const renderPaymentInfo = () => {
+    const getStatusDisplay = () => {
+      switch (stripeConnectStatus) {
+        case 'completed':
+          return {
+            icon: '✅',
+            title: 'Payment Setup Complete',
+            text: 'Your payment processing is active and ready to accept pre-orders! You\'ll receive 95% of each order (we take only 5% commission).',
+            buttonText: isCheckingStatus ? 'Checking...' : 'Refresh Status',
+            buttonAction: checkStripeConnectStatus,
+            buttonStyle: styles.secondaryButton,
+            showSecondButton: false
+          };
+        case 'pending':
+          return {
+            icon: '⏳',
+            title: 'Payment Setup In Progress',
+            text: 'Your Stripe account is being reviewed. This usually takes a few minutes but can take up to 24 hours.',
+            buttonText: isCheckingStatus ? 'Checking...' : 'Check Status',
+            buttonAction: checkStripeConnectStatus,
+            buttonStyle: styles.secondaryButton,
+            showSecondButton: true,
+            secondButtonText: 'Complete Setup',
+            secondButtonAction: handleStripeConnectOnboarding
+          };
+        case 'restricted':
+          return {
+            icon: '⚠️',
+            title: 'Payment Setup Needs Attention',
+            text: 'Your Stripe account needs additional information. Please complete the setup to start accepting payments.',
+            buttonText: isSettingUpPayments ? 'Opening Stripe...' : 'Complete Setup',
+            buttonAction: handleStripeConnectOnboarding,
+            buttonStyle: styles.warningButton,
+            showSecondButton: true,
+            secondButtonText: isCheckingStatus ? 'Checking...' : 'Check Status',
+            secondButtonAction: checkStripeConnectStatus
+          };
+        default:
+          return {
+            icon: '',
+            title: 'Stripe Payment Setup Required',
+            text: 'Connect your Stripe account to start accepting pre-orders from customers. Quick setup with Stripe Connect. Grubana takes only 5% commission on each food order.',
+            buttonText: isSettingUpPayments ? 'Opening Stripe...' : 'Setup Payments',
+            buttonAction: handleStripeConnectOnboarding,
+            buttonStyle: styles.primaryButton,
+            showSecondButton: stripeConnectStatus !== null,
+            secondButtonText: isCheckingStatus ? 'Checking...' : 'Check Status',
+            secondButtonAction: checkStripeConnectStatus
+          };
+      }
+    };
+
+    const statusInfo = getStatusDisplay();
+
     return (
       <View style={styles.paymentInfoCard}>
-        <Text style={styles.cardTitle}>💳 Payment Setup</Text>
+        <View style={styles.paymentHeader}>
+          <Text style={styles.paymentIcon}>{statusInfo.icon}</Text>
+          <Text style={styles.cardTitle}>{statusInfo.title}</Text>
+        </View>
         <Text style={styles.paymentInfoText}>
-          To accept payments and enable online ordering, please complete your payment setup on our web platform.
+          {statusInfo.text}
         </Text>
         <TouchableOpacity
-          style={[styles.button, styles.primaryButton]}
-          onPress={() => {
-            showToast('Please visit grubana.com/dashboard to complete payment setup', 'success');
-          }}
+          style={[styles.button, statusInfo.buttonStyle]}
+          onPress={statusInfo.buttonAction}
+          disabled={isSettingUpPayments || isCheckingStatus}
         >
           <Text style={styles.buttonText}>
-            🌐 Setup Payments on Web Platform
+            {statusInfo.buttonText}
           </Text>
         </TouchableOpacity>
+        
+        {statusInfo.showSecondButton && (
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton, { marginTop: 10 }]}
+            onPress={statusInfo.secondButtonAction}
+            disabled={isSettingUpPayments || isCheckingStatus}
+          >
+            <Text style={styles.buttonText}>
+              {statusInfo.secondButtonText}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -385,26 +580,35 @@ export default function TruckOnboardingScreen({ navigation }) {
             )}
           </View>
 
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={newMenuItem.category}
-              onValueChange={(value) => setNewMenuItem(prev => ({ ...prev, category: value }))}
-              style={styles.picker}
-              itemStyle={styles.pickerItem}
-            >
-              <Picker.Item label="Select Category (optional)" value="" />
-              <Picker.Item label="Appetizers" value="appetizers" />
-              <Picker.Item label="Main Dishes" value="mains" />
-              <Picker.Item label="Sides" value="sides" />
-              <Picker.Item label="Desserts" value="desserts" />
-              <Picker.Item label="Drinks" value="drinks" />
-              <Picker.Item label="Daily Specials" value="specials" />
-            </Picker>
-          </View>
+          {/* Category Picker with spacing */}
+          <TouchableOpacity 
+            style={[styles.pickerContainer, { marginTop: 40, marginBottom: 40 }]}
+            onPress={handleCategorySelect}
+          >
+            <View style={styles.pickerContent}>
+              <Text style={[styles.pickerText, !newMenuItem.category && styles.placeholderText]}>
+                {newMenuItem.category ? 
+                  (() => {
+                    const categoryLabels = {
+                      'appetizers': 'Appetizers',
+                      'mains': 'Main Dishes',
+                      'sides': 'Sides',
+                      'desserts': 'Desserts', 
+                      'drinks': 'Drinks',
+                      'specials': 'Daily Specials'
+                    };
+                    return categoryLabels[newMenuItem.category];
+                  })()
+                  : 'Select Category'
+                }
+              </Text>
+              <Text style={styles.pickerArrow}>▼</Text>
+            </View>
+          </TouchableOpacity>
 
-          {/* New Item Checkbox */}
+          {/* New Item Checkbox with spacing */}
           <TouchableOpacity
-            style={styles.newItemCheckbox}
+            style={[styles.newItemCheckbox, { marginTop: 10, marginBottom: 20 }]}
             onPress={() => {
               const newValue = !newMenuItem.isNewItem;
               setNewMenuItem(prev => ({ ...prev, isNewItem: newValue }));
@@ -416,10 +620,12 @@ export default function TruckOnboardingScreen({ navigation }) {
             <Text style={styles.checkboxLabel}>Mark as New Item</Text>
           </TouchableOpacity>
 
+          {/* Add Item Button with extra spacing */}
           <TouchableOpacity
             style={[
               styles.button,
               styles.primaryButton,
+              { marginTop: 15, marginBottom: 10 },
               (!newMenuItem.name || !newMenuItem.price || loading || uploadingImage) && styles.disabledButton
             ]}
             onPress={addMenuItem}
@@ -760,10 +966,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 15,
     backgroundColor: colors.background.primary,
-  },
-  picker: {
     height: 50,
-    width: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  pickerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerText: {
+    fontSize: 16,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  selectedCategoryText: {
+    color: colors.accent.blue,
+    fontWeight: '600',
+  },
+  placeholderText: {
+    color: colors.text.secondary,
+  },
+  pickerArrow: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginLeft: 10,
   },
   pickerItem: {
     fontSize: 16,
@@ -804,9 +1031,24 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colors.accent.pink,
   },
+  secondaryButton: {
+    backgroundColor: colors.accent.blue,
+  },
+  warningButton: {
+    backgroundColor: colors.accent.yellow,
+  },
   disabledButton: {
     backgroundColor: colors.text.secondary,
     opacity: 0.6,
+  },
+  paymentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  paymentIcon: {
+    fontSize: 20,
+    marginRight: 10,
   },
   buttonText: {
     color: colors.text.primary,

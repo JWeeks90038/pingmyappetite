@@ -29,9 +29,17 @@ export const onOrderStatusChanged = onDocumentUpdated({
     }
     
     // Skip notifications for certain status transitions
-    const skipNotificationForStatuses = ['pending']; // Don't notify when order is first created
+    // Don't notify for pending_payment status (order just created, payment not completed)
+    const skipNotificationForStatuses = ['pending_payment'];
     if (skipNotificationForStatuses.includes(newStatus)) {
       logger.info(`Skipping notification for status: ${newStatus}`);
+      return;
+    }
+    
+    // Special handling for pending status - only notify if it's a transition from pending_payment
+    // This means payment was successful and truck owner should be notified
+    if (newStatus === 'pending' && previousStatus !== 'pending_payment') {
+      logger.info(`Skipping notification for pending status - not from payment completion`);
       return;
     }
     
@@ -56,6 +64,7 @@ export const onOrderStatusChanged = onDocumentUpdated({
  */
 /**
  * Send notifications to truck owners when new orders are placed
+ * Only notifies for orders that have been paid for
  */
 export const onOrderCreated = onDocumentCreated({
   document: 'orders/{orderId}',
@@ -65,14 +74,26 @@ export const onOrderCreated = onDocumentCreated({
     const orderId = event.params.orderId;
     const orderData = event.data?.data();
     
+
+    
     if (!orderData) {
       logger.warn(`No order data found for order ${orderId}`);
       return;
     }
     
-    logger.info(`🚚 New order created: ${orderId} for truck: ${orderData.truckId}`);
+    // Only notify for orders that have been paid for, not pending payment
+    if (orderData.status === 'pending_payment' || 
+        orderData.paymentStatus === 'pending_payment' || 
+        orderData.paymentStatus === 'pending' ||
+        orderData.paymentStatus !== 'paid') {
+      logger.info(`Skipping notification for order ${orderId} - payment not yet completed. Status: ${orderData.status}, Payment: ${orderData.paymentStatus}`);
+
+      return;
+    }
+ 
+    logger.info(`🚚 New paid order created: ${orderId} for truck: ${orderData.truckId}`);
     
-    // Notify truck owner about new order
+    // Notify truck owner about new paid order
     const result = await sendOrderStatusNotification(orderId, 'new_order');
     
     if (result.success) {

@@ -1,6 +1,9 @@
 // Export Stripe payment functions
 export * from "./stripePayments.js";
 
+// Export Stripe Connect functions
+export * from "./stripeConnect.js";
+
 // Export webhook handler
 export * from "./stripeWebhook.js";
 

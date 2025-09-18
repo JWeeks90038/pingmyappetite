@@ -35,13 +35,13 @@ export default function SignupSelectionScreen({ navigation }) {
             <Text style={styles.optionTitle}>Foodie Fan</Text>
           </View>
           <Text style={styles.optionDescription}>
-            Discover food trucks near you, send food requests, and track your favorites
+            Discover mobile food vendors near you, pre-order to skip the line, and track your favorites
           </Text>
           <View style={styles.optionFeatures}>
-            <Text style={styles.featureText}>• Find nearby food trucks</Text>
+            <Text style={styles.featureText}>• Find nearby mobile food vendors</Text>
             <Text style={styles.featureText}>• Send food requests (pings)</Text>
-            <Text style={styles.featureText}>• Save favorite trucks</Text>
-            <Text style={styles.featureText}>• Get real-time updates</Text>
+            <Text style={styles.featureText}>• Save favorite vendors</Text>
+            <Text style={styles.featureText}>• Place pre-orders to save time</Text>
           </View>
           <View style={styles.optionButton}>
             <Text style={styles.optionButtonText}>Sign Up as Foodie Fan</Text>
@@ -65,7 +65,7 @@ export default function SignupSelectionScreen({ navigation }) {
             <Text style={styles.featureText}>• Real-time location tracking</Text>
             <Text style={styles.featureText}>• Customer demand analytics</Text>
             <Text style={styles.featureText}>• Menu management</Text>
-            <Text style={styles.featureText}>• Direct customer communication</Text>
+            <Text style={styles.featureText}>• Receive pre-orders to save lines</Text>
           </View>
           <View style={styles.optionButton}>
             <Text style={styles.optionButtonText}>Sign Up as Mobile Kitchen</Text>

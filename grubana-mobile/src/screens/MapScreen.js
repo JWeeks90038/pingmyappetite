@@ -2019,6 +2019,8 @@ export default function MapScreen() {
   };
 
   const placeOrder = async () => {
+
+    
     if (cart.length === 0) {
       showToastMessage('Please add items to your cart before placing an order.', 'error');
       return;
@@ -2032,7 +2034,7 @@ export default function MapScreen() {
 
 
     if (!selectedTruck?.stripeConnectAccountId) {
-   
+
       
       showCustomModal(
         'Payment Setup In Progress', 
@@ -2056,7 +2058,7 @@ export default function MapScreen() {
     }
 
     try {
-   
+
       
       // Calculate payment amounts
       const subtotal = parseFloat(getTotalPrice());
@@ -2064,11 +2066,16 @@ export default function MapScreen() {
       const finalTotal = parseFloat(getFinalTotal());
       
       // Calculate platform fees (hidden from customer but still collected)
-      const paymentBreakdown = calculateStripeConnectPayment(cart, userPlan, selectedTruck);
+      const paymentBreakdown = calculateStripeConnectPayment(cart, selectedTruck);
       
+   
       
       if (!paymentBreakdown.isValid) {
-        throw new Error('Invalid payment configuration');
+        if (paymentBreakdown.orderTotal < 5.00) {
+          throw new Error(`Minimum order amount is $5.00. Please add more items to your cart. Current total: $${paymentBreakdown.orderTotal.toFixed(2)}`);
+        } else {
+          throw new Error('Payment setup incomplete. Please ensure the business has completed their payment setup.');
+        }
       }
 
       // Calculate smart estimated preparation time
@@ -2119,13 +2126,13 @@ export default function MapScreen() {
         totalAmount: finalTotal,
         
         // Platform fee details (for business tracking)
-        platformFeePercentage: paymentBreakdown.platformFeePercentage,
-        platformFeeAmount: paymentBreakdown.platformFeeAmount,
-        vendorReceives: finalTotal - paymentBreakdown.platformFeeAmount, // Vendor gets total minus platform fee
+        platformFeePercentage: paymentBreakdown.commissionPercentage,
+        platformFeeAmount: paymentBreakdown.commissionAmount,
+        vendorReceives: finalTotal - paymentBreakdown.commissionAmount, // Vendor gets total minus platform fee
         
         // Status tracking
         status: 'pending_payment',
-        paymentStatus: 'pending',
+        paymentStatus: 'pending_payment', // Changed from 'pending' to be more explicit
         deliveryMethod: 'pickup',
         
         // Smart estimated time
@@ -2167,8 +2174,8 @@ export default function MapScreen() {
         orderTotal: finalTotal,
         orderTotalCents: Math.round(finalTotal * 100),
         // Platform fee stays the same percentage but is now calculated on the total with tax
-        platformFeeAmount: finalTotal * paymentBreakdown.platformFeePercentage,
-        vendorReceives: finalTotal - (finalTotal * paymentBreakdown.platformFeePercentage)
+        platformFeeAmount: finalTotal * paymentBreakdown.commissionPercentage,
+        vendorReceives: finalTotal - (finalTotal * paymentBreakdown.commissionPercentage)
       };
       
       const paymentIntentData = preparePaymentIntentData(customPaymentBreakdown, {
@@ -2190,6 +2197,8 @@ export default function MapScreen() {
       });
 
 
+
+
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -2208,6 +2217,7 @@ export default function MapScreen() {
       }
       
       const { client_secret, payment_intent_id } = responseData;
+
       
       if (!client_secret) {
         throw new Error('Failed to create payment intent');
@@ -2216,6 +2226,7 @@ export default function MapScreen() {
 
 
       // Initialize Stripe payment sheet
+  
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: 'Ping My Appetite',
         paymentIntentClientSecret: client_secret,
@@ -2228,12 +2239,13 @@ export default function MapScreen() {
       });
 
       if (initError) {
+  
         throw new Error('Failed to initialize payment: ' + initError.message);
       }
 
+
       // Present payment sheet
 
-      const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
         if (paymentError.code === 'Canceled') {
@@ -2279,6 +2291,7 @@ export default function MapScreen() {
       );
 
     } catch (error) {
+
       showCustomModal(
         'Payment Error', 
         error.message || 'Failed to process payment. Please try again.',
@@ -4960,7 +4973,7 @@ export default function MapScreen() {
                     // Ensure L.heatLayer is available
                     if (typeof L.heatLayer === 'undefined') {
                   
-                        alert('Heatmap library not loaded! Check console.');
+                
                         return;
                     }
                     
@@ -4999,7 +5012,7 @@ export default function MapScreen() {
        
                 
                 if (!showHeatmapFeatures) {
-                    alert('Heatmap features are available for kitchen owners and event organizers only!');
+         
                     return;
                 }
                 

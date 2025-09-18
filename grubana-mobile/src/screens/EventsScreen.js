@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Animated
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
 import NotificationService from '../services/notificationService';
 import { 
@@ -41,8 +42,28 @@ const { width } = Dimensions.get('window');
 
 const EventsScreen = () => {
   const { user, userData, userRole, userPlan } = useAuth();
-  const theme = useTheme();
-  const styles = createThemedStyles(theme);
+  const navigation = useNavigation();
+  
+  // Safely get theme with fallback
+  let theme;
+  try {
+    theme = useTheme();
+  } catch (error) {
+    console.warn('EventsScreen: Theme context not available, using fallback theme');
+    theme = null;
+  }
+
+  // Defensive check for theme to prevent crashes
+  const safeTheme = theme?.colors ? theme : {
+    colors: {
+      background: { primary: '#0B0B1A', secondary: '#1A1036' },
+      accent: { pink: '#FF4EC9', blue: '#4DBFFF' },
+      text: { primary: '#FFFFFF', secondary: '#B0B3C2' },
+      border: '#2A2A3A'
+    }
+  };
+  
+  const styles = createThemedStyles(safeTheme);
   const [events, setEvents] = useState([]);
   const [myEvents, setMyEvents] = useState([]);
   const [attendedEvents, setAttendedEvents] = useState([]);
@@ -3042,7 +3063,10 @@ const EventsScreen = () => {
           </Text>
           <TouchableOpacity 
             style={styles.guestSignInButton}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => {
+
+              navigation.navigate('GuestLogin');
+            }}
           >
             <Text style={styles.guestSignInButtonText}>Sign In / Sign Up</Text>
           </TouchableOpacity>

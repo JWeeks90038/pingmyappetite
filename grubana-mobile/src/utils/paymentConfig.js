@@ -1,28 +1,21 @@
 /**
  * MOBILE PAYMENT CONFIGURATION
- * Configuration for Stripe Connect payments with subscription-based fees
+ * Configuration for Stripe Connect payments for food pre-orders
+ * Grubana commission structure for physical food orders only
  */
 
-// Subscription Plan Fee Structure
-export const SUBSCRIPTION_PLANS = {
-  basic: {
-    id: 'basic',
-    name: 'Basic',
-    platformFeePercentage: 0.05, // 5% platform fee
-    description: '5% platform fee per order'
-  },
-  pro: {
-    id: 'pro', 
-    name: 'Pro',
-    platformFeePercentage: 0.025, // 2.5% platform fee
-    description: '2.5% platform fee per order'
-  },
-  'all-access': {
-    id: 'all-access',
-    name: 'All-Access',
-    platformFeePercentage: 0.0, // 0% platform fee
-    description: '0% platform fee per order'
-  }
+// Grubana Commission Structure for Food Pre-Orders
+export const COMMISSION_CONFIG = {
+  // Standard commission rate for all food truck vendors
+  commissionPercentage: 0.05, // 5% commission on food pre-orders
+  description: '5% commission on food pre-orders',
+  
+  // Minimum order amount to process
+  minimumOrderAmount: 5.00, // $5.00 minimum
+  
+  // Payment processing details
+  currency: 'usd',
+  paymentMethod: 'stripe_connect'
 };
 
 // Convert dollars to cents for Stripe
@@ -32,76 +25,71 @@ export const toCents = (dollars) => Math.round(dollars * 100);
 export const toDollars = (cents) => (cents / 100).toFixed(2);
 
 /**
- * Calculate platform fee for an order based on user's subscription plan
+ * Calculate Grubana commission for a food pre-order
  * @param {number} orderTotal - Total order amount in dollars
- * @param {string} userPlan - User's subscription plan (basic, pro, all-access)
- * @returns {Object} Fee breakdown
+ * @returns {Object} Commission breakdown
  */
-export function calculatePlatformFee(orderTotal, userPlan = 'basic') {
-  const plan = SUBSCRIPTION_PLANS[userPlan] || SUBSCRIPTION_PLANS.basic;
-  const platformFeeAmount = orderTotal * plan.platformFeePercentage;
+export function calculateGrubanaCommission(orderTotal) {
+  const commissionAmount = orderTotal * COMMISSION_CONFIG.commissionPercentage;
   
   return {
     orderTotal,
-    platformFeePercentage: plan.platformFeePercentage,
-    platformFeeAmount,
-    vendorReceives: orderTotal - platformFeeAmount,
-    planName: plan.name,
-    description: plan.description
+    commissionPercentage: COMMISSION_CONFIG.commissionPercentage,
+    commissionAmount,
+    vendorReceives: orderTotal - commissionAmount,
+    description: COMMISSION_CONFIG.description
   };
 }
 
 /**
- * Calculate fees for Stripe Connect payment
+ * Calculate fees for Stripe Connect food pre-order payment
  * @param {Array} cartItems - Array of cart items with price and quantity
- * @param {string} userPlan - Customer's subscription plan
  * @param {Object} truckOwner - Food truck owner data with stripeConnectAccountId
  * @returns {Object} Complete payment breakdown
  */
-export function calculateStripeConnectPayment(cartItems, userPlan = 'basic', truckOwner) {
+export function calculateStripeConnectPayment(cartItems, truckOwner) {
   // Calculate order total
   const orderTotal = cartItems.reduce((total, item) => 
     total + (item.price * item.quantity), 0
   );
   
-  // Calculate platform fees based on subscription plan
-  const feeBreakdown = calculatePlatformFee(orderTotal, userPlan);
+  // Calculate Grubana commission
+  const commissionBreakdown = calculateGrubanaCommission(orderTotal);
   
   // Stripe processing fee (2.9% + $0.30)
   const stripeProcessingFee = (orderTotal * 0.029) + 0.30;
   
-  // Application fee (our platform fee) in cents for Stripe
-  const applicationFeeAmount = toCents(feeBreakdown.platformFeeAmount);
+  // Application fee (our commission) in cents for Stripe
+  const applicationFeeAmount = toCents(commissionBreakdown.commissionAmount);
   
   return {
     // Order details
     orderTotal: orderTotal,
     orderTotalCents: toCents(orderTotal),
     
-    // Platform fees
-    platformFeePercentage: feeBreakdown.platformFeePercentage,
-    platformFeeAmount: feeBreakdown.platformFeeAmount,
-    applicationFeeAmount, // What Stripe calls our platform fee
+    // Commission fees
+    commissionPercentage: commissionBreakdown.commissionPercentage,
+    commissionAmount: commissionBreakdown.commissionAmount,
+    applicationFeeAmount, // What Stripe calls our commission
     
     // Vendor payout
-    vendorReceives: feeBreakdown.vendorReceives,
-    vendorReceivesCents: toCents(feeBreakdown.vendorReceives),
+    vendorReceives: commissionBreakdown.vendorReceives,
+    vendorReceivesCents: toCents(commissionBreakdown.vendorReceives),
     
     // Stripe details
     stripeProcessingFee,
     connectedAccountId: truckOwner?.stripeConnectAccountId,
     
-    // Plan info
-    customerPlan: userPlan,
-    planDescription: feeBreakdown.description,
+    // Commission info
+    description: commissionBreakdown.description,
     
     // Validation
-    isValid: !!truckOwner?.stripeConnectAccountId && orderTotal > 0
+    isValid: !!truckOwner?.stripeConnectAccountId && orderTotal >= COMMISSION_CONFIG.minimumOrderAmount
   };
 }
 
 /**
- * Prepare payment intent data for Stripe Connect
+ * Prepare payment intent data for Stripe Connect food pre-orders
  * @param {Object} paymentBreakdown - Result from calculateStripeConnectPayment
  * @param {Object} orderData - Order details
  * @returns {Object} Payment intent creation data
@@ -112,7 +100,7 @@ export function preparePaymentIntentData(paymentBreakdown, orderData) {
   }
   
   return {
-    // Payment amount (total charged to customer)
+    // Payment amount (total charged to customer for food pre-order)
     amount: paymentBreakdown.orderTotalCents,
     currency: 'usd',
     
@@ -128,10 +116,10 @@ export function preparePaymentIntentData(paymentBreakdown, orderData) {
       customerId: orderData.userId || '',
       truckId: orderData.truckId || '',
       truckName: orderData.truckName || '',
-      customerPlan: paymentBreakdown.customerPlan,
-      platformFeePercentage: paymentBreakdown.platformFeePercentage.toString(),
+      orderType: 'food_preorder', // Clear indication this is for physical food
+      commissionPercentage: paymentBreakdown.commissionPercentage.toString(),
       orderTotal: paymentBreakdown.orderTotal.toString(),
-      platformFeeAmount: paymentBreakdown.platformFeeAmount.toString()
+      commissionAmount: paymentBreakdown.commissionAmount.toString()
     },
     
     // Payment flow settings
@@ -142,8 +130,8 @@ export function preparePaymentIntentData(paymentBreakdown, orderData) {
 }
 
 export default {
-  SUBSCRIPTION_PLANS,
-  calculatePlatformFee,
+  COMMISSION_CONFIG,
+  calculateGrubanaCommission,
   calculateStripeConnectPayment,
   preparePaymentIntentData,
   toCents,

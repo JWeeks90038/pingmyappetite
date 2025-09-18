@@ -30,7 +30,6 @@ export default function OwnerSignupScreen({ navigation }) {
     hours: '',
     description: '',
     kitchenType: 'truck',
-    plan: '',
     referralCode: '',
     smsConsent: false,
   });
@@ -89,26 +88,8 @@ export default function OwnerSignupScreen({ navigation }) {
     { label: 'Popup', value: 'popup' },
   ];
 
-  const planOptions = [
-    { 
-      id: 'basic', 
-      name: 'Starter Plan', 
-      price: 'Free',
-      features: ['Personalized icons on discovery map','Real-time GPS tracking', 'Custom menu display', 'Customer pre-order engagement']
-    },
-    { 
-      id: 'pro', 
-      name: 'Pro Plan', 
-      price: '$9/month',
-      features: ['Everything in Starter', 'Heat maps showing customer demand', 'Create Drops providing exclusive deals']
-    },
-    { 
-      id: 'all-access', 
-      name: 'All-Access Plan', 
-      price: '$19/month',
-      features: ['Everything in Pro', 'Advanced analytics', 'Event management']
-    },
-  ];
+  // Plan options removed - now focusing on commission-based food orders
+  // All food truck owners get the same features with 5% commission on pre-orders
 
   // Toast notification function (replaces simple Alert.alert)
   const showToastMessage = (message, type = 'success') => {
@@ -202,10 +183,7 @@ export default function OwnerSignupScreen({ navigation }) {
       showToastMessage('Please enter a valid US phone number (10 digits)', 'error');
       return;
     }
-    if (!formData.plan) {
-      showToastMessage('Please select a plan to continue', 'error');
-      return;
-    }
+    // Plan validation removed - using commission-based model
 
     setLoading(true);
 
@@ -214,11 +192,7 @@ export default function OwnerSignupScreen({ navigation }) {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // Determine subscription status
-      let subscriptionStatus = 'active'; // Default for starter plan
-      if (formData.plan === 'pro' || formData.plan === 'all-access') {
-        subscriptionStatus = 'pending'; // Will be updated after payment
-      }
+      // Subscription status removed - using commission-based model
 
       // Create user document in Firestore
       const userData = {
@@ -234,9 +208,6 @@ export default function OwnerSignupScreen({ navigation }) {
         description: formData.description,
         kitchenType: formData.kitchenType,
         role: 'owner',
-        plan: formData.plan,
-        subscriptionStatus: subscriptionStatus,
-        subscriptionId: null,
         referralCode: formData.referralCode?.toLowerCase() === 'arayaki_hibachi' ? formData.referralCode : null,
         hasValidReferral: formData.referralCode?.toLowerCase() === 'arayaki_hibachi',
         
@@ -271,26 +242,16 @@ export default function OwnerSignupScreen({ navigation }) {
           userName: formData.ownerName,
           truckName: formData.truckName,
           referralCode: formData.referralCode,
-          selectedPlan: formData.plan,
           signupAt: serverTimestamp(),
-          paymentCompleted: formData.plan === 'basic', // Starter is free
           emailSent: false
         });
       }
 
-      if (formData.plan === 'basic') {
-        showCustomModal(
-          'Success!', 
-          'Account created successfully! Welcome to Grubana Starter.',
-          [{ text: 'OK', onPress: () => setModalVisible(false), style: 'default' }]
-        );
-      } else {
-        showCustomModal(
-          'Almost Done!', 
-          `Account created! You'll be redirected to complete payment for your ${formData.plan} plan.`,
-          [{ text: 'Continue', onPress: () => setModalVisible(false), style: 'default' }]
-        );
-      }
+      showCustomModal(
+        'Welcome to Grubana!', 
+        'Your food truck account has been created successfully! You can now list your menu and accept pre-orders with our 5% commission structure.',
+        [{ text: 'Get Started', onPress: () => setModalVisible(false), style: 'default' }]
+      );
 
     } catch (error) {
       showToastMessage(error.message || 'Failed to create account', 'error');
@@ -298,42 +259,6 @@ export default function OwnerSignupScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  const renderPlanOption = (plan) => (
-    <TouchableOpacity
-      key={plan.id}
-      style={[
-        styles.planOption,
-        formData.plan === plan.id && styles.planOptionSelected
-      ]}
-      onPress={() => handleInputChange('plan', plan.id)}
-    >
-      <View style={styles.planHeader}>
-        <Text style={[
-          styles.planName,
-          formData.plan === plan.id && styles.planNameSelected
-        ]}>
-          {plan.name}
-        </Text>
-        <Text style={[
-          styles.planPrice,
-          formData.plan === plan.id && styles.planPriceSelected
-        ]}>
-          {plan.price}
-        </Text>
-      </View>
-      <View style={styles.planFeatures}>
-        {plan.features.map((feature, index) => (
-          <Text key={index} style={[
-            styles.planFeature,
-            formData.plan === plan.id && styles.planFeatureSelected
-          ]}>
-            • {feature}
-          </Text>
-        ))}
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <KeyboardAvoidingView 
@@ -505,12 +430,7 @@ export default function OwnerSignupScreen({ navigation }) {
           </View>
 
           {/* Plan Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Select Your Plan *</Text>
-            <View style={styles.plansContainer}>
-              {planOptions.map(renderPlanOption)}
-            </View>
-          </View>
+          {/* Plan selection removed - commission-based pricing only */}
 
           {/* Password */}
           <View style={styles.inputGroup}>
