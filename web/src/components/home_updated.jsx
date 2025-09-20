@@ -23,8 +23,8 @@ const Home = () => {
       
       <header className="hero">
         <div id="top"></div>
-        <h1>Grubana: Find Food Trucks & Food Trailers Near You</h1>
-<h2>The Ultimate Food Truck & Food Trailer Locator in Real-Time — Now Serving Your Area!</h2>
+        <h1>Grubana: Find Mobile Food Vendors Near You</h1>
+<h2>The Ultimate Mobile Kitchen Locator in Real-Time — Now Serving Your Area!</h2>
   <meta name="description" content="Discover the best food trucks and food trailers near you in real time. Explore trending locations, exclusive deals, and live maps with Grubana—the ultimate street food finder." />
   <div className="hero-buttons">
     <Link to="/signup" className="btn">Foodie Fans — Let's Go!</Link>
@@ -144,7 +144,7 @@ const Home = () => {
       <section className="blog-social">
         <h2>Follow us, Fuel your Hustle & Feed the Cravings</h2>
 <div className="blog-preview">
-  <p><strong>Grubana connects foodies with food trucks, helps vendors discover events, and empowers event organizers to create amazing culinary experiences. <br></br><br></br>Follow us below to discover where your next favorite food truck is serving -- in real time.</strong></p>
+  <p><strong>Grubana connects foodies with mobile food vendors, helps vendors discover events, and empowers event organizers to create amazing culinary experiences. <br></br><br></br>Follow us below to discover where your next favorite mobile food kitchen is serving -- in real time.</strong></p>
 </div>
         <div className="social-media">
           <h3 style={{ textAlign: "center" }}>Follow Grubana</h3>

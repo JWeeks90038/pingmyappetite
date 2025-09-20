@@ -63,9 +63,9 @@ const FAQ = () => {
             "Grubana helps you gain visibility, attract nearby customers in real time, release time-sensitive deals (drops), and track engagement with analytics like heatmaps and ping activity."
         },
         {
-          q: "How do I get my truck or trailer on Grubana?",
+          q: "How do I get my mobile food business on Grubana?",
           a:
-            "Click Sign Up. Create your profile, upload a photo of your business and photo (or PDF) of menu, and go live to appear on the interactive map. You can update your location manually with the Starter Plan or you can have full geolocation activity with the All-Access Plan. Your icon will disappear when you toggle your icon to hide or when you log out."
+            "Click Sign Up. Create your profile, upload a photo of your business and photo (or PDF) of menu, and go live to appear on the interactive map. You can update your location and manage your business entirely for free. Your icon will disappear when you toggle your icon to hide or when you log out."
         },
         {
           q: "How does the heatmap work?",
@@ -90,12 +90,17 @@ const FAQ = () => {
         {
           q: "What kind of analytics are available?",
           a:
-            "Premium vendors get access to heatmaps, ping activity, favorite counts, and historical data over the last 7 & 30 days and more detailed analytics — all designed to optimize your routes and sales."
+            "All vendors get access to heatmaps, ping activity, favorite counts, and historical data over the last 7 & 30 days and detailed analytics — all designed to optimize your routes and sales."
         },
         {
           q: "How much does it cost to use Grubana?",
           a:
-            "We offer a free basic profile to get you started. All-access plan include live geolocation, analytics, drop campaigns and boosted visibility."
+            "Grubana is 100% free to sign up and operate your business on our platform. There are no subscription fees, monthly charges, or hidden costs. We only take a small 5% fee on pre-orders placed through the platform to help maintain and improve our services."
+        },
+        {
+          q: "What fees does Grubana charge?",
+          a:
+            "The platform is completely free to use. The only fee is a 5% commission on pre-orders processed through Grubana. There are no setup fees, monthly subscriptions, or any other charges. You keep 95% of every pre-order sale."
         },
         {
           q: "Can I promote my business on Grubana?",
@@ -132,38 +137,82 @@ const FAQ = () => {
   ];
 
   return (
-    <div className="faq-page">
-      <div id="top"></div>
-      <h1>Frequently Asked Questions</h1>
-      {faqData.map((section, i) => (
-        <div key={i} className="faq-section">
-          <h2>{section.category}</h2>
-          {section.questions.map((item, j) => (
-            <div key={j} className="faq-item">
-              <h3 className="faq-question">{item.q}</h3>
-              <p className="faq-answer">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      ))}
-
-      <a
-  href="#"
-  onClick={e => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }}
-  style={{
-    display: "inline-block",
-    margin: "30px auto 0 auto",
-    color: "#2c6f57",
-    textDecoration: "underline",
-    cursor: "pointer",
-    fontWeight: "bold"
-  }}
->
-  Back to Top ↑
-</a>
+    <div style={{
+      backgroundColor: '#0B0B1A',
+      minHeight: '100vh',
+      padding: '40px 20px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
+    }}>
+      <div style={{
+        maxWidth: '800px',
+        width: '100%'
+      }}>
+        <div id="top"></div>
+        <h1 style={{
+          color: '#FF4EC9',
+          fontSize: '2.5rem',
+          textAlign: 'center',
+          marginBottom: '40px',
+          fontWeight: 'bold'
+        }}>Frequently Asked Questions</h1>
+        {faqData.map((section, i) => (
+          <div key={i} style={{
+            backgroundColor: '#1A1036',
+            padding: '30px',
+            margin: '20px 0',
+            borderRadius: '12px',
+            border: '1px solid #4DBFFF'
+          }}>
+            <h2 style={{
+              color: '#4DBFFF',
+              fontSize: '1.8rem',
+              textAlign: 'center',
+              marginBottom: '25px',
+              fontWeight: 'bold'
+            }}>{section.category}</h2>
+            {section.questions.map((item, j) => (
+              <div key={j} style={{
+                marginBottom: '20px',
+                padding: '15px 0',
+                borderBottom: j === section.questions.length - 1 ? 'none' : '1px solid #4DBFFF'
+              }}>
+                <h3 style={{
+                  color: '#FF4EC9',
+                  fontSize: '1.2rem',
+                  textAlign: 'center',
+                  marginBottom: '10px',
+                  fontWeight: 'bold'
+                }}>{item.q}</h3>
+                <p style={{
+                  color: '#FFFFFF',
+                  lineHeight: '1.6',
+                  fontSize: '1rem',
+                  textAlign: 'center'
+                }}>{item.a}</p>
+              </div>
+            ))}
+          </div>
+        ))}        <a
+          href="#"
+          onClick={e => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          style={{
+            display: "block",
+            margin: "30px auto 0 auto",
+            color: "#00E676",
+            textDecoration: "underline",
+            cursor: "pointer",
+            fontWeight: "bold",
+            textAlign: "center"
+          }}
+        >
+          Back to Top ↑
+        </a>
+      </div>
     </div>
   );
 };

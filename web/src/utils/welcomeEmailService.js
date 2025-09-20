@@ -158,7 +158,7 @@ The Grubana Pro Team
           `
         },
         'all-access': {
-          subject: '🎉 Welcome to Grubana All-Access - The Ultimate Food Truck Experience!',
+          subject: '🎉 Welcome to Grubana All-Access - The Ultimate Mobile Kitchen Experience!',
           content: `
 Welcome to the top tier, ${username}! Your All-Access subscription is now active! 🚚👑
 

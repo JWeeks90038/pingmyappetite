@@ -1636,26 +1636,45 @@ const EventOrganizerMap = ({ organizerData }) => {
   };
 
   return (
-    <div className="event-organizer-map">
+    <div className="event-organizer-map" style={{
+      backgroundColor: '#0B0B1A',
+      padding: '20px',
+      borderRadius: '12px',
+      border: '1px solid #4DBFFF'
+    }}>
       <div style={{ marginBottom: '15px' }}>
-        <h3>🗺️ Real-Time Event & Truck Activity Map</h3>
-        <div style={{ display: 'flex', gap: '20px', fontSize: '14px', color: '#666', flexWrap: 'wrap' }}>
+        <h3 style={{
+          color: '#FF4EC9',
+          fontSize: '1.8rem',
+          textAlign: 'center',
+          marginBottom: '15px',
+          fontWeight: 'bold'
+        }}>🗺️ Real-Time Event & Truck Activity Map</h3>
+        <div style={{ 
+          display: 'flex', 
+          gap: '20px', 
+          fontSize: '14px', 
+          color: '#FFFFFF', 
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          textAlign: 'center'
+        }}>
           {userLocation && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '15px', height: '15px', background: '#4285F4', borderRadius: '50%', border: '2px solid white' }}></div>
+              <div style={{ width: '15px', height: '15px', background: '#4DBFFF', borderRadius: '50%', border: '2px solid white' }}></div>
               <span>Your Location</span>
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, #FF6B35, #FF3D00)', borderRadius: '50%' }}></div>
+            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, #FF4EC9, #FF3D00)', borderRadius: '50%' }}></div>
             <span>Your Events</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, #4CAF50, #2E7D32)', borderRadius: '50%' }}></div>
+            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, #00E676, #2E7D32)', borderRadius: '50%' }}></div>
             <span>Active Food Trucks</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, red, orange, yellow)', borderRadius: '50%' }}></div>
+            <div style={{ width: '15px', height: '15px', background: 'linear-gradient(45deg, #FF4EC9, #4DBFFF, #00E676)', borderRadius: '50%' }}></div>
             <span>Activity Heatmap</span>
           </div>
         </div>
@@ -1665,34 +1684,35 @@ const EventOrganizerMap = ({ organizerData }) => {
       <div style={{ 
         marginBottom: '15px', 
         padding: '15px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '8px',
-        border: '1px solid #e0e0e0' 
+        backgroundColor: '#1A1036', 
+        borderRadius: '12px',
+        border: '1px solid #4DBFFF' 
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-          <h4 style={{ margin: 0, color: '#333' }}>📍 Event Marker Tools</h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <h4 style={{ margin: 0, color: '#4DBFFF', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>📍 Event Marker Tools</h4>
           
-          <div style={{ marginBottom: '10px' }}>
+          <div style={{ marginBottom: '10px', width: '100%' }}>
             <p style={{ 
               margin: 0, 
               fontSize: '14px', 
-              color: '#666',
-              backgroundColor: '#f8f9fa',
+              color: '#FFFFFF',
+              backgroundColor: '#1A1036',
               padding: '8px',
               borderRadius: '4px',
-              border: '1px solid #e0e0e0'
+              border: '1px solid #4DBFFF',
+              textAlign: 'center'
             }}>
-              📍 <strong>Place Event Marker:</strong> Add basic event information to the map for display purposes only.
+              📍 <strong style={{ color: '#FF4EC9' }}>Place Event Marker:</strong> Add basic event information to the map for display purposes only.
               <br/>
-              🎪 <strong>Create Event (Dashboard):</strong> Post full events where vendors can apply to participate.
+              🎪 <strong style={{ color: '#FF4EC9' }}>Create Event (Dashboard):</strong> Post full events where vendors can apply to participate.
             </p>
           </div>
           {!isPlacingEvent ? (
             <button
               onClick={startEventPlacement}
               style={{
-                backgroundColor: '#FF6B35',
-                color: 'white',
+                backgroundColor: '#FF4EC9',
+                color: '#FFFFFF',
                 border: 'none',
                 padding: '8px 16px',
                 borderRadius: '6px',
@@ -1700,28 +1720,30 @@ const EventOrganizerMap = ({ organizerData }) => {
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '8px',
+                margin: '0 auto'
               }}
             >
               📍 Place Event Marker
             </button>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <span style={{ 
-                color: '#FF6B35', 
+                color: '#FF4EC9', 
                 fontWeight: 'bold',
-                backgroundColor: 'white',
+                backgroundColor: '#1A1036',
                 padding: '8px 12px',
                 borderRadius: '6px',
-                border: '2px solid #FF6B35'
+                border: '2px solid #FF4EC9',
+                textAlign: 'center'
               }}>
                 📍 Click on the map to place your event marker
               </span>
               <button
                 onClick={cancelEventPlacement}
                 style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
+                  backgroundColor: '#4DBFFF',
+                  color: '#FFFFFF',
                   border: 'none',
                   padding: '8px 16px',
                   borderRadius: '6px',
@@ -1743,15 +1765,15 @@ const EventOrganizerMap = ({ organizerData }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
+              backgroundColor: '#1A1036',
+              border: '1px solid #4DBFFF',
               borderRadius: '10px',
               textAlign: 'center'
             }}>
               <div>
-                <h3>🗺️ Map Error</h3>
-                <p>Failed to load Google Maps: {mapsError.message}</p>
-                <p><small>Please check your internet connection and try again.</small></p>
+                <h3 style={{ color: '#FF4EC9' }}>🗺️ Map Error</h3>
+                <p style={{ color: '#FFFFFF' }}>Failed to load Google Maps: {mapsError.message}</p>
+                <p style={{ color: '#4DBFFF' }}><small>Please check your internet connection and try again.</small></p>
               </div>
             </div>
           ) : !window.google?.maps ? (
@@ -1760,8 +1782,8 @@ const EventOrganizerMap = ({ organizerData }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
+              backgroundColor: '#1A1036',
+              border: '1px solid #4DBFFF',
               borderRadius: '10px',
               textAlign: 'center'
             }}>
@@ -1769,13 +1791,13 @@ const EventOrganizerMap = ({ organizerData }) => {
                 <div style={{
                   width: '50px',
                   height: '50px',
-                  border: '4px solid #e0e0e0',
-                  borderTop: '4px solid #FF6B35',
+                  border: '4px solid #4DBFFF',
+                  borderTop: '4px solid #FF4EC9',
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite',
                   margin: '0 auto 20px'
                 }}></div>
-                <h3>🗺️ Loading Map...</h3>
+                <h3 style={{ color: '#FF4EC9' }}>🗺️ Loading Map...</h3>
                 <p>Initializing Google Maps API</p>
                 <p><small>Debug: mapsLoaded={String(mapsLoaded)}, googleMaps={String(!!window.google?.maps)}</small></p>
               </div>
@@ -1923,35 +1945,37 @@ const EventOrganizerMap = ({ organizerData }) => {
         {/* Event Status Legend - moved below map */}
         {isMapLoaded && events.length > 0 && (
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: '#1A1036',
             padding: '15px',
             marginTop: '15px',
-            borderRadius: '8px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            border: '1px solid #e0e0e0'
+            borderRadius: '12px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+            border: '1px solid #4DBFFF'
           }}>
             <h4 style={{ 
               margin: '0 0 10px 0', 
-              fontSize: '14px', 
-              color: '#333',
-              borderBottom: '1px solid #eee',
-              paddingBottom: '8px'
+              fontSize: '16px', 
+              color: '#4DBFFF',
+              borderBottom: '1px solid #4DBFFF',
+              paddingBottom: '8px',
+              textAlign: 'center',
+              fontWeight: 'bold'
             }}>
               ⭐ Event Status
             </h4>
             
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
                   width: '14px',
                   height: '14px',
-                  backgroundColor: '#FFD700',
+                  backgroundColor: '#00E676',
                   borderRadius: '50%',
                   border: '2px solid white',
                   boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
                 }} />
-                <span style={{ fontSize: '12px' }}>
-                  <strong>Happening Now</strong> - Event is currently active
+                <span style={{ fontSize: '12px', color: '#FFFFFF', textAlign: 'center' }}>
+                  <strong style={{ color: '#FF4EC9' }}>Happening Now</strong> - Event is currently active
                 </span>
               </div>
               
@@ -1959,13 +1983,13 @@ const EventOrganizerMap = ({ organizerData }) => {
                 <div style={{
                   width: '14px',
                   height: '14px',
-                  backgroundColor: '#9E9E9E',
+                  backgroundColor: '#4DBFFF',
                   borderRadius: '50%',
                   border: '2px solid white',
                   boxShadow: '0 0 0 1px rgba(0,0,0,0.2)'
                 }} />
-                <span style={{ fontSize: '12px' }}>
-                  <strong>Not Active</strong> - Upcoming, completed recurring, or cancelled
+                <span style={{ fontSize: '12px', color: '#FFFFFF', textAlign: 'center' }}>
+                  <strong style={{ color: '#FF4EC9' }}>Not Active</strong> - Upcoming, completed recurring, or cancelled
                 </span>
               </div>
             </div>
@@ -1973,12 +1997,13 @@ const EventOrganizerMap = ({ organizerData }) => {
             <div style={{ 
               marginTop: '10px', 
               fontSize: '11px', 
-              color: '#666',
+              color: '#FFFFFF',
               fontStyle: 'italic',
               paddingTop: '8px',
-              borderTop: '1px solid #f0f0f0'
+              borderTop: '1px solid #4DBFFF',
+              textAlign: 'center'
             }}>
-              💡 <strong>Smart Display:</strong> Completed single events disappear automatically • Recurring events stay visible when completed
+              💡 <strong style={{ color: '#FF4EC9' }}>Smart Display:</strong> Completed single events disappear automatically • Recurring events stay visible when completed
             </div>
           </div>
         )}
@@ -2269,7 +2294,7 @@ const EventOrganizerMap = ({ organizerData }) => {
               <button
                 onClick={cancelEventPlacement}
                 style={{
-                  backgroundColor: '#6c757d',
+                  backgroundColor: '#4DBFFF',
                   color: 'white',
                   border: 'none',
                   padding: '10px 20px',
@@ -2282,7 +2307,7 @@ const EventOrganizerMap = ({ organizerData }) => {
               <button
                 onClick={saveNewEvent}
                 style={{
-                  backgroundColor: '#FF6B35',
+                  backgroundColor: '#FF4EC9',
                   color: 'white',
                   border: 'none',
                   padding: '10px 20px',

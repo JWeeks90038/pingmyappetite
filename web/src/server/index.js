@@ -1310,7 +1310,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c6f57;">Welcome to Grubana${username ? `, ${username}` : ''}! 🚚</h1>
-          <p>Thank you for joining the Grubana community! You're now part of the ultimate food truck discovery platform.</p>
+          <p>Thank you for joining the Grubana community! You're now part of the ultimate mobile food vendor discovery platform.</p>
           
           <h2 style="color: #2c6f57;">Your Starter Plan Includes:</h2>
           <ul>
@@ -1323,7 +1323,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="color: #2c6f57;">🚀 Ready to Upgrade?</h3>
             <p>Unlock real-time GPS tracking, menu display, analytics, and promotional drops!</p>
-            <a href="https://grubana.com/pricing" style="background: #2c6f57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Pricing Plans</a>
+            <a href="https://grubana.com/contact" style="background: #2c6f57; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Contact Us for Plans</a>
           </div>
           
           <p>Get started by logging into your dashboard: <a href="https://grubana.com/login">https://grubana.com/login</a></p>
@@ -1350,7 +1350,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
           <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="color: #28a745;">🎯 Want Even More?</h3>
             <p>Upgrade to All Access for advanced analytics and promotional drops!</p>
-            <a href="https://grubana.com/pricing" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Upgrade to All Access</a>
+            <a href="https://grubana.com/contact" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Contact for All Access</a>
           </div>
           
           <p>Your 30-day free trial has started! Access your dashboard: <a href="https://grubana.com/dashboard">https://grubana.com/dashboard</a></p>
@@ -1612,7 +1612,7 @@ app.post('/create-checkout-session', async (req, res) => {
       },
       // Redirect to home page to let role-based routing handle dashboard selection
       success_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/?success=true&session_id={CHECKOUT_SESSION_ID}`.replace(/^http:/, 'https:'),
-      cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/pricing`.replace(/^http:/, 'https:'),
+      cancel_url: `${process.env.CLIENT_URL || 'https://grubana.com'}/contact`.replace(/^http:/, 'https:'),
       allow_promotion_codes: true,
     };
 

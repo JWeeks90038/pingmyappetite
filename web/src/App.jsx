@@ -22,7 +22,6 @@ import Login from './components/login';
 import Signup from './components/signup';
 import SignupCustomer from './components/SignupCustomer';
 import ForgotPassword from './components/ForgotPassword';
-import Pricing from './components/pricing';
 import Success from './components/Success';
 import Settings from './components/settings';
 import SMSConsent from './components/SMSConsent';
@@ -183,7 +182,7 @@ function ProtectedDashboardRoute({ children }) {
   }
 
   if (!hasValidAccess) {
-    return <Navigate to="/pricing" replace />;
+    return <Navigate to="/contact" replace />;
   }
 
   return children;
@@ -386,7 +385,6 @@ function App() {
             <Route path="/home" element={<SuspenseWrapper><Home /></SuspenseWrapper>} />
             <Route path="/forgotpassword" element={<ForgotPassword />} />
             <Route path="/about" element={<About />} />
-            <Route path="/pricing" element={<Pricing />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/privacypolicy" element={<PrivacyPolicy />} />
             <Route path="/termsofservice" element={<TermsOfService />} />

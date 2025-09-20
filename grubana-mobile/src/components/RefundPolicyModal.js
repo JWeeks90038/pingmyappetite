@@ -41,22 +41,25 @@ const RefundPolicyModal = ({ visible, onClose }) => {
           showsVerticalScrollIndicator={true}
         >
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>1. No Refunds Policy</Text>
+            <Text style={styles.sectionTitle}>1. Pre-Order Refunds Policy</Text>
             <Text style={styles.paragraph}>
-              All subscription payments and fees made to Grubana are <Text style={styles.bold}>non-refundable</Text> except as expressly required by applicable law or as otherwise stated in this policy.
+              All pre-order payments and fees made through Grubana are <Text style={styles.bold}>non-refundable</Text> except as expressly required by applicable law or as otherwise stated in this policy.
             </Text>
             <Text style={styles.paragraph}>
-              By subscribing to our services, you acknowledge and agree that you are not entitled to a refund or credit for any portion of your subscription period, including for unused time, accidental purchases, or dissatisfaction with the service.
+              By placing a pre-order through our platform, you acknowledge and agree that you are not entitled to a refund or credit for your order, including for accidental purchases, change of mind, or dissatisfaction with the food vendor's service.
+            </Text>
+            <Text style={styles.paragraph}>
+              Grubana charges a 5% processing fee on all pre-orders to maintain and improve our platform services. This fee is included in your total payment and is non-refundable.
             </Text>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>2. Cancellation</Text>
+            <Text style={styles.sectionTitle}>2. Order Cancellation</Text>
             <Text style={styles.paragraph}>
-              You may cancel your subscription at any time through your account settings or by contacting customer support. Upon cancellation, your subscription will remain active until the end of the current billing period, after which access to paid features will be revoked.
+              You may cancel a pre-order only if the vendor has not yet confirmed or begun preparing your order. Contact the vendor directly or reach out to customer support immediately after placing your order if you need to cancel.
             </Text>
             <Text style={styles.paragraph}>
-              <Text style={styles.bold}>No refunds or prorated credits</Text> will be issued for partial billing periods, unused services, or automatic renewals.
+              <Text style={styles.bold}>No refunds or credits</Text> will be issued for orders that have been confirmed by the vendor, are in preparation, or have been completed.
             </Text>
           </View>
 
@@ -70,7 +73,7 @@ const RefundPolicyModal = ({ visible, onClose }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>4. Exceptional Circumstances</Text>
             <Text style={styles.paragraph}>
-              Refunds may be granted, at our sole and absolute discretion, in cases of duplicate charges, proven technical errors resulting in incorrect billing, or other extenuating circumstances.
+              Refunds may be granted, at our sole and absolute discretion, in cases of duplicate charges, proven technical errors resulting in incorrect billing, vendor cancellation of confirmed orders, or other extenuating circumstances beyond the customer's control.
             </Text>
             <Text style={styles.paragraph}>
               To request a refund under these circumstances, you must contact us at <Text style={styles.emailLink}>flavor@grubana.com</Text> within 14 days of the charge and provide all relevant details and supporting documentation. Grubana's decision regarding refunds is final.

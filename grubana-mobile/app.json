@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "23",
+      "buildNumber": "27",
       "requireFullScreen": false,
       "userInterfaceStyle": "automatic",
       "infoPlist": {
@@ -36,7 +36,7 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.grubana.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/foreground.png",
         "backgroundImage": "./assets/background.png"
