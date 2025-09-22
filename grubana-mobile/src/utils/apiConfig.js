@@ -22,7 +22,7 @@ export const API_ENDPOINTS = {
   
   // Payment Intents (use Firebase Functions for payments)
   CREATE_PAYMENT_INTENT: `${FIREBASE_FUNCTIONS_URL}/createPaymentIntent`,
-  HANDLE_SUBSCRIPTION_UPDATE: `${FIREBASE_FUNCTIONS_URL}/handleSubscriptionUpdate`,
+  // HANDLE_SUBSCRIPTION_UPDATE: `${FIREBASE_FUNCTIONS_URL}/handleSubscriptionUpdate`, // Deprecated - using commission model
   
   // Customer Portal (use Firebase Functions)
   CUSTOMER_PORTAL: `${FIREBASE_FUNCTIONS_URL}/createCustomerPortalSession`,

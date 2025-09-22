@@ -487,14 +487,8 @@ function AppContent() {
     );
   }
 
-  // Check if user needs to complete payment
-  // CRITICAL SECURITY: All paid plan users must have paymentCompleted = true
-  // Subscription status alone is not sufficient (can be set by failed payments)
-  const needsPayment = user && userData && 
-    !(userData.role === 'event-organizer' && userData.plan === 'event-basic') &&
-    (userData.plan === 'pro' || userData.plan === 'all-access' || 
-     userData.plan === 'event-premium') && 
-    (userData.paymentCompleted !== true);
+  // Payment completion check removed - using commission-based model
+  const needsPayment = false;
 
 
 

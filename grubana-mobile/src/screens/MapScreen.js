@@ -1240,12 +1240,6 @@ export default function MapScreen() {
       return;
     }
 
-    // Check subscription plan - only Pro and All-Access can create drops
-    if (userPlan === 'basic' || userPlan === 'starter') {
-      showToastMessage("Drop creation is available for Pro and All-Access subscribers only. Please upgrade your plan to create drops.", 'error');
-      return;
-    }
-
     setCreatingDrop(true);
     
     try {
@@ -2902,12 +2896,6 @@ export default function MapScreen() {
         }        return isFinite(lat) && isFinite(lng) && isRecent;
       });
       
-      if (userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') {
-      
-      } else {
-   
-      }
-
       setCustomerPings(pings);
     });
 
@@ -3003,7 +2991,7 @@ export default function MapScreen() {
         setLocation(location);
        
 
-        // Save location for all food truck owners (Basic, Pro, All-Access) - automatic GPS tracking for all plans
+        // Save location for all food truck owners - automatic GPS tracking enabled
         if (userRole === 'owner' && user?.uid) {
      
           
@@ -3846,9 +3834,7 @@ export default function MapScreen() {
             <button class="control-btn" onclick="event.stopPropagation(); centerOnUser();">📍 My Location</button>
             <button class="control-btn" onclick="event.stopPropagation(); showCuisineSelector();">🍽️ Cuisine Type</button>
             <button class="control-btn" onclick="event.stopPropagation(); toggleStatusFilter();" id="statusFilterBtn">📊 Show All</button>
-            ${(userPlan === 'pro' || userPlan === 'all-access' || userPlan === 'event-premium') ? `
             <button class="control-btn" onclick="event.stopPropagation(); toggleHeatmap();">🔥 Toggle Heatmap</button>
-            ` : ''}
         </div>
 
 
@@ -6416,45 +6402,29 @@ export default function MapScreen() {
               )}
             </View>
 
-            {/* Drops Section - Only for truck owners viewing their own truck with Pro/All-Access plans */}
+            {/* Drops Section - Available for all truck owners */}
             {userRole === 'owner' && selectedTruck?.ownerId === user?.uid && (
               <View style={styles.dropsSection}>
                 <View style={styles.dropsTitleContainer}>
                   <Text style={styles.sectionTitle}>🎁 Exclusive Deal Drops</Text>
                 </View>
                 
-                {/* Plan restriction check for drop creation */}
-                {(userPlan === 'basic' || userPlan === 'starter') ? (
-                  <View style={styles.planUpgradeContainer}>
-                    <View style={styles.planUpgradeCard}>
-                      <Ionicons name="lock-closed" size={24} color="#f39c12" />
-                      <Text style={styles.planUpgradeTitle}>Pro Feature</Text>
-                      <Text style={styles.planUpgradeText}>
-                        Drop creation is available for Pro and All-Access subscribers only.
-                      </Text>
-                      <Text style={styles.planUpgradeSubtext}>
-                        Upgrade your plan to create exclusive deals and attract more customers!
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.dropsButtonContainer}>
-                    <TouchableOpacity 
-                      style={styles.createDropButton}
-                      onPress={() => setShowDropForm(!showDropForm)}
-                      disabled={creatingDrop}
-                    >
-                      <Ionicons 
-                        name={showDropForm ? "remove-circle" : "add-circle"} 
-                        size={20} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.createDropButtonText}>
-                        {showDropForm ? 'Cancel' : 'Create Drop'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <View style={styles.dropsButtonContainer}>
+                  <TouchableOpacity 
+                    style={styles.createDropButton}
+                    onPress={() => setShowDropForm(!showDropForm)}
+                    disabled={creatingDrop}
+                  >
+                    <Ionicons 
+                      name={showDropForm ? "remove-circle" : "add-circle"} 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.createDropButtonText}>
+                      {showDropForm ? 'Cancel' : 'Create Drop'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
                 {dropCreationMessage ? (
                   <View style={styles.dropMessageContainer}>

@@ -159,7 +159,7 @@ const TermsOfService = () => {
             fontSize: '1rem',
             textAlign: 'center'
           }}>
-            <div>Grubana is a free platform for users. We charge a 5% commission fee on pre-orders to support our platform operations.</div><br></br>
+            <div>Grubana is a free platform for users. We charge a 7% commission fee on pre-orders to support our platform operations.</div><br></br>
             <div>Payments are processed securely through third-party payment processors.</div><br></br>
             <div>You authorize us to process payments for your pre-orders according to our payment terms.</div><br></br>
           </div>

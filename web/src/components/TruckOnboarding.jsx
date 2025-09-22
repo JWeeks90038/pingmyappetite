@@ -394,7 +394,7 @@ const TruckOnboarding = () => {
                 <br />
                 • Status: Ready to accept payments
                 <br />
-                • Platform fees: Based on your subscription plan (Basic: 5%, Pro: 2.5%, All-Access: 0%)
+                • Platform fees: 7% per order
               </div>
             </div>
           </div>
@@ -869,53 +869,19 @@ const TruckOnboarding = () => {
             </div>
             
             <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ color: '#2c6f57', marginBottom: '10px' }}>💳 Subscription Plans & Platform Fees:</h4>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-                gap: '15px',
+              <h4 style={{ color: '#2c6f57', marginBottom: '10px' }}>💳 Platform Fees:</h4>
+              <div style={{
+                backgroundColor: '#fff3cd',
+                border: '2px solid #ffc107',
+                borderRadius: '8px',
+                padding: '15px',
+                textAlign: 'center',
                 marginBottom: '15px'
               }}>
-                <div style={{
-                  backgroundColor: '#fff3cd',
-                  border: '2px solid #ffc107',
-                  borderRadius: '8px',
-                  padding: '15px',
-                  textAlign: 'center'
-                }}>
-                  <h5 style={{ color: '#856404', margin: '0 0 8px 0' }}>🆓 Basic Plan</h5>
-                  <div style={{ color: '#856404', fontSize: '14px' }}>
-                    <strong>Free</strong><br/>
-                    5% platform fee per order
-                  </div>
-                </div>
-                
-                <div style={{
-                  backgroundColor: '#d1ecf1',
-                  border: '2px solid #17a2b8',
-                  borderRadius: '8px',
-                  padding: '15px',
-                  textAlign: 'center'
-                }}>
-                  <h5 style={{ color: '#0c5460', margin: '0 0 8px 0' }}>⭐ Pro Plan</h5>
-                  <div style={{ color: '#0c5460', fontSize: '14px' }}>
-                    <strong>$9.99/month</strong><br/>
-                    2.5% platform fee per order
-                  </div>
-                </div>
-                
-                <div style={{
-                  backgroundColor: '#d4edda',
-                  border: '2px solid #28a745',
-                  borderRadius: '8px',
-                  padding: '15px',
-                  textAlign: 'center'
-                }}>
-                  <h5 style={{ color: '#155724', margin: '0 0 8px 0' }}>🏆 All-Access Plan</h5>
-                  <div style={{ color: '#155724', fontSize: '14px' }}>
-                    <strong>$19.99/month</strong><br/>
-                    0% platform fee per order
-                  </div>
+                <h5 style={{ color: '#856404', margin: '0 0 8px 0' }}>🆓 Simple & Transparent</h5>
+                <div style={{ color: '#856404', fontSize: '16px' }}>
+                  <strong>7% platform fee per order</strong><br/>
+                  <span style={{ fontSize: '14px' }}>No monthly fees, no setup costs</span>
                 </div>
               </div>
               <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>

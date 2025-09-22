@@ -173,18 +173,13 @@ const AppNavigator = () => {
         return <AuthStack />;
   }
 
-  // CRITICAL SECURITY CHECK: Users with paid plans MUST complete payment
-  // Check if user needs to complete payment
-  const needsPayment = userData && 
-    (userData.plan === 'pro' || userData.plan === 'all-access' || userData.plan === 'event-premium') && 
-    (userData.subscriptionStatus === 'pending' || !userData.subscriptionStatus || userData.paymentCompleted !== true);
-  // Additional security check - if user has a paid plan but no active subscription, force payment
-  const hasPaidPlan = userData?.plan === 'pro' || userData?.plan === 'all-access' || userData?.plan === 'event-premium';
+  // Commission-based model - no subscription payment required
+  const needsPayment = false;
+  const hasPaidPlan = false;
   
-  // CRITICAL SECURITY FIX: Users must complete payment BEFORE accessing any paid features
-  // Trial status is ONLY valid if payment was successfully completed first
-  const hasCompletedPayment = userData?.paymentCompleted === true;
-  const hasActiveOrTrialSubscription = userData?.subscriptionStatus === 'active' || userData?.subscriptionStatus === 'trialing';
+  // All users have access to features with commission-based model
+  const hasCompletedPayment = true;
+  const hasActiveOrTrialSubscription = true;
   
   // ULTRA-STRICT ENFORCEMENT: Both payment completion AND subscription status required
   // Users cannot access features with trial status if payment failed

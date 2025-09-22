@@ -9,10 +9,10 @@ export const SUBSCRIPTION_PLANS = {
     id: 'basic',
     name: 'Basic',
     price: 0, // Free
-    platformFeePercentage: 0.05, // 5% platform fee per item
+    platformFeePercentage: 0.07, // 7% platform fee per item
     stripePriceId: null, // No Stripe subscription needed
     features: [
-      '5% platform fee per item',
+      '7% platform fee per item',
       'Basic support',
       'Standard payment processing'
     ]

@@ -89,7 +89,7 @@ export default function OwnerSignupScreen({ navigation }) {
   ];
 
   // Plan options removed - now focusing on commission-based food orders
-  // All food truck owners get the same features with 5% commission on pre-orders
+  // All food truck owners get the same features with 7% commission on pre-orders
 
   // Toast notification function (replaces simple Alert.alert)
   const showToastMessage = (message, type = 'success') => {
@@ -249,7 +249,7 @@ export default function OwnerSignupScreen({ navigation }) {
 
       showCustomModal(
         'Welcome to Grubana!', 
-        'Your food truck account has been created successfully! You can now list your menu and accept pre-orders with our 5% commission structure.',
+        'Your food truck account has been created successfully! You can now list your menu and accept pre-orders with our 7% commission structure.',
         [{ text: 'Get Started', onPress: () => setModalVisible(false), style: 'default' }]
       );
 

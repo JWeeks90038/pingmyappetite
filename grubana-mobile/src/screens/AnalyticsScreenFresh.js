@@ -109,12 +109,6 @@ export default function AnalyticsScreen() {
       const userPlan = ownerDoc.data().plan || 'basic';
 
 
-      // Remove plan restriction to allow all users to see ping analytics
-      // if (userPlan !== 'all-access') {
-
-      //   return;
-      // }
-
       // Get truck location
       let truckData = null;
       try {
@@ -271,33 +265,12 @@ export default function AnalyticsScreen() {
     return unsubscribeFavorites;
   }, [userData?.uid]);
 
-  // Orders analytics - All-Access Plan Required
+  // Orders analytics - Available for all users
   useEffect(() => {
     if (!userData?.uid || userRole !== 'owner') {
 
       return;
     }
-
-
-
-    // Check if user has All-Access plan
-    if (userData.plan !== 'all-access') {
-    
-      setOrderStats({
-        totalOrders: 0,
-        totalRevenue: 0,
-        last30DaysOrders: 0,
-        last30DaysRevenue: 0,
-        last7DaysOrders: 0,
-        last7DaysRevenue: 0,
-        completedOrders: 0,
-        planRequired: true,
-        indexBuilding: false
-      });
-      return;
-    }
-
-
 
     // Query orders for this truck (using simple query first, then filter by time)
     const ordersQuery = query(
@@ -938,35 +911,11 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        {/* Orders Analytics - All-Access Feature */}
+        {/* Orders Analytics - Available for all users */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>💰 Orders & Revenue Analytics</Text>
           
-          {orderStats.planRequired ? (
-            <View style={styles.upgradePrompt}>
-              <Ionicons name="lock-closed" size={48} color="#ff6b6b" style={styles.lockIcon} />
-              <Text style={styles.upgradeTitle}>🚀 All-Access Feature</Text>
-              <Text style={styles.upgradeText}>
-                Orders & Revenue Analytics is available exclusively for All-Access subscribers.
-              </Text>
-              <Text style={styles.currentPlanText}>
-                Current Plan: {userData?.plan?.charAt(0).toUpperCase() + userData?.plan?.slice(1) || 'Basic'}
-              </Text>
-              <Text style={styles.upgradeFeatures}>
-                Upgrade to All-Access to unlock:{'\n'}
-                • Real-time order tracking{'\n'}
-                • Revenue analytics with time periods{'\n'}
-                • Average order value calculations{'\n'}
-                • Order completion rates{'\n'}
-                • Historical performance trends{'\n'}
-                • Advanced customer insights
-              </Text>
-              <TouchableOpacity style={styles.upgradeButton}>
-                <Text style={styles.upgradeButtonText}>Upgrade to All-Access</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ) : orderStats.indexBuilding ? (
+          {orderStats.indexBuilding ? (
             <View style={styles.upgradePrompt}>
               <Ionicons name="hourglass" size={48} color="#ff9800" style={styles.lockIcon} />
               <Text style={styles.upgradeTitle}>⏳ Setting Up Analytics</Text>

@@ -628,12 +628,8 @@ const EventsScreen = () => {
 
   // Check if user can manage events
   const canManageEvents = () => {
-    // Role-based access: event-organizer or owner
+    // Role-based access: event-organizer or owner can manage events
     if (userRole === 'event-organizer' || userRole === 'owner') {
-      return true;
-    }
-    // Plan-based access: All-Access plan gets event management
-    if (userPlan === 'all-access') {
       return true;
     }
     return false;
