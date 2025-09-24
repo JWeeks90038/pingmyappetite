@@ -20,6 +20,7 @@ const SignUp = () => {
     ownerName: '',
     email: '',
     phone: '',
+    zipCode: '',
     password: '',
     confirmPassword: '',
     location: '',
@@ -445,6 +446,34 @@ const userData = {
         onChange={handleChange}
         required
         placeholder="Enter your phone number"
+        style={{
+          backgroundColor: '#1A1036',
+          color: '#FFFFFF',
+          border: '2px solid #4DBFFF',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          fontSize: '16px',
+          outline: 'none',
+          transition: 'border-color 0.3s ease',
+          textAlign: 'center'
+        }}
+      />
+      
+      <label htmlFor="zipCode" style={{
+        color: '#4DBFFF',
+        fontWeight: '600',
+        marginBottom: '8px',
+        textAlign: 'center'
+      }}>Zip Code</label>
+      <input
+        type="text"
+        id="zipCode"
+        name="zipCode"
+        value={formData.zipCode}
+        onChange={handleChange}
+        required
+        placeholder="Enter your zip code (e.g., 12345)"
+        maxLength="10"
         style={{
           backgroundColor: '#1A1036',
           color: '#FFFFFF',

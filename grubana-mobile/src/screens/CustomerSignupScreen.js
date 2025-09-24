@@ -23,7 +23,7 @@ export default function CustomerSignupScreen({ navigation }) {
     phoneNumber: '',
     password: '',
     confirmPassword: '',
-    address: '',
+    zipCode: '',
     referralCode: '',
     smsConsent: false,
   });
@@ -88,8 +88,13 @@ export default function CustomerSignupScreen({ navigation }) {
     return phoneRegex.test(phone.replace(/\D/g, ''));
   };
 
+  const validateZipCode = (zipCode) => {
+    const zipRegex = /^\d{5}(-\d{4})?$/;
+    return zipRegex.test(zipCode.trim());
+  };
+
   const handleSignup = async () => {
-    // Validation
+    // Validation - All required fields
     if (!formData.fullName.trim()) {
       showToast('Please enter your full name');
       return;
@@ -98,16 +103,28 @@ export default function CustomerSignupScreen({ navigation }) {
       showToast('Please enter your email');
       return;
     }
+    if (!formData.phoneNumber.trim()) {
+      showToast('Please enter your phone number');
+      return;
+    }
+    if (!validatePhoneNumber(formData.phoneNumber)) {
+      showToast('Please enter a valid US phone number (10 digits)');
+      return;
+    }
+    if (!formData.zipCode.trim()) {
+      showToast('Please enter your zip code');
+      return;
+    }
+    if (!validateZipCode(formData.zipCode)) {
+      showToast('Please enter a valid zip code (e.g., 12345 or 12345-6789)');
+      return;
+    }
     if (!formData.password) {
       showToast('Please enter a password');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
       showToast('Passwords do not match');
-      return;
-    }
-    if (formData.phoneNumber && !validatePhoneNumber(formData.phoneNumber)) {
-      showToast('Please enter a valid US phone number (10 digits)');
       return;
     }
 
@@ -124,7 +141,7 @@ export default function CustomerSignupScreen({ navigation }) {
         username: formData.fullName,
         email: formData.email,
         phone: formData.phoneNumber,
-        address: formData.address || '',
+        zipCode: formData.zipCode || '',
         role: 'customer',
         plan: 'basic',
         subscriptionStatus: 'active',
@@ -225,7 +242,7 @@ export default function CustomerSignupScreen({ navigation }) {
 
           {/* Phone Number */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Phone Number *</Text>
             <TextInput
               style={styles.input}
               value={formData.phoneNumber}
@@ -235,15 +252,16 @@ export default function CustomerSignupScreen({ navigation }) {
             />
           </View>
 
-          {/* Address */}
+          {/* Zip Code */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
+            <Text style={styles.label}>Zip Code *</Text>
             <TextInput
               style={styles.input}
-              value={formData.address}
-              onChangeText={(value) => handleInputChange('address', value)}
-              placeholder="Enter your address"
-              autoCapitalize="words"
+              value={formData.zipCode}
+              onChangeText={(value) => handleInputChange('zipCode', value)}
+              placeholder="Enter your zip code (e.g., 12345)"
+              keyboardType="numeric"
+              maxLength={10}
             />
           </View>
 

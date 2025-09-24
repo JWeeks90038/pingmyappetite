@@ -57,6 +57,7 @@ const PrivacyPolicyModal = ({ visible, onClose }) => {
             <Text style={styles.listItem}>• <Text style={styles.bold}>Usage Data:</Text> IP address, device information, access times, interactions with the Platform.</Text>
             <Text style={styles.listItem}>• <Text style={styles.bold}>Location Data:</Text> If you enable location services, we may collect precise or approximate geolocation data to provide location-based services.</Text>
             <Text style={styles.listItem}>• <Text style={styles.bold}>Third-Party Information:</Text> We may receive information about you from third-party services (e.g., payment processors, analytics providers) if you interact with them through our Platform.</Text>
+            <Text style={styles.listItem}>• <Text style={styles.bold}>Device Identifiers:</Text> Our app uses third-party services (such as Stripe, Firebase, and Google Maps) that may collect device identifiers for fraud prevention, security, and app functionality.</Text>
           </View>
 
           <View style={styles.section}>

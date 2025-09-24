@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grubana App QR Code Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%);
+            margin: 0;
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #FF4EC9;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 78, 201, 0.5);
+        }
+
+        .subtitle {
+            color: #4DBFFF;
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .qr-container {
+            background: #FFFFFF;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(255, 78, 201, 0.3), 0 0 50px rgba(77, 191, 255, 0.2);
+            display: inline-block;
+            position: relative;
+            margin: 20px 0;
+            border: 2px solid #4DBFFF;
+        }
+
+        #qrcode {
+            position: relative;
+            min-height: 300px;
+            min-width: 300px;
+        }
+
+        #qrcode img {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .scan-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(255, 78, 201, 0.85), rgba(77, 191, 255, 0.85));
+            color: #FFFFFF;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 4px 15px rgba(255, 78, 201, 0.4), 0 0 20px rgba(77, 191, 255, 0.3);
+            z-index: 10;
+            letter-spacing: 1.2px;
+            animation: pulse 2s infinite;
+            border: 2px solid #FFFFFF;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(2px);
+        }
+
+        .apple-icon {
+            font-size: 10px;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+        }
+
+        .apple-logo {
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 4px 15px rgba(255, 78, 201, 0.4), 0 0 20px rgba(77, 191, 255, 0.3);
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.05);
+                box-shadow: 0 6px 20px rgba(255, 78, 201, 0.6), 0 0 30px rgba(77, 191, 255, 0.5);
+            }
+        }
+
+        .download-buttons {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #FF4EC9, #4DBFFF);
+            color: #FFFFFF;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 78, 201, 0.4), 0 0 25px rgba(77, 191, 255, 0.3);
+            background: linear-gradient(135deg, #4DBFFF, #FF4EC9);
+        }
+
+        .download-btn.success {
+            background: #00E676;
+            color: #FFFFFF;
+        }
+
+        .app-info {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(26, 16, 54, 0.8), rgba(11, 11, 26, 0.8));
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(77, 191, 255, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .url-display {
+            background: #1A1036;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            color: #4DBFFF;
+            word-break: break-all;
+            margin-top: 15px;
+            border: 1px solid #FF4EC9;
+            font-size: 14px;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FF4EC9, #4DBFFF);
+            border-radius: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #FFFFFF;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(255, 78, 201, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .loading {
+            color: #4DBFFF;
+            font-style: italic;
+            animation: loadingPulse 1.5s infinite;
+        }
+
+        @keyframes loadingPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .error {
+            color: #FF4EC9;
+            background: linear-gradient(135deg, rgba(255, 78, 201, 0.1), rgba(26, 16, 54, 0.8));
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #FF4EC9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">G</div>
+        <h1>Grubana Mobile App</h1>
+        <p class="subtitle">Scan to download from the App Store</p>
+        
+        <div class="qr-container">
+            <div id="qrcode">
+                <div class="loading">Generating QR Code...</div>
+            </div>
+            <div class="scan-text">
+                <svg class="apple-logo" viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="currentColor" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+                SCAN ME
+            </div>
+        </div>
+
+        <div class="download-buttons">
+            <button class="download-btn" onclick="downloadQR()">📱 Download QR Code</button>
+            <button class="download-btn" onclick="openAppStore()">� View on App Store</button>
+            <button class="download-btn" onclick="copyUrl()">📋 Copy URL</button>
+        </div>
+
+        <div class="app-info">
+            <h3 style="color: #FF4EC9; margin-top: 0;">About Grubana</h3>
+            <p>Discover amazing mobile kitchen businesses in your area. Find food trucks, order ahead, and never miss your favorite meals!</p>
+            <div class="url-display" id="urlDisplay">https://apps.apple.com/app/grubana/id6752311735</div>
+        </div>
+    </div>
+
+    <script>
+        const appStoreUrl = 'https://apps.apple.com/app/grubana/id6752311735';
+        
+        function generateQRCode() {
+            try {
+                // Create QR code using qrcode-generator library with scannable design
+                const qr = qrcode(0, 'H'); // Type 0 (auto), High error correction
+                qr.addData(appStoreUrl);
+                qr.make();
+                
+                // Create scannable QR code with subtle branding
+                const moduleCount = qr.getModuleCount();
+                const cellSize = 6; // Optimal size for scanning
+                const margin = 20; // Larger quiet zone for better scanning
+                const size = moduleCount * cellSize + margin * 2;
+                
+                // Create canvas for QR code
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = size;
+                canvas.height = size;
+                
+                // Fill background with pure white (essential for scanning)
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, size, size);
+                
+                // Draw QR modules with high contrast for scanning
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount; col++) {
+                        if (qr.isDark(row, col)) {
+                            const x = margin + col * cellSize;
+                            const y = margin + row * cellSize;
+                            
+                            // Check if this is a finder pattern (corner squares) - keep these pure black
+                            const isFinderPattern = 
+                                (row < 9 && col < 9) || // Top-left
+                                (row < 9 && col >= moduleCount - 9) || // Top-right
+                                (row >= moduleCount - 9 && col < 9); // Bottom-left
+                            
+                            if (isFinderPattern) {
+                                // Finder patterns must be pure black for scanning
+                                ctx.fillStyle = '#000000';
+                                ctx.fillRect(x, y, cellSize, cellSize);
+                            } else {
+                                // Regular modules with subtle Grubana branding
+                                ctx.fillStyle = '#0B0B1A'; // Dark navy for contrast
+                                
+                                // Draw slightly rounded squares for visual appeal
+                                ctx.beginPath();
+                                ctx.roundRect(x + 0.2, y + 0.2, cellSize - 0.4, cellSize - 0.4, 0.8);
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+                
+                // Add subtle brand accent in corners (outside QR area)
+                addSubtleBrandAccents(ctx, size);
+                
+                // Convert canvas to image and display
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL();
+                img.style.width = '300px';
+                img.style.height = '300px';
+                img.style.imageRendering = 'auto';
+                img.alt = 'Grubana App QR Code';
+                
+                // Replace the loading text with the QR code
+                document.getElementById('qrcode').innerHTML = '';
+                document.getElementById('qrcode').appendChild(img);
+                
+                console.log('Scannable QR code generated successfully!');
+                
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                document.getElementById('qrcode').innerHTML = `
+                    <div class="error">
+                        <strong>Error generating QR code</strong><br>
+                        Please try refreshing the page or use the direct link below.
+                    </div>
+                `;
+            }
+        }
+
+        function addSubtleBrandAccents(ctx, size) {
+            // Add very subtle brand dots in corners (outside the QR code area)
+            const accentSize = 3;
+            const offset = 8;
+            
+            // Create subtle gradient for accents
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, accentSize);
+            gradient.addColorStop(0, '#FF4EC9');
+            gradient.addColorStop(1, 'rgba(255, 78, 201, 0.3)');
+            ctx.fillStyle = gradient;
+            
+            // Top-left accent
+            ctx.beginPath();
+            ctx.arc(offset, offset, accentSize, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Top-right accent
+            ctx.beginPath();
+            ctx.arc(size - offset, offset, accentSize, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Bottom-left accent
+            ctx.beginPath();
+            ctx.arc(offset, size - offset, accentSize, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Bottom-right accent
+            ctx.beginPath();
+            ctx.arc(size - offset, size - offset, accentSize, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function downloadQR() {
+            try {
+                // Create scannable QR code for download that matches display
+                const qr = qrcode(0, 'H');
+                qr.addData(appStoreUrl);
+                qr.make();
+                
+                const moduleCount = qr.getModuleCount();
+                const cellSize = 6; // Match display version
+                const margin = 20;
+                const qrSize = moduleCount * cellSize + margin * 2;
+                
+                // Create download canvas (same size as QR for exact match)
+                const downloadCanvas = document.createElement('canvas');
+                const ctx = downloadCanvas.getContext('2d');
+                const canvasSize = 400; // Reasonable download size
+                const scale = canvasSize / qrSize;
+                
+                downloadCanvas.width = canvasSize;
+                downloadCanvas.height = canvasSize;
+                
+                // Scale the context for high resolution
+                ctx.scale(scale, scale);
+                
+                // Fill background with pure white
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, qrSize, qrSize);
+                
+                // Draw scannable QR modules
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount; col++) {
+                        if (qr.isDark(row, col)) {
+                            const x = margin + col * cellSize;
+                            const y = margin + row * cellSize;
+                            
+                            // Check if this is a finder pattern (corner squares)
+                            const isFinderPattern = 
+                                (row < 9 && col < 9) || // Top-left
+                                (row < 9 && col >= moduleCount - 9) || // Top-right
+                                (row >= moduleCount - 9 && col < 9); // Bottom-left
+                            
+                            if (isFinderPattern) {
+                                // Finder patterns must be pure black for scanning
+                                ctx.fillStyle = '#000000';
+                                ctx.fillRect(x, y, cellSize, cellSize);
+                            } else {
+                                // Regular modules with subtle branding
+                                ctx.fillStyle = '#0B0B1A';
+                                
+                                // Draw slightly rounded squares
+                                ctx.beginPath();
+                                ctx.roundRect(x + 0.2, y + 0.2, cellSize - 0.4, cellSize - 0.4, 0.8);
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+                
+                // Add subtle brand accents
+                addSubtleBrandAccents(ctx, qrSize);
+                
+                // Reset scale and add centered overlay (like the display version)
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                
+                // Calculate center position for overlay
+                const overlayWidth = 120;
+                const overlayHeight = 40;
+                const overlayX = (canvasSize - overlayWidth) / 2;
+                const overlayY = (canvasSize - overlayHeight) / 2;
+                
+                // Add centered gradient background overlay (semi-transparent like display)
+                const overlayGradient = ctx.createLinearGradient(overlayX, overlayY, overlayX + overlayWidth, overlayY + overlayHeight);
+                overlayGradient.addColorStop(0, 'rgba(255, 78, 201, 0.85)');
+                overlayGradient.addColorStop(1, 'rgba(77, 191, 255, 0.85)');
+                
+                ctx.fillStyle = overlayGradient;
+                ctx.beginPath();
+                ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 12);
+                ctx.fill();
+                
+                // Add white border to overlay with rounded corners
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 12);
+                ctx.stroke();
+                
+                // Add backdrop blur effect (simulate with subtle shadow)
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 2;
+                ctx.beginPath();
+                ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 12);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Draw Apple logo in center of overlay
+                ctx.fillStyle = '#FFFFFF';
+                ctx.save();
+                const logoX = overlayX + 12;
+                const logoY = overlayY + overlayHeight / 2;
+                
+                ctx.translate(logoX, logoY - 12); // Center the logo properly
+                ctx.scale(0.8, 0.8);
+                ctx.beginPath();
+                // Apple logo path data
+                ctx.moveTo(18.71, 19.5);
+                ctx.bezierCurveTo(17.88, 20.74, 17, 21.95, 15.66, 21.97);
+                ctx.bezierCurveTo(14.32, 22, 13.89, 21.18, 12.37, 21.18);
+                ctx.bezierCurveTo(10.84, 21.18, 10.37, 21.95, 9.1, 22);
+                ctx.bezierCurveTo(7.79, 22.05, 6.8, 20.68, 5.96, 19.47);
+                ctx.bezierCurveTo(4.25, 17, 2.94, 12.45, 4.7, 9.39);
+                ctx.bezierCurveTo(5.57, 7.87, 7.13, 6.91, 8.82, 6.88);
+                ctx.bezierCurveTo(10.1, 6.86, 11.32, 7.75, 12.11, 7.75);
+                ctx.bezierCurveTo(12.89, 7.75, 14.37, 6.68, 15.92, 6.84);
+                ctx.bezierCurveTo(16.57, 6.87, 18.39, 7.1, 19.56, 8.82);
+                ctx.bezierCurveTo(19.47, 8.88, 17.39, 10.1, 17.41, 12.63);
+                ctx.bezierCurveTo(17.44, 15.65, 20.06, 16.66, 20.09, 16.67);
+                ctx.bezierCurveTo(20.06, 16.74, 19.67, 18.11, 18.71, 19.5);
+                ctx.closePath();
+                ctx.moveTo(13, 3.5);
+                ctx.bezierCurveTo(13.73, 2.67, 14.94, 2.04, 15.94, 2);
+                ctx.bezierCurveTo(16.07, 3.17, 15.6, 4.35, 14.9, 5.19);
+                ctx.bezierCurveTo(14.21, 6.04, 13.07, 6.7, 11.95, 6.61);
+                ctx.bezierCurveTo(11.8, 5.46, 12.36, 4.26, 13, 3.5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                
+                // Add "SCAN ME" text next to logo - perfectly aligned
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 14px Arial, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('SCAN ME', overlayX + 32, overlayY + overlayHeight / 2);
+                
+                // Trigger download
+                const link = document.createElement('a');
+                link.download = 'grubana-scannable-qr-code.png';
+                link.href = downloadCanvas.toDataURL('image/png');
+                link.click();
+                
+                // Show success feedback
+                showSuccess('QR code downloaded with centered overlay!');
+                
+            } catch (error) {
+                console.error('Error downloading QR code:', error);
+                alert('Error downloading QR code. Please try again.');
+            }
+        }
+
+        function showSuccess(message) {
+            const btn = document.querySelector('.download-btn');
+            const originalText = btn.textContent;
+            const originalClass = btn.className;
+            
+            btn.textContent = '✅ ' + message;
+            btn.className = originalClass + ' success';
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.className = originalClass;
+            }, 3000);
+        }
+
+        function openAppStore() {
+            window.open(appStoreUrl, '_blank');
+        }
+
+        function copyUrl() {
+            navigator.clipboard.writeText(appStoreUrl).then(() => {
+                showSuccess('URL copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = appStoreUrl;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showSuccess('URL copied to clipboard!');
+            });
+        }
+
+        // Add roundRect method for older browsers
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+
+        // Generate QR code when page loads
+        window.addEventListener('load', function() {
+            setTimeout(generateQRCode, 100);
+        });
+        
+        // Fallback: try again after 2 seconds if library didn't load
+        setTimeout(function() {
+            if (document.getElementById('qrcode').innerHTML.includes('Generating')) {
+                // Try alternative QR code service with Grubana colors
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(appStoreUrl)}&color=0B0B1A&bgcolor=FFFFFF&ecc=H`;
+                document.getElementById('qrcode').innerHTML = `<img src="${qrUrl}" alt="QR Code" style="width: 300px; height: 300px;">`;
+                console.log('Using fallback QR service with Grubana colors');
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

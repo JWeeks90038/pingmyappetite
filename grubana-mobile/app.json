@@ -2,7 +2,7 @@
   "expo": {
     "name": "Grubana",
     "slug": "grubana",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "27",
+      "buildNumber": "29",
       "requireFullScreen": false,
       "userInterfaceStyle": "automatic",
       "infoPlist": {
