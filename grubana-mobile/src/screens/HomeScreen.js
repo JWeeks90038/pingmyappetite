@@ -21,6 +21,21 @@ const HomeScreen = () => {
 
   const styles = createThemedStyles(theme);
 
+  // Function to get the correct Map screen name based on user role
+  const getMapScreenName = () => {
+    if (!user) return 'GuestMap';
+    
+    switch (userRole) {
+      case 'owner':
+        return 'OwnerMap';
+      case 'event-organizer':
+        return 'EventOrganizerMap';
+      case 'customer':
+      default:
+        return 'CustomerMap';
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -45,6 +60,18 @@ const HomeScreen = () => {
             <Text style={styles.welcomeText}>
               Welcome, {userData?.username || userData?.displayName || user?.displayName || user?.email?.split('@')[0] || 'there'}!
             </Text>
+          </View>
+        )}
+
+        {userRole === 'owner' && (
+          <View style={styles.actionSection}>
+            <TouchableOpacity 
+              style={styles.primaryButton}
+              onPress={() => navigation.navigate('TruckOnboarding')}
+            >
+              <Text style={styles.buttonText}>Manage Your Mobile Kitchen</Text>
+              <Text style={styles.buttonSubtext}>Menu Management</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -80,16 +107,6 @@ const HomeScreen = () => {
                   </Text>
                 </View>
               </View>
-              
-              <View style={styles.actionSection}>
-                <TouchableOpacity 
-                  style={styles.primaryButton}
-                  onPress={() => navigation.navigate('TruckOnboarding')}
-                >
-                  <Text style={styles.buttonText}>Manage Your Mobile Kitchen</Text>
-                  <Text style={styles.buttonSubtext}>Menu Management</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           ) : userRole === 'event-organizer' ? (
             <View>
@@ -123,7 +140,10 @@ const HomeScreen = () => {
               <View style={styles.actionSection}>
                 <TouchableOpacity 
                   style={styles.primaryButton}
-                  onPress={() => navigation.navigate('Events')}
+                  onPress={() => {
+                    console.log('Navigating to EventOrganizerEvents screen');
+                    navigation.navigate('EventOrganizerEvents');
+                  }}
                 >
                   <Text style={styles.buttonText}>🎪 Manage Events</Text>
                   <Text style={styles.buttonSubtext}>Create & coordinate amazing food truck events</Text>
@@ -166,7 +186,7 @@ const HomeScreen = () => {
               <View style={styles.actionSection}>
                 <TouchableOpacity 
                   style={styles.primaryButton}
-                  onPress={() => navigation.navigate('Map')}
+                  onPress={() => navigation.navigate(getMapScreenName())}
                 >
                   <Text style={styles.buttonText}>Find Mobile Food Vendors</Text>
                   <Text style={styles.buttonSubtext}>Discover mobile kitchens near you</Text>

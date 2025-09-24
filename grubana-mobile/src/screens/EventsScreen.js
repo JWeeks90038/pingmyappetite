@@ -2718,7 +2718,7 @@ const EventsScreen = () => {
               style={styles.attendButton}
               onPress={() => markEventAttended(event)}
             >
-              <Ionicons name="checkmark-circle-outline" size={20} color="#4CAF50" />
+              <Ionicons name="checkmark-circle-outline" size={16} color="#4CAF50" />
               <Text style={styles.attendButtonText}>Mark as Attended</Text>
             </TouchableOpacity>
           )}
@@ -2740,7 +2740,7 @@ const EventsScreen = () => {
                 style={styles.editEventButton}
                 onPress={() => openEditEventModal(event)}
               >
-                <Ionicons name="pencil" size={18} color="#2c6f57" />
+                <Ionicons name="pencil" size={14} color="#2c6f57" />
                 <Text style={styles.editEventButtonText}>Edit</Text>
               </TouchableOpacity>
               
@@ -2748,7 +2748,7 @@ const EventsScreen = () => {
                 style={styles.deleteEventButton}
                 onPress={() => deleteEvent(event.id, event.title)}
               >
-                <Ionicons name="trash" size={18} color="#f44336" />
+                <Ionicons name="trash" size={14} color="#f44336" />
                 <Text style={styles.deleteEventButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
@@ -3229,34 +3229,34 @@ const createThemedStyles = (theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.accent.blue,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     flex: 1,
     justifyContent: 'center',
     ...theme.shadows.neonBlue,
   },
   editEventButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.text.primary,
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '500',
   },
   deleteEventButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.accent.pink,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     flex: 1,
     justifyContent: 'center',
     ...theme.shadows.neonPink,
   },
   deleteEventButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#f44336',
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '500',
   },
   createFirstEventButton: {
@@ -3412,16 +3412,16 @@ const createThemedStyles = (theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E8F5E8',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
     justifyContent: 'center',
   },
   attendButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#2c6f57',
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '500',
   },
   removeButton: {

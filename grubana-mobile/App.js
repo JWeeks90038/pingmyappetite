@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthContextProvider, useAuth } from './src/components/AuthContext';
 import { ThemeProvider } from './src/theme/ThemeContext';
+// TODO: Re-enable when expo-auth-session is working
+// import { CalendarEventsProvider } from './src/components/CalendarEventsContext';
 import theme from './src/theme/colors';
 import NotificationService from './src/services/notificationService';
 
@@ -585,7 +587,10 @@ export default function App() {
     <StripeProvider {...stripeConfig}>
       <ThemeProvider>
         <AuthContextProvider>
-          <AppContent />
+          {/* TODO: Re-enable when expo-auth-session is working */}
+          {/* <CalendarEventsProvider> */}
+            <AppContent />
+          {/* </CalendarEventsProvider> */}
         </AuthContextProvider>
       </ThemeProvider>
     </StripeProvider>

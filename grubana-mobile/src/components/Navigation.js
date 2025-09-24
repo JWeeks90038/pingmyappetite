@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import CustomerDashboardScreen from '../screens/CustomerDashboardScreen';
 import OwnerDashboardScreen from '../screens/OwnerDashboardScreen';
+import EventsScreen from '../screens/EventsScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import OwnerSignupScreen from '../screens/OwnerSignupScreen';
@@ -69,7 +70,7 @@ const CustomerTabs = () => {
   );
 };
 
-// Owner Tab Navigator
+// Owner Tab Navigator - Updated to include Events
 const OwnerTabs = () => {
   return (
     <Tab.Navigator
@@ -81,6 +82,8 @@ const OwnerTabs = () => {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Dashboard') {
             iconName = focused ? 'business' : 'business-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Settings') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
@@ -107,6 +110,11 @@ const OwnerTabs = () => {
         name="Dashboard" 
         component={OwnerDashboardScreen}
         options={{ title: 'Truck Dashboard' }}
+      />
+      <Tab.Screen 
+        name="Events" 
+        component={EventsScreen}
+        options={{ title: 'My Events' }}
       />
       <Tab.Screen 
         name="Settings" 

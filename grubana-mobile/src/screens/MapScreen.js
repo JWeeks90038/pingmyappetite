@@ -15,6 +15,11 @@ import { calculateEstimatedTime, getTimeDescription } from '../utils/estimatedTi
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
 import { colors } from '../theme/colors';
+// TODO: Re-enable these imports when expo-auth-session is working
+// import { useCalendarEvents } from '../components/CalendarEventsContext';
+// import CalendarConnectModal from '../components/CalendarConnectModal';
+// import CalendarEventsDisplay from '../components/CalendarEventsDisplay';
+import { isCalendarFeatureAuthorized, shouldShowCalendarComingSoon, getCalendarButtonText } from '../utils/calendarFeatureAccess';
 
 const { width, height } = Dimensions.get('window');
 
@@ -191,6 +196,9 @@ export default function MapScreen() {
   
   // Reviews states
   const [showReviewsModal, setShowReviewsModal] = useState(false);
+  
+  // Calendar states
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [newReview, setNewReview] = useState({
@@ -483,7 +491,171 @@ export default function MapScreen() {
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Add refresh trigger for business hours updates
   
   const { userRole, userData, userPlan, user } = useAuth();
+  // TODO: Re-enable when expo-auth-session is working
+  // const { calendarEvents, isConnected: isCalendarConnected, syncEvents } = useCalendarEvents();
+  
+  // Mock calendar data for coming soon functionality
+  const calendarEvents = [];
+  const isCalendarConnected = false;
+  const syncEvents = () => {};
+  
   const navigation = useNavigation();
+
+  // Mock food truck data scattered across Riverside County, CA cities and towns (fallback for development)
+  const mockFoodTrucks = [
+    { 
+      id: 1, 
+      name: "Tasty Tacos", 
+      truckName: "Tasty Tacos",
+      lat: 33.8309, 
+      lng: -117.0934, 
+      status: "closed", 
+      popularity: 85, 
+      type: "mexican", 
+      cuisineType: "mexican",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop&crop=center", // Taco truck
+      phone: "(951) 555-0101",
+      description: "Authentic Mexican street tacos made fresh daily"
+    }, // Downtown Riverside
+    { 
+      id: 2, 
+      name: "Burger Paradise", 
+      truckName: "Burger Paradise",
+      lat: 33.7294, 
+      lng: -116.2453, 
+      status: "closed", 
+      popularity: 92, 
+      type: "american", 
+      cuisineType: "american",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop&crop=center", // Burger truck
+      phone: "(760) 555-0102",
+      description: "Gourmet burgers with locally sourced ingredients"
+    }, // Palm Desert
+    { 
+      id: 3, 
+      name: "Pizza Express", 
+      truckName: "Pizza Express",
+      lat: 33.6981, 
+      lng: -117.1633, 
+      status: "closed", 
+      popularity: 67, 
+      type: "italian", 
+      cuisineType: "italian",
+      kitchenType: "trailer",
+      coverUrl: "https://images.unsplash.com/photo-1565299507177-b0ac66763828?w=400&h=300&fit=crop&crop=center", // Pizza truck
+      phone: "(951) 555-0103",
+      description: "Wood-fired artisan pizzas made to order"
+    }, // Lake Elsinore
+    { 
+      id: 4, 
+      name: "Sushi Roll", 
+      truckName: "Sushi Roll",
+      lat: 33.6839, 
+      lng: -116.5453, 
+      status: "open", 
+      popularity: 78, 
+      type: "japanese", 
+      cuisineType: "japanese",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=400&h=300&fit=crop&crop=center", // Sushi
+      phone: "(760) 555-0104",
+      description: "Fresh sushi and Japanese fusion cuisine"
+    }, // Desert Hot Springs
+    { 
+      id: 5, 
+      name: "BBQ Master", 
+      truckName: "BBQ Master",
+      lat: 33.6803, 
+      lng: -117.3803, 
+      status: "closed", 
+      popularity: 95, 
+      type: "bbq", 
+      cuisineType: "bbq",
+      kitchenType: "cart",
+      coverUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop&crop=center", // BBQ truck
+      phone: "(951) 555-0105",
+      description: "Slow-smoked meats and traditional BBQ sides"
+    }, // Murrieta
+    { 
+      id: 6, 
+      name: "Seoul Kitchen", 
+      truckName: "Seoul Kitchen",
+      lat: 33.7456, 
+      lng: -116.9744, 
+      status: "closed", 
+      popularity: 88, 
+      type: "korean", 
+      cuisineType: "korean",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1553163147-622ab57be1c7?w=400&h=300&fit=crop&crop=center", // Korean BBQ
+      phone: "(951) 555-0106",
+      description: "Korean BBQ and fusion dishes with a modern twist"
+    }, // Moreno Valley
+    { 
+      id: 7, 
+      name: "Mediterranean Delights", 
+      truckName: "Mediterranean Delights",
+      lat: 33.9425, 
+      lng: -117.2717, 
+      status: "closed", 
+      popularity: 82, 
+      type: "mediterranean", 
+      cuisineType: "mediterranean",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&h=300&fit=crop&crop=center", // Mediterranean food
+      phone: "(909) 555-0107",
+      description: "Fresh Mediterranean cuisine with authentic flavors"
+    }, // Corona
+    { 
+      id: 8, 
+      name: "Sweet Treats", 
+      truckName: "Sweet Treats",
+      lat: 33.9806, 
+      lng: -117.3753, 
+      status: "closed", 
+      popularity: 76, 
+      type: "desserts", 
+      cuisineType: "desserts",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop&crop=center", // Ice cream truck
+      phone: "(909) 555-0108",
+      description: "Artisan ice cream and gourmet desserts"
+    }, // Chino
+    { 
+      id: 9, 
+      name: "Pho Real", 
+      truckName: "Pho Real",
+      lat: 33.8754, 
+      lng: -117.5458, 
+      status: "closed", 
+      popularity: 84, 
+      type: "vietnamese", 
+      cuisineType: "asian-fusion",
+      kitchenType: "truck",
+      coverUrl: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400&h=300&fit=crop&crop=center", // Vietnamese pho
+      phone: "(951) 555-0109",
+      description: "Authentic Vietnamese pho and banh mi sandwiches"
+    }, // Norco
+    { 
+      id: 10, 
+      name: "Coffee & More", 
+      truckName: "Coffee & More",
+      lat: 33.7175, 
+      lng: -116.2728, 
+      status: "closed", 
+      popularity: 79, 
+      type: "coffee", 
+      cuisineType: "coffee",
+      kitchenType: "cart",
+      coverUrl: "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&h=300&fit=crop&crop=center", // Coffee truck
+      phone: "(760) 555-0110",
+      description: "Specialty coffee, pastries, and breakfast items"
+    } // Palm Springs
+  ];
+
+
   const webViewRef = useRef(null);
   const modalScrollViewRef = useRef(null);
   const menuSectionRef = useRef(null);
@@ -3180,16 +3352,7 @@ export default function MapScreen() {
     generateHTML();
   }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites]);
   // NOTE: Using trucksDataHash instead of foodTrucks to prevent unnecessary regeneration
-  // NOTE: Removed showClosedTrucks, showOpenTrucks, and refreshTrigger from dependencies to prevent event markers from being affected by truck-specific changes
-
-  // Mock food truck data with California coordinates (fallback for development)
-  const mockFoodTrucks = [
-    { id: 1, name: "Tasty Tacos", lat: 33.8309, lng: -117.0934, status: "open", popularity: 85, type: "mexican", kitchenType: "truck" }, // Riverside, CA
-    { id: 2, name: "Burger Paradise", lat: 33.8409, lng: -117.0834, status: "open", popularity: 92, type: "american", kitchenType: "truck" }, // Riverside, CA
-    { id: 3, name: "Pizza Express", lat: 33.8209, lng: -117.1034, status: "closed", popularity: 67, type: "italian", kitchenType: "trailer" }, // Riverside, CA
-    { id: 4, name: "Sushi Roll", lat: 33.8509, lng: -117.0734, status: "open", popularity: 78, type: "japanese", kitchenType: "truck" }, // Riverside, CA
-    { id: 5, name: "BBQ Master", lat: 33.8159, lng: -117.0634, status: "busy", popularity: 95, type: "bbq", kitchenType: "cart" }, // Riverside, CA
-  ];
+  // NOTE: Removed showClosedTrucks, showOpenTrucks, and refreshTrigger from dependencies
 
   // Pre-fetch and convert images to base64 for WebView
   const convertImageToBase64 = async (imageUrl) => {
@@ -3319,9 +3482,14 @@ export default function MapScreen() {
     const userLat = currentLocation.coords.latitude;
     const userLng = currentLocation.coords.longitude;
     
-    // Use real truck data if available, otherwise fallback to mock data ONLY if no Firebase data received
-    // CRITICAL: Don't use mock data if trucks are just hidden for privacy reasons
-    let trucksToDisplay = foodTrucks.length > 0 ? foodTrucks : (hasReceivedFirebaseData ? [] : mockFoodTrucks);
+    // Combine real truck data with mock data for demonstration purposes
+    // Always show mock trucks to provide a rich demo experience
+    let trucksToDisplay = [...mockFoodTrucks];
+    
+    // Add real Firebase trucks if available (they will appear alongside mock trucks)
+    if (foodTrucks.length > 0) {
+      trucksToDisplay = [...trucksToDisplay, ...foodTrucks];
+    }
     
     
     
@@ -6290,6 +6458,62 @@ export default function MapScreen() {
           </View>
 
           <ScrollView ref={modalScrollViewRef} style={styles.modalContent}>
+            {/* Calendar Integration Section - Available for truck owners (Demo: showing for all trucks to test functionality) */}
+            {selectedTruck && (
+              <View style={styles.calendarSection}>
+                <View style={styles.calendarTitleContainer}>
+                  <Text style={styles.sectionTitle}>📅 Google Calendar</Text>
+                  {isCalendarConnected && (
+                    <View style={styles.calendarStatusBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                      <Text style={styles.calendarStatusText}>Connected</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={styles.calendarButtonContainer}>
+                  <View 
+                    style={[
+                      styles.calendarConnectButton,
+                      styles.calendarComingSoonButton,
+                      styles.calendarDisabledButton
+                    ]}
+                  >
+                    <Ionicons 
+                      name="calendar-outline" 
+                      size={20} 
+                      color="#999" 
+                    />
+                    <Text style={[
+                      styles.calendarConnectButtonText,
+                      styles.calendarComingSoonButtonText,
+                      styles.calendarDisabledButtonText
+                    ]}>
+                      Coming Soon
+                    </Text>
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonBadgeText}>In Development</Text>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Display upcoming events - Only for authorized users */}
+                {/* TODO: Re-enable when expo-auth-session is working */}
+                {/* 
+                !shouldShowCalendarComingSoon(user) && isCalendarConnected && calendarEvents.length > 0 && (
+                  <View style={styles.upcomingEventsContainer}>
+                    <Text style={styles.upcomingEventsTitle}>Upcoming Events:</Text>
+                    <CalendarEventsDisplay 
+                      events={calendarEvents.slice(0, 3)} 
+                      showTitle={false}
+                      compact={true}
+                    />
+                  </View>
+                )
+                */}
+              </View>
+            )}
+
             {/* Truck Info Section */}
             <View style={styles.truckInfoSection}>
               {selectedTruck?.coverUrl && (
@@ -8402,6 +8626,16 @@ export default function MapScreen() {
         </View>
       </Modal>
 
+      {/* Calendar Connect Modal - Only for authorized users */}
+      {/* TODO: Re-enable when expo-auth-session is working */}
+      {/* <CalendarConnectModal
+        visible={showCalendarModal && !shouldShowCalendarComingSoon(user)}
+        onClose={() => setShowCalendarModal(false)}
+        truckName={selectedTruck?.name || 'Food Truck'}
+      /> */}
+
+
+
     </View>
   );
 }
@@ -8774,6 +9008,108 @@ const createThemedStyles = (theme) => StyleSheet.create({
     justifyContent: 'center',
     minWidth: 44,
     minHeight: 44,
+  },
+  
+  // Calendar Section Styles
+  calendarSection: {
+    marginBottom: 20,
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: theme.colors.accent.blue,
+    ...theme.shadows.neonBlue,
+  },
+  calendarTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  calendarStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  calendarStatusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  calendarButtonContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  calendarConnectButton: {
+    backgroundColor: theme.colors.accent.blue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    minWidth: 200,
+    ...theme.shadows.neonBlue,
+  },
+  calendarConnectedButton: {
+    backgroundColor: theme.colors.accent.pink,
+    ...theme.shadows.neonPink,
+  },
+  calendarConnectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  calendarComingSoonButton: {
+    backgroundColor: theme.colors.background.secondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    position: 'relative',
+  },
+  calendarComingSoonButtonText: {
+    color: theme.colors.text.secondary,
+  },
+  calendarDisabledButton: {
+    backgroundColor: theme.colors.background.tertiary,
+    borderColor: theme.colors.border,
+    opacity: 0.7,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  calendarDisabledButtonText: {
+    color: '#999',
+  },
+  comingSoonBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: theme.colors.accent.pink,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    ...theme.shadows.neonPink,
+  },
+  comingSoonBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  upcomingEventsContainer: {
+    marginTop: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  upcomingEventsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
   },
   
   // Drops Section Styles
