@@ -43,9 +43,9 @@ service cloud.firestore {
       // This enables guest mode to see event organizer details and logos
       allow read: if resource.data.role == 'event-organizer';
       
-      // TEMPORARY: Allow all authenticated users to read customer profiles for testing
-      // This will be restricted later to only mobile kitchen owners
-      allow read: if request.auth != null && resource.data.role == 'customer';
+      // Allow authenticated users to read any user profile data
+      // This is needed for foodie markers, leaderboards, and general app functionality
+      allow read: if request.auth != null;
       
       // Allow mobile kitchen owners to read customer profiles for order management
       // This is needed for displaying customer names and profile pictures in orders
@@ -344,6 +344,160 @@ service cloud.firestore {
     match /reviews/{reviewId} {
       // Temporarily allow all operations for debugging
       allow read, write: if true;
+    }
+    
+    // Gamification Collections
+    
+    // Foodie profiles collection - allow users to read/write their own profile
+    match /foodieProfiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow authenticated users to read other profiles for leaderboards
+      allow read: if request.auth != null;
+    }
+    
+    // Foodie check-ins collection - allow users to create and read check-ins
+    match /foodieCheckins/{checkinId} {
+      // Allow users to create their own check-ins
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      
+      // Allow users to read their own check-ins
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow all authenticated users to read active check-ins for map display
+      allow read: if request.auth != null && 
+        resource.data.active == true;
+        
+      // Allow users to update their own check-ins
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Foodie badges collection - allow users to read their badges
+    match /foodieBadges/{badgeId} {
+      // Allow users to read their own badges
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow system to create badges (this would normally be server-side)
+      allow create: if request.auth != null;
+    }
+    
+    // Active missions collection - allow users to manage their missions
+    match /activeMissions/{missionId} {
+      // Allow users to create their own missions
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      
+      // Allow users to read and update their existing missions
+      allow read, update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Completed missions collection - allow users to read their completed missions
+    match /completedMissions/{missionId} {
+      // Allow users to read their own completed missions
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow system to create completed mission records
+      allow create: if request.auth != null;
+    }
+    
+    // Foodie call-outs collection - allow users to create and read call-outs
+    match /foodieCallOuts/{callOutId} {
+      // Allow users to create their own call-outs
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      
+      // Allow users to read their own call-outs
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow all authenticated users to read recent call-outs for area awareness
+      allow read: if request.auth != null;
+      
+      // Allow truck owners to read call-outs to respond to demand
+      allow read: if request.auth != null;
+    }
+    
+    // User Stats collection - allow users to manage their stats
+    match /userStats/{userId} {
+      // Allow users to read and write their own stats
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow all authenticated users to read stats for leaderboards
+      allow read: if request.auth != null;
+    }
+    
+    // Point Transactions collection - allow users to read their transaction history
+    match /pointTransactions/{transactionId} {
+      // Allow users to read their own transactions
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow system to create transaction records
+      allow create: if request.auth != null;
+    }
+    
+    // Leaderboards collection - Enhanced gamification leaderboards
+    match /leaderboards/{path=**} {
+      // Allow all authenticated users to read leaderboard data
+      allow read: if request.auth != null;
+      
+      // Allow authenticated users to update their own stats
+      allow write: if request.auth != null && 
+        (path.matches('users/stats/.*') && request.auth.uid in path ||
+         path.matches('global'));
+    }
+    
+    // Users subcollection for enhanced gamification
+    match /users/{userId} {
+      // Enhanced gamification stats
+      match /gamification/{document=**} {
+        // Allow users to read and write their own gamification data
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Daily challenges subcollection
+      match /dailyChallenges/{challengeDate} {
+        // Allow users to read and write their own daily challenges
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Foodie Photos collection - for foodie photo sharing on map markers
+    match /foodiePhotos/{photoId} {
+      // Allow users to create their own photos
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+
+      // Allow users to read, update, and delete their own photos
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+
+      // Allow all authenticated users to read photos for gallery viewing
+      allow read: if request.auth != null;
+
+      // Allow updating like counts (system updates)
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys() == ['likeCount'].toSet();
+    }
+
+    // Photo Likes collection - for tracking photo likes
+    match /photoLikes/{likeId} {
+      // Allow users to create their own likes
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+
+      // Allow users to delete their own likes
+      allow delete: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+
+      // Allow reading likes for display purposes
+      allow read: if request.auth != null;
     }
   }
 }

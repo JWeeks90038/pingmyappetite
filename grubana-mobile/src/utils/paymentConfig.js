@@ -7,8 +7,8 @@
 // Grubana Commission Structure for Food Pre-Orders
 export const COMMISSION_CONFIG = {
   // Standard commission rate for all food truck vendors
-  commissionPercentage: 0.07, // 7% commission on food pre-orders
-  description: '7% commission on food pre-orders',
+  commissionPercentage: 0.05, // 5% commission on food pre-orders
+  description: '5% commission on food pre-orders',
   
   // Minimum order amount to process
   minimumOrderAmount: 5.00, // $5.00 minimum

@@ -423,7 +423,7 @@ export default function TruckOnboardingScreen({ navigation }) {
           return {
             icon: '✅',
             title: 'Payment Setup Complete',
-            text: 'Your payment processing is active and ready to accept pre-orders! You\'ll receive 93% of each order (Grubana receives only 7% commission).',
+            text: 'Your payment processing is active and ready to accept pre-orders! You\'ll receive 95% of each order (Grubana receives only 5% commission).',
             buttonText: isCheckingStatus ? 'Checking...' : 'Refresh Status',
             buttonAction: checkStripeConnectStatus,
             buttonStyle: styles.secondaryButton,
@@ -457,7 +457,7 @@ export default function TruckOnboardingScreen({ navigation }) {
           return {
             icon: '',
             title: 'Stripe Payment Setup Required',
-            text: 'Connect your Stripe account to start accepting pre-orders from customers. Quick setup with Stripe Connect. Grubana receives only 7% commission on each food order.',
+            text: 'Connect your Stripe account to start accepting pre-orders from customers. Quick setup with Stripe Connect. Grubana receives only 5% commission on each food order.',
             buttonText: isSettingUpPayments ? 'Opening Stripe...' : 'Setup Payments',
             buttonAction: handleStripeConnectOnboarding,
             buttonStyle: styles.primaryButton,

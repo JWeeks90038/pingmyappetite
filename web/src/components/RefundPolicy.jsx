@@ -56,7 +56,7 @@ const RefundPolicy = () => (
         lineHeight: '1.6',
         fontSize: '1rem'
       }}>
-        All pre-order payments and fees made through Grubana are <strong style={{ color: '#FF4EC9' }}>non-refundable</strong> except as expressly required by applicable law or as otherwise stated in this policy. <br></br><br></br>By placing a pre-order through our platform, you acknowledge and agree that you are not entitled to a refund or credit for your order, including for accidental purchases, change of mind, or dissatisfaction with the food vendor's service. <br></br><br></br>Grubana charges a 7% processing fee on all pre-orders to maintain and improve our platform services. This fee is included in your total payment and is non-refundable.
+        All pre-order payments and fees made through Grubana are <strong style={{ color: '#FF4EC9' }}>non-refundable</strong> except as expressly required by applicable law or as otherwise stated in this policy. <br></br><br></br>By placing a pre-order through our platform, you acknowledge and agree that you are not entitled to a refund or credit for your order, including for accidental purchases, change of mind, or dissatisfaction with the food vendor's service. <br></br><br></br>Grubana charges a 5% processing fee on all pre-orders to maintain and improve our platform services. This fee is included in your total payment and is non-refundable.
       </p>
     </section>
 

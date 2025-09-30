@@ -32,6 +32,7 @@ import LocationManagementScreen from './src/screens/LocationManagementScreen.js'
 import TruckOnboardingScreen from './src/screens/TruckOnboardingScreen.js';
 import OrderManagementScreen from './src/screens/OrderManagementScreen.js';
 import CustomerOrdersScreen from './src/screens/CustomerOrdersScreen.js';
+import PhotoUploadScreen from './src/screens/PhotoUploadScreen.js';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -247,7 +248,7 @@ function CustomerTabs() {
       <Tab.Screen 
         name="CustomerPing" 
         component={PingScreen}
-        options={{ title: 'Send Ping' }}
+        options={{ title: 'Console' }}
       />
       <Tab.Screen 
         name="CustomerProfile" 
@@ -437,6 +438,22 @@ function MainStackNavigator() {
         name="TruckOnboarding" 
         component={TruckOnboardingScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="PhotoUpload" 
+        component={PhotoUploadScreen}
+        options={{
+          headerShown: true,
+          presentation: 'modal',
+          headerStyle: {
+            backgroundColor: '#2c6f57',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          title: 'Share Photo',
+        }}
       />
     </Stack.Navigator>
   );

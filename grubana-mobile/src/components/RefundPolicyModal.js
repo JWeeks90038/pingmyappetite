@@ -49,7 +49,7 @@ const RefundPolicyModal = ({ visible, onClose }) => {
               By placing a pre-order through our platform, you acknowledge and agree that you are not entitled to a refund or credit for your order, including for accidental purchases, change of mind, or dissatisfaction with the food vendor's service.
             </Text>
             <Text style={styles.paragraph}>
-              Grubana charges a 7% processing fee on all pre-orders to maintain and improve our platform services. This fee is included in your total payment and is non-refundable.
+              Grubana charges a 5% processing fee on all pre-orders to maintain and improve our platform services. This fee is included in your total payment and is non-refundable.
             </Text>
           </View>
 

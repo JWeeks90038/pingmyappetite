@@ -35,6 +35,24 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
     
+    // Verification photos for missions (organized by user ID)
+    match /verification-photos/{userId}/{allPaths=**} {
+      allow read: if request.auth != null; // Allow all authenticated users to read
+      allow write: if request.auth != null && request.auth.uid == userId; // Only owner can write
+    }
+    
+    // Foodie photos for sharing (organized by user ID) - separate from verification photos
+    match /foodie-photos/{userId}/{allPaths=**} {
+      allow read: if true; // Public read for viewing in galleries
+      allow write: if request.auth != null && request.auth.uid == userId; // Only owner can write
+    }
+    
+    // Profile photos
+    match /profile-photos/{userId}/{filename} {
+      allow read: if true; // Public read for profile display
+      allow write: if request.auth != null && request.auth.uid == userId; // Only owner can write
+    }
+    
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

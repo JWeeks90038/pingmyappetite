@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import GuestAuthPrompt from '../components/GuestAuthPrompt';
 import useGuestAuth from '../hooks/useGuestAuth';
+import HomepageLeaderboard from '../components/HomepageLeaderboard';
 
 const HomeScreen = () => {
   const { user, userData, userRole } = useAuth();
@@ -73,6 +74,11 @@ const HomeScreen = () => {
               <Text style={styles.buttonSubtext}>Menu Management</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Leaderboard Section - Only for customers and event organizers */}
+        {(userRole === 'customer' || userRole === 'event-organizer') && (
+          <HomepageLeaderboard />
         )}
 
         <View style={styles.featureSection}>

@@ -29,6 +29,17 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { useTheme } from '../theme/ThemeContext';
+import FoodieGameService from '../services/FoodieGameService';
+import DailyChallengesService from '../services/DailyChallengesService';
+
+// Gamification Components
+import FoodieCheckInButton from '../components/FoodieCheckInButton';
+import FoodiePointsDisplay from '../components/FoodiePointsDisplay';
+import FoodieMissionsPanel from '../components/FoodieMissionsPanel';
+import EnhancedPointsDisplay from '../components/EnhancedPointsDisplay';
+import GameificationHub from '../components/GameificationHub';
+import HomepageLeaderboard from '../components/HomepageLeaderboard';
+import PhotoVerificationButton from '../components/PhotoVerificationButton';
 
 // React Native compatible UUID generation
 const generateUUID = () => {
@@ -36,7 +47,7 @@ const generateUUID = () => {
 };
 
 export default function PingScreen() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const theme = useTheme();
   const styles = createThemedStyles(theme);
   const [username, setUsername] = useState('');
@@ -49,6 +60,9 @@ export default function PingScreen() {
   const [locationStatus, setLocationStatus] = useState('Getting location...');
   
   const sendingRef = useRef(false);
+
+  // Gamification states
+  const [showMissionsPanel, setShowMissionsPanel] = useState(false);
 
   // Toast notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -266,6 +280,8 @@ export default function PingScreen() {
     }
   };
 
+  // Express interest is now handled by favoriting trucks on the map
+
   const handleSendPing = async () => {
     if (sendingRef.current) return;
     sendingRef.current = true;
@@ -327,10 +343,45 @@ export default function PingScreen() {
 
       await addDoc(collection(db, 'pings'), pingData);
 
+      // Award points and update mission progress with enhanced tracking
+      try {
+        const now = new Date();
+        const isEarlyBird = now.getHours() < 9;
+        
+        await FoodieGameService.awardPoints(user.uid, 10, 'Sent ping', {
+          actionType: 'send_ping',
+          displayName: user.displayName || username,
+          location: address,
+          isNewLocation: true, // Could be enhanced to track actual new locations
+          isRapidAction: false, // Will be calculated by combo system
+          isEarlyBird
+        });
+        
+        // Track daily challenges
+        await DailyChallengesService.trackAction(user.uid, 'send_ping', {
+          isNewLocation: true,
+          isEarlyBird,
+          isRapidAction: false
+        });
+        
+        // Also update leaderboard stats
+        const LeaderboardService = (await import('../services/LeaderboardService')).default;
+        await LeaderboardService.updateUserLeaderboardStats(
+          user.uid, 
+          LeaderboardService.LEADERBOARD_TYPES.ALL_TIME_POINTS, 
+          10, // Points for this action
+          user.displayName || username
+        );
+        
+        await FoodieGameService.updateMissionProgress(user.uid, 'express_interest', 1);
+      } catch (error) {
+        console.log('Gamification update failed:', error);
+      }
+
       // Reset form and update count
       setCuisineType('');
       setDailyPingCount(prev => prev + 1);
-      showModal('Success', 'Ping sent successfully! Food trucks in your area will be notified of your craving.');
+      showModal('Success', 'Ping sent successfully! Food trucks in your area will be notified of your craving. You\'ve also expressed interest in food trucks!');
       
     } catch (error) {
 
@@ -350,12 +401,82 @@ export default function PingScreen() {
           resizeMode="contain"
         />
         <Text style={styles.title}>
-          Send a Ping{username ? `, ${username}` : ''}!
+          Let's Go{username ? `, ${username}` : ''}!
         </Text>
         <Text style={styles.subtitle}>
-          Let food trucks know what you're craving
+          Let mobile food vendors know what you're craving
         </Text>
       </View>
+
+      {/* Foodie Gamification Section - Only for customers and event organizers */}
+      {(userRole === 'customer' || userRole === 'event-organizer') && (
+        <View style={styles.gamificationSection}>
+          <Text style={styles.gamificationTitle}>🎮 Foodie Adventures</Text>
+          
+          {/* Enhanced Points Display */}
+          <EnhancedPointsDisplay />
+          
+          {/* Gamification Hub */}
+          <GameificationHub />
+          
+          {/* Check-in Button */}
+          {userLocation && (
+            <View style={styles.checkInSection}>
+              <FoodieCheckInButton
+                location={userLocation}
+                onCheckIn={(result) => {
+                  if (result.success) {
+                    let message = `Checked in! +${result.pointsAwarded} points!`;
+                    
+                    // Check if any missions were completed
+                    if (result.missionCompleted) {
+                      message += `\n🎉 Mission Complete: ${result.missionCompleted.missionTitle}!`;
+                      message += `\n+${result.missionCompleted.pointsAwarded} bonus XP!`;
+                    }
+                    
+                    showToast(message, 'success');
+                  }
+                }}
+                style={styles.checkInButton}
+              />
+            </View>
+          )}
+          
+          {/* Photo Verification Button */}
+          {userLocation && (
+            <View style={styles.photoVerificationSection}>
+              <PhotoVerificationButton
+                location={userLocation}
+                onPhotoTaken={(result) => {
+                  if (result.success) {
+                    let message = `Photo verified! +${result.totalPoints} XP!`;
+                    
+                    if (result.missionCompleted) {
+                      message += `\n🎉 Mission Complete: ${result.missionCompleted.missionTitle}!`;
+                    }
+                    
+                    showToast(message, 'success');
+                  }
+                }}
+                style={styles.photoVerificationButton}
+              />
+            </View>
+          )}
+
+          {/* Missions Button */}
+          <View style={styles.missionsSection}>
+            <TouchableOpacity
+              style={styles.missionsButton}
+              onPress={() => setShowMissionsPanel(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.missionsIcon}>🎯</Text>
+              <Text style={styles.missionsText}>Missions</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      )}
 
       {/* Ping Statistics */}
       <View style={styles.statsContainer}>
@@ -445,6 +566,8 @@ export default function PingScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* Note: Express interest by favoriting trucks on the map */}
 
         {dailyPingCount >= 3 && (
           <View style={styles.limitNotice}>
@@ -536,6 +659,12 @@ export default function PingScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Missions Panel Modal */}
+      <FoodieMissionsPanel
+        visible={showMissionsPanel}
+        onClose={() => setShowMissionsPanel(false)}
+      />
     </ScrollView>
   );
 }
@@ -689,6 +818,22 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  expressInterestButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#e74c3c',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  expressInterestText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   limitNotice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -827,5 +972,73 @@ const createThemedStyles = (theme) => StyleSheet.create({
   },
   modalButtonTextDestructive: {
     color: '#dc3545',
+  },
+
+  // Gamification Styles
+  gamificationSection: {
+    backgroundColor: theme.colors.background.secondary,
+    margin: 16,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.subtle,
+    alignItems: 'center',
+  },
+  gamificationTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: theme.colors.accent.pink,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  pointsDisplay: {
+    marginBottom: 15,
+  },
+  checkInSection: {
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '100%',
+  },
+  checkInButton: {
+    width: '100%',
+  },
+  photoVerificationSection: {
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '100%',
+  },
+  photoVerificationButton: {
+    width: '85%',
+  },
+  missionsSection: {
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '100%',
+  },
+  missionsButton: {
+    backgroundColor: '#9C27B0',
+    borderRadius: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 200,
+    minHeight: 64,
+    width: '80%',
+  },
+  missionsIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  missionsText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

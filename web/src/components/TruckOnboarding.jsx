@@ -394,7 +394,7 @@ const TruckOnboarding = () => {
                 <br />
                 • Status: Ready to accept payments
                 <br />
-                • Platform fees: 7% per order
+                • Platform fees: 5% per order
               </div>
             </div>
           </div>
@@ -880,7 +880,7 @@ const TruckOnboarding = () => {
               }}>
                 <h5 style={{ color: '#856404', margin: '0 0 8px 0' }}>🆓 Simple & Transparent</h5>
                 <div style={{ color: '#856404', fontSize: '16px' }}>
-                  <strong>7% platform fee per order</strong><br/>
+                  <strong>5% platform fee per order</strong><br/>
                   <span style={{ fontSize: '14px' }}>No monthly fees, no setup costs</span>
                 </div>
               </div>

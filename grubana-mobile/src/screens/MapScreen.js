@@ -1,11 +1,11 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Image, ActivityIndicator, TextInput, Linking, KeyboardAvoidingView, Platform, Animated, Alert, FlatList } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../components/AuthContext';
-import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, getDocs, query, where, orderBy, Timestamp, deleteDoc, limit, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,11 +15,14 @@ import { calculateEstimatedTime, getTimeDescription } from '../utils/estimatedTi
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
 import { colors } from '../theme/colors';
+import FoodiePhotoService from '../services/FoodiePhotoService';
 // TODO: Re-enable these imports when expo-auth-session is working
 // import { useCalendarEvents } from '../components/CalendarEventsContext';
 // import CalendarConnectModal from '../components/CalendarConnectModal';
 // import CalendarEventsDisplay from '../components/CalendarEventsDisplay';
 import { isCalendarFeatureAuthorized, shouldShowCalendarComingSoon, getCalendarButtonText } from '../utils/calendarFeatureAccess';
+
+import FoodieGameService from '../services/FoodieGameService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -98,6 +101,39 @@ export default function MapScreen() {
     return () => unsubscribe();
   }, [user?.uid]);
   
+  // Load current check-in from AsyncStorage
+  useEffect(() => {
+    const loadCheckIn = async () => {
+      try {
+        const checkInData = await AsyncStorage.getItem('current_checkin');
+        if (checkInData) {
+          const checkIn = JSON.parse(checkInData);
+          // Check if check-in hasn't expired (45 minutes)
+          const checkInTime = checkIn.timestamp;
+          const now = Date.now();
+          const expirationTime = 45 * 60 * 1000; // 45 minutes in milliseconds
+          
+          if (now - checkInTime < expirationTime) {
+            setCurrentCheckIn(checkIn);
+          } else {
+            // Check-in expired, clear it
+            await AsyncStorage.removeItem('current_checkin');
+            setCurrentCheckIn(null);
+          }
+        }
+      } catch (error) {
+        console.log('Error loading check-in from AsyncStorage:', error);
+      }
+    };
+
+    loadCheckIn();
+
+    // Set up periodic check for check-in expiration
+    const interval = setInterval(loadCheckIn, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+  
   // Load favorite counts for all trucks (for owners to see analytics)
   useEffect(() => {
     if (!foodTrucks.length) return;
@@ -163,6 +199,9 @@ export default function MapScreen() {
   
   // 🌍 PERFORMANCE: Geographic filtering for large-scale deployments
   const [viewBounds, setViewBounds] = useState(null);
+  
+  // Foodie Check-in State
+  const [currentCheckIn, setCurrentCheckIn] = useState(null);
   const MAX_TRUCKS_PER_LOAD = 100; // Limit trucks per viewport
   const GEOGRAPHIC_RADIUS = 50; // km radius for truck loading
   
@@ -190,6 +229,26 @@ export default function MapScreen() {
   // Customer drop claiming states
   const [truckDrops, setTruckDrops] = useState([]);
   const [loadingDrops, setLoadingDrops] = useState(false);
+
+  // User check-in state (lightweight gamification)
+  const [userCheckIn, setUserCheckIn] = useState(null);
+
+  // Nearby foodies state for map display
+  const [nearbyFoodies, setNearbyFoodies] = useState([]);
+  const [loadingFoodies, setLoadingFoodies] = useState(false);
+
+  // Foodie photo gallery states
+  const [showFoodieGallery, setShowFoodieGallery] = useState(false);
+  const [selectedFoodie, setSelectedFoodie] = useState(null);
+  const [foodiePhotos, setFoodiePhotos] = useState([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
+  
+  // Full-screen photo viewer states
+  const [showFullScreenPhoto, setShowFullScreenPhoto] = useState(false);
+  const [fullScreenPhotoUrl, setFullScreenPhotoUrl] = useState(null);
+
+  // Photo upload states
+  // Photo upload state managed by dedicated PhotoUploadScreen
 
   // Catering booking states
   const [showCateringModal, setShowCateringModal] = useState(false);
@@ -1060,8 +1119,6 @@ export default function MapScreen() {
         }
       } else {
         // Add to favorites
-
-        
         await addDoc(collection(db, 'favorites'), {
           userId: user.uid,
           truckId: truckId,
@@ -1069,7 +1126,27 @@ export default function MapScreen() {
           createdAt: serverTimestamp(),
         });
         
- 
+        // Award points for expressing interest via favoriting
+        try {
+          await FoodieGameService.awardPoints(user.uid, 5, `Favorited ${truckName}`, {
+            actionType: 'express_interest',
+            displayName: user.displayName,
+            truckId: truckId,
+            truckName: truckName
+          });
+          
+          // Update mission progress for expressing interest
+          const result = await FoodieGameService.updateMissionProgress(user.uid, 'express_interest', 1);
+          
+          if (result.missionCompleted) {
+            showToastMessage(`Truck favorited! Mission complete: ${result.missionCompleted.missionTitle} (+${result.missionCompleted.pointsAwarded} XP)`, 'success');
+          } else {
+            showToastMessage(`${truckName} favorited! (+5 XP)`, 'success');
+          }
+        } catch (gamificationError) {
+          console.log('Gamification failed:', gamificationError);
+          showToastMessage(`${truckName} favorited!`, 'success');
+        }
       }
     } catch (error) {
    
@@ -2138,6 +2215,168 @@ export default function MapScreen() {
     }
   };
 
+  // Open foodie photo gallery
+  const openFoodieGallery = async (foodieId, foodieName) => {
+    try {
+      setSelectedFoodie({ id: foodieId, name: foodieName });
+      setShowFoodieGallery(true);
+      setLoadingPhotos(true);
+      
+      // Fetch photos from foodiePhotos collection
+      const photosQuery = query(
+        collection(db, 'foodiePhotos'),
+        where('userId', '==', foodieId),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      
+      const photosSnapshot = await getDocs(photosQuery);
+      const photos = photosSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate?.() || new Date(doc.data().timestamp)
+      }));
+      
+      // Check which photos the current user has liked
+      if (user?.uid && photos.length > 0) {
+        const photoIds = photos.map(photo => photo.id);
+        const likesQuery = query(
+          collection(db, 'photoLikes'),
+          where('userId', '==', user.uid),
+          where('photoId', 'in', photoIds)
+        );
+        
+        const likesSnapshot = await getDocs(likesQuery);
+        const likedPhotoIds = new Set(likesSnapshot.docs.map(doc => doc.data().photoId));
+        
+        // Add isLikedByUser property to each photo
+        const photosWithLikeStatus = photos.map(photo => ({
+          ...photo,
+          isLikedByUser: likedPhotoIds.has(photo.id)
+        }));
+        
+        setFoodiePhotos(photosWithLikeStatus);
+      } else {
+        // No user or no photos - set isLikedByUser to false for all
+        const photosWithLikeStatus = photos.map(photo => ({
+          ...photo,
+          isLikedByUser: false
+        }));
+        
+        setFoodiePhotos(photosWithLikeStatus);
+      }
+      setLoadingPhotos(false);
+    } catch (error) {
+      console.error('Error loading foodie photos:', error);
+      setLoadingPhotos(false);
+      
+      if (error.code === 'failed-precondition' && error.message.includes('index')) {
+        showToastMessage('Photo gallery needs setup. Please try again in a moment.', 'info');
+      } else {
+        showToastMessage('Unable to load photos', 'error');
+      }
+      
+      // Set empty photos array so gallery still opens
+      setFoodiePhotos([]);
+    }
+  };
+
+  // Like/unlike a foodie photo
+  const togglePhotoLike = async (photoId, isLiked) => {
+    if (!user?.uid) return;
+    
+    try {
+      const photoRef = doc(db, 'foodiePhotos', photoId);
+      const likeRef = doc(db, 'photoLikes', `${photoId}_${user.uid}`);
+      
+      if (isLiked) {
+        // Unlike - remove like document
+        await deleteDoc(likeRef);
+        await updateDoc(photoRef, {
+          likeCount: increment(-1)
+        });
+      } else {
+        // Like - add like document  
+        await setDoc(likeRef, {
+          photoId,
+          userId: user.uid,
+          timestamp: serverTimestamp()
+        });
+        await updateDoc(photoRef, {
+          likeCount: increment(1)
+        });
+      }
+      
+      // Update local state
+      setFoodiePhotos(prevPhotos => 
+        prevPhotos.map(photo => 
+          photo.id === photoId 
+            ? { 
+                ...photo, 
+                likeCount: (photo.likeCount || 0) + (isLiked ? -1 : 1),
+                isLikedByUser: !isLiked
+              }
+            : photo
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling photo like:', error);
+      showToastMessage('Unable to update like', 'error');
+    }
+  };
+
+  // Delete photo function - only allows users to delete their own photos
+  const deletePhoto = async (photoId, imageUrl) => {
+    if (!user?.uid) return;
+    
+    try {
+      // Show confirmation dialog
+      showCustomModal(
+        'Delete Photo',
+        'Are you sure you want to delete this photo? This action cannot be undone.',
+        async () => {
+          try {
+            console.log('🗑️ Deleting photo:', photoId);
+            
+            // Import Firebase functions
+            const { doc, deleteDoc } = await import('firebase/firestore');
+            const { ref, deleteObject } = await import('firebase/storage');
+            const { db, storage } = await import('../firebase');
+            
+            // Delete from Firestore
+            await deleteDoc(doc(db, 'foodiePhotos', photoId));
+            
+            // Delete from Storage
+            // Extract storage path from download URL
+            const urlParts = imageUrl.split('/o/')[1].split('?')[0];
+            const storagePath = decodeURIComponent(urlParts);
+            console.log('🗑️ Storage path for deletion:', storagePath);
+            
+            const storageRef = ref(storage, storagePath);
+            await deleteObject(storageRef);
+            
+            // Remove from local state
+            setFoodiePhotos(prev => prev.filter(photo => photo.id !== photoId));
+            
+            console.log('🗑️ Photo deleted successfully');
+            showToastMessage('Photo deleted successfully', 'success');
+            
+          } catch (error) {
+            console.error('Error deleting photo:', error);
+            showToastMessage('Failed to delete photo', 'error');
+          }
+        },
+        'Delete',
+        'Cancel',
+        true
+      );
+    } catch (error) {
+      console.error('Error showing delete confirmation:', error);
+    }
+  };
+
+  // Photo upload functions moved to dedicated PhotoUploadScreen
+
   // Fetch claim codes for a specific drop (owner only)
   const fetchClaimCodes = async (dropId) => {
     if (!user || userRole !== 'owner') return;
@@ -3163,64 +3402,84 @@ export default function MapScreen() {
         setLocation(location);
        
 
-        // Save location for all food truck owners - automatic GPS tracking enabled
-        if (userRole === 'owner' && user?.uid) {
-     
-          
-          // Wait for sessionId and ownerData if they're not ready yet
-          let attempts = 0;
-          const maxAttempts = 10; // Wait up to 5 seconds (500ms * 10)
-          
-          while ((!sessionId || !ownerData) && attempts < maxAttempts) {
-
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-            attempts++;
-          }
-          
-          if (sessionId && ownerData) {
-  
-          } else {
-         
-          }
+        // Save location for ALL users so they appear on the map
+        if (user?.uid) {
           try {
-            // Save to Firestore as truck location
-            const truckDocRef = doc(db, 'truckLocations', user.uid);
-            
-            // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
-            // This prevents overwriting the saved visibility preference during initial load
-            const locationData = {
-              lat: location.coords.latitude,
-              lng: location.coords.longitude,
-              isLive: true,
-              updatedAt: serverTimestamp(),
-              lastActive: Date.now(),
-              lastActivityTime: Date.now(),
-              sessionId: sessionId || Date.now() + '_' + Math.random().toString(36).substr(2, 9), // Generate fallback sessionId
-              sessionStartTime: Date.now(),
-              loginTime: Date.now(),
-              ownerUid: user.uid,
-              kitchenType: ownerData?.kitchenType || "truck",
-              truckName: ownerData?.username || ownerData?.businessName || "Food Truck",
-              coverUrl: ownerData?.coverUrl || ownerData?.coverURL || null, // Check both case variations
+            // Update user's current location in users collection for foodie markers
+            const userDocRef = doc(db, 'users', user.uid);
+            const userLocationData = {
+              currentLocation: {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+              },
+              lastKnownLocation: {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude
+              },
+              lastActive: serverTimestamp(),
+              lastActivityTime: Date.now()
             };
             
-            // Only set visible field if showTruckIcon has been loaded from Firebase
-            // This prevents overwriting the saved visibility preference during initial load
-            if (showTruckIcon !== null) {
-              locationData.visible = showTruckIcon;
-
-            } else {
-  
+            await setDoc(userDocRef, userLocationData, { merge: true });
+            console.log('Updated user location for foodie marker display');
+            
+            // Additional logic for food truck owners
+            if (userRole === 'owner') {
+              // Wait for sessionId and ownerData if they're not ready yet
+              let attempts = 0;
+              const maxAttempts = 10; // Wait up to 5 seconds (500ms * 10)
+              
+              while ((!sessionId || !ownerData) && attempts < maxAttempts) {
+                console.log('Waiting for sessionId and ownerData...');
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+                attempts++;
+              }
+              
+              if (sessionId && ownerData) {
+                console.log('sessionId and ownerData available, saving truck location');
+              } else {
+                console.log('sessionId or ownerData not available after waiting');
+              }
+              
+              // Save to Firestore as truck location
+              const truckDocRef = doc(db, 'truckLocations', user.uid);
+              
+              // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
+              // This prevents overwriting the saved visibility preference during initial load
+              const locationData = {
+                lat: location.coords.latitude,
+                lng: location.coords.longitude,
+                isLive: true,
+                updatedAt: serverTimestamp(),
+                lastActive: Date.now(),
+                lastActivityTime: Date.now(),
+                sessionId: sessionId || Date.now() + '_' + Math.random().toString(36).substr(2, 9), // Generate fallback sessionId
+                sessionStartTime: Date.now(),
+                loginTime: Date.now(),
+                ownerUid: user.uid,
+                kitchenType: ownerData?.kitchenType || "truck",
+                truckName: ownerData?.username || ownerData?.businessName || "Food Truck",
+                coverUrl: ownerData?.coverUrl || ownerData?.coverURL || null, // Check both case variations
+              };
+              
+              // Only set visible field if showTruckIcon has been loaded from Firebase
+              // This prevents overwriting the saved visibility preference during initial load
+              if (showTruckIcon !== null) {
+                locationData.visible = showTruckIcon;
+                console.log('Setting truck visibility to:', showTruckIcon);
+              } else {
+                console.log('showTruckIcon is null, not setting visibility');
+              }
+              
+              // Save to trucks collection for persistence and visibility management
+              const trucksDocRef = doc(db, 'trucks', user.uid);
+              await setDoc(trucksDocRef, locationData, { merge: true });
+              
+              await setDoc(truckDocRef, locationData, { merge: true });
+              console.log('Saved truck location to Firebase');
             }
-            
-            // Save to trucks collection for persistence and visibility management
-            const trucksDocRef = doc(db, 'trucks', user.uid);
-            await setDoc(trucksDocRef, locationData, { merge: true });
-            
-            await setDoc(truckDocRef, locationData, { merge: true });
-       
           } catch (firebaseError) {
-     
+            console.error('Error saving location to Firebase:', firebaseError);
           }
         }
         
@@ -3242,19 +3501,39 @@ export default function MapScreen() {
     })();
   }, [userPlan, userRole, user, sessionId, ownerData]);
 
-  // Additional effect to ensure truck location is saved when sessionId/ownerData become available later
+  // Additional effect to ensure user location is updated when location changes
   useEffect(() => {
     const saveLateLoadedLocation = async () => {
-      if (userRole === 'owner' && user?.uid && sessionId && ownerData && location) {
-  
-        
+      if (user?.uid && location) {
         try {
-          const truckDocRef = doc(db, 'truckLocations', user.uid);
+          // Update user's current location for all users
+          const userDocRef = doc(db, 'users', user.uid);
+          const userLocationData = {
+            currentLocation: {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude
+            },
+            lastKnownLocation: {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude
+            },
+            lastActive: serverTimestamp(),
+            lastActivityTime: Date.now()
+          };
           
-          // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
-          // This prevents overwriting the saved visibility preference during initial load
-          const locationData = {
-            lat: location.coords.latitude,
+          await setDoc(userDocRef, userLocationData, { merge: true });
+          console.log('Updated user location (late load)');
+          
+          // Additional truck owner logic
+          if (userRole === 'owner' && sessionId && ownerData) {
+            console.log('Saving late loaded truck location');
+            
+            const truckDocRef = doc(db, 'truckLocations', user.uid);
+            
+            // Only set visible field if showTruckIcon is not null (i.e., loaded from Firebase)
+            // This prevents overwriting the saved visibility preference during initial load
+            const locationData = {
+              lat: location.coords.latitude,
             lng: location.coords.longitude,
             isLive: true,
             updatedAt: serverTimestamp(),
@@ -3273,24 +3552,104 @@ export default function MapScreen() {
           // This prevents overwriting the saved visibility preference during initial load
           if (showTruckIcon !== null) {
             locationData.visible = showTruckIcon;
-     
-          } else {
-       
           }
           
           // Save to both collections
           const trucksDocRef = doc(db, 'trucks', user.uid);
           await setDoc(trucksDocRef, locationData, { merge: true });
           await setDoc(truckDocRef, locationData, { merge: true });
-
+          }
         } catch (error) {
-      
+          console.log('Error saving location:', error);
         }
       }
     };
     
     saveLateLoadedLocation();
   }, [sessionId, ownerData, location, userRole, user, showTruckIcon]);
+
+  // Subscribe to nearby foodies for map display
+  useEffect(() => {
+    console.log('Foodie subscription useEffect triggered - Location:', location, 'User:', user?.uid);
+    
+    const lat = location?.coords?.latitude || location?.latitude;
+    const lng = location?.coords?.longitude || location?.longitude;
+    
+    if (!lat || !lng || !user?.uid) {
+      console.log('Clearing foodies - missing data:', {
+        hasLocation: !!location,
+        hasCoords: !!(location?.coords?.latitude && location?.coords?.longitude),
+        hasLatLng: !!(lat && lng), 
+        hasUser: !!user?.uid
+      });
+      setNearbyFoodies([]);
+      return;
+    }
+
+    let unsubscribe = null;
+    let isActive = true;
+    
+    const setupFoodiesSubscription = async () => {
+      try {
+        if (!isActive) return;
+        
+        console.log('Setting up foodie subscription for location:', lat, lng);
+        setLoadingFoodies(true);
+        
+        unsubscribe = await FoodieGameService.subscribeToNearbyFoodies(
+          location,
+          10, // 10km radius
+          (foodies) => {
+            if (isActive) {
+              setNearbyFoodies(foodies);
+              setLoadingFoodies(false);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error setting up foodies subscription:', error);
+        if (isActive) {
+          setNearbyFoodies([]);
+          setLoadingFoodies(false);
+        }
+      }
+    };
+
+    setupFoodiesSubscription();
+
+    return () => {
+      isActive = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [location?.coords?.latitude, location?.coords?.longitude, location?.latitude, location?.longitude, user?.uid]);
+
+  // Periodically update user's lastActive timestamp to keep them visible on the map
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const updateLastActive = async () => {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, {
+          lastActive: serverTimestamp(),
+          lastActivityTime: Date.now()
+        }, { merge: true });
+        console.log('Updated user lastActive timestamp');
+      } catch (error) {
+        console.error('Error updating lastActive:', error);
+      }
+    };
+
+    // Update immediately
+    updateLastActive();
+
+    // Update every 5 minutes to keep user visible
+    const interval = setInterval(updateLastActive, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user?.uid]);
 
   // Create a stable identifier for trucks to prevent unnecessary WebView regeneration
   const trucksDataHash = useMemo(() => {
@@ -3350,7 +3709,7 @@ export default function MapScreen() {
     };
     
     generateHTML();
-  }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites]);
+  }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites, currentCheckIn, nearbyFoodies]);
   // NOTE: Using trucksDataHash instead of foodTrucks to prevent unnecessary regeneration
   // NOTE: Removed showClosedTrucks, showOpenTrucks, and refreshTrigger from dependencies
 
@@ -3718,6 +4077,15 @@ export default function MapScreen() {
       sanitizedPings = [];
     }
 
+    let sanitizedFoodies = [];
+    try {
+      sanitizedFoodies = JSON.parse(JSON.stringify(nearbyFoodies)); // Deep clone to remove any problematic references
+      console.log('Sanitized foodies for map:', sanitizedFoodies.length);
+    } catch (error) {
+      console.error('Error sanitizing foodies data:', error);
+      sanitizedFoodies = [];
+    }
+
     // REMOVED: Toggle button functionality - showing all markers now
 
     return `
@@ -3856,13 +4224,14 @@ export default function MapScreen() {
             .leaflet-popup-content-wrapper {
                 border-radius: 12px;
                 overflow: hidden;
-                background: #0B0B1A !important;
-                border: 1px solid #FF4EC9 !important;
+                background: linear-gradient(135deg, #0B0B1A 0%, #1A1036 100%) !important;
+                border: 2px solid #FF4EC9 !important;
+                box-shadow: 0 8px 32px rgba(255, 78, 201, 0.3), 0 4px 16px rgba(77, 191, 255, 0.2) !important;
             }
             
             .leaflet-popup-tip {
                 background: #0B0B1A !important;
-                border: 1px solid #FF4EC9 !important;
+                border: 2px solid #FF4EC9 !important;
             }
             .controls {
                 position: fixed;
@@ -3987,6 +4356,63 @@ export default function MapScreen() {
             
             .ping-cluster-large span {
                 font-size: 16px;
+            }
+
+            /* Foodie Marker Cluster Styles */
+            .foodie-cluster {
+                background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+                border: 3px solid #ffffff;
+                border-radius: 50%;
+                box-shadow: 0 3px 10px rgba(76, 175, 80, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .foodie-cluster div {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+            }
+            
+            .foodie-cluster span {
+                color: white;
+                font-weight: bold;
+                font-size: 12px;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            }
+            
+            .foodie-cluster-small {
+                width: 25px;
+                height: 25px;
+            }
+            
+            .foodie-cluster-small span {
+                font-size: 10px;
+            }
+            
+            .foodie-cluster-medium {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .foodie-cluster-large {
+                width: 45px;
+                height: 45px;
+                background: linear-gradient(135deg, #FF5722 0%, #D84315 100%);
+                box-shadow: 0 3px 10px rgba(255, 87, 34, 0.4);
+            }
+            
+            .foodie-cluster-large span {
+                font-size: 14px;
+            }
+
+            .foodie-marker {
+                border: none !important;
+                background: transparent !important;
             }
         </style>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -4191,6 +4617,8 @@ export default function MapScreen() {
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+
+
             
             // Initialize marker cluster group for ping markers
             let pingMarkerCluster = L.markerClusterGroup({
@@ -4244,6 +4672,102 @@ export default function MapScreen() {
                 
           
             }
+
+            // Initialize marker cluster group for foodie markers
+            let foodieMarkerCluster = L.markerClusterGroup({
+                disableClusteringAtZoom: 16, // Disable clustering when zoomed in close
+                maxClusterRadius: 40, // Maximum distance between markers to cluster
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = 'small';
+                    if (count > 10) size = 'large';
+                    else if (count > 5) size = 'medium';
+                    
+                    return L.divIcon({
+                        html: '<div><span>' + count + '</span></div>',
+                        className: 'foodie-cluster foodie-cluster-' + size,
+                        iconSize: L.point(35, 35)
+                    });
+                }
+            });
+            map.addLayer(foodieMarkerCluster);
+            
+            // Helper function to clear and refresh foodie markers
+            function refreshFoodieMarkers(foodies) {
+                console.log('Refreshing foodie markers with', foodies.length, 'foodies');
+                foodieMarkerCluster.clearLayers();
+                
+                foodies.forEach((foodie, index) => {
+                    if (foodie.location && foodie.location.latitude && foodie.location.longitude) {
+                        // Determine border color and status emoji based on hunger level
+                        let borderColor = '#4CAF50'; // interested (green)
+                        let statusEmoji = '👀'; // browsing
+                        
+                        if (foodie.hungerLevel === 'hungry') {
+                            borderColor = '#FF9800'; // orange
+                            statusEmoji = '😋';
+                        } else if (foodie.hungerLevel === 'starving') {
+                            borderColor = '#F44336'; // red
+                            statusEmoji = '🤤';
+                        }
+                        
+                        // Create circular marker with profile image
+                        const profileImageUrl = foodie.profileImageUrl || foodie.profileUrl;
+                        let markerHtml = '';
+                        
+                        if (profileImageUrl) {
+                            markerHtml = \`<div style="width: 34px; height: 34px; border-radius: 50%; border: 3px solid \${borderColor}; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.3); position: relative;">
+                                <img src="\${profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<div style=\\'width: 100%; height: 100%; background: \${borderColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;\\'>👤</div>';">
+                                <div style="position: absolute; bottom: -3px; right: -3px; background: white; width: 16px; height: 16px; border-radius: 50%; border: 2px solid \${borderColor}; font-size: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">\${statusEmoji}</div>
+                            </div>\`;
+                        } else {
+                            // Fallback to emoji marker with status
+                            markerHtml = \`<div style="background: \${borderColor}; color: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-size: 18px; position: relative;">
+                                👤
+                                <div style="position: absolute; bottom: -3px; right: -3px; background: white; width: 16px; height: 16px; border-radius: 50%; border: 2px solid \${borderColor}; font-size: 10px; display: flex; align-items: center; justify-content: center; color: \${borderColor}; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">\${statusEmoji}</div>
+                            </div>\`;
+                        }
+                        
+                        const marker = L.marker([foodie.location.latitude, foodie.location.longitude], {
+                            icon: L.divIcon({
+                                className: 'foodie-marker',
+                                html: markerHtml,
+                                iconSize: [34, 34],
+                                iconAnchor: [17, 17]
+                            })
+                        });
+                        
+                        const hungerLevel = foodie.hungerLevel || 'interested';
+                        const hungerDescription = hungerLevel === 'interested' ? 'Browsing' : hungerLevel.charAt(0).toUpperCase() + hungerLevel.slice(1);
+                        const timeAgo = Math.floor((Date.now() - (foodie.timestamp?.seconds ? foodie.timestamp.seconds * 1000 : Date.now())) / (1000 * 60));
+                        
+                        const popupContent = \`
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-width: 220px; text-align: center; padding: 4px;">
+                                <div style="margin-bottom: 12px;">
+                                    \${profileImageUrl ? 
+                                        \`<img src="\${profileImageUrl}" style="width: 60px; height: 60px; border-radius: 50%; border: 3px solid #FF4EC9; object-fit: cover; box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3);" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                         <div style="display: none; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); align-items: center; justify-content: center; color: #FFFFFF; font-size: 28px; margin: 0 auto; box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3);">👤</div>\` : 
+                                        \`<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 28px; margin: 0 auto; box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3);">👤</div>\`
+                                    }
+                                </div>
+                                <h4 style="margin: 0 0 12px 0; color: #FFFFFF; font-size: 18px; font-weight: 600; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);">🍽️ \${foodie.username || 'Foodie'}</h4>
+                                <p style="margin: 6px 0; font-size: 14px; color: #FFFFFF;"><strong style="color: #4DBFFF;">Status:</strong> \${hungerDescription} \${statusEmoji}</p>
+                                <p style="margin: 4px 0; font-size: 13px; color: #FFFFFF; opacity: 0.9;"><strong style="color: #4DBFFF;">Level:</strong> \${foodie.level || 1} | <strong style="color: #4DBFFF;">XP:</strong> \${foodie.totalXP || 0}</p>
+                                \${foodie.checkedIn ? '<p style="margin: 8px 0; color: #00E676; font-weight: 600; font-size: 13px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);">✓ Recently Checked In</p>' : '<p style="margin: 8px 0; color: #FFFFFF; opacity: 0.7; font-size: 13px;">Active on Map</p>'}
+                                <div style="margin-top: 14px;">
+                                    <button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'foodieGallery', foodieId: '\${foodie.id}', foodieName: '\${foodie.username || 'Foodie'}'}))" 
+                                            style="background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); color: #FFFFFF; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(255, 78, 201, 0.4); transition: all 0.2s ease; min-width: 140px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);">
+                                        📸 View Photos
+                                    </button>
+                                </div>
+                            </div>
+                        \`;
+                        
+                        marker.bindPopup(popupContent);
+                        foodieMarkerCluster.addLayer(marker);
+                    }
+                });
+            }
        
 
             // User location marker
@@ -4258,6 +4782,33 @@ export default function MapScreen() {
                 .addTo(map)
                 .bindPopup('<div class="truck-popup"><div class="truck-name">📍 Your Location</div></div>');
 
+            // User check-in marker (if checked in)
+            const userCheckInData = ${JSON.stringify(currentCheckIn)};
+            if (userCheckInData && userCheckInData.location) {
+                const hungerColors = {
+                    'interested': '#4CAF50',
+                    'hungry': '#FF9800', 
+                    'starving': '#F44336'
+                };
+                const hungerEmojis = {
+                    'interested': '👀',
+                    'hungry': '😋',
+                    'starving': '🤤'
+                };
+                
+                const checkInColor = hungerColors[userCheckInData.hungerLevel] || '#4CAF50';
+                const checkInEmoji = hungerEmojis[userCheckInData.hungerLevel] || '👀';
+                
+                const checkInIcon = L.divIcon({
+                    html: \`<div style="background: \${checkInColor}; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 16px;">\${checkInEmoji}</div>\`,
+                    iconSize: [30, 30],
+                    className: 'checkin-marker'
+                });
+                
+                L.marker([userCheckInData.location.latitude, userCheckInData.location.longitude], { icon: checkInIcon })
+                    .addTo(map)
+                    .bindPopup(\`<div class="truck-popup"><div class="truck-name">🍽️ You're \${userCheckInData.hungerLevel === 'interested' ? 'browsing' : userCheckInData.hungerLevel}!</div><div style="margin-top: 8px; font-size: 12px; color: #666;">Check-in expires in \${Math.ceil((new Date(userCheckInData.expiresAt) - new Date()) / (1000 * 60))} minutes</div></div>\`);
+            }
             
             // DEBUG: Check if execution continues past user marker creation
   
@@ -4520,6 +5071,16 @@ export default function MapScreen() {
             try {
                 customerPings = ${JSON.stringify(sanitizedPings)};
           
+            } catch (error) {
+                console.error('Error parsing customer pings:', error);
+                customerPings = [];
+            }
+
+            // Nearby foodies data for foodie marker display
+            let nearbyFoodies = [];
+            try {
+                nearbyFoodies = ${JSON.stringify(sanitizedFoodies)};
+                console.log('Loaded nearby foodies:', nearbyFoodies.length);
             } catch (error) {
    
                 customerPings = [];
@@ -5711,6 +6272,9 @@ export default function MapScreen() {
                         const realPings = ${JSON.stringify(customerPings)};
                         const filteredPings = filterPingsByCuisine(realPings, selectedCuisineType);
                         refreshPingMarkers(filteredPings);
+                        
+                        // Also refresh foodie markers
+                        refreshFoodieMarkers(nearbyFoodies);
                     } else {
                         // No ping marker updates for other user roles during cuisine filtering
                     }
@@ -5732,6 +6296,9 @@ export default function MapScreen() {
                 } else {
           
                 }
+                
+                // Also show foodie markers for owners and event organizers
+                refreshFoodieMarkers(nearbyFoodies);
             } else if (showIndividualPingMarkers) {
                 // Show individual ping markers for customers only
           
@@ -5750,6 +6317,9 @@ export default function MapScreen() {
                 
                 // Use helper function to create clustered ping markers
                 refreshPingMarkers(filteredPings);
+                
+                // Also refresh foodie markers for all customers
+                refreshFoodieMarkers(nearbyFoodies);
                 
             } else {
                 // No ping display for other user roles
@@ -6045,6 +6615,11 @@ export default function MapScreen() {
 
         setShowCuisineModal(true);
      
+      } else if (message.type === 'foodieGallery') {
+        // Handle foodie photo gallery opening
+        const { foodieId, foodieName } = message;
+        await openFoodieGallery(foodieId, foodieName);
+        
       } else if (message.type === 'TRUCK_FILTER_CHANGED') {
         // Handle truck status filter state changes from WebView
       
@@ -6185,6 +6760,8 @@ export default function MapScreen() {
           </Text>
         </View>
       )}
+
+
   
       {/* Food Truck Menu Modal */}
       <Modal
@@ -8634,7 +9211,173 @@ export default function MapScreen() {
         truckName={selectedTruck?.name || 'Food Truck'}
       /> */}
 
+      {/* Foodie Photo Gallery Modal */}
+      <Modal
+        visible={showFoodieGallery}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFoodieGallery(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowFoodieGallery(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              📸 {selectedFoodie?.name}'s Photos
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
 
+          <View style={styles.modalContent}>
+            {loadingPhotos ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>Loading photos...</Text>
+              </View>
+            ) : foodiePhotos.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateIcon}>📷</Text>
+                <Text style={styles.emptyStateTitle}>No Photos Yet</Text>
+                <Text style={styles.emptyStateText}>
+                  {selectedFoodie?.name} hasn't shared any food photos yet.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={foodiePhotos}
+                keyExtractor={(item) => item.id}
+                numColumns={3}
+                contentContainerStyle={styles.photoGrid}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.photoItem}
+                    onPress={() => {
+                      console.log('📸 Photo clicked, opening full screen for:', item.imageUrl);
+                      // Close the photo gallery modal first
+                      setShowFoodieGallery(false);
+                      // Then open the full-screen photo viewer
+                      setFullScreenPhotoUrl(item.imageUrl);
+                      setShowFullScreenPhoto(true);
+                      console.log('📸 State updated - showFullScreenPhoto should be true');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Image 
+                      source={{ uri: item.imageUrl }} 
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                    {/* Like button - top right */}
+                    <View style={styles.photoOverlay}>
+                      <TouchableOpacity
+                        style={styles.likeButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          togglePhotoLike(item.id, item.isLikedByUser);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons 
+                          name={item.isLikedByUser ? "heart" : "heart-outline"} 
+                          size={16} 
+                          color={item.isLikedByUser ? "#FF3B30" : "#FFFFFF"} 
+                        />
+                        <Text style={styles.likeCount}>{item.likeCount || 0}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Delete button - top left, only show for photo owner */}
+                    {item.userId === user?.uid && (
+                      <View style={styles.photoDeleteOverlay}>
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setShowFoodieGallery(false); // Close gallery before showing modal
+                            setTimeout(() => {
+                              deletePhoto(item.id, item.imageUrl);
+                            }, 300); // Small delay to ensure modal closes first
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons 
+                            name="trash-outline" 
+                            size={16} 
+                            color="#FFFFFF" 
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {item.description && (
+                      <View style={styles.photoDescription}>
+                        <Text style={styles.photoDescriptionText} numberOfLines={2}>
+                          {item.description}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+
+
+      {/* Photo upload handled by dedicated PhotoUploadScreen */}
+
+      {/* Floating Action Button for Photo Upload */}
+      {user && (
+        <TouchableOpacity
+          style={[styles.photoFAB, { 
+            opacity: 0.95
+          }]}
+          onPress={() => {
+            console.log('🎯 Navigating to photo upload screen');
+            navigation.navigate('PhotoUpload', { location });
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.fabIconContainer}>
+            <Ionicons name="camera" size={26} color="#4DBFFF" style={styles.fabIcon} />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Full-Screen Photo Viewer - Using absolute positioning instead of Modal */}
+      {showFullScreenPhoto && (
+        <View style={styles.fullScreenPhotoContainer}>
+          {console.log('📸 Full screen overlay is rendering! showFullScreenPhoto:', showFullScreenPhoto)}
+          {/* Close Button */}
+          <TouchableOpacity 
+            style={styles.fullScreenCloseButton}
+            onPress={() => {
+              console.log('📸 Close button pressed - returning to photo gallery');
+              setShowFullScreenPhoto(false);
+              setShowFoodieGallery(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          {/* Full-Screen Photo */}
+          {fullScreenPhotoUrl && (
+            <Image 
+              source={{ uri: fullScreenPhotoUrl }}
+              style={styles.fullScreenPhoto}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      )}
 
     </View>
   );
@@ -10697,6 +11440,225 @@ const createThemedStyles = (theme) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+
+  // Photo Gallery Styles
+  photoGrid: {
+    padding: 8,
+  },
+  photoItem: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.surface,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  photoImage: {
+    width: '100%',
+    height: '70%',
+  },
+  photoOverlay: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  photoDeleteOverlay: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 2,
+  },
+  likeCount: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  photoDescription: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 6,
+  },
+  photoDescriptionText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    lineHeight: 12,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+
+  // Photo Upload Styles
+  photoFAB: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1A1036', // Secondary Background: Deep purple
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 12,
+    shadowColor: '#FF4EC9',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    borderWidth: 2,
+    borderColor: '#FF4EC9', // Primary Accent: Neon pink outline
+  },
+  fabIconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabIcon: {
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // Full-Screen Photo Viewer Styles
+  fullScreenPhotoContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99999,
+    elevation: 99999, // For Android
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  photoOptionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  photoOptionsContainer: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  photoOptionsTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  photoOptionsSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  photoOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  photoOptionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  photoCancelButton: {
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  photoCancelText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
 });

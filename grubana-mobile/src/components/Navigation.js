@@ -15,6 +15,7 @@ import OwnerSignupScreen from '../screens/OwnerSignupScreen';
 import CustomerSignupScreen from '../screens/CustomerSignupScreen';
 import SecureCheckoutScreen from '../screens/SecureCheckoutScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import PhotoUploadScreen from '../screens/PhotoUploadScreen';
 
 // Import AuthContext
 import { useAuth } from './AuthContext';
@@ -22,8 +23,8 @@ import { useAuth } from './AuthContext';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Customer Tab Navigator
-const CustomerTabs = () => {
+// Customer Tab Navigator (Internal)
+const CustomerTabsInternal = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -67,6 +68,38 @@ const CustomerTabs = () => {
         options={{ title: 'Settings' }}
       />
     </Tab.Navigator>
+  );
+};
+
+// Customer Stack Navigator (with modal screens)
+const CustomerTabs = () => {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen 
+        name="CustomerTabsMain" 
+        component={CustomerTabsInternal}
+      />
+      <Stack.Screen 
+        name="PhotoUpload" 
+        component={PhotoUploadScreen}
+        options={{
+          headerShown: true,
+          presentation: 'modal',
+          headerStyle: {
+            backgroundColor: '#2c6f57',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+          title: 'Share Photo',
+        }}
+      />
+    </Stack.Navigator>
   );
 };
 

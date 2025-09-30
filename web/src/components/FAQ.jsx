@@ -95,12 +95,12 @@ const FAQ = () => {
         {
           q: "How much does it cost to use Grubana?",
           a:
-            "Grubana is 100% free to sign up and operate your business on our platform. There are no subscription fees, monthly charges, or hidden costs. We only take a small 7% fee on pre-orders placed through the platform to help maintain and improve our services."
+            "Grubana is 100% free to sign up and operate your business on our platform. There are no subscription fees, monthly charges, or hidden costs. We only take a small 5% fee on pre-orders placed through the platform to help maintain and improve our services."
         },
         {
           q: "What fees does Grubana charge?",
           a:
-            "The platform is completely free to use. The only fee is a 7% commission on pre-orders processed through Grubana. There are no setup fees, monthly subscriptions, or any other charges. You keep 93% of every pre-order sale."
+            "The platform is completely free to use. The only fee is a 5% commission on pre-orders processed through Grubana. There are no setup fees, monthly subscriptions, or any other charges. You keep 95% of every pre-order sale."
         },
         {
           q: "Can I promote my business on Grubana?",
