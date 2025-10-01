@@ -38,7 +38,7 @@ const PhotoGallery = ({ isVisible, onClose }) => {
         setPhotos(result.photos);
       }
     } catch (error) {
-      console.error('Error loading photos:', error);
+
     } finally {
       setLoading(false);
     }

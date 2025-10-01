@@ -30,7 +30,7 @@ try {
     });
     
 } catch (error) {
-    console.error('Firebase initialization failed:', error);
+  
     // Create fallback objects
     auth = null;
     db = null;

@@ -301,10 +301,10 @@
                 document.getElementById('qrcode').innerHTML = '';
                 document.getElementById('qrcode').appendChild(img);
                 
-                console.log('Scannable QR code generated successfully!');
+    
                 
             } catch (error) {
-                console.error('Error generating QR code:', error);
+          
                 document.getElementById('qrcode').innerHTML = `
                     <div class="error">
                         <strong>Error generating QR code</strong><br>
@@ -493,8 +493,7 @@
                 showSuccess('QR code downloaded with centered overlay!');
                 
             } catch (error) {
-                console.error('Error downloading QR code:', error);
-                alert('Error downloading QR code. Please try again.');
+             
             }
         }
 
@@ -559,7 +558,7 @@
                 // Try alternative QR code service with Grubana colors
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(appStoreUrl)}&color=0B0B1A&bgcolor=FFFFFF&ecc=H`;
                 document.getElementById('qrcode').innerHTML = `<img src="${qrUrl}" alt="QR Code" style="width: 300px; height: 300px;">`;
-                console.log('Using fallback QR service with Grubana colors');
+      
             }
         }, 2000);
     </script>

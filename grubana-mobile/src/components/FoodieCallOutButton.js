@@ -39,7 +39,7 @@ const FoodieCallOutButton = ({ location, trucksInArea = [], style }) => {
       const callOuts = await FoodieGameService.getRecentCallOuts(location, 24); // Last 24 hours
       setRecentCallOuts(callOuts);
     } catch (error) {
-      console.error('Error loading recent call-outs:', error);
+
     }
   };
 
@@ -90,7 +90,7 @@ const FoodieCallOutButton = ({ location, trucksInArea = [], style }) => {
     if (!user || !location || loading) return;
 
     if (selectedFoodTypes.length === 0) {
-      Alert.alert('Food Type Required', 'Please select at least one food type.');
+ 
       return;
     }
 
@@ -115,7 +115,7 @@ const FoodieCallOutButton = ({ location, trucksInArea = [], style }) => {
       const result = await FoodieGameService.submitCallOut(user.uid, callOutData);
 
       if (result.success) {
-        Alert.alert(
+        (
           'Call-Out Sent! 📢',
           `Your food request has been sent to nearby trucks. You earned ${result.pointsEarned} XP!`,
           [
@@ -130,8 +130,8 @@ const FoodieCallOutButton = ({ location, trucksInArea = [], style }) => {
         );
       }
     } catch (error) {
-      console.error('Error submitting call-out:', error);
-      Alert.alert('Error', 'Could not send your call-out. Please try again.');
+
+  
     } finally {
       setLoading(false);
     }

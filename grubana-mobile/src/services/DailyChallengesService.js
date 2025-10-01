@@ -120,7 +120,7 @@ class DailyChallengesService {
 
       return selectedChallenges;
     } catch (error) {
-      console.error('Error generating daily challenges:', error);
+    
       return [];
     }
   }
@@ -138,7 +138,7 @@ class DailyChallengesService {
       // Generate new challenges if none exist
       return await this.generateDailyChallenges(userId);
     } catch (error) {
-      console.error('Error fetching daily challenges:', error);
+
       return [];
     }
   }
@@ -216,7 +216,7 @@ class DailyChallengesService {
 
       return { updated };
     } catch (error) {
-      console.error('Error updating challenge progress:', error);
+
       return { error };
     }
   }
@@ -265,7 +265,7 @@ class DailyChallengesService {
             }
           }
         } catch (error) {
-          console.error(`Error fetching challenges for ${dateStr}:`, error);
+    
         }
 
         currentDate.setDate(currentDate.getDate() - 1);
@@ -286,7 +286,7 @@ class DailyChallengesService {
 
       return stats;
     } catch (error) {
-      console.error('Error getting challenge stats:', error);
+  
       return stats;
     }
   }

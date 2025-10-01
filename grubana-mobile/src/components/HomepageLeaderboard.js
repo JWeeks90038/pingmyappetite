@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from './AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import LeaderboardService from '../services/LeaderboardService';
 import * as Location from 'expo-location';
+import { db } from '../firebase';
+import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 
 const HomepageLeaderboard = () => {
   const { user } = useAuth();
@@ -19,14 +22,20 @@ const HomepageLeaderboard = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [userRank, setUserRank] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [leaderboardType, setLeaderboardType] = useState(LeaderboardService.LEADERBOARD_TYPES.WEEKLY_POINTS);
+  const [leaderboardType, setLeaderboardType] = useState(LeaderboardService.LEADERBOARD_TYPES.TOP_TAGGED_PHOTOS);
   const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     if (user) {
       initializeUser();
       loadUserLocation();
-      loadLeaderboard();
+      
+      // Set up real-time listener for TOP_TAGGED_PHOTOS, regular fetch for others
+      if (leaderboardType === LeaderboardService.LEADERBOARD_TYPES.TOP_TAGGED_PHOTOS) {
+        return setupTopTaggedPhotosListener();
+      } else {
+        loadLeaderboard();
+      }
     }
   }, [user, leaderboardType]);
 
@@ -37,7 +46,7 @@ const HomepageLeaderboard = () => {
         user.displayName || 'Anonymous'
       );
     } catch (error) {
-      console.error('Failed to initialize user leaderboard:', error);
+
     }
   };
 
@@ -49,7 +58,7 @@ const HomepageLeaderboard = () => {
         setUserLocation(location.coords);
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+   
     }
   };
 
@@ -59,34 +68,92 @@ const HomepageLeaderboard = () => {
     try {
       setLoading(true);
       
-      // Update user location in leaderboard if available
-      if (userLocation && user) {
-        try {
-          await LeaderboardService.updateUserLocation(
-            user.uid, 
-            userLocation, 
-            user.displayName || 'Anonymous'
-          );
-        } catch (locationError) {
-          console.warn('Failed to update user location:', locationError);
+      // For photo leaderboard, use the new method directly
+      if (leaderboardType === LeaderboardService.LEADERBOARD_TYPES.TOP_TAGGED_PHOTOS) {
+        const photos = await LeaderboardService.getTopTaggedPhotos();
+        setLeaderboard(photos || []);
+        setUserRank(null); // Photos don't have traditional ranking
+      } else {
+        // Update user location in leaderboard if available
+        if (userLocation && user) {
+          try {
+            await LeaderboardService.updateUserLocation(
+              user.uid, 
+              userLocation, 
+              user.displayName || 'Anonymous'
+            );
+          } catch (locationError) {
+            console.warn('Failed to update user location:', locationError);
+          }
         }
-      }
-      
-      // Use the smart mixed leaderboard
-      const result = await LeaderboardService.getHomepageLeaderboard(
-        user.uid, 
-        leaderboardType, 
-        userLocation
-      );
+        
+        // Use the smart mixed leaderboard for points-based rankings
+        const result = await LeaderboardService.getHomepageLeaderboard(
+          user.uid, 
+          leaderboardType, 
+          userLocation
+        );
 
-      setLeaderboard(result.leaderboard || []);
-      setUserRank(result.userRank);
+        setLeaderboard(result.leaderboard || []);
+        setUserRank(result.userRank);
+      }
     } catch (error) {
-      console.error('Error loading leaderboard:', error);
+
       // Set empty state instead of crashing
       setLeaderboard([]);
       setUserRank(null);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const setupTopTaggedPhotosListener = () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+
+
+      // Set up real-time listener for foodiePhotos collection
+      const photosQuery = query(
+        collection(db, 'foodiePhotos'),
+        orderBy('timestamp', 'desc'),
+        limit(500) // Get recent photos first
+      );
+
+      const unsubscribe = onSnapshot(photosQuery, async (snapshot) => {
+        try {
+ 
+          
+          // Use the LeaderboardService to process the photos
+          const photos = await LeaderboardService.getTopTaggedPhotos();
+          setLeaderboard(photos || []);
+          setUserRank(null); // Photos don't have traditional ranking
+          
+        } catch (error) {
+   
+          setLeaderboard([]);
+          setUserRank(null);
+        } finally {
+          setLoading(false);
+        }
+      }, (error) => {
+  
+        setLeaderboard([]);
+        setUserRank(null);
+        setLoading(false);
+      });
+
+      // Return cleanup function
+      return () => {
+      
+        unsubscribe();
+      };
+
+    } catch (error) {
+    
+      setLeaderboard([]);
+      setUserRank(null);
       setLoading(false);
     }
   };
@@ -103,8 +170,42 @@ const HomepageLeaderboard = () => {
     const isUser = entry.userId === user?.uid;
     const actualRank = entry.rank || index + 1;
     
+    // For photo leaderboard, render differently
+    if (leaderboardType === LeaderboardService.LEADERBOARD_TYPES.TOP_TAGGED_PHOTOS && entry.imageUrl) {
+      return (
+        <View style={[styles.photoEntry, isUser && styles.userEntry]} key={`photo-${entry.id || index}`}>
+          <View style={styles.photoContainer}>
+            <Image source={{ uri: entry.imageUrl }} style={styles.photoThumbnail} />
+            <View style={styles.photoOverlay}>
+              <Text style={styles.photoRank}>#{actualRank}</Text>
+              {actualRank <= 3 && (
+                <Text style={styles.photoMedal}>
+                  {actualRank === 1 ? '🥇' : actualRank === 2 ? '🥈' : '🥉'}
+                </Text>
+              )}
+            </View>
+          </View>
+          
+          <View style={styles.photoInfo}>
+            <Text style={[styles.photoUserName, isUser && styles.userPlayerName]} numberOfLines={1}>
+              {entry.username || 'Anonymous Foodie'}
+            </Text>
+            {entry.taggedTruck && (
+              <Text style={styles.truckName} numberOfLines={1}>
+                🚚 {entry.taggedTruck}
+              </Text>
+            )}
+            <View style={styles.photoStats}>
+              <Text style={styles.photoLikes}>❤️ {entry.likeCount || 0}</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+    
+    // Standard points-based leaderboard entry
     return (
-      <View style={[styles.leaderboardEntry, isUser && styles.userEntry]} key={entry.userId || index}>
+      <View style={[styles.leaderboardEntry, isUser && styles.userEntry]} key={`user-${entry.userId || index}`}>
         <View style={styles.rankContainer}>
           <Text style={[styles.rankText, isUser && styles.userRankText]}>
             #{actualRank}
@@ -129,6 +230,8 @@ const HomepageLeaderboard = () => {
 
   const getLeaderboardDescription = () => {
     switch (leaderboardType) {
+      case LeaderboardService.LEADERBOARD_TYPES.TOP_TAGGED_PHOTOS:
+        return 'Most popular tagged photos';
       case LeaderboardService.LEADERBOARD_TYPES.WEEKLY_POINTS:
         return 'Top foodies this week';
       case LeaderboardService.LEADERBOARD_TYPES.ALL_TIME_POINTS:
@@ -136,7 +239,7 @@ const HomepageLeaderboard = () => {
       case LeaderboardService.LEADERBOARD_TYPES.CHECK_IN_STREAK:
         return 'Longest check-in streaks';
       default:
-        return 'Top foodies';
+        return 'Most popular tagged photos';
     }
   };
 
@@ -146,48 +249,12 @@ const HomepageLeaderboard = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>🏆 Foodie Leaderboard</Text>
+          <Text style={styles.title}>🏆 Kitchen Leaderboard</Text>
           <Text style={styles.subtitle}>{getLeaderboardDescription()}</Text>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.viewAllButton}
-          onPress={() => navigation.navigate('CustomerPing')} // Will open full gamification hub
-        >
-          <Text style={styles.viewAllText}>View All</Text>
-          <Ionicons name="chevron-forward" size={16} color="#4CAF50" />
-        </TouchableOpacity>
       </View>
 
-      {/* Quick Type Selector */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.typeSelector}
-        contentContainerStyle={styles.typeSelectorContent}
-      >
-        {[
-          { type: LeaderboardService.LEADERBOARD_TYPES.WEEKLY_POINTS, label: '📅 This Week', icon: '📅' },
-          { type: LeaderboardService.LEADERBOARD_TYPES.ALL_TIME_POINTS, label: '👑 All Time', icon: '👑' },
-          { type: LeaderboardService.LEADERBOARD_TYPES.CHECK_IN_STREAK, label: '🔥 Streaks', icon: '🔥' },
-        ].map((option) => (
-          <TouchableOpacity
-            key={option.type}
-            style={[
-              styles.typeButton,
-              leaderboardType === option.type && styles.activeTypeButton
-            ]}
-            onPress={() => setLeaderboardType(option.type)}
-          >
-            <Text style={[
-              styles.typeButtonText,
-              leaderboardType === option.type && styles.activeTypeButtonText
-            ]}>
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+
 
       {/* User's Rank Display */}
       {userRank && userRank.rank > 3 && (
@@ -214,29 +281,23 @@ const HomepageLeaderboard = () => {
           </View>
         )}
       </View>
-
-      {/* Call to Action */}
-      <TouchableOpacity 
-        style={styles.actionButton}
-        onPress={() => navigation.navigate('CustomerPing')}
-      >
-        <Text style={styles.actionButtonText}>🚀 Start Earning Points</Text>
-      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1036',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#FF4EC9',
   },
   header: {
     flexDirection: 'row',
@@ -244,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#FF4EC9',
   },
   titleContainer: {
     flex: 1,
@@ -252,59 +313,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 12,
-    color: '#666',
+    color: '#4DBFFF',
     marginTop: 2,
   },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-    marginRight: 4,
-  },
-  typeSelector: {
-    paddingHorizontal: 16,
-  },
-  typeSelectorContent: {
-    paddingVertical: 8,
-  },
-  typeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#f5f5f5',
-    marginRight: 8,
-  },
-  activeTypeButton: {
-    backgroundColor: '#4CAF50',
-  },
-  typeButtonText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  activeTypeButtonText: {
-    color: '#fff',
-  },
+
   userRankBanner: {
-    backgroundColor: '#f8fff8',
+    backgroundColor: '#0B0B1A',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#4CAF50',
+    borderLeftColor: '#00E676',
   },
   userRankText: {
     fontSize: 12,
-    color: '#4CAF50',
+    color: '#00E676',
     fontWeight: '600',
   },
   leaderboardContainer: {
@@ -315,14 +341,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f8f8',
+    borderBottomColor: '#FF4EC9',
   },
   userEntry: {
-    backgroundColor: '#f8fff8',
+    backgroundColor: '#0B0B1A',
     marginHorizontal: -16,
     paddingHorizontal: 16,
     borderLeftWidth: 3,
-    borderLeftColor: '#4CAF50',
+    borderLeftColor: '#00E676',
   },
   rankContainer: {
     flexDirection: 'row',
@@ -332,10 +358,10 @@ const styles = StyleSheet.create({
   rankText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   userRankText: {
-    color: '#4CAF50',
+    color: '#00E676',
   },
   medal: {
     fontSize: 14,
@@ -344,20 +370,20 @@ const styles = StyleSheet.create({
   playerName: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: '#FFFFFF',
     marginLeft: 12,
   },
   userPlayerName: {
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#00E676',
   },
   playerScore: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#4DBFFF',
   },
   userPlayerScore: {
-    color: '#4CAF50',
+    color: '#00E676',
   },
   separator: {
     paddingVertical: 8,
@@ -365,7 +391,7 @@ const styles = StyleSheet.create({
   },
   separatorText: {
     fontSize: 12,
-    color: '#999',
+    color: '#4DBFFF',
     fontStyle: 'italic',
   },
   loadingContainer: {
@@ -375,7 +401,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: '#666',
+    color: '#4DBFFF',
     marginTop: 8,
   },
   emptyContainer: {
@@ -385,27 +411,92 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#999',
+    color: '#4DBFFF',
     textAlign: 'center',
     marginTop: 4,
   },
-  actionButton: {
-    backgroundColor: '#4CAF50',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
+  // Photo leaderboard styles
+  photoEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FF4EC9',
+  },
+  photoContainer: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  photoThumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  photoOverlay: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  actionButtonText: {
+  photoRank: {
+    fontSize: 10,
+    fontWeight: 'bold',
     color: '#fff',
-    fontSize: 14,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  photoMedal: {
+    fontSize: 12,
+    marginLeft: 2,
+  },
+  photoInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  photoUserName: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  truckName: {
+    fontSize: 14,
+    color: '#4DBFFF',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  photoStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  photoLikes: {
+    fontSize: 13,
+    color: '#FF4EC9',
+    marginRight: 16,
+    fontWeight: '600',
+  },
+  photoDistance: {
+    fontSize: 13,
+    color: '#4DBFFF',
   },
 });
 

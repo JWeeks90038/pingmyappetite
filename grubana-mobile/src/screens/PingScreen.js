@@ -35,11 +35,10 @@ import DailyChallengesService from '../services/DailyChallengesService';
 // Gamification Components
 import FoodieCheckInButton from '../components/FoodieCheckInButton';
 import FoodiePointsDisplay from '../components/FoodiePointsDisplay';
-import FoodieMissionsPanel from '../components/FoodieMissionsPanel';
-import EnhancedPointsDisplay from '../components/EnhancedPointsDisplay';
-import GameificationHub from '../components/GameificationHub';
-import HomepageLeaderboard from '../components/HomepageLeaderboard';
-import PhotoVerificationButton from '../components/PhotoVerificationButton';
+
+
+
+
 
 // React Native compatible UUID generation
 const generateUUID = () => {
@@ -62,7 +61,7 @@ export default function PingScreen() {
   const sendingRef = useRef(false);
 
   // Gamification states
-  const [showMissionsPanel, setShowMissionsPanel] = useState(false);
+
 
   // Toast notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -375,7 +374,7 @@ export default function PingScreen() {
         
         await FoodieGameService.updateMissionProgress(user.uid, 'express_interest', 1);
       } catch (error) {
-        console.log('Gamification update failed:', error);
+
       }
 
       // Reset form and update count
@@ -413,11 +412,7 @@ export default function PingScreen() {
         <View style={styles.gamificationSection}>
           <Text style={styles.gamificationTitle}>🎮 Foodie Adventures</Text>
           
-          {/* Enhanced Points Display */}
-          <EnhancedPointsDisplay />
-          
-          {/* Gamification Hub */}
-          <GameificationHub />
+
           
           {/* Check-in Button */}
           {userLocation && (
@@ -442,38 +437,9 @@ export default function PingScreen() {
             </View>
           )}
           
-          {/* Photo Verification Button */}
-          {userLocation && (
-            <View style={styles.photoVerificationSection}>
-              <PhotoVerificationButton
-                location={userLocation}
-                onPhotoTaken={(result) => {
-                  if (result.success) {
-                    let message = `Photo verified! +${result.totalPoints} XP!`;
-                    
-                    if (result.missionCompleted) {
-                      message += `\n🎉 Mission Complete: ${result.missionCompleted.missionTitle}!`;
-                    }
-                    
-                    showToast(message, 'success');
-                  }
-                }}
-                style={styles.photoVerificationButton}
-              />
-            </View>
-          )}
 
-          {/* Missions Button */}
-          <View style={styles.missionsSection}>
-            <TouchableOpacity
-              style={styles.missionsButton}
-              onPress={() => setShowMissionsPanel(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.missionsIcon}>🎯</Text>
-              <Text style={styles.missionsText}>Missions</Text>
-            </TouchableOpacity>
-          </View>
+
+
 
         </View>
       )}
@@ -660,11 +626,7 @@ export default function PingScreen() {
         </View>
       </Modal>
 
-      {/* Missions Panel Modal */}
-      <FoodieMissionsPanel
-        visible={showMissionsPanel}
-        onClose={() => setShowMissionsPanel(false)}
-      />
+
     </ScrollView>
   );
 }
@@ -1003,42 +965,6 @@ const createThemedStyles = (theme) => StyleSheet.create({
   checkInButton: {
     width: '100%',
   },
-  photoVerificationSection: {
-    alignItems: 'center',
-    marginBottom: 15,
-    width: '100%',
-  },
-  photoVerificationButton: {
-    width: '85%',
-  },
-  missionsSection: {
-    alignItems: 'center',
-    marginBottom: 15,
-    width: '100%',
-  },
-  missionsButton: {
-    backgroundColor: '#9C27B0',
-    borderRadius: 30,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#9C27B0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    minWidth: 200,
-    minHeight: 64,
-    width: '80%',
-  },
-  missionsIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  missionsText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
+
 });

@@ -44,7 +44,7 @@ const GameificationHub = () => {
         loadChallengeStats(),
       ]);
     } catch (error) {
-      console.error('Error loading gamification data:', error);
+  
     } finally {
       setRefreshing(false);
     }
@@ -55,7 +55,7 @@ const GameificationHub = () => {
       const challenges = await DailyChallengesService.getUserDailyChallenges(user.uid);
       setDailyChallenges(challenges);
     } catch (error) {
-      console.error('Error loading daily challenges:', error);
+
     }
   };
 
@@ -78,7 +78,7 @@ const GameificationHub = () => {
       setLeaderboards(leaderboardData);
       setUserRanks(rankData);
     } catch (error) {
-      console.error('Error loading leaderboards:', error);
+
     }
   };
 
@@ -87,7 +87,7 @@ const GameificationHub = () => {
       const stats = await DailyChallengesService.getChallengeStats(user.uid, 7);
       setChallengeStats(stats);
     } catch (error) {
-      console.error('Error loading challenge stats:', error);
+ 
     }
   };
 

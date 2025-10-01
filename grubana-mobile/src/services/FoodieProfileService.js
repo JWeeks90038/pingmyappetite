@@ -63,7 +63,7 @@ class FoodieProfileService {
         createdAt: new Date()
       };
     } catch (error) {
-      console.error('Error getting foodie profile:', error);
+ 
       return {
         profilePhotoURL: null,
         markerIcon: this.DEFAULT_MARKERS.browse,
@@ -97,7 +97,7 @@ class FoodieProfileService {
       
       return { success: true, markerIcon };
     } catch (error) {
-      console.error('Error updating marker icon:', error);
+
       return { success: false, error: error.message };
     }
   }
@@ -220,7 +220,7 @@ class FoodieProfileService {
       
       return enrichedFoodies;
     } catch (error) {
-      console.error('Error enriching nearby foodies:', error);
+  
       return nearbyFoodies.map(foodie => ({
         ...foodie,
         markerIcon: this.DEFAULT_MARKERS.browse,

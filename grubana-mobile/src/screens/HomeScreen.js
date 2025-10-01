@@ -76,8 +76,8 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* Leaderboard Section - Only for customers and event organizers */}
-        {(userRole === 'customer' || userRole === 'event-organizer') && (
+        {/* Kitchen Leaderboard Section - Show for all authenticated users */}
+        {user && (
           <HomepageLeaderboard />
         )}
 
@@ -147,7 +147,7 @@ const HomeScreen = () => {
                 <TouchableOpacity 
                   style={styles.primaryButton}
                   onPress={() => {
-                    console.log('Navigating to EventOrganizerEvents screen');
+          
                     navigation.navigate('EventOrganizerEvents');
                   }}
                 >

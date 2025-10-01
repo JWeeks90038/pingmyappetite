@@ -44,7 +44,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error taking verification photo:', error);
+
       return { 
         success: false, 
         error: error.message 
@@ -77,7 +77,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error uploading verification photo:', error);
+
       return {
         success: false,
         error: error.message
@@ -122,7 +122,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error saving photo verification:', error);
+    
       return {
         success: false,
         error: error.message
@@ -165,7 +165,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error fetching photo gallery:', error);
+   
       return {
         success: false,
         error: error.message,
@@ -218,7 +218,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error in complete photo verification:', error);
+   
       return {
         success: false,
         error: error.message
@@ -245,7 +245,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error checking photo verification:', error);
+ 
       return {
         hasVerification: false,
         count: 0
@@ -279,7 +279,7 @@ class PhotoVerificationService {
       };
 
     } catch (error) {
-      console.error('Error getting verified trucks count:', error);
+  
       return {
         success: false,
         uniqueTrucksCount: 0,

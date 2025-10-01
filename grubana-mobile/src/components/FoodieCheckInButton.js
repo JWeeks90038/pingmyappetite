@@ -81,7 +81,7 @@ const FoodieCheckInButton = ({ location, onCheckIn, style }) => {
             isNewLocation: result.isNewLocation
           });
         } catch (error) {
-          console.log('Challenge tracking failed:', error);
+  
         }
         
         // If this is a new location visit, prompt for photo verification
@@ -99,7 +99,7 @@ const FoodieCheckInButton = ({ location, onCheckIn, style }) => {
         }, 45 * 60 * 1000);
       }
     } catch (error) {
-      console.error('Check-in error:', error);
+
     } finally {
       setLoading(false);
     }
@@ -148,10 +148,10 @@ const FoodieCheckInButton = ({ location, onCheckIn, style }) => {
         onCheckIn && onCheckIn(enhancedResult);
       } else if (!photoResult.cancelled) {
         // Only show error if user didn't cancel
-        console.log('Photo verification failed:', photoResult.error);
+
       }
     } catch (error) {
-      console.error('Photo verification error:', error);
+
     } finally {
       setTakingPhoto(false);
     }

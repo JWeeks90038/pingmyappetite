@@ -9,6 +9,7 @@ class LeaderboardService {
     CHECK_IN_STREAK: 'check_in_streak',
     MISSIONS_COMPLETED: 'missions_completed',
     LOCATIONS_EXPLORED: 'locations_explored',
+    TOP_TAGGED_PHOTOS: 'top_tagged_photos',
   };
 
   static async updateUserLeaderboardStats(userId, statType, value, displayName = null) {
@@ -69,7 +70,7 @@ class LeaderboardService {
       await this.updateGlobalLeaderboards();
       
     } catch (error) {
-      console.error('Error updating leaderboard stats:', error);
+
     }
   }
 
@@ -138,16 +139,16 @@ class LeaderboardService {
       }
 
       await setDoc(userLeaderboardRef, userData);
-      console.log(`Added ${points} points to leaderboard for user ${userId}`);
+
       
     } catch (error) {
-      console.error('Error adding points to leaderboard:', error);
+
     }
   }
 
   static async getLeaderboard(type = this.LEADERBOARD_TYPES.ALL_TIME_POINTS, limitCount = 50) {
     try {
-      console.log('Fetching leaderboard for type:', type, 'limit:', limitCount);
+  
       const statsRef = collection(db, 'leaderboards', 'users', 'stats');
       let queryConstraints = [];
 
@@ -193,9 +194,9 @@ class LeaderboardService {
       }
 
       const q = query(statsRef, ...queryConstraints);
-      console.log('Executing query with constraints:', queryConstraints.length);
+   
       const querySnapshot = await getDocs(q);
-      console.log('Query returned docs:', querySnapshot.size);
+  
       
       const allEntries = [];
       const currentTime = new Date();
@@ -256,10 +257,10 @@ class LeaderboardService {
           rank: index + 1,
         }));
 
-      console.log('Leaderboard built with', sortedEntries.length, 'entries');
+    
       return sortedEntries;
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+ 
       return [];
     }
   }
@@ -275,7 +276,7 @@ class LeaderboardService {
         totalUsers: leaderboard.length,
       } : null;
     } catch (error) {
-      console.error('Error getting user rank:', error);
+
       return null;
     }
   }
@@ -296,7 +297,7 @@ class LeaderboardService {
         totalUsers: leaderboard.length,
       };
     } catch (error) {
-      console.error('Error getting nearby ranks:', error);
+    
       return { user: null, nearby: [] };
     }
   }
@@ -330,7 +331,7 @@ class LeaderboardService {
       });
 
     } catch (error) {
-      console.error('Error updating global leaderboards:', error);
+ 
     }
   }
 
@@ -403,7 +404,7 @@ class LeaderboardService {
       };
       
     } catch (error) {
-      console.error('Error getting homepage leaderboard:', error);
+
       return {
         leaderboard: [],
         userRank: null,
@@ -430,7 +431,7 @@ class LeaderboardService {
       }, { merge: true });
       
     } catch (error) {
-      console.error('Error updating user location:', error);
+
     }
   }
 
@@ -439,7 +440,7 @@ class LeaderboardService {
    */
   static async initializeUserLeaderboard(userId, displayName = 'Anonymous') {
     try {
-      console.log('Initializing leaderboard for user:', userId);
+
       
       // Try the main approach first
       const userLeaderboardRef = doc(db, 'leaderboards', 'users', 'stats', userId);
@@ -468,10 +469,10 @@ class LeaderboardService {
 
       try {
         await setDoc(userLeaderboardRef, userData, { merge: true });
-        console.log('Successfully initialized leaderboard for user:', userId);
+     
         return true;
       } catch (primaryError) {
-        console.error('Primary path failed:', primaryError);
+    
         
         // Try fallback in userStats collection
         try {
@@ -480,17 +481,239 @@ class LeaderboardService {
             ...userData,
             leaderboardData: userData,
           }, { merge: true });
-          console.log('Fallback initialization successful for user:', userId);
+    
           return true;
         } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
+
           throw fallbackError;
         }
       }
     } catch (error) {
-      console.error('Error initializing user leaderboard:', error);
+ 
       throw error;
     }
+  }
+
+  /**
+   * Get top tagged photos from foodies within radius
+   * @param {Object} userLocation - User's location {latitude, longitude}
+   * @param {number} radiusMiles - Search radius in miles (default 50)
+   * @param {number} limitCount - Number of photos to return (default 10)
+   * @returns {Promise<Array>} Top tagged photos with user info
+   */
+  static async getTopTaggedPhotos(userLocation = null, radiusMiles = 50, limitCount = 10) {
+    try {
+
+      
+      // Get all photos, then filter for those with truck tags
+      const photosQuery = query(
+        collection(db, 'foodiePhotos'),
+        orderBy('timestamp', 'desc'),
+        limit(500) // Get recent photos first, then we'll sort by likes
+      );
+
+      const photosSnapshot = await getDocs(photosQuery);
+      let allTaggedPhotos = photosSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.seconds ? doc.data().timestamp.seconds * 1000 : Date.now()
+        }))
+        .filter(photo => {
+          // Filter for tagged photos - handle different data types
+          if (!photo.taggedTruck) return false;
+          
+          // Debug log to see the actual data structure
+
+          
+          if (typeof photo.taggedTruck === 'string') {
+            return photo.taggedTruck.trim() !== '';
+          }
+          if (typeof photo.taggedTruck === 'object' && photo.taggedTruck.name) {
+            return photo.taggedTruck.name.trim() !== '';
+          }
+          return true; // Include if it exists but is not a string or object with name
+        });
+
+ 
+
+      // Get likes for each photo
+      const photosWithLikes = await Promise.all(
+        allTaggedPhotos.map(async (photo) => {
+          try {
+            const likesQuery = query(
+              collection(db, 'photoLikes'),
+              where('photoId', '==', photo.id)
+            );
+            const likesSnapshot = await getDocs(likesQuery);
+            const likeCount = likesSnapshot.size;
+            
+            return {
+              ...photo,
+              likeCount: likeCount || 0
+            };
+          } catch (error) {
+      
+            return {
+              ...photo,
+              likeCount: 0
+            };
+          }
+        })
+      );
+
+      // Filter by location if provided
+      let filteredPhotos = photosWithLikes;
+      if (userLocation && userLocation.latitude && userLocation.longitude) {
+        filteredPhotos = photosWithLikes.filter(photo => {
+          if (!photo.location || !photo.location.latitude || !photo.location.longitude) {
+            return false;
+          }
+
+          const distance = this.calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            photo.location.latitude,
+            photo.location.longitude
+          );
+
+          return distance <= radiusMiles;
+        });
+        
+   
+      }
+
+      // Sort by likes (descending) and recency as tiebreaker
+      const sortedPhotos = filteredPhotos.sort((a, b) => {
+        if (b.likeCount !== a.likeCount) {
+          return b.likeCount - a.likeCount; // More likes first
+        }
+        return b.timestamp - a.timestamp; // More recent first as tiebreaker
+      });
+
+      // Get user info for each photo
+      const topPhotos = await Promise.all(
+        sortedPhotos.slice(0, limitCount).map(async (photo, index) => {
+          try {
+            // Get user info from users collection
+            const userQuery = query(
+              collection(db, 'users'),
+              where('__name__', '==', photo.userId)
+            );
+            const userSnapshot = await getDocs(userQuery);
+            
+            let userInfo = {
+              username: 'Anonymous Foodie',
+              profileImageUrl: null
+            };
+
+            if (!userSnapshot.empty) {
+              const userData = userSnapshot.docs[0].data();
+              userInfo = {
+                username: userData.username || userData.displayName || 'Anonymous Foodie',
+                profileImageUrl: userData.profileImageUrl || userData.profilePhotoURL || userData.photoURL || null
+              };
+            }
+
+            return {
+              id: photo.id,
+              imageUrl: photo.imageUrl,
+              taggedTruck: this.extractTruckName(photo.taggedTruck),
+              likeCount: photo.likeCount,
+              timestamp: photo.timestamp,
+              location: photo.location,
+              rank: index + 1,
+              userId: photo.userId,
+              ...userInfo
+            };
+          } catch (error) {
+      
+            return {
+              id: photo.id,
+              imageUrl: photo.imageUrl,
+              taggedTruck: this.extractTruckName(photo.taggedTruck),
+              likeCount: photo.likeCount,
+              timestamp: photo.timestamp,
+              location: photo.location,
+              rank: index + 1,
+              userId: photo.userId,
+              username: 'Anonymous Foodie',
+              profileImageUrl: null
+            };
+          }
+        })
+      );
+
+ 
+      return topPhotos;
+
+    } catch (error) {
+ 
+      return [];
+    }
+  }
+
+  /**
+   * Extract truck name from various data formats
+   * @param {string|object} taggedTruck - Tagged truck data
+   * @returns {string} Truck name
+   */
+  static extractTruckName(taggedTruck) {
+    if (!taggedTruck) return 'Unknown Truck';
+    
+    if (typeof taggedTruck === 'string') {
+      return taggedTruck.trim() || 'Unknown Truck';
+    }
+    
+    if (typeof taggedTruck === 'object') {
+      // Try various possible property names
+      const possibleNames = [
+        taggedTruck.name,
+        taggedTruck.truckName,
+        taggedTruck.businessName,
+        taggedTruck.title,
+        taggedTruck.displayName
+      ];
+      
+      for (const name of possibleNames) {
+        if (name && typeof name === 'string' && name.trim()) {
+          return name.trim();
+        }
+      }
+      
+      // If it's an object but no recognizable name property, try to stringify it
+      try {
+        const stringified = JSON.stringify(taggedTruck);
+        if (stringified && stringified !== '{}' && stringified !== 'null') {
+          return stringified.length > 50 ? 'Tagged Truck' : stringified;
+        }
+      } catch (e) {
+        // Ignore JSON stringify errors
+      }
+    }
+    
+    return 'Unknown Truck';
+  }
+
+  /**
+   * Calculate distance between two points using Haversine formula
+   * @param {number} lat1 - First latitude
+   * @param {number} lon1 - First longitude
+   * @param {number} lat2 - Second latitude
+   * @param {number} lon2 - Second longitude
+   * @returns {number} Distance in miles
+   */
+  static calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 3959; // Radius of the Earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in miles
+    return Math.round(d * 10) / 10; // Round to 1 decimal place
   }
 }
 

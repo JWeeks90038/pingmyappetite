@@ -16,6 +16,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { ThemedView, ThemedText, ThemedButton, ThemedCard } from '../theme/ThemedComponents';
 import { colors } from '../theme/colors';
 import FoodiePhotoService from '../services/FoodiePhotoService';
+import LeaderboardService from '../services/LeaderboardService';
 // TODO: Re-enable these imports when expo-auth-session is working
 // import { useCalendarEvents } from '../components/CalendarEventsContext';
 // import CalendarConnectModal from '../components/CalendarConnectModal';
@@ -122,7 +123,7 @@ export default function MapScreen() {
           }
         }
       } catch (error) {
-        console.log('Error loading check-in from AsyncStorage:', error);
+
       }
     };
 
@@ -166,6 +167,94 @@ export default function MapScreen() {
 
     loadFavoriteCounts();
   }, [foodTrucks]);
+
+  // Fetch leaderboard data for trophy badges
+  useEffect(() => {
+
+    
+    if (!location) {
+  
+      setLeaderboardLoading(true);
+      return;
+    }
+
+    const fetchLeaderboardData = async () => {
+      try {
+        setLeaderboardLoading(true);
+      
+        
+        const topTaggedPhotos = await LeaderboardService.getTopTaggedPhotos(
+          location.coords.latitude,
+          location.coords.longitude
+        );
+        
+        // Extract user IDs from leaderboard data
+        const userIds = new Set();
+        topTaggedPhotos.forEach(photo => {
+          if (photo.userId) {
+            userIds.add(photo.userId);
+          }
+        });
+        
+  
+        setLeaderboardUserIds(userIds);
+      } catch (error) {
+  
+        setLeaderboardUserIds(new Set()); // Clear on error
+      } finally {
+        setLeaderboardLoading(false);
+      }
+    };
+
+    fetchLeaderboardData();
+  }, [location]);
+
+
+
+  // Function to refresh leaderboard data (call after photo operations)
+  const refreshLeaderboardData = async () => {
+    if (!location) return;
+    
+    try {
+
+      const topTaggedPhotos = await LeaderboardService.getTopTaggedPhotos(
+        location.coords.latitude,
+        location.coords.longitude
+      );
+      
+      // Extract user IDs from leaderboard data
+      const userIds = new Set();
+      topTaggedPhotos.forEach(photo => {
+        if (photo.userId) {
+          userIds.add(photo.userId);
+        }
+      });
+      
+      setLeaderboardUserIds(userIds);
+      
+      // Also refresh the map markers to update trophy badges
+      if (nearbyFoodies && nearbyFoodies.length > 0) {
+        refreshFoodieMarkers(nearbyFoodies);
+      }
+      
+    } catch (error) {
+
+    }
+  };
+
+  // Refresh leaderboard data when screen comes into focus (e.g., returning from PhotoUpload)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Small delay to ensure any navigation state changes have completed
+      const timer = setTimeout(() => {
+        if (location && nearbyFoodies && nearbyFoodies.length > 0) {
+          refreshLeaderboardData();
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }, [location, nearbyFoodies])
+  );
   
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -237,6 +326,10 @@ export default function MapScreen() {
   const [nearbyFoodies, setNearbyFoodies] = useState([]);
   const [loadingFoodies, setLoadingFoodies] = useState(false);
 
+  // Leaderboard state for trophy badges
+  const [leaderboardUserIds, setLeaderboardUserIds] = useState(new Set());
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+
   // Foodie photo gallery states
   const [showFoodieGallery, setShowFoodieGallery] = useState(false);
   const [selectedFoodie, setSelectedFoodie] = useState(null);
@@ -246,6 +339,7 @@ export default function MapScreen() {
   // Full-screen photo viewer states
   const [showFullScreenPhoto, setShowFullScreenPhoto] = useState(false);
   const [fullScreenPhotoUrl, setFullScreenPhotoUrl] = useState(null);
+  const [fullScreenPhotoData, setFullScreenPhotoData] = useState(null);
 
   // Photo upload states
   // Photo upload state managed by dedicated PhotoUploadScreen
@@ -1144,7 +1238,7 @@ export default function MapScreen() {
             showToastMessage(`${truckName} favorited! (+5 XP)`, 'success');
           }
         } catch (gamificationError) {
-          console.log('Gamification failed:', gamificationError);
+
           showToastMessage(`${truckName} favorited!`, 'success');
         }
       }
@@ -1154,25 +1248,6 @@ export default function MapScreen() {
     }
   };
 
-  // Helper function to format phone numbers for display
-  const formatPhoneNumber = (phone) => {
-    if (!phone) return '';
-    
-    // Remove all non-digits
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // Format based on length
-    if (cleaned.length === 10) {
-      // US format: (123) 456-7890
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-    } else if (cleaned.length === 11 && cleaned[0] === '1') {
-      // US format with country code: +1 (123) 456-7890
-      return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
-    } else {
-      // Return original if doesn't match expected format
-      return phone;
-    }
-  };
 
   // Helper function to get rating summary for a truck (for map markers)
   const getTruckRatingSummary = async (truckId) => {
@@ -2267,7 +2342,7 @@ export default function MapScreen() {
       }
       setLoadingPhotos(false);
     } catch (error) {
-      console.error('Error loading foodie photos:', error);
+  
       setLoadingPhotos(false);
       
       if (error.code === 'failed-precondition' && error.message.includes('index')) {
@@ -2320,7 +2395,7 @@ export default function MapScreen() {
         )
       );
     } catch (error) {
-      console.error('Error toggling photo like:', error);
+  
       showToastMessage('Unable to update like', 'error');
     }
   };
@@ -2336,7 +2411,7 @@ export default function MapScreen() {
         'Are you sure you want to delete this photo? This action cannot be undone.',
         async () => {
           try {
-            console.log('🗑️ Deleting photo:', photoId);
+  
             
             // Import Firebase functions
             const { doc, deleteDoc } = await import('firebase/firestore');
@@ -2350,7 +2425,7 @@ export default function MapScreen() {
             // Extract storage path from download URL
             const urlParts = imageUrl.split('/o/')[1].split('?')[0];
             const storagePath = decodeURIComponent(urlParts);
-            console.log('🗑️ Storage path for deletion:', storagePath);
+  
             
             const storageRef = ref(storage, storagePath);
             await deleteObject(storageRef);
@@ -2358,11 +2433,14 @@ export default function MapScreen() {
             // Remove from local state
             setFoodiePhotos(prev => prev.filter(photo => photo.id !== photoId));
             
-            console.log('🗑️ Photo deleted successfully');
+            // Refresh leaderboard data to update trophy badges
+            await refreshLeaderboardData();
+            
+
             showToastMessage('Photo deleted successfully', 'success');
             
           } catch (error) {
-            console.error('Error deleting photo:', error);
+   
             showToastMessage('Failed to delete photo', 'error');
           }
         },
@@ -2371,7 +2449,7 @@ export default function MapScreen() {
         true
       );
     } catch (error) {
-      console.error('Error showing delete confirmation:', error);
+
     }
   };
 
@@ -3421,7 +3499,7 @@ export default function MapScreen() {
             };
             
             await setDoc(userDocRef, userLocationData, { merge: true });
-            console.log('Updated user location for foodie marker display');
+ 
             
             // Additional logic for food truck owners
             if (userRole === 'owner') {
@@ -3430,15 +3508,15 @@ export default function MapScreen() {
               const maxAttempts = 10; // Wait up to 5 seconds (500ms * 10)
               
               while ((!sessionId || !ownerData) && attempts < maxAttempts) {
-                console.log('Waiting for sessionId and ownerData...');
+     
                 await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
                 attempts++;
               }
               
               if (sessionId && ownerData) {
-                console.log('sessionId and ownerData available, saving truck location');
+         
               } else {
-                console.log('sessionId or ownerData not available after waiting');
+         
               }
               
               // Save to Firestore as truck location
@@ -3466,9 +3544,9 @@ export default function MapScreen() {
               // This prevents overwriting the saved visibility preference during initial load
               if (showTruckIcon !== null) {
                 locationData.visible = showTruckIcon;
-                console.log('Setting truck visibility to:', showTruckIcon);
+
               } else {
-                console.log('showTruckIcon is null, not setting visibility');
+        
               }
               
               // Save to trucks collection for persistence and visibility management
@@ -3476,10 +3554,10 @@ export default function MapScreen() {
               await setDoc(trucksDocRef, locationData, { merge: true });
               
               await setDoc(truckDocRef, locationData, { merge: true });
-              console.log('Saved truck location to Firebase');
+  
             }
           } catch (firebaseError) {
-            console.error('Error saving location to Firebase:', firebaseError);
+          
           }
         }
         
@@ -3522,11 +3600,11 @@ export default function MapScreen() {
           };
           
           await setDoc(userDocRef, userLocationData, { merge: true });
-          console.log('Updated user location (late load)');
+      
           
           // Additional truck owner logic
           if (userRole === 'owner' && sessionId && ownerData) {
-            console.log('Saving late loaded truck location');
+
             
             const truckDocRef = doc(db, 'truckLocations', user.uid);
             
@@ -3560,7 +3638,7 @@ export default function MapScreen() {
           await setDoc(truckDocRef, locationData, { merge: true });
           }
         } catch (error) {
-          console.log('Error saving location:', error);
+ 
         }
       }
     };
@@ -3570,18 +3648,13 @@ export default function MapScreen() {
 
   // Subscribe to nearby foodies for map display
   useEffect(() => {
-    console.log('Foodie subscription useEffect triggered - Location:', location, 'User:', user?.uid);
+
     
     const lat = location?.coords?.latitude || location?.latitude;
     const lng = location?.coords?.longitude || location?.longitude;
     
     if (!lat || !lng || !user?.uid) {
-      console.log('Clearing foodies - missing data:', {
-        hasLocation: !!location,
-        hasCoords: !!(location?.coords?.latitude && location?.coords?.longitude),
-        hasLatLng: !!(lat && lng), 
-        hasUser: !!user?.uid
-      });
+   
       setNearbyFoodies([]);
       return;
     }
@@ -3593,7 +3666,7 @@ export default function MapScreen() {
       try {
         if (!isActive) return;
         
-        console.log('Setting up foodie subscription for location:', lat, lng);
+  
         setLoadingFoodies(true);
         
         unsubscribe = await FoodieGameService.subscribeToNearbyFoodies(
@@ -3607,7 +3680,7 @@ export default function MapScreen() {
           }
         );
       } catch (error) {
-        console.error('Error setting up foodies subscription:', error);
+    
         if (isActive) {
           setNearbyFoodies([]);
           setLoadingFoodies(false);
@@ -3636,9 +3709,9 @@ export default function MapScreen() {
           lastActive: serverTimestamp(),
           lastActivityTime: Date.now()
         }, { merge: true });
-        console.log('Updated user lastActive timestamp');
+
       } catch (error) {
-        console.error('Error updating lastActive:', error);
+
       }
     };
 
@@ -3671,6 +3744,13 @@ export default function MapScreen() {
 
   // Generate map HTML when location, trucks, or pings change
   useEffect(() => {
+    // Temporarily bypass leaderboard loading check to get map working again
+    // TODO: Fix leaderboard loading issue
+    // if (leaderboardLoading) {
+
+    //   return;
+    // }
+
     const generateHTML = async () => {
       // Use default location if user location is not available (for ping display purposes)
       let currentLocation = location;
@@ -3709,9 +3789,9 @@ export default function MapScreen() {
     };
     
     generateHTML();
-  }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites, currentCheckIn, nearbyFoodies]);
+  }, [location, trucksDataHash, customerPings, events, userPlan, showTruckIcon, excludedCuisines, userFavorites, currentCheckIn, nearbyFoodies, leaderboardUserIds, leaderboardLoading]);
   // NOTE: Using trucksDataHash instead of foodTrucks to prevent unnecessary regeneration
-  // NOTE: Removed showClosedTrucks, showOpenTrucks, and refreshTrigger from dependencies
+  // NOTE: Added leaderboardUserIds and leaderboardLoading to ensure map updates when leaderboard data changes
 
   // Pre-fetch and convert images to base64 for WebView
   const convertImageToBase64 = async (imageUrl) => {
@@ -4080,9 +4160,9 @@ export default function MapScreen() {
     let sanitizedFoodies = [];
     try {
       sanitizedFoodies = JSON.parse(JSON.stringify(nearbyFoodies)); // Deep clone to remove any problematic references
-      console.log('Sanitized foodies for map:', sanitizedFoodies.length);
+
     } catch (error) {
-      console.error('Error sanitizing foodies data:', error);
+  
       sanitizedFoodies = [];
     }
 
@@ -4694,19 +4774,28 @@ export default function MapScreen() {
             
             // Helper function to clear and refresh foodie markers
             function refreshFoodieMarkers(foodies) {
-                console.log('Refreshing foodie markers with', foodies.length, 'foodies');
+       
                 foodieMarkerCluster.clearLayers();
                 
                 foodies.forEach((foodie, index) => {
                     if (foodie.location && foodie.location.latitude && foodie.location.longitude) {
+                        // Check if this is the current user and use their check-in data if available
+                        const userCheckInData = ${JSON.stringify(currentCheckIn)};
+                        let actualHungerLevel = foodie.hungerLevel;
+                        
+                        // Override hunger level for current user if they have an active check-in
+                        if (userCheckInData && foodie.userId === '${user?.uid}' && userCheckInData.hungerLevel) {
+                            actualHungerLevel = userCheckInData.hungerLevel;
+                        }
+                        
                         // Determine border color and status emoji based on hunger level
                         let borderColor = '#4CAF50'; // interested (green)
                         let statusEmoji = '👀'; // browsing
                         
-                        if (foodie.hungerLevel === 'hungry') {
+                        if (actualHungerLevel === 'hungry') {
                             borderColor = '#FF9800'; // orange
                             statusEmoji = '😋';
-                        } else if (foodie.hungerLevel === 'starving') {
+                        } else if (actualHungerLevel === 'starving') {
                             borderColor = '#F44336'; // red
                             statusEmoji = '🤤';
                         }
@@ -4715,16 +4804,25 @@ export default function MapScreen() {
                         const profileImageUrl = foodie.profileImageUrl || foodie.profileUrl;
                         let markerHtml = '';
                         
+                        // Check if this foodie is on the leaderboard for trophy badge
+                        const isLeaderboardUser = leaderboardUserIds.has(foodie.userId || foodie.id);
+                 
+                        
+                        const trophyBadge = isLeaderboardUser ? 
+                            '<div style="position: absolute; top: -5px; left: -5px; background: linear-gradient(135deg, #FFD700, #FFA500); width: 18px; height: 18px; border-radius: 50%; border: 2px solid white; font-size: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(255, 215, 0, 0.4); z-index: 10;">🏆</div>' : '';
+
                         if (profileImageUrl) {
                             markerHtml = \`<div style="width: 34px; height: 34px; border-radius: 50%; border: 3px solid \${borderColor}; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.3); position: relative;">
                                 <img src="\${profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<div style=\\'width: 100%; height: 100%; background: \${borderColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;\\'>👤</div>';">
                                 <div style="position: absolute; bottom: -3px; right: -3px; background: white; width: 16px; height: 16px; border-radius: 50%; border: 2px solid \${borderColor}; font-size: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">\${statusEmoji}</div>
+                                \${trophyBadge}
                             </div>\`;
                         } else {
                             // Fallback to emoji marker with status
                             markerHtml = \`<div style="background: \${borderColor}; color: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-size: 18px; position: relative;">
                                 👤
                                 <div style="position: absolute; bottom: -3px; right: -3px; background: white; width: 16px; height: 16px; border-radius: 50%; border: 2px solid \${borderColor}; font-size: 10px; display: flex; align-items: center; justify-content: center; color: \${borderColor}; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">\${statusEmoji}</div>
+                                \${trophyBadge}
                             </div>\`;
                         }
                         
@@ -4750,9 +4848,10 @@ export default function MapScreen() {
                                         \`<div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #FF4EC9 0%, #4DBFFF 100%); display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 28px; margin: 0 auto; box-shadow: 0 4px 12px rgba(255, 78, 201, 0.3);">👤</div>\`
                                     }
                                 </div>
-                                <h4 style="margin: 0 0 12px 0; color: #FFFFFF; font-size: 18px; font-weight: 600; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);">🍽️ \${foodie.username || 'Foodie'}</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #FFFFFF; font-size: 18px; font-weight: 600; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);">🍽️ \${foodie.username || 'Foodie'} \${isLeaderboardUser ? '🏆' : ''}</h4>
+                                \${isLeaderboardUser ? '<p style="margin: 6px 0; color: #FFD700; font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);">⭐ Featured Photographer</p>' : ''}
+                                <!-- Debug: isLeaderboardUser = \${isLeaderboardUser} for \${foodie.username} -->
                                 <p style="margin: 6px 0; font-size: 14px; color: #FFFFFF;"><strong style="color: #4DBFFF;">Status:</strong> \${hungerDescription} \${statusEmoji}</p>
-                                <p style="margin: 4px 0; font-size: 13px; color: #FFFFFF; opacity: 0.9;"><strong style="color: #4DBFFF;">Level:</strong> \${foodie.level || 1} | <strong style="color: #4DBFFF;">XP:</strong> \${foodie.totalXP || 0}</p>
                                 \${foodie.checkedIn ? '<p style="margin: 8px 0; color: #00E676; font-weight: 600; font-size: 13px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);">✓ Recently Checked In</p>' : '<p style="margin: 8px 0; color: #FFFFFF; opacity: 0.7; font-size: 13px;">Active on Map</p>'}
                                 <div style="margin-top: 14px;">
                                     <button onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'foodieGallery', foodieId: '\${foodie.id}', foodieName: '\${foodie.username || 'Foodie'}'}))" 
@@ -4782,33 +4881,8 @@ export default function MapScreen() {
                 .addTo(map)
                 .bindPopup('<div class="truck-popup"><div class="truck-name">📍 Your Location</div></div>');
 
-            // User check-in marker (if checked in)
-            const userCheckInData = ${JSON.stringify(currentCheckIn)};
-            if (userCheckInData && userCheckInData.location) {
-                const hungerColors = {
-                    'interested': '#4CAF50',
-                    'hungry': '#FF9800', 
-                    'starving': '#F44336'
-                };
-                const hungerEmojis = {
-                    'interested': '👀',
-                    'hungry': '😋',
-                    'starving': '🤤'
-                };
-                
-                const checkInColor = hungerColors[userCheckInData.hungerLevel] || '#4CAF50';
-                const checkInEmoji = hungerEmojis[userCheckInData.hungerLevel] || '👀';
-                
-                const checkInIcon = L.divIcon({
-                    html: \`<div style="background: \${checkInColor}; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 16px;">\${checkInEmoji}</div>\`,
-                    iconSize: [30, 30],
-                    className: 'checkin-marker'
-                });
-                
-                L.marker([userCheckInData.location.latitude, userCheckInData.location.longitude], { icon: checkInIcon })
-                    .addTo(map)
-                    .bindPopup(\`<div class="truck-popup"><div class="truck-name">🍽️ You're \${userCheckInData.hungerLevel === 'interested' ? 'browsing' : userCheckInData.hungerLevel}!</div><div style="margin-top: 8px; font-size: 12px; color: #666;">Check-in expires in \${Math.ceil((new Date(userCheckInData.expiresAt) - new Date()) / (1000 * 60))} minutes</div></div>\`);
-            }
+            // Note: User check-in is now handled through the foodie markers system
+            // The user will appear in the nearbyFoodies list with their current hunger level
             
             // DEBUG: Check if execution continues past user marker creation
   
@@ -5072,7 +5146,7 @@ export default function MapScreen() {
                 customerPings = ${JSON.stringify(sanitizedPings)};
           
             } catch (error) {
-                console.error('Error parsing customer pings:', error);
+       
                 customerPings = [];
             }
 
@@ -5080,11 +5154,16 @@ export default function MapScreen() {
             let nearbyFoodies = [];
             try {
                 nearbyFoodies = ${JSON.stringify(sanitizedFoodies)};
-                console.log('Loaded nearby foodies:', nearbyFoodies.length);
+    
             } catch (error) {
    
                 customerPings = [];
             }
+
+            // Leaderboard user IDs for trophy badges
+            const leaderboardUserIds = new Set(${JSON.stringify(Array.from(leaderboardUserIds))});
+            const leaderboardReady = ${!leaderboardLoading};
+    
             
             // CRITICAL SUCCESS LOG: Confirm WebView data initialization completed
 
@@ -7012,26 +7091,7 @@ export default function MapScreen() {
               </View>
             </View>
             
-            {/* Phone Number Display */}
-            {selectedTruck?.phone && (
-              <TouchableOpacity 
-                style={styles.phoneContainer}
-                onPress={() => {
-                  const phoneNumber = selectedTruck.phone.replace(/\D/g, ''); // Remove non-digits
-                  const phoneUrl = `tel:${phoneNumber}`;
-                  Linking.openURL(phoneUrl).catch(err => {
-     
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="call" size={16} color={colors.accent.blue} />
-                <Text style={styles.phoneText}>
-                  {formatPhoneNumber(selectedTruck.phone)}
-                </Text>
-                <Text style={styles.phoneCallText}>Questions? Call us</Text>
-              </TouchableOpacity>
-            )}
+
           </View>
 
           <ScrollView ref={modalScrollViewRef} style={styles.modalContent}>
@@ -9258,13 +9318,14 @@ export default function MapScreen() {
                   <TouchableOpacity 
                     style={styles.photoItem}
                     onPress={() => {
-                      console.log('📸 Photo clicked, opening full screen for:', item.imageUrl);
+      
                       // Close the photo gallery modal first
                       setShowFoodieGallery(false);
                       // Then open the full-screen photo viewer
                       setFullScreenPhotoUrl(item.imageUrl);
+                      setFullScreenPhotoData(item);
                       setShowFullScreenPhoto(true);
-                      console.log('📸 State updated - showFullScreenPhoto should be true');
+               
                     }}
                     activeOpacity={0.8}
                   >
@@ -9314,6 +9375,19 @@ export default function MapScreen() {
                         </TouchableOpacity>
                       </View>
                     )}
+                    
+                    {/* Tagged Food Truck - bottom overlay */}
+                    {item.taggedTruck && (
+                      <View style={styles.truckTagOverlay}>
+                        <View style={styles.truckTag}>
+                          <Ionicons name="restaurant" size={12} color="#FFFFFF" />
+                          <Text style={styles.truckTagText} numberOfLines={1}>
+                            {item.taggedTruck.truckName}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                    
                     {item.description && (
                       <View style={styles.photoDescription}>
                         <Text style={styles.photoDescriptionText} numberOfLines={2}>
@@ -9340,8 +9414,11 @@ export default function MapScreen() {
             opacity: 0.95
           }]}
           onPress={() => {
-            console.log('🎯 Navigating to photo upload screen');
-            navigation.navigate('PhotoUpload', { location });
+      
+            navigation.navigate('PhotoUpload', { 
+              location,
+              onPhotoUploaded: refreshLeaderboardData // Pass callback to refresh leaderboard
+            });
           }}
           activeOpacity={0.8}
         >
@@ -9354,12 +9431,12 @@ export default function MapScreen() {
       {/* Full-Screen Photo Viewer - Using absolute positioning instead of Modal */}
       {showFullScreenPhoto && (
         <View style={styles.fullScreenPhotoContainer}>
-          {console.log('📸 Full screen overlay is rendering! showFullScreenPhoto:', showFullScreenPhoto)}
+     
           {/* Close Button */}
           <TouchableOpacity 
             style={styles.fullScreenCloseButton}
             onPress={() => {
-              console.log('📸 Close button pressed - returning to photo gallery');
+       
               setShowFullScreenPhoto(false);
               setShowFoodieGallery(true);
             }}
@@ -9370,11 +9447,25 @@ export default function MapScreen() {
           
           {/* Full-Screen Photo */}
           {fullScreenPhotoUrl && (
-            <Image 
-              source={{ uri: fullScreenPhotoUrl }}
-              style={styles.fullScreenPhoto}
-              resizeMode="contain"
-            />
+            <>
+              <Image 
+                source={{ uri: fullScreenPhotoUrl }}
+                style={styles.fullScreenPhoto}
+                resizeMode="contain"
+              />
+              
+              {/* Tagged Food Truck Display in Full Screen */}
+              {fullScreenPhotoData?.taggedTruck && (
+                <View style={styles.fullScreenTruckTag}>
+                  <View style={styles.fullScreenTruckTagContent}>
+                    <Ionicons name="restaurant" size={16} color="#FFFFFF" />
+                    <Text style={styles.fullScreenTruckTagText}>
+                      {fullScreenPhotoData.taggedTruck.truckName}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
       )}
@@ -9613,37 +9704,7 @@ const createThemedStyles = (theme) => StyleSheet.create({
     color: theme.colors.text.secondary,
     fontWeight: '500',
   },
-  phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    marginHorizontal: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: colors.background.secondary,
-    borderRadius: 25,
-    borderWidth: 1.5,
-    borderColor: colors.accent.blue,
-    shadowColor: colors.accent.blue,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  phoneText: {
-    fontSize: 15,
-    color: colors.accent.blue,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  phoneCallText: {
-    fontSize: 11,
-    color: colors.text.secondary,
-    marginLeft: 8,
-    fontStyle: 'italic',
-    opacity: 0.8,
-  },
+
   modalContent: {
     flex: 1,
     padding: 20,
@@ -11481,6 +11542,28 @@ const createThemedStyles = (theme) => StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
+  truckTagOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+  },
+  truckTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 78, 201, 0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    maxWidth: '80%',
+  },
+  truckTagText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   likeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -11602,6 +11685,28 @@ const createThemedStyles = (theme) => StyleSheet.create({
   fullScreenPhoto: {
     width: '100%',
     height: '100%',
+  },
+  fullScreenTruckTag: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    alignItems: 'flex-start',
+  },
+  fullScreenTruckTagContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 78, 201, 0.9)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    maxWidth: '80%',
+  },
+  fullScreenTruckTagText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   photoOptionsOverlay: {
     flex: 1,

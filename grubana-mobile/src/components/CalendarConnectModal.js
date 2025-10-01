@@ -53,7 +53,7 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
         await loadCalendarEvents();
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
+
     } finally {
       setLoading(false);
     }
@@ -80,25 +80,13 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
           onCalendarConnected(kitchenId, true);
         }
         
-        Alert.alert(
-          'Success!',
-          'Your Google Calendar has been connected successfully.',
-          [{ text: 'OK' }]
-        );
+     
       } else {
-        Alert.alert(
-          'Connection Failed',
-          result.message || 'Failed to connect to Google Calendar.',
-          [{ text: 'OK' }]
-        );
+  
       }
     } catch (error) {
-      console.error('Calendar connection error:', error);
-      Alert.alert(
-        'Error',
-        'An error occurred while connecting to Google Calendar.',
-        [{ text: 'OK' }]
-      );
+
+   
     } finally {
       setLoading(false);
     }
@@ -113,12 +101,8 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
       setEvents(calendarEvents);
       setLastSync(new Date());
     } catch (error) {
-      console.error('Error loading calendar events:', error);
-      Alert.alert(
-        'Sync Error',
-        'Failed to sync calendar events. Please try again.',
-        [{ text: 'OK' }]
-      );
+
+   
     }
   };
 
@@ -126,7 +110,7 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
    * Handle calendar disconnection
    */
   const handleDisconnectCalendar = async () => {
-    Alert.alert(
+    (
       'Disconnect Calendar',
       'Are you sure you want to disconnect your Google Calendar?',
       [
@@ -150,11 +134,11 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
                   onCalendarConnected(kitchenId, false);
                 }
                 
-                Alert.alert('Disconnected', 'Google Calendar has been disconnected.');
+   
               }
             } catch (error) {
-              console.error('Disconnect error:', error);
-              Alert.alert('Error', 'Failed to disconnect calendar.');
+
+        
             } finally {
               setLoading(false);
             }
@@ -174,7 +158,7 @@ const CalendarConnectModal = ({ visible, onClose, kitchenId, onCalendarConnected
       setLoading(true);
       await loadCalendarEvents();
     } catch (error) {
-      console.error('Refresh error:', error);
+
     } finally {
       setLoading(false);
     }

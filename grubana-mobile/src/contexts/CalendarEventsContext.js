@@ -109,7 +109,7 @@ export const CalendarEventsProvider = ({ children }) => {
         await syncEvents();
       }
     } catch (error) {
-      console.error('Error initializing calendar:', error);
+
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
     } finally {
       dispatch({ type: actionTypes.SET_LOADING, payload: false });
@@ -134,9 +134,9 @@ export const CalendarEventsProvider = ({ children }) => {
       dispatch({ type: actionTypes.SET_EVENTS, payload: events });
       dispatch({ type: actionTypes.SET_LAST_SYNC, payload: new Date() });
       
-      console.log(`Synced ${events.length} calendar events`);
+
     } catch (error) {
-      console.error('Error syncing calendar events:', error);
+
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
       
       // If auth error, mark as disconnected
@@ -159,7 +159,7 @@ export const CalendarEventsProvider = ({ children }) => {
     // Set up new interval for 15 minutes (900000 ms)
     const interval = setInterval(async () => {
       if (state.isConnected) {
-        console.log('Auto-syncing calendar events...');
+
         await syncEvents();
       }
     }, 15 * 60 * 1000); // 15 minutes
@@ -189,7 +189,7 @@ export const CalendarEventsProvider = ({ children }) => {
         return { success: false, message: result.message };
       }
     } catch (error) {
-      console.error('Error connecting calendar:', error);
+  
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
       return { success: false, message: error.message };
     } finally {
@@ -214,7 +214,7 @@ export const CalendarEventsProvider = ({ children }) => {
         return { success: false, message: result.message };
       }
     } catch (error) {
-      console.error('Error disconnecting calendar:', error);
+
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
       return { success: false, message: error.message };
     } finally {
@@ -231,7 +231,7 @@ export const CalendarEventsProvider = ({ children }) => {
       await syncEvents();
       return { success: true, message: 'Events refreshed successfully' };
     } catch (error) {
-      console.error('Error refreshing events:', error);
+
       dispatch({ type: actionTypes.SET_ERROR, payload: error.message });
       return { success: false, message: error.message };
     } finally {

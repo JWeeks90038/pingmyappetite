@@ -18,7 +18,7 @@ const db = getFirestore(app);
 
 async function cleanupDuplicateMissions() {
   try {
-    console.log('🧹 Starting mission cleanup...');
+
     
     // Get all active missions
     const missionsQuery = query(
@@ -29,7 +29,7 @@ async function cleanupDuplicateMissions() {
     const snapshot = await getDocs(missionsQuery);
     const missions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    console.log(`Found ${missions.length} active missions`);
+
     
     // Group by userId and missionId to find duplicates
     const grouped = {};
@@ -48,7 +48,7 @@ async function cleanupDuplicateMissions() {
     // For each group, keep the first one and mark others for deletion
     Object.values(grouped).forEach(group => {
       if (group.length > 1) {
-        console.log(`Found ${group.length} duplicates for mission ${group[0].missionId}`);
+ 
         // Keep the first one, delete the rest
         for (let i = 1; i < group.length; i++) {
           toDelete.push(group[i]);
@@ -56,22 +56,22 @@ async function cleanupDuplicateMissions() {
       }
     });
     
-    console.log(`Will delete ${toDelete.length} duplicate missions`);
+
     
     // Delete duplicates
     for (const mission of toDelete) {
       await deleteDoc(doc(db, 'activeMissions', mission.id));
-      console.log(`Deleted duplicate mission: ${mission.id} (${mission.missionId})`);
+
     }
     
-    console.log('✅ Cleanup complete!');
+
     
   } catch (error) {
-    console.error('❌ Cleanup failed:', error);
+
   }
 }
 
 cleanupDuplicateMissions().then(() => {
-  console.log('Script finished');
+
   process.exit(0);
 });

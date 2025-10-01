@@ -88,7 +88,7 @@ class GoogleCalendarService {
         message: 'Authentication failed or was cancelled'
       };
     } catch (error) {
-      console.error('Google authentication error:', error);
+
       return {
         success: false,
         message: 'Authentication error: ' + error.message
@@ -126,7 +126,7 @@ class GoogleCalendarService {
       
       throw new Error('Failed to exchange code for token');
     } catch (error) {
-      console.error('Token exchange error:', error);
+ 
       return null;
     }
   }
@@ -148,7 +148,7 @@ class GoogleCalendarService {
       
       return null;
     } catch (error) {
-      console.error('Error getting user info:', error);
+ 
       return null;
     }
   }
@@ -166,7 +166,7 @@ class GoogleCalendarService {
         [this.STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString()],
       ]);
     } catch (error) {
-      console.error('Error storing tokens:', error);
+
     }
   }
 
@@ -201,7 +201,7 @@ class GoogleCalendarService {
       // If refresh fails, user needs to re-authenticate
       return null;
     } catch (error) {
-      console.error('Error getting valid access token:', error);
+   
       return null;
     }
   }
@@ -238,7 +238,7 @@ class GoogleCalendarService {
       
       throw new Error('Failed to refresh token');
     } catch (error) {
-      console.error('Token refresh error:', error);
+    
       return null;
     }
   }
@@ -258,7 +258,7 @@ class GoogleCalendarService {
     try {
       return await AsyncStorage.getItem(this.STORAGE_KEYS.USER_EMAIL);
     } catch (error) {
-      console.error('Error getting user email:', error);
+    
       return null;
     }
   }
@@ -306,7 +306,7 @@ class GoogleCalendarService {
       
       throw new Error('Failed to fetch calendar events');
     } catch (error) {
-      console.error('Error fetching calendar events:', error);
+   
       throw error;
     }
   }
@@ -351,7 +351,7 @@ class GoogleCalendarService {
       
       return { success: true, message: 'Successfully disconnected from Google Calendar' };
     } catch (error) {
-      console.error('Error disconnecting:', error);
+ 
       return { success: false, message: 'Error disconnecting: ' + error.message };
     }
   }

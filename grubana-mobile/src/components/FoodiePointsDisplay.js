@@ -39,7 +39,7 @@ const FoodiePointsDisplay = ({ style }) => {
       setUserData(points);
       setBadges(userBadges);
     } catch (error) {
-      console.error('Error loading user data:', error);
+ 
     }
   };
 

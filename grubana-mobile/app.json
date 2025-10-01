@@ -2,7 +2,7 @@
   "expo": {
     "name": "Grubana",
     "slug": "grubana",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.grubana.mobile",
-      "buildNumber": "32",
+      "buildNumber": "33",
       "requireFullScreen": false,
       "userInterfaceStyle": "automatic",
       "infoPlist": {
@@ -36,7 +36,7 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.grubana.mobile",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/foreground.png",
         "backgroundImage": "./assets/background.png"

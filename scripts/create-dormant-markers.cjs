@@ -9,7 +9,7 @@ if (!admin.apps.length) {
       projectId: serviceAccount.project_id
     });
   } catch (error) {
-    console.error('❌ Error initializing Firebase:', error.message);
+
     process.exit(1);
   }
 }
@@ -23,7 +23,7 @@ async function geocodeAddress(address) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
-      console.log('⚠️ No Google Maps API key found. Using approximate coordinates for Riverside, CA');
+
       // Approximate coordinates for Riverside, CA area
       return {
         lat: 33.9737,
@@ -49,7 +49,7 @@ async function geocodeAddress(address) {
     
     throw new Error(`Geocoding failed: ${data.status}`);
   } catch (error) {
-    console.log(`⚠️ Geocoding failed for ${address}, using approximate coordinates`);
+
     // Default to Riverside, CA area if geocoding fails
     return {
       lat: 33.9737,
@@ -61,7 +61,7 @@ async function geocodeAddress(address) {
 
 async function createDormantTruckMarkers() {
   try {
-    console.log('🎯 Creating dormant truck markers for map visibility...\n');
+
     
     // Known dormant owner data
     const dormantOwners = [
@@ -88,18 +88,18 @@ async function createDormantTruckMarkers() {
     ];
     
     for (const owner of dormantOwners) {
-      console.log(`📍 Processing: ${owner.truckName}...`);
+
       
       // Check if they already have a truckLocation (are they active?)
       const existingTruck = await db.collection('truckLocations').doc(owner.uid).get();
       
       if (existingTruck.exists()) {
-        console.log(`   ✅ Already active - skipping ${owner.truckName}`);
+       
         continue;
       }
       
       // Geocode their address to get coordinates
-      console.log(`   🗺️ Geocoding address: ${owner.address}`);
+     
       const location = await geocodeAddress(owner.address);
       
       // Create dormant truck location marker
@@ -145,21 +145,17 @@ async function createDormantTruckMarkers() {
       // Create the dormant truck location
       await db.collection('truckLocations').doc(owner.uid).set(truckLocationData, { merge: true });
       
-      console.log(`   ✅ Created dormant marker for ${owner.truckName} at ${location.lat}, ${location.lng}`);
-      console.log(`   📍 Address: ${location.formatted_address}`);
-      console.log(`   🍽️ Cuisine: ${owner.cuisine}\n`);
+  
     }
     
-    console.log('🎉 Dormant truck markers created successfully!');
-    console.log('\n📱 These trucks will now appear on the map as dormant/inactive markers');
-    console.log('💡 Users can see them but they\'ll be styled differently to show they\'re not currently live');
+
     
   } catch (error) {
-    console.error('❌ Error creating dormant markers:', error);
+
   }
 }
 
 createDormantTruckMarkers().then(() => {
-  console.log('\n✅ Script complete');
+
   process.exit(0);
 });

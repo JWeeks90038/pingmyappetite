@@ -35,7 +35,7 @@ const EnhancedPointsDisplay = () => {
       const stats = await FoodieGameService.getUserPoints(user.uid);
       setUserStats(stats);
     } catch (error) {
-      console.error('Error loading user stats:', error);
+ 
     }
   };
 

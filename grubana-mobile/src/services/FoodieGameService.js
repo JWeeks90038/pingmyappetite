@@ -136,7 +136,7 @@ class FoodieGameService {
       
       return userDoc.data();
     } catch (error) {
-      console.error('Error getting user points:', error);
+ 
       return { totalPoints: 0, weeklyPoints: 0, checkInStreak: 0, uniqueLocations: 0 };
     }
   }
@@ -164,7 +164,7 @@ class FoodieGameService {
         return bTime.getTime() - aTime.getTime();
       });
     } catch (error) {
-      console.error('Error getting user badges:', error);
+   
       return [];
     }
   }
@@ -177,7 +177,7 @@ class FoodieGameService {
    */
   async getNearbyFoodies(location, radiusKm = 5) {
     try {
-      console.log('Fetching nearby foodies for location:', location);
+
       
       const usersQuery = query(
         collection(db, 'users'),
@@ -190,23 +190,22 @@ class FoodieGameService {
         ...doc.data()
       }));
       
-      console.log('Total users retrieved:', allUsers.length);
-      console.log('Users with location data:', allUsers.filter(u => u.currentLocation || u.lastKnownLocation).length);
+
       
       // Debug: Show some sample user data
       const usersWithLocation = allUsers.filter(u => u.currentLocation || u.lastKnownLocation);
       if (usersWithLocation.length > 0) {
-        console.log('Sample user with location:', {
-          id: usersWithLocation[0].id,
-          username: usersWithLocation[0].username,
-          hasCurrentLocation: !!usersWithLocation[0].currentLocation,
-          hasLastKnownLocation: !!usersWithLocation[0].lastKnownLocation,
-          profileImageUrl: usersWithLocation[0].profileImageUrl || usersWithLocation[0].profilePhotoURL || usersWithLocation[0].photoURL
-        });
+  
       }
       
-      // Filter for users who have location data
+      // Filter for users who have location data and are not mobile kitchen owners
       const activeUsers = allUsers.filter(user => {
+        // Exclude mobile kitchen owners (they have truckName or role === 'owner')
+        if (user.truckName || user.role === 'owner') {
+    
+          return false;
+        }
+        
         return user.currentLocation?.latitude && user.currentLocation?.longitude ||
                user.lastKnownLocation?.latitude && user.lastKnownLocation?.longitude;
       });
@@ -255,7 +254,7 @@ class FoodieGameService {
             }
           } catch (checkInError) {
             // Ignore check-in errors, just use default values
-            console.log('Ignoring check-in error for user:', user.username);
+       
           }
 
           const foodieData = {
@@ -274,16 +273,16 @@ class FoodieGameService {
           
           foodiesWithStatus.push(foodieData);
         } catch (error) {
-          console.error('Error processing user:', error);
+   
           continue;
         }
       }
       
-      console.log('Active foodies found:', foodiesWithStatus.length);
+
       return foodiesWithStatus;
       
     } catch (error) {
-      console.error('Error fetching nearby foodies:', error);
+
       return [];
     }
   }
@@ -307,11 +306,11 @@ class FoodieGameService {
         try {
           const foodies = await this.getNearbyFoodies(location, radiusKm);
           if (isActive) {
-            console.log('Received nearby foodies:', foodies.length);
+   
             callback(foodies);
           }
         } catch (error) {
-          console.error('Error in polling fetch:', error);
+       
           if (isActive) {
             callback([]);
           }
@@ -330,11 +329,11 @@ class FoodieGameService {
       return () => {
         isActive = false;
         clearInterval(intervalId);
-        console.log('Unsubscribed from nearby foodies polling');
+   
       };
       
     } catch (error) {
-      console.error('Error subscribing to nearby foodies:', error);
+
       callback([]);
       return () => {};
     }
@@ -403,7 +402,7 @@ class FoodieGameService {
       const allMissions = this.getAllMissionTemplates();
       return allMissions.filter(mission => !activeMissionIds.includes(mission.id));
     } catch (error) {
-      console.error('Error getting available missions:', error);
+
       return [];
     }
   }
@@ -424,7 +423,7 @@ class FoodieGameService {
       const snapshot = await getDocs(missionsQuery);
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-      console.error('Error getting active missions:', error);
+   
       return [];
     }
   }
@@ -461,7 +460,7 @@ class FoodieGameService {
         return bTime - aTime; // desc order
       });
     } catch (error) {
-      console.error('Error getting completed missions:', error);
+
       return [];
     }
   }
@@ -505,7 +504,7 @@ class FoodieGameService {
       await addDoc(collection(db, 'activeMissions'), missionData);
       return { success: true };
     } catch (error) {
-      console.error('Error starting mission:', error);
+
       return { success: false, error: error.message };
     }
   }
@@ -536,7 +535,7 @@ class FoodieGameService {
         return bTime - aTime; // desc order
       });
     } catch (error) {
-      console.error('Error getting recent call-outs:', error);
+
       return [];
     }
   }
@@ -563,7 +562,7 @@ class FoodieGameService {
       
       return { success: true, pointsEarned: this.POINTS.CALL_OUT_VERIFIED };
     } catch (error) {
-      console.error('Error submitting call-out:', error);
+ 
       return { success: false, error: error.message };
     }
   }
@@ -647,7 +646,7 @@ class FoodieGameService {
         newAchievements: newAchievements
       };
     } catch (error) {
-      console.error('Error awarding points:', error);
+     
       return { success: false, error: error.message };
     }
   }
@@ -707,7 +706,7 @@ class FoodieGameService {
 
       return newAchievements;
     } catch (error) {
-      console.error('Error checking achievements:', error);
+ 
       return [];
     }
   }
@@ -782,7 +781,7 @@ class FoodieGameService {
         missionCompleted: missionResult?.missionCompleted || null
       };
     } catch (error) {
-      console.error('Error checking in foodie:', error);
+  
       return { success: false, error: error.message };
     }
   }
@@ -825,7 +824,7 @@ class FoodieGameService {
       
       return this.clusterFoodies(foodies);
     } catch (error) {
-      console.error('Error getting active foodies:', error);
+    
       return [];
     }
   }
@@ -909,7 +908,7 @@ class FoodieGameService {
         message: 'Report submitted successfully'
       };
     } catch (error) {
-      console.error('Error reporting truck:', error);
+  
       return { success: false, error: error.message };
     }
   }
@@ -935,7 +934,7 @@ class FoodieGameService {
         interestId: docRef.id
       };
     } catch (error) {
-      console.error('Error expressing interest:', error);
+
       return { success: false, error: error.message };
     }
   }
@@ -969,7 +968,7 @@ class FoodieGameService {
         interests
       };
     } catch (error) {
-      console.error('Error getting truck demand:', error);
+ 
       return { count: 0, interests: [] };
     }
   }
@@ -1026,7 +1025,7 @@ class FoodieGameService {
         leveledUp
       };
     } catch (error) {
-      console.error('Error awarding points:', error);
+   
       return null;
     }
   }
@@ -1071,7 +1070,7 @@ class FoodieGameService {
       
       return true;
     } catch (error) {
-      console.error('Error handling level up:', error);
+   
       return false;
     }
   }
@@ -1092,7 +1091,7 @@ class FoodieGameService {
       
       return true;
     } catch (error) {
-      console.error('Error awarding badge:', error);
+    
       return false;
     }
   }
@@ -1139,7 +1138,7 @@ class FoodieGameService {
         return 1;
       }
     } catch (error) {
-      console.error('Error updating daily streak:', error);
+    
       return 0;
     }
   }
@@ -1175,7 +1174,7 @@ class FoodieGameService {
         return initialStats;
       }
     } catch (error) {
-      console.error('Error getting user stats:', error);
+ 
       return {
         totalXP: 0,
         level: 1,
@@ -1300,7 +1299,7 @@ class FoodieGameService {
         allCompletedMissions: completedMissions
       };
     } catch (error) {
-      console.error('Error updating mission progress:', error);
+
       return { success: false, error: error.message };
     }
   }
@@ -1330,7 +1329,7 @@ class FoodieGameService {
         const { default: DailyChallengesService } = await import('./DailyChallengesService');
         await DailyChallengesService.trackAction(userId, 'complete_mission');
       } catch (error) {
-        console.log('Challenge tracking failed:', error);
+
       }
       
       // Move to completed missions
@@ -1344,7 +1343,7 @@ class FoodieGameService {
       // Remove from active missions
       await deleteDoc(doc(db, 'activeMissions', activeMissionDocId));
       
-      console.log(`Mission completed: ${missionTemplate.title} (+${missionTemplate.points} XP)`);
+
       
       return {
         success: true,
@@ -1352,7 +1351,7 @@ class FoodieGameService {
         pointsAwarded: missionTemplate.points
       };
     } catch (error) {
-      console.error('Error completing mission:', error);
+  
       return { success: false, error: error.message };
     }
   }
@@ -1377,7 +1376,7 @@ class FoodieGameService {
       
       return { success: true, deletedCount: snapshot.docs.length };
     } catch (error) {
-      console.error('Error clearing active missions:', error);
+ 
       return { success: false, error: error.message };
     }
   }
@@ -1493,11 +1492,11 @@ class FoodieGameService {
             await DailyChallengesService.trackAction(userId, additionalData.actionType, additionalData);
           }
         } catch (error) {
-          console.error('Error updating leaderboards/challenges:', error);
+   
         }
       }, 0);
       
-      console.log(`Awarded ${finalPoints} points to ${userId} for: ${reason}${comboMultiplier > 1 ? ` (${comboMultiplier}x combo!)` : ''}`);
+
       
       return {
         pointsAwarded: finalPoints,
@@ -1507,7 +1506,7 @@ class FoodieGameService {
         newAchievements
       };
     } catch (error) {
-      console.error('Error awarding points:', error);
+  
       return { pointsAwarded: 0, totalPoints: 0, comboMultiplier: 1 };
     }
   }
@@ -1535,7 +1534,7 @@ class FoodieGameService {
       
       return 1; // No combo
     } catch (error) {
-      console.error('Error checking combo multiplier:', error);
+ 
       return 1;
     }
   }
@@ -1556,7 +1555,7 @@ class FoodieGameService {
           // Award achievement points
           userStats.totalPoints += achievement.points;
           
-          console.log(`🏆 Achievement unlocked for ${userId}: ${achievement.title} (+${achievement.points} XP)`);
+   
         }
       }
       
@@ -1568,7 +1567,7 @@ class FoodieGameService {
       
       return newAchievements;
     } catch (error) {
-      console.error('Error checking achievements:', error);
+
       return [];
     }
   }
@@ -1584,7 +1583,7 @@ class FoodieGameService {
       
       return this.getDefaultUserStats();
     } catch (error) {
-      console.error('Error getting user points:', error);
+  
       return this.getDefaultUserStats();
     }
   }

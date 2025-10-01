@@ -20,20 +20,7 @@ const PhotoVerificationButton = ({ location, onPhotoTaken, style }) => {
   const handleTakePhoto = async () => {
     if (!user || !location || takingPhoto) return;
 
-    Alert.alert(
-      '📸 Photo Verification',
-      'Take a photo of the mobile food vendor to verify your visit and earn mission progress!',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Take Photo',
-          onPress: () => takeVerificationPhoto()
-        }
-      ]
-    );
+
   };
 
   const takeVerificationPhoto = async () => {
@@ -84,7 +71,7 @@ const PhotoVerificationButton = ({ location, onPhotoTaken, style }) => {
           message += `\n\n🎉 Mission Complete: ${missionResult.missionCompleted.missionTitle}!\n+${missionResult.missionCompleted.pointsAwarded} bonus XP!`;
         }
         
-        Alert.alert('📸 Verification Success!', message);
+   
         
         if (onPhotoTaken) {
           onPhotoTaken({
@@ -96,11 +83,10 @@ const PhotoVerificationButton = ({ location, onPhotoTaken, style }) => {
         }
         
       } else if (!photoResult.cancelled) {
-        Alert.alert('Photo Error', photoResult.error || 'Failed to take verification photo');
+ 
       }
     } catch (error) {
-      console.error('Photo verification error:', error);
-      Alert.alert('Error', 'Failed to process photo verification');
+
     } finally {
       setTakingPhoto(false);
     }

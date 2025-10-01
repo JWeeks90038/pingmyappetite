@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,25 +15,27 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 
+
 export default function PhotoUploadScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { location } = route.params || {};
+  const { location, onPhotoUploaded } = route.params || {};
 
   const [uploading, setUploading] = useState(false);
+  const [selectedTruck, setSelectedTruck] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const showToastMessage = (message, type) => {
-    Alert.alert(
-      type === 'success' ? '✅ Success' : type === 'error' ? '❌ Error' : 'ℹ️ Info',
-      message
-    );
+  
   };
+
+
 
   const uploadPhoto = async (imageUri, source) => {
     try {
-      console.log(`📸 Starting ${source} photo upload...`);
+
       
       // Create unique filename
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -45,12 +47,12 @@ export default function PhotoUploadScreen() {
       const blob = await response.blob();
       const storageRef = ref(storage, storagePath);
       
-      console.log('📸 Uploading to Firebase Storage...');
+
       await uploadBytes(storageRef, blob);
       
       // Get download URL
       const downloadURL = await getDownloadURL(storageRef);
-      console.log('📸 Photo uploaded successfully:', downloadURL);
+
 
       // Save to Firestore
       const photoData = {
@@ -62,13 +64,29 @@ export default function PhotoUploadScreen() {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude
         } : null,
-        type: 'foodie_photo'
+        type: 'foodie_photo',
+        // Add truck tagging data
+        taggedTruck: selectedTruck ? {
+          truckName: selectedTruck.truckName
+        } : null
       };
 
       const docRef = await addDoc(collection(db, 'foodiePhotos'), photoData);
-      console.log('📸 Photo saved to Firestore:', docRef.id);
+    
 
-      showToastMessage('Photo uploaded and shared! 📸', 'success');
+      const message = selectedTruck ? 
+        `Photo uploaded and tagged with ${selectedTruck.truckName}! 📸🏷️` : 
+        'Photo uploaded and shared! 📸';
+      showToastMessage(message, 'success');
+      
+      // Call callback to refresh leaderboard if provided
+      if (onPhotoUploaded && typeof onPhotoUploaded === 'function') {
+        try {
+          await onPhotoUploaded();
+        } catch (error) {
+   
+        }
+      }
       
       // Navigate back to map after success
       setTimeout(() => {
@@ -76,7 +94,7 @@ export default function PhotoUploadScreen() {
       }, 1500);
 
     } catch (error) {
-      console.error('📸 Error uploading photo:', error);
+ 
       showToastMessage('Failed to upload photo: ' + error.message, 'error');
     }
   };
@@ -92,7 +110,7 @@ export default function PhotoUploadScreen() {
         return;
       }
 
-      console.log('📸 Launching camera...');
+
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -102,15 +120,15 @@ export default function PhotoUploadScreen() {
       });
 
       if (result.canceled) {
-        console.log('📸 Camera cancelled');
+ 
         return;
       }
 
-      console.log('📸 Camera photo taken successfully');
+  
       await uploadPhoto(result.assets[0].uri, 'camera');
       
     } catch (error) {
-      console.error('📸 Camera error:', error);
+  
       showToastMessage('Camera failed: ' + error.message, 'error');
     } finally {
       setUploading(false);
@@ -128,7 +146,7 @@ export default function PhotoUploadScreen() {
         return;
       }
 
-      console.log('📸 Launching photo gallery...');
+  
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -138,15 +156,15 @@ export default function PhotoUploadScreen() {
       });
 
       if (result.canceled) {
-        console.log('📸 Gallery cancelled');
+      
         return;
       }
 
-      console.log('📸 Gallery photo selected successfully');
+   
       await uploadPhoto(result.assets[0].uri, 'gallery');
       
     } catch (error) {
-      console.error('📸 Gallery error:', error);
+     
       showToastMessage('Gallery failed: ' + error.message, 'error');
     } finally {
       setUploading(false);
@@ -175,6 +193,66 @@ export default function PhotoUploadScreen() {
         <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
           Share your food adventures with other foodies!
         </Text>
+
+        {/* Truck Tagging Section */}
+        <View style={styles.taggingSection}>
+          <Text style={[styles.taggingTitle, { color: theme.colors.text.primary }]}>
+            🏷️ Tag a Food Truck (Optional)
+          </Text>
+          
+          <View style={[styles.truckInputContainer, { 
+            backgroundColor: theme.colors.background.secondary,
+            borderColor: selectedTruck ? theme.colors.primary : theme.colors.border.primary 
+          }]}>
+            <Ionicons 
+              name="restaurant" 
+              size={20} 
+              color={selectedTruck ? theme.colors.primary : theme.colors.text.secondary} 
+            />
+            <TextInput
+              style={[styles.truckNameInput, { color: theme.colors.text.primary }]}
+              placeholder="Enter food truck name..."
+              placeholderTextColor={theme.colors.text.secondary}
+              value={searchTerm}
+              onChangeText={(text) => {
+                setSearchTerm(text);
+                if (text.trim()) {
+                  setSelectedTruck({ truckName: text.trim() });
+                } else {
+                  setSelectedTruck(null);
+                }
+              }}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (searchTerm.trim()) {
+                  setSelectedTruck({ truckName: searchTerm.trim() });
+                }
+              }}
+            />
+            {searchTerm && (
+              <TouchableOpacity 
+                style={styles.clearButton}
+                onPress={() => {
+                  setSearchTerm('');
+                  setSelectedTruck(null);
+                }}
+              >
+                <Ionicons name="close-circle" size={20} color={theme.colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {selectedTruck && (
+            <View style={styles.selectedTruckInfo}>
+              <Text style={[styles.selectedTruckName, { color: theme.colors.primary }]}>
+                🏷️ Tagged: {selectedTruck.truckName}
+              </Text>
+              <Text style={[styles.selectedTruckHint, { color: theme.colors.text.secondary }]}>
+                This truck name will appear on your photo
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Photo Options */}
         <View style={styles.optionsContainer}>
@@ -217,6 +295,8 @@ export default function PhotoUploadScreen() {
           </View>
         )}
       </View>
+
+
     </View>
   );
 }
@@ -280,4 +360,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 12,
   },
+  
+  // Truck Tagging Styles
+  taggingSection: {
+    marginBottom: 20,
+    width: '100%',
+  },
+  taggingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  truckInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  truckNameInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    paddingVertical: 2,
+  },
+  clearButton: {
+    marginLeft: 10,
+  },
+  selectedTruckInfo: {
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: 'rgba(255, 78, 201, 0.1)',
+    borderRadius: 8,
+  },
+  selectedTruckName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  selectedTruckHint: {
+    fontSize: 13,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+
 });

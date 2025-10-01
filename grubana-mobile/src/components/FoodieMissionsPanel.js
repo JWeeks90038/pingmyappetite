@@ -44,7 +44,6 @@ const FoodieMissionsPanel = ({ visible, onClose, style }) => {
         DailyChallengesService.getUserDailyChallenges(user.uid)
       ]);
 
-      console.log('🎯 Loaded missions:', { available, active, completed, challenges });
       
       // Resolve active mission details by matching with available missions
       const resolvedActiveMissions = active.map(activeMission => {
@@ -63,14 +62,14 @@ const FoodieMissionsPanel = ({ visible, onClose, style }) => {
         return activeMission;
       });
 
-      console.log('🎯 Resolved active missions:', resolvedActiveMissions);
+
       
       setMissions(available);
       setActiveMissions(resolvedActiveMissions);
       setCompletedToday(completed);
       setDailyChallenges(challenges);
     } catch (error) {
-      console.error('Error loading missions:', error);
+
     } finally {
       setLoading(false);
     }
@@ -81,21 +80,18 @@ const FoodieMissionsPanel = ({ visible, onClose, style }) => {
       const result = await FoodieGameService.startMission(user.uid, mission.id);
       if (result.success) {
         loadMissions(); // Refresh missions
-        Alert.alert(
-          'Mission Started!',
-          `You've started "${mission.title}". Complete it to earn ${mission.points} XP!`
-        );
+  
       } else {
-        Alert.alert('Info', result.error || 'Mission already active');
+ 
       }
     } catch (error) {
-      console.error('Error starting mission:', error);
-      Alert.alert('Error', 'Could not start mission. Please try again.');
+   
+  
     }
   };
 
   const clearAllMissions = async () => {
-    Alert.alert(
+    (
       'Clear All Missions',
       'This will remove all active missions. Are you sure?',
       [
@@ -107,13 +103,13 @@ const FoodieMissionsPanel = ({ visible, onClose, style }) => {
             try {
               const result = await FoodieGameService.clearAllActiveMissions(user.uid);
               if (result.success) {
-                Alert.alert('Cleared', `Removed ${result.deletedCount} active missions`);
+             
                 loadMissions(); // Refresh the list
               } else {
-                Alert.alert('Error', result.error || 'Could not clear missions');
+             
               }
             } catch (error) {
-              Alert.alert('Error', 'Could not clear missions');
+           
             }
           }
         }
@@ -199,13 +195,7 @@ const FoodieMissionsPanel = ({ visible, onClose, style }) => {
         actionTips = 'Use the app normally and this challenge will progress automatically!';
     }
 
-    Alert.alert(
-      `${challenge.icon} ${challenge.title}`,
-      `${challenge.description}\n\n📊 Progress: ${challenge.progress}/${challenge.target} (${Math.round(progressPercent)}%)\n🎯 Reward: +${challenge.pointReward} XP\n⏰ ${hoursLeft} hours remaining\n\n💡 Tip: ${actionTips}`,
-      [
-        { text: 'Got it!', style: 'default' }
-      ]
-    );
+  
   };
 
   const renderChallengeCard = (challenge, index) => {

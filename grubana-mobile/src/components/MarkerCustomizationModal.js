@@ -37,7 +37,7 @@ const MarkerCustomizationModal = ({ visible, onClose, onMarkerUpdated }) => {
       setCurrentMarker(profile.markerIcon);
       setSelectedMarker(profile.markerIcon);
     } catch (error) {
-      console.error('Error loading user profile:', error);
+ 
     }
   };
 
@@ -54,21 +54,16 @@ const MarkerCustomizationModal = ({ visible, onClose, onMarkerUpdated }) => {
       
       if (result.success) {
         setCurrentMarker(selectedMarker);
-        Alert.alert(
-          'Marker Updated! 🎉',
-          'Your personalized map marker has been updated. Other foodies will now see your new icon when you check in!',
-          [{ text: 'Awesome!', onPress: onClose }]
-        );
+    
         
         if (onMarkerUpdated) {
           onMarkerUpdated(selectedMarker);
         }
       } else {
-        Alert.alert('Error', 'Could not update marker. Please try again.');
+
       }
     } catch (error) {
-      console.error('Error updating marker:', error);
-      Alert.alert('Error', 'Could not update marker. Please try again.');
+
     } finally {
       setLoading(false);
     }
